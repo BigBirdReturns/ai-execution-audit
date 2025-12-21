@@ -1,0 +1,24 @@
+{
+  "name": "demo_ir",
+  "steps": [
+    {
+      "op": "normalize_ws"
+    },
+    {
+      "op": "lower"
+    },
+    {
+      "default": "general",
+      "labels": {
+        "appointment": "scheduling",
+        "password": "account_access",
+        "refund": "billing"
+      },
+      "op": "classify_contains"
+    },
+    {
+      "op": "emit_decision"
+    }
+  ],
+  "version": "1"
+}

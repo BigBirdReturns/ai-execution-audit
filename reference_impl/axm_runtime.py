@@ -111,7 +111,10 @@ def run(
     """
     ir = read_json(ir_path)
     ir_hash = sha256_obj(ir)
-    rf = runtime_fingerprint(IMPL, VERSION).to_dict()
+    # Optional override to simulate an upgraded runtime without changing code.
+    # Used by examples to demonstrate runtime drift.
+    ver = os.environ.get("AI_AUDIT_RUNTIME_VERSION_OVERRIDE", VERSION)
+    rf = runtime_fingerprint(IMPL, ver).to_dict()
 
     input_bundle = {"input": user_input}
     input_hash = sha256_obj(input_bundle)
@@ -189,7 +192,18 @@ if __name__ == "__main__":
     parser.add_argument("--ir", dest="ir_path", required=True, help="Path to deterministic IR JSON.")
     parser.add_argument("--input", dest="user_input", required=True, help="User input string.")
     parser.add_argument("--outdir", dest="out_dir", default="out", help="Output directory.")
+    parser.add_argument(
+        "--provenance",
+        dest="provenance_path",
+        default=os.path.join("provenance", "provenance.log.jsonl"),
+        help="Relative path for provenance log inside the output directory.",
+    )
     args = parser.parse_args()
 
-    res = run(ir_path=args.ir_path, user_input=args.user_input, out_dir=args.out_dir)
+    res = run(
+        ir_path=args.ir_path,
+        user_input=args.user_input,
+        out_dir=args.out_dir,
+        provenance_path=args.provenance_path,
+    )
     print(json.dumps(res, indent=2, sort_keys=True))

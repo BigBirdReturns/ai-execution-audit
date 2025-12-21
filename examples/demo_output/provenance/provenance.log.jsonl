@@ -1,0 +1,3 @@
+{"event":"run_start","input_hash":"41b00a7bf2815f313dd955a7ebf6fde1ca1b4e5e7aa827140859ca2d8d800f08","ir_hash":"596b3ce68c9d72bcfc4d899b14935934117bc1805b7e8cc9259a893806684f62","model_hash":null,"no_network":false,"runtime":{"implementation":"reference_impl.deterministic_ir","platform":"Linux-4.4.0-x86_64-with-glibc2.36","python":"3.11.2","version":"0.1.0"},"ts_ms":1766343746681}
+{"decision_hash":"30aae04bfbcc234ddcad0ad9e61866b8e42090a4a94cae4cf53d5930fb25e584","event":"decision_emitted","ts_ms":1766343746682}
+{"event":"run_end","status":"ok","ts_ms":1766343746682}

@@ -1,0 +1,27 @@
+{
+  "evidence": {
+    "replay_bundle": "/tmp/ai_exec_audit_hekk2a00/run1/artifacts/replay_bundle.zip",
+    "run1": "/tmp/ai_exec_audit_hekk2a00/run1",
+    "run2": "/tmp/ai_exec_audit_hekk2a00/run2"
+  },
+  "requirements": {
+    "audit_reconstruction": {
+      "note": "decision_record.json matches",
+      "pass": true
+    },
+    "bounded_determinism": {
+      "note": "decision_record.json matches",
+      "pass": true
+    },
+    "offline_replay": {
+      "note": "NO_NETWORK enforced in run",
+      "pass": true
+    },
+    "vendor_independence": {
+      "note": "no forbidden hints",
+      "pass": true
+    }
+  },
+  "suite": "ai-execution-audit",
+  "violations": []
+}
