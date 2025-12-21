@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "decision_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "event": {
+      "type": "string"
+    },
+    "input_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ir_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "kind": {
+      "type": "string"
+    },
+    "model_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "no_network": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "policy_hash": {
+      "type": "string"
+    },
+    "runtime": {
+      "type": "object"
+    },
+    "scheduler_fingerprint": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "ts_ms": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "url": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "ts_ms",
+    "event"
+  ],
+  "title": "ai-execution-audit provenance event",
+  "type": "object"
+}

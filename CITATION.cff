@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it."
+title: "ai-execution-audit"
+authors:
+  - family-names: "Sandhu"
+    given-names: "Jonathan"
+license: Apache-2.0
+repository-code: "https://github.com/<username>/ai-execution-audit"
