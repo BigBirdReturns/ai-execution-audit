@@ -21,7 +21,7 @@ Execution auditability is not a model problem.
 
 ## Staleness
 - generated_at: 2026-07-23
-- source_commit: 6e70f53
+- source_commit: ad21515
 - regenerate: `python D:/Projects/Tooling/Estate/main/cards.py AI-Execution-Audit --write`
 
 This card is GENERATED. If it disagrees with the repository, the repository is right. Do not hand-edit this card — regenerate it: python D:/Projects/Tooling/Estate/main/cards.py AI-Execution-Audit --write
