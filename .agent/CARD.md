@@ -20,8 +20,8 @@ Execution auditability is not a model problem.
 - Bounded validator-backed work follows root `AGENTS.md`; no web dashboard is required.
 
 ## Staleness
-- generated_at: 2026-07-23
-- source_commit: ad21515
+- generated_at: 2026-07-26
+- source_commit: 97bfb3c
 - regenerate: `python D:/Projects/Tooling/Estate/main/cards.py AI-Execution-Audit --write`
 
 This card is GENERATED. If it disagrees with the repository, the repository is right. Do not hand-edit this card — regenerate it: python D:/Projects/Tooling/Estate/main/cards.py AI-Execution-Audit --write
