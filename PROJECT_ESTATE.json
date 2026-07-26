@@ -1,0 +1,56 @@
+{
+  "schema": "drivesort/project-estate-spec@1",
+  "project": "AI-Execution-Audit",
+  "allowed_anchors": [
+    "D:\\Projects",
+    "S:\\Projects",
+    "S:\\Scratch"
+  ],
+  "roots": [
+    {
+      "id": "live",
+      "path": "D:\\Projects\\Tooling\\AI-Execution-Audit\\main",
+      "role": "live",
+      "purpose": "one active source checkout",
+      "active": true
+    },
+    {
+      "id": "durable",
+      "path": "S:\\Projects\\Tooling\\AI-Execution-Audit",
+      "role": "custody",
+      "purpose": "durable project caches, receipts, and archives"
+    },
+    {
+      "id": "scratch",
+      "path": "S:\\Scratch\\Tooling\\AI-Execution-Audit",
+      "role": "temp",
+      "purpose": "disposable runs and intermediates",
+      "active": true
+    },
+    {
+      "id": "legacy_d_project",
+      "path": "D:\\Projects\\AI-Execution-Audit",
+      "role": "alias",
+      "purpose": "retired pre-taxonomy project root",
+      "expected_target_root": "live",
+      "desired_state": "absent"
+    },
+    {
+      "id": "legacy_s_project",
+      "path": "S:\\Projects\\AI-Execution-Audit",
+      "role": "alias",
+      "purpose": "retired durable compatibility root",
+      "expected_target_root": "durable",
+      "desired_state": "absent"
+    },
+    {
+      "id": "legacy_s_scratch",
+      "path": "S:\\Scratch\\AI-Execution-Audit",
+      "role": "alias",
+      "purpose": "retired scratch compatibility root",
+      "expected_target_root": "scratch",
+      "desired_state": "absent"
+    }
+  ],
+  "cleanup": []
+}
