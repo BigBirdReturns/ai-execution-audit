@@ -83,10 +83,14 @@ The registry says which standard families a venue may select. `artifacts/` says 
 
 Public implementation snapshots and synthetic fixtures remain test or rehearsal material. They cannot be renamed into official or operational artifacts. Controlled operational ports require a program-authorized artifact and validator. Every admitted message binds the payload digest to the exact artifact receipt without placing the standard payload inside an AXM-owned envelope.
 
-The first public lane pins an OpenC2SIM C2SIM 1.0.1 composite XSD for rehearsal tooling. It verifies the immutable upstream commit and Git blob, content SHA-256, XML well-formedness with network access disabled, and the expected C2SIM target namespace. It is explicitly classified as a public reference snapshot rather than an official SISO distribution artifact.
+The first public lane pins an OpenC2SIM C2SIM 1.0.1 composite XSD for rehearsal tooling. It verifies the immutable upstream commit and Git blob, content SHA-256, XML well-formedness with network access disabled, the expected C2SIM target namespace, and strict XSD 1.1 structural compilation. It is explicitly classified as a public reference snapshot rather than an official SISO distribution artifact.
+
+## Test-host qualification
+
+`test_hosts/` consumes the admitted artifact and structural catalog through opaque synthetic payloads. Its deterministic fault machine exercises delivery, duplication, delay, partition, bounded buffering, queue refusal, reconnect, and incomplete state without constructing or interpreting a C2SIM message instance. A detached verifier reconstructs the journal, queue, delay schedule, outcome closure, run identity, and read-only frame. Dashboards and live services remain outside the audit boundary.
 
 ## Current state
 
-The registry and reference venue profile are public metadata and conformance scaffolding. One public C2SIM reference artifact is now admitted for rehearsal only. Controlled standards remain metadata-only until their authorized artifacts and approved validators are supplied.
+The registry and reference venue profile are public metadata and conformance scaffolding. One public C2SIM reference artifact is admitted for rehearsal only, compiled with an XSD 1.1 validator, and exercised through the provider-neutral transport-fault lane. Controlled standards remain metadata-only until their authorized artifacts and approved validators are supplied.
 
 No operational command, targeting, engagement, effector control, weapons employment, or combat-effectiveness claim is made here.
