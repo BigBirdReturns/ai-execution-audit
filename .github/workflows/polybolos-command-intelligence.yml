@@ -49,6 +49,9 @@ jobs:
           cache: npm
           cache-dependency-path: target/package-lock.json
 
+      - name: Run detached checkpoint-witness verification tests
+        run: node --test adapters/polybolos_ci/checkpoint/checkpoint_verifier.test.mjs
+
       - name: Run detached candidate-authority gate tests
         run: node --test adapters/polybolos_ci/authority/authority_gate.test.mjs
 
