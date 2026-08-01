@@ -23,7 +23,7 @@ concurrency:
 jobs:
   qualify-public-source-and-cabinet:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 70
 
     steps:
       - name: Check out audit harness
@@ -76,6 +76,9 @@ jobs:
 
       - name: Run live WAL replay, provider-removal, and offline MAME transaction
         run: python adapters/polybolos_ci/run_live_e2e.py target qualification/e2e
+
+      - name: Run live 5,000-entity ingest, SSE, split-brain, and WAL transaction
+        run: python adapters/polybolos_ci/run_live_scale_e2e.py target qualification/scale-e2e
 
       - name: Retain qualification evidence
         if: always()
