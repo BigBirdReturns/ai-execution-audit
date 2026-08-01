@@ -56,7 +56,10 @@ jobs:
         run: node --test adapters/polybolos_ci/authority/partition_runtime.test.mjs
 
       - name: Run signed partition-cabinet evidence tests
-        run: node --test adapters/polybolos_ci/authority/partition_cabinet.test.mjs
+        run: |
+          node --test \
+            adapters/polybolos_ci/authority/partition_cabinet.test.mjs \
+            adapters/polybolos_ci/authority/partition_cabinet_human_required.test.mjs
 
       - name: Materialize the read-only cabinet bridge
         run: python adapters/polybolos_ci/materialize_cabinet.py
