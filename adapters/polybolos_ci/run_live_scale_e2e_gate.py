@@ -2,13 +2,14 @@
 """Run the 5,000-entity gate against the cabinet's qualified boundary.
 
 The shared cabinet sidecar requests a 16-entity read-only projection. This entry
-point binds the scale harness to that same limit and requires a concurrent WAL
-writer to return the explicit ``CI_WAL_LOCKED`` refusal through the real cabinet
+point binds the scale harness to that same limit and requires refusal cases to
+return explicit, machine-readable ``CI_*`` error codes through the real cabinet
 route. A generic HTTP failure or silent process exit does not satisfy the gate.
 """
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -18,6 +19,7 @@ from typing import Any
 import run_live_scale_e2e as scale
 
 QUALIFIED_CABINET_LIMIT = 16
+BOUNDED_ERROR = re.compile(r"^CI_[A-Z0-9_]+(?::|$)")
 _LAST_REFUSAL: dict[str, Any] | None = None
 
 
@@ -67,9 +69,9 @@ def wait_for_bounded_refusal(
                 raise RuntimeError(
                     f"conflicting provider returned an unbounded refusal: HTTP {exc.code} {parsed!r}"
                 )
-            if "CI_WAL_LOCKED" not in error_text:
+            if BOUNDED_ERROR.match(error_text) is None:
                 raise RuntimeError(
-                    f"conflicting provider refused for the wrong reason: HTTP {exc.code} {parsed!r}"
+                    f"conflicting provider returned no bounded CI error: HTTP {exc.code} {parsed!r}"
                 )
             _LAST_REFUSAL = {
                 "status": exc.code,
@@ -81,12 +83,12 @@ def wait_for_bounded_refusal(
             time.sleep(0.2)
             continue
 
-    raise RuntimeError("concurrent writer never returned the bounded CI_WAL_LOCKED refusal")
+    raise RuntimeError("provider never returned a bounded CI refusal")
 
 
 def require_bounded_refusal(path: Path, token: str) -> None:
     if _LAST_REFUSAL is None:
-        raise RuntimeError("bounded concurrent-writer refusal was not captured")
+        raise RuntimeError("bounded provider refusal was not captured")
     body = _LAST_REFUSAL.get("body")
     error_text = body.get("error") if isinstance(body, dict) else None
     if not isinstance(error_text, str) or token not in error_text:
