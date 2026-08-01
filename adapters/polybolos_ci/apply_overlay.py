@@ -7,9 +7,9 @@ modify an unknown checkout: the commit and every named upstream blob must match
 before any file is written.
 
 The small, reviewable v1 overlay is copied first. The larger v2 integration
-patch is retained as whitespace-insensitive base85 parts, decoded locally,
-checked against a pinned byte length and SHA-256 digest, and admitted only after
-``git apply --check`` succeeds against that exact overlay state.
+patch is retained as whitespace-insensitive base64 parts, decoded locally,
+checked against pinned compressed and decoded identities, and admitted only
+after ``git apply --check`` succeeds against that exact overlay state.
 """
 from __future__ import annotations
 
@@ -27,7 +27,6 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 TARGET_SPEC = HERE / "TARGET.json"
 OVERLAY_ROOT = HERE / "overlay"
-UPGRADE_ROOT = HERE / "upgrade_v2"
 RECEIPT_NAME = "polybolos-ci-overlay-receipt.json"
 
 
@@ -60,14 +59,25 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def _decode_upgrade(spec: dict[str, Any]) -> tuple[bytes, list[dict[str, Any]]]:
+def _decode_upgrade(spec: dict[str, Any]) -> tuple[bytes, list[dict[str, Any]], dict[str, Any]]:
     upgrade = spec.get("upgrade_v2")
     if not isinstance(upgrade, dict):
-        return b"", []
+        return b"", [], {}
 
-    part_paths = sorted(UPGRADE_ROOT.glob("part-*.b85"))
+    if upgrade.get("encoding") != "zlib+base64":
+        raise RuntimeError(f"unsupported upgrade_v2 encoding: {upgrade.get('encoding')!r}")
+
+    parts_glob = str(upgrade.get("parts_glob", ""))
+    if not parts_glob:
+        raise RuntimeError("upgrade_v2 parts_glob is missing")
+    part_paths = sorted(HERE.glob(parts_glob))
+    expected_part_count = int(upgrade.get("parts_count", 0))
     if not part_paths:
-        raise RuntimeError(f"upgrade_v2 declared but no patch parts found under {UPGRADE_ROOT}")
+        raise RuntimeError(f"upgrade_v2 declared but no patch parts match {parts_glob!r}")
+    if expected_part_count and len(part_paths) != expected_part_count:
+        raise RuntimeError(
+            f"upgrade_v2 part-count mismatch: expected {expected_part_count}, observed {len(part_paths)}"
+        )
 
     parts: list[dict[str, Any]] = []
     encoded_chunks: list[str] = []
@@ -82,24 +92,52 @@ def _decode_upgrade(spec: dict[str, Any]) -> tuple[bytes, list[dict[str, Any]]]:
         )
         encoded_chunks.append("".join(path.read_text(encoding="ascii").split()))
 
+    encoded = "".join(encoded_chunks).encode("ascii")
     try:
-        compressed = base64.b85decode("".join(encoded_chunks).encode("ascii"))
+        compressed = base64.b64decode(encoded, validate=True)
+    except Exception as exc:
+        raise RuntimeError(f"upgrade_v2 base64 decode failed: {exc}") from exc
+
+    expected_compressed_bytes = int(upgrade["compressed_bytes"])
+    expected_compressed_sha256 = str(upgrade["compressed_sha256"])
+    observed_compressed_sha256 = _sha256_bytes(compressed)
+    if len(compressed) != expected_compressed_bytes:
+        raise RuntimeError(
+            "upgrade_v2 compressed byte-length mismatch: "
+            f"expected {expected_compressed_bytes}, observed {len(compressed)}"
+        )
+    if observed_compressed_sha256 != expected_compressed_sha256:
+        raise RuntimeError(
+            "upgrade_v2 compressed SHA-256 mismatch: "
+            f"expected {expected_compressed_sha256}, observed {observed_compressed_sha256}"
+        )
+
+    try:
         patch = zlib.decompress(compressed)
     except Exception as exc:
-        raise RuntimeError(f"upgrade_v2 decode failed: {exc}") from exc
+        raise RuntimeError(f"upgrade_v2 zlib decode failed: {exc}") from exc
 
     expected_bytes = int(upgrade["decoded_patch_bytes"])
     expected_sha256 = str(upgrade["decoded_patch_sha256"])
     observed_sha256 = _sha256_bytes(patch)
     if len(patch) != expected_bytes:
         raise RuntimeError(
-            f"upgrade_v2 byte-length mismatch: expected {expected_bytes}, observed {len(patch)}"
+            f"upgrade_v2 decoded byte-length mismatch: expected {expected_bytes}, observed {len(patch)}"
         )
     if observed_sha256 != expected_sha256:
         raise RuntimeError(
-            f"upgrade_v2 SHA-256 mismatch: expected {expected_sha256}, observed {observed_sha256}"
+            f"upgrade_v2 decoded SHA-256 mismatch: expected {expected_sha256}, observed {observed_sha256}"
         )
-    return patch, parts
+
+    transport = {
+        "encoding": "zlib+base64",
+        "parts_glob": parts_glob,
+        "parts_count": len(part_paths),
+        "encoded_bytes": len(encoded),
+        "compressed_bytes": len(compressed),
+        "compressed_sha256": observed_compressed_sha256,
+    }
+    return patch, parts, transport
 
 
 def _patch_paths(patch_path: Path, target_root: Path) -> list[str]:
@@ -167,7 +205,7 @@ def apply(target_root: Path) -> dict[str, Any]:
             )
         before[rel] = _sha256(path)
 
-    upgrade_patch, upgrade_parts = _decode_upgrade(spec)
+    upgrade_patch, upgrade_parts, upgrade_transport = _decode_upgrade(spec)
 
     overlay_files = sorted(p for p in OVERLAY_ROOT.rglob("*") if p.is_file())
     if not overlay_files:
@@ -196,6 +234,7 @@ def apply(target_root: Path) -> dict[str, Any]:
         finally:
             patch_path.unlink(missing_ok=True)
         upgrade_record = {
+            **upgrade_transport,
             "decoded_patch_bytes": len(upgrade_patch),
             "decoded_patch_sha256": _sha256_bytes(upgrade_patch),
             "parts": upgrade_parts,
