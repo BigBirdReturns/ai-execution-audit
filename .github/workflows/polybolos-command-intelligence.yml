@@ -1,16 +1,14 @@
-name: Polybolos Command Intelligence qualification
+name: Public Command Intelligence donor qualification
 
 on:
   pull_request:
     paths:
-      - "adapters/polybolos/**"
       - "adapters/polybolos_ci/**"
       - ".github/workflows/polybolos-command-intelligence.yml"
   push:
     branches:
       - main
     paths:
-      - "adapters/polybolos/**"
       - "adapters/polybolos_ci/**"
       - ".github/workflows/polybolos-command-intelligence.yml"
   workflow_dispatch:
@@ -19,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: polybolos-ci-${{ github.ref }}
+  group: public-command-intelligence-donor-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -31,7 +29,7 @@ jobs:
       - name: Check out audit harness
         uses: actions/checkout@v4
 
-      - name: Check out the pinned Command Intelligence source
+      - name: Check out the pinned public Command Intelligence source
         uses: actions/checkout@v4
         with:
           repository: simplifaisoul/osiris
@@ -50,9 +48,6 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: target/package-lock.json
-
-      - name: Run Polybolos congruent-shape adapter conformance
-        run: node --test adapters/polybolos/conformance/congruence.test.mjs
 
       - name: Run detached checkpoint-witness verification tests
         run: node --test adapters/polybolos_ci/checkpoint/checkpoint_verifier.test.mjs
@@ -108,27 +103,16 @@ jobs:
       - name: Run bounded checkpoints and witnesses at 5,000 and 20,000 entities
         run: python adapters/polybolos_ci/run_checkpoint_witness_e2e.py target qualification/checkpoint-witness-e2e
 
-      - name: Retain the Polybolos congruent-shape receipt
-        run: |
-          node adapters/polybolos/conformance/run_congruence.mjs \
-            qualification/polybolos-congruence/congruence-receipt.json
-
-      - name: Run provisional Polybolos shape through the existing AXM spoke
-        run: |
-          node adapters/polybolos/conformance/run_spoke_e2e.mjs \
-            qualification/checkpoint-witness-e2e/bounded-20000.json \
-            qualification/polybolos-congruent-spoke-e2e
-
       - name: Run bounded CI candidate through signed software, evidence, and partition authority
         run: |
           node adapters/polybolos_ci/authority/run_checkpoint_partition_e2e.mjs \
             qualification/checkpoint-witness-e2e/bounded-20000.json \
             qualification/checkpoint-partition-e2e
 
-      - name: Run actual CI candidate through signed external authority
+      - name: Run actual public-source CI candidate through signed external authority
         run: python adapters/polybolos_ci/run_candidate_authority_e2e.py target qualification/candidate-authority-e2e
 
-      - name: Run actual CI candidate through signed communications partition
+      - name: Run actual public-source CI candidate through signed communications partition
         run: |
           node adapters/polybolos_ci/authority/run_partition_authority_e2e.mjs \
             qualification/candidate-authority-e2e/candidate-transaction.json \
@@ -140,11 +124,11 @@ jobs:
             qualification/partition-authority-e2e \
             qualification/partition-cabinet-e2e
 
-      - name: Retain qualification evidence
+      - name: Retain donor qualification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: polybolos-command-intelligence-qualification
+          name: public-command-intelligence-donor-qualification
           path: |
             qualification
             adapters/polybolos_ci/cabinet/MATERIALIZATION_RECEIPT.json
