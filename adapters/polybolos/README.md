@@ -1,49 +1,54 @@
-# AXM Polybolos congruent-shape adapter
+# Polybolos provider-edge adapter
 
-This directory defines the **mating surface** between an external Polybolos implementation and the neutral AXM authority, evidence, partition, and reconciliation floor.
+This directory is **not** the mating surface.
 
-It does not implement, imitate, or replace Polybolos Command Intelligence, COMMAND CORE, HOTL, BELARX, its operator workflow, or its product interface. It also does not claim knowledge of Polybolos private structs, APIs, repositories, binaries, or deployment topology.
+The canonical mating surface is `mating_surface/`, where the program selects the operational standards already used by the target venue. Polybolos remains one external provider implementation behind those standard ports. AXM remains one authority, partition, evidence, replay, and acceptance implementation behind the same ports.
 
-## Ownership boundary
+Neither provider owns the venue vocabulary.
 
-Polybolos owns its observations, kinematics, tactical computations, resource logic, operator workflow, local persistence, product identity, and external platform integrations.
+## Correct boundary
 
-AXM owns the neutral candidate contract, evidence closure, external authority envelope, partition epoch, offline lease, replay protection, reconciliation, detached verification, and acceptance receipts.
-
-The adapter owns only translation between those systems. A field is translated only when its mapping is explicit. Unknown information is either preserved under a declared policy, rejected, or recorded as a declared loss. It is never filled with a plausible substitute.
-
-## Current state
-
-The included reference shape is intentionally marked `provisional`. It exists only to exercise the conformance machinery. It is not represented as a Polybolos native schema. `live` mode refuses it until Mark or another authorized Polybolos maintainer supplies a representative fixture and confirms the mapping.
-
-The conformance suite proves:
-
-- provisional mappings cannot be promoted into live use;
-- candidate data cannot self-authorize;
-- mapped semantics are deterministic;
-- exact round-trip promises are enforced;
-- unmapped fields are visible through a stable digest and field ledger;
-- declared losses remain attached to the translation receipt;
-- AXM decisions return through a neutral status projection without inventing a Polybolos UI or internal state;
-- unknown dispositions fail closed.
-
-## Run
-
-```bash
-node --test adapters/polybolos/conformance/congruence.test.mjs
-node adapters/polybolos/conformance/run_congruence.mjs qualification/polybolos-congruence/congruence-receipt.json
+```text
+Polybolos native implementation
+        ↓
+Polybolos edge codec or gateway
+        ↓
+selected venue standard
+        ↓
+standards-first mating surface
+        ↓
+authority and evidence sidecars
 ```
 
-## Promotion gate
+When Polybolos already emits UCI, DDS, TAK/CoT, Link 16, VMF, C2SIM, HLA/DIS, or another program-selected standard, the adapter should preserve that standard object and bind its exact artifact, revision, message identity, and payload digest. It should not normalize the message into an AXM-owned substitute.
 
-A real Polybolos adapter may move from `provisional` to `confirmed` only after the following artifacts exist:
+When a private Polybolos representation must be translated, the translation is a leaf gateway. It must be described by the applicable gateway and filter artifacts, declare every loss and irreversible transformation, and terminate at a registered standard port. Private field names remain local to the adapter.
 
-1. A representative, authorized, non-sensitive external fixture or schema.
-2. A named Polybolos maintainer who confirms each mapped semantic.
-3. An explicit list of fields that are intentionally omitted, normalized, or irreversible.
-4. Exact producer and build identity semantics.
-5. A negative fixture proving candidate data cannot grant itself command authority.
-6. A round-trip or one-way conformance determination for every mapped field.
-7. A detached test showing the resulting neutral candidate enters the existing AXM checkpoint, authority, partition, replay, and reconciliation path.
+## Status of the existing congruence work
 
-Until those gates pass, the adapter is a fixture harness rather than an operational receiver.
+The mapping, structural-profile, and signed-admission machinery in this directory is retained as a **proprietary-deviation quarantine harness**. It is useful only when a provider cannot directly emit a selected venue standard.
+
+It is not required merely because Polybolos exists, and it is not the default integration path.
+
+A private-shape map may not:
+
+- become canonical venue vocabulary;
+- require the rest of the estate to speak Polybolos terms;
+- define an operational user interface;
+- imitate Polybolos Command Intelligence, COMMAND CORE, HOTL, or BELARX;
+- replace official UCI, DDS, TAK/CoT, Link 16, VMF, C2SIM, MSDL, HLA, DIS, CMOSS, FACE, or other selected program artifacts;
+- grant candidate data command authority.
+
+## Preferred integration order
+
+1. Exact standard pass-through.
+2. Official generated binding or codec.
+3. Program-approved standard profile.
+4. Loss-accounted gateway described against the standard.
+5. Proprietary shape mapping only for the irreducible residue.
+
+## Live promotion
+
+A live provider adapter requires the exact target standard artifact and a conformance transaction against the selected venue profile. Confirmation of a private provider shape alone is insufficient.
+
+No operational command, targeting, engagement, effector control, weapons employment, or combat-effectiveness claim is made here.
