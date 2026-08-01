@@ -1,0 +1,51 @@
+{
+  "schema": "axm-polybolos-unresolved-mappings/1",
+  "items": [
+    {
+      "semantic": "native request identity",
+      "neededFor": "replay and idempotency",
+      "resolution": "Polybolos representative fixture or schema plus maintainer confirmation"
+    },
+    {
+      "semantic": "producer and exact build identity",
+      "neededFor": "software admission and implementation custody",
+      "resolution": "signed build record, executable digest, or device-backed producer identity"
+    },
+    {
+      "semantic": "candidate deadline",
+      "neededFor": "stale proposal refusal",
+      "resolution": "native field and clock semantics"
+    },
+    {
+      "semantic": "action-class vocabulary",
+      "neededFor": "authority and partition policy",
+      "resolution": "enumeration and versioning rules owned by Polybolos"
+    },
+    {
+      "semantic": "Command Intelligence entity references",
+      "neededFor": "checkpoint witness closure",
+      "resolution": "native identity field and namespace rules"
+    },
+    {
+      "semantic": "reason-code vocabulary",
+      "neededFor": "operator explanation and detached replay",
+      "resolution": "native codes, stability guarantees, and unknown-code policy"
+    },
+    {
+      "semantic": "decision timing and input sequence",
+      "neededFor": "performance and causality receipts",
+      "resolution": "units, clock source, and sequence ownership"
+    },
+    {
+      "semantic": "resource or magazine mutation",
+      "neededFor": "future transactional resource accounting",
+      "resolution": "separate state contract; must not be inferred from candidate priority"
+    },
+    {
+      "semantic": "AXM status consumption",
+      "neededFor": "return path into the real Polybolos workflow",
+      "resolution": "Polybolos-owned adapter or callback contract; no UI assumptions"
+    }
+  ],
+  "claimBoundary": "Unresolved mappings are deliberately left open. The adapter may not invent them."
+}
