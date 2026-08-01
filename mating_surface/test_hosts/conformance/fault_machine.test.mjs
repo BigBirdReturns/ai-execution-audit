@@ -4,10 +4,16 @@ import {
   FaultMachineError,
   createFaultFrame,
   createTestPacket,
+  deriveFaultScenarioDigest,
   runFaultScenario,
   validateFaultScenario,
   verifyTestPacket,
 } from '../core/fault_machine.mjs';
+import {
+  FaultVerificationError,
+  verifyFaultFrame,
+  verifyFaultRun,
+} from '../core/fault_verifier.mjs';
 
 const ARTIFACT_SHA = '1'.repeat(64);
 const artifactTransaction = {
@@ -53,6 +59,7 @@ function packet(index, payloadText = `opaque-transport-fixture-${index}`) {
 function fixtureSet(count = 7) {
   const rows = Array.from({ length: count }, (_, index) => packet(index + 1));
   return {
+    rows,
     packets: rows.map((row) => row.receipt),
     payloads: new Map(rows.map((row) => [row.receipt.packetId, row.payload])),
   };
@@ -87,21 +94,25 @@ function scenario(packetIds) {
 
 function runFixture() {
   const set = fixtureSet();
-  return runFaultScenario({
-    scenario: scenario(set.packets.map((row) => row.packetId)),
+  const inputScenario = scenario(set.packets.map((row) => row.packetId));
+  const run = runFaultScenario({
+    scenario: inputScenario,
     packets: set.packets,
     payloads: set.payloads,
     artifactTransaction,
     catalog,
   });
+  return { set, inputScenario, run, frame: createFaultFrame(run) };
 }
 
-test('runs a deterministic drop, duplicate, delay, partition, queue, and reconnect sequence', () => {
+test('runs and independently verifies the full deterministic transport-fault sequence', () => {
   const first = runFixture();
   const second = runFixture();
-  assert.equal(first.runId, second.runId);
-  assert.equal(first.journalRoot, second.journalRoot);
-  assert.deepEqual(first.metrics, {
+  assert.equal(first.run.runId, second.run.runId);
+  assert.equal(first.run.journalRoot, second.run.journalRoot);
+  assert.equal(first.frame.frameId, second.frame.frameId);
+  assert.equal(first.run.scenarioDigest, deriveFaultScenarioDigest(first.inputScenario));
+  assert.deepEqual(first.run.metrics, {
     sentPackets: 7,
     deliveredCopies: 6,
     deliveredUniquePackets: 5,
@@ -118,7 +129,7 @@ test('runs a deterministic drop, duplicate, delay, partition, queue, and reconne
     finalLinkState: 'up',
   });
   assert.deepEqual(
-    first.deliveries.map((row) => row.messageIdentity),
+    first.run.deliveries.map((row) => row.messageIdentity),
     [
       'fixture-message-1',
       'fixture-message-2',
@@ -128,24 +139,34 @@ test('runs a deterministic drop, duplicate, delay, partition, queue, and reconne
       'fixture-message-3',
     ],
   );
-  assert.deepEqual(first.drops.map((row) => row.reason), ['queue_capacity', 'explicit_fault']);
-  assert.equal(first.journal.at(-1).recordId, first.journalRoot);
+  assert.deepEqual(first.run.drops.map((row) => row.reason), ['queue_capacity', 'explicit_fault']);
+  const verification = verifyFaultFrame(first.frame, first.run);
+  assert.equal(verification.status, 'pass');
+  assert.equal(verification.runVerification.outcomeClosureVerified, true);
+});
+
+test('defines same-step recovery as event application, FIFO flush, then due-delay release', () => {
+  const { run } = runFixture();
+  const stepSeven = run.journal.filter((row) => row.step === 7).map((row) => row.type);
+  assert.deepEqual(stepSeven, ['link', 'dequeue', 'deliver', 'dequeue', 'deliver', 'delay_release', 'deliver']);
+  assert.equal(run.eventPhase, 'apply_event_then_release_due');
 });
 
 test('creates a read-only frame without payload bytes or provider surface state', () => {
-  const run = runFixture();
-  const frame = createFaultFrame(run);
+  const { set, run, frame } = runFixture();
   const encoded = JSON.stringify(frame);
   assert.equal(frame.schema, 'standards-port-test-frame/1');
   assert.equal(frame.status, 'complete');
   assert.equal(frame.metrics.deliveredCopies, 6);
-  assert.equal(encoded.includes('opaque-transport-fixture'), false);
+  for (const row of set.rows) {
+    assert.equal(encoded.includes(row.payload.toString('utf8')), false);
+  }
   assert.equal('payload' in frame, false);
   assert.equal('commandAuthority' in frame, false);
-  assert.match(frame.claimBoundary, /replaceable test hosts/);
+  assert.equal(frame.scenarioDigest, run.scenarioDigest);
 });
 
-test('refuses payload substitution after packet binding', () => {
+test('refuses payload substitution with a payload-specific error', () => {
   const row = packet(1, 'original-payload');
   assert.throws(
     () => verifyTestPacket(
@@ -154,7 +175,7 @@ test('refuses payload substitution after packet binding', () => {
       artifactTransaction,
       catalog,
     ),
-    (error) => error instanceof FaultMachineError && error.code === 'PACKET_IDENTITY_INVALID',
+    (error) => error instanceof FaultMachineError && error.code === 'PACKET_PAYLOAD_MISMATCH',
   );
 });
 
@@ -171,6 +192,40 @@ test('refuses operational use of a rehearsal artifact', () => {
       observedAt: '2026-08-01T00:00:00Z',
     }),
     (error) => error instanceof FaultMachineError && error.code === 'ARTIFACT_TRANSACTION_INVALID',
+  );
+});
+
+test('requires the packet and payload sets to exactly match scenario sends', () => {
+  const set = fixtureSet(2);
+  const onePacketScenario = {
+    ...scenario([set.packets[0].packetId]),
+    events: [{ step: 0, type: 'send', packetId: set.packets[0].packetId, behavior: 'pass' }],
+  };
+  assert.throws(
+    () => runFaultScenario({
+      scenario: onePacketScenario,
+      packets: set.packets,
+      payloads: set.payloads,
+      artifactTransaction,
+      catalog,
+    }),
+    (error) => error instanceof FaultMachineError && error.code === 'PACKET_SET_NOT_EXACT',
+  );
+
+  const onePacket = fixtureSet(1);
+  onePacket.payloads.set('unknown-packet', Buffer.from('extra', 'utf8'));
+  assert.throws(
+    () => runFaultScenario({
+      scenario: {
+        ...scenario([onePacket.packets[0].packetId]),
+        events: [{ step: 0, type: 'send', packetId: onePacket.packets[0].packetId, behavior: 'pass' }],
+      },
+      packets: onePacket.packets,
+      payloads: onePacket.payloads,
+      artifactTransaction,
+      catalog,
+    }),
+    (error) => error instanceof FaultMachineError && error.code === 'PAYLOAD_SET_NOT_EXACT',
   );
 });
 
@@ -198,7 +253,7 @@ test('refuses packets bound to another standard, port, profile, or artifact use'
   }
 });
 
-test('leaves delayed and buffered packets visibly pending when no recovery event occurs', () => {
+test('keeps unresolved delay and buffer state inside the run identity', () => {
   const set = fixtureSet(2);
   const pendingScenario = {
     schema: 'standards-port-fault-scenario/1',
@@ -215,6 +270,7 @@ test('leaves delayed and buffered packets visibly pending when no recovery event
       { step: 0, type: 'send', packetId: set.packets[0].packetId, behavior: 'pass' },
       { step: 1, type: 'send', packetId: set.packets[1].packetId, behavior: 'delay', releaseAt: 10 },
     ],
+    claimBoundary: 'pending fixture',
   };
   const run = runFaultScenario({
     scenario: pendingScenario,
@@ -223,15 +279,60 @@ test('leaves delayed and buffered packets visibly pending when no recovery event
     artifactTransaction,
     catalog,
   });
-  assert.equal(run.metrics.pendingBufferedPackets, 1);
-  assert.equal(run.metrics.pendingDelayedPackets, 1);
+  assert.deepEqual(run.pending, {
+    delayedPacketIds: [set.packets[1].packetId],
+    bufferedPacketIds: [set.packets[0].packetId],
+  });
   assert.equal(createFaultFrame(run).status, 'pending');
+  assert.equal(verifyFaultRun(run).status, 'pass');
+
+  const altered = structuredClone(run);
+  [altered.pending.delayedPacketIds[0], altered.pending.bufferedPacketIds[0]] = [
+    altered.pending.bufferedPacketIds[0],
+    altered.pending.delayedPacketIds[0],
+  ];
+  assert.throws(
+    () => verifyFaultRun(altered),
+    (error) => error instanceof FaultVerificationError
+      && ['JOURNAL_BUFFER_CLOSURE_INVALID', 'JOURNAL_DELAY_CLOSURE_INVALID', 'FAULT_RUN_ID_INVALID'].includes(error.code),
+  );
 });
 
-test('refuses unknown scenario fields and ambiguous event shapes', () => {
+test('executes drop-policy partition behavior without retaining unused queue state', () => {
   const set = fixtureSet(1);
-  const base = scenario([set.packets[0].packetId]);
-  base.events = [{ step: 0, type: 'send', packetId: set.packets[0].packetId, behavior: 'pass' }];
+  const dropScenario = {
+    schema: 'standards-port-fault-scenario/1',
+    scenarioId: 'drop-policy-partition',
+    mode: 'rehearsal',
+    profileId: artifactTransaction.use.profileId,
+    portId: artifactTransaction.use.portId,
+    standardId: artifactTransaction.admission.standardId,
+    artifactUseId: artifactTransaction.use.useId,
+    initialLinkState: 'down',
+    partitionPolicy: 'drop',
+    queueCapacity: 0,
+    events: [{ step: 0, type: 'send', packetId: set.packets[0].packetId, behavior: 'pass' }],
+    claimBoundary: 'drop policy fixture',
+  };
+  const run = runFaultScenario({
+    scenario: dropScenario,
+    packets: set.packets,
+    payloads: set.payloads,
+    artifactTransaction,
+    catalog,
+  });
+  assert.equal(run.metrics.linkDownDrops, 1);
+  assert.equal(run.metrics.pendingBufferedPackets, 0);
+  assert.equal(run.metrics.finalLinkState, 'down');
+  assert.equal(verifyFaultRun(run).status, 'pass');
+});
+
+test('refuses no-op link events, unused queue capacity, and ambiguous event fields', () => {
+  const set = fixtureSet(1);
+  const base = {
+    ...scenario([set.packets[0].packetId]),
+    events: [{ step: 0, type: 'send', packetId: set.packets[0].packetId, behavior: 'pass' }],
+  };
   assert.throws(
     () => validateFaultScenario({ ...base, providerUi: true }),
     (error) => error instanceof FaultMachineError && error.code === 'SCENARIO_FIELDS_INVALID',
@@ -243,4 +344,66 @@ test('refuses unknown scenario fields and ambiguous event shapes', () => {
     }),
     (error) => error instanceof FaultMachineError && error.code === 'SCENARIO_BEHAVIOR_INVALID',
   );
+  assert.throws(
+    () => validateFaultScenario({
+      ...base,
+      events: [{ step: 0, type: 'link', state: 'up' }],
+    }),
+    (error) => error instanceof FaultMachineError && error.code === 'SCENARIO_LINK_NOOP',
+  );
+  assert.throws(
+    () => validateFaultScenario({
+      ...base,
+      partitionPolicy: 'drop',
+      queueCapacity: 1,
+    }),
+    (error) => error instanceof FaultMachineError && error.code === 'SCENARIO_QUEUE_UNUSED',
+  );
+});
+
+test('detached verification refuses journal, delivery, run-field, and frame-surface tampering', () => {
+  const { run, frame } = runFixture();
+
+  const journalTamper = structuredClone(run);
+  journalTamper.journal[0].detail.behavior = 'drop';
+  assert.throws(
+    () => verifyFaultRun(journalTamper),
+    (error) => error instanceof FaultVerificationError && error.code === 'JOURNAL_RECORD_ID_INVALID',
+  );
+
+  const deliveryTamper = structuredClone(run);
+  deliveryTamper.deliveries[1].copyIndex = 1;
+  assert.throws(
+    () => verifyFaultRun(deliveryTamper),
+    (error) => error instanceof FaultVerificationError
+      && ['DELIVERY_ID_INVALID', 'DELIVERY_DUPLICATE_ID'].includes(error.code),
+  );
+
+  const fieldTamper = { ...structuredClone(run), providerUi: true };
+  assert.throws(
+    () => verifyFaultRun(fieldTamper),
+    (error) => error instanceof FaultVerificationError && error.code === 'FAULT_RUN_FIELDS_INVALID',
+  );
+
+  const frameTamper = structuredClone(frame);
+  frameTamper.lastEvent.payload = 'forbidden';
+  assert.throws(
+    () => verifyFaultFrame(frameTamper, run),
+    (error) => error instanceof FaultVerificationError && error.code === 'FRAME_FORBIDDEN_FIELD',
+  );
+});
+
+test('scenario digest changes when executable scenario content changes but ignores explanatory prose', () => {
+  const set = fixtureSet(1);
+  const base = {
+    ...scenario([set.packets[0].packetId]),
+    events: [{ step: 0, type: 'send', packetId: set.packets[0].packetId, behavior: 'pass' }],
+  };
+  const proseOnly = { ...base, claimBoundary: 'different explanation' };
+  const changed = {
+    ...base,
+    events: [{ step: 0, type: 'send', packetId: set.packets[0].packetId, behavior: 'drop' }],
+  };
+  assert.equal(deriveFaultScenarioDigest(base), deriveFaultScenarioDigest(proseOnly));
+  assert.notEqual(deriveFaultScenarioDigest(base), deriveFaultScenarioDigest(changed));
 });
