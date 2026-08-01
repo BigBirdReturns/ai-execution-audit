@@ -58,10 +58,15 @@ const MAX_WITNESS_DEPTH = 64;
 
 export function canonicalCheckpointJson(value: unknown): string {
   if (value === null) return 'null';
-  if (Array.isArray(value)) return `[${value.map(canonicalCheckpointJson).join(',')}]`;
+  if (Array.isArray(value)) {
+    return `[${value
+      .map((item) => (item === undefined ? 'null' : canonicalCheckpointJson(item)))
+      .join(',')}]`;
+  }
   if (typeof value === 'object') {
     const row = value as Record<string, unknown>;
     return `{${Object.keys(row)
+      .filter((key) => row[key] !== undefined)
       .sort()
       .map((key) => `${JSON.stringify(key)}:${canonicalCheckpointJson(row[key])}`)
       .join(',')}}`;
