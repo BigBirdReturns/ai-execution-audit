@@ -205,7 +205,7 @@ function fixture() {
   };
 }
 
-test('projects candidate, safe-state, and reconciliation receipts only after signed-journal verification', () => {
+test('projects candidate, warning, safe-state, and reconciliation receipts only after signed-journal verification', () => {
   const fx = fixture();
   try {
     const runtime = new PartitionAuthorityRuntime(fx.runtimeConfig);
@@ -233,6 +233,10 @@ test('projects candidate, safe-state, and reconciliation receipts only after sig
       { headquarters: 'down', 'local-control': 'up' },
     );
     runtime.observe(deniedRepeat, fx.authority);
+
+    fx.setClock('2026-08-01T00:00:07.000Z');
+    const warningDecision = runtime.evaluate(fx.transaction, fx.authority);
+    assert.equal(warningDecision.disposition, 'allow');
 
     fx.setClock('2026-08-01T00:00:09.000Z');
     const expiredDecision = runtime.evaluate(fx.transaction, fx.authority);
@@ -266,6 +270,20 @@ test('projects candidate, safe-state, and reconciliation receipts only after sig
     assert.match(initialFrame.evidence.recordId, /^partitionrecord1_/);
     assert.equal(initialFrame.stateId, initialFrameLater.stateId);
     assert.notEqual(initialFrame.frameId, initialFrameLater.frameId);
+
+    const warningFrame = createPartitionDecisionFrame({
+      authority: fx.authority,
+      authorityTrustStore: fx.authorityTrustStore,
+      observation: deniedRepeat,
+      nodeTrustStore: fx.nodeTrustStore,
+      decision: warningDecision,
+      journalPath: fx.journalPath,
+      capturedAt: '2026-08-01T00:00:11.500Z',
+    });
+    assert.equal(warningFrame.disposition, 'allow');
+    assert.equal(warningFrame.lamps.leaseWarning, true);
+    assert.equal(warningFrame.lease.elapsedMs, 4_000);
+    assert.equal(warningFrame.lease.remainingMs, 1_000);
 
     const expiredFrame = createPartitionDecisionFrame({
       authority: fx.authority,
