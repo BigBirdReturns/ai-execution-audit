@@ -1,0 +1,64 @@
+name: Polybolos Command Intelligence source qualification
+
+on:
+  pull_request:
+    paths:
+      - "adapters/polybolos_ci/**"
+      - ".github/workflows/polybolos-command-intelligence.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "adapters/polybolos_ci/**"
+      - ".github/workflows/polybolos-command-intelligence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: polybolos-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-public-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out audit harness
+        uses: actions/checkout@v4
+
+      - name: Check out the pinned Command Intelligence source
+        uses: actions/checkout@v4
+        with:
+          repository: simplifaisoul/osiris
+          ref: b9c0289c945b1908fe90f435c7e31bbc32c460f1
+          path: target
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: target/package-lock.json
+
+      - name: Verify the target and apply the retained overlay
+        run: python adapters/polybolos_ci/apply_overlay.py target
+
+      - name: Run native tests, lint, and production build
+        run: python adapters/polybolos_ci/run_source_qualification.py target qualification
+
+      - name: Retain qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: polybolos-command-intelligence-qualification
+          path: qualification
+          if-no-files-found: warn
