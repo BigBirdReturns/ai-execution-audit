@@ -23,7 +23,7 @@ concurrency:
 jobs:
   qualify-public-source-and-cabinet:
     runs-on: ubuntu-latest
-    timeout-minutes: 85
+    timeout-minutes: 90
 
     steps:
       - name: Check out audit harness
@@ -55,6 +55,12 @@ jobs:
       - name: Run signed partition-runtime and reconciliation tests
         run: node --test adapters/polybolos_ci/authority/partition_runtime.test.mjs
 
+      - name: Run signed partition-cabinet evidence tests
+        run: |
+          node --test \
+            adapters/polybolos_ci/authority/partition_cabinet.test.mjs \
+            adapters/polybolos_ci/authority/partition_cabinet_human_required.test.mjs
+
       - name: Materialize the read-only cabinet bridge
         run: python adapters/polybolos_ci/materialize_cabinet.py
 
@@ -66,10 +72,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y lua5.4 lua-dkjson
 
-      - name: Parse the MAME plugin and offline harness with Lua 5.4
+      - name: Parse the MAME plugins and offline harnesses with Lua 5.4
         run: |
           luac5.4 -p adapters/polybolos_ci/cabinet/mame/polybolosci/init.lua
           luac5.4 -p adapters/polybolos_ci/cabinet/mame/test_harness.lua
+          luac5.4 -p adapters/polybolos_ci/authority/cabinet/mame/polybolospartition/init.lua
+          luac5.4 -p adapters/polybolos_ci/authority/cabinet/mame/test_harness.lua
 
       - name: Verify the target and apply the retained integration
         run: |
@@ -94,6 +102,12 @@ jobs:
           node adapters/polybolos_ci/authority/run_partition_authority_e2e.mjs \
             qualification/candidate-authority-e2e/candidate-transaction.json \
             qualification/partition-authority-e2e
+
+      - name: Project signed partition state through offline MAME and MotionDeck
+        run: |
+          node adapters/polybolos_ci/authority/run_partition_cabinet_e2e.mjs \
+            qualification/partition-authority-e2e \
+            qualification/partition-cabinet-e2e
 
       - name: Retain qualification evidence
         if: always()

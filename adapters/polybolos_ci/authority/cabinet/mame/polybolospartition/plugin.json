@@ -1,0 +1,10 @@
+{
+  "plugin": {
+    "name": "polybolospartition",
+    "description": "Read-only Polybolos signed partition-authority frame",
+    "version": "0.1.0",
+    "author": "AXM / Polybolos integration lane",
+    "type": "plugin",
+    "start": "false"
+  }
+}
