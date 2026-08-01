@@ -52,10 +52,7 @@ jobs:
           cache-dependency-path: target/package-lock.json
 
       - name: Run Polybolos congruent-shape adapter conformance
-        run: |
-          node --test adapters/polybolos/conformance/congruence.test.mjs
-          node adapters/polybolos/conformance/run_congruence.mjs \
-            qualification/polybolos-congruence/congruence-receipt.json
+        run: node --test adapters/polybolos/conformance/congruence.test.mjs
 
       - name: Run detached checkpoint-witness verification tests
         run: node --test adapters/polybolos_ci/checkpoint/checkpoint_verifier.test.mjs
@@ -110,6 +107,11 @@ jobs:
 
       - name: Run bounded checkpoints and witnesses at 5,000 and 20,000 entities
         run: python adapters/polybolos_ci/run_checkpoint_witness_e2e.py target qualification/checkpoint-witness-e2e
+
+      - name: Retain the Polybolos congruent-shape receipt
+        run: |
+          node adapters/polybolos/conformance/run_congruence.mjs \
+            qualification/polybolos-congruence/congruence-receipt.json
 
       - name: Run provisional Polybolos shape through the existing AXM spoke
         run: |
