@@ -54,8 +54,13 @@ export function deriveStableObservationAt(
   }
 
   const lastUpdateMs = Date.parse(store.getLastUpdate() ?? '');
-  let markerMs = Math.max(0, floorMs);
-  if (Number.isFinite(lastUpdateMs)) markerMs = Math.max(markerMs, lastUpdateMs);
+  // A process start is only the semantic floor for an empty store. Once durable
+  // observations exist, restart time must not manufacture a new snapshot or
+  // cabinet state. Only a mutation or a feed crossing its stale threshold may
+  // advance the observation marker.
+  let markerMs = Number.isFinite(lastUpdateMs)
+    ? lastUpdateMs
+    : Math.max(0, floorMs);
 
   const evaluationMs = Math.max(nowMs, markerMs);
   for (const feed of store.getFeedStatuses(staleAfterMs, evaluationMs)) {

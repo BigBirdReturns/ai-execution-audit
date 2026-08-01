@@ -1,34 +1,40 @@
 {
-  "compressed_bytes": 7356,
-  "decoded_tar_bytes": 30720,
-  "decoded_tar_sha256": "d80bfc547e149b3ee2221d00a4c2d72be0398113692bb1a4360eaa7278ff0990",
-  "encoded_chars": 9195,
+  "claim_boundary": "The bundle contains a read-only local observation bridge, static MAME diagnostic plugin, MotionDeck declaration, and refusal tests. It grants no command, targeting, engagement, input, emulator-memory, process-launch, or weapons authority.",
+  "compressed_bytes": 10207,
+  "compressed_sha256": "453c6ab8a2edc5678e57a1aeadc867e68e1172ed11a87b8e889531194d07c644",
+  "decoded_tar_bytes": 51200,
+  "decoded_tar_sha256": "6f8a46e2562f521195fbe851a85647a80957f2b8e99d0902b1245bef6205ba77",
+  "encoded_chars": 12759,
   "encoding": "zlib+base85+tar",
   "files": {
     "bridge.py": {
-      "bytes": 13921,
-      "sha256": "7b2de4572eb460fd3e6dab85aeb810556d7ba50f9d81b401c1646ecf3927074e"
+      "bytes": 18942,
+      "sha256": "282ff06afec91dc944a49826ad3eeb0bfd3278bcf4cc51991ba553b242b3d34d"
     },
     "mame/polybolosci/init.lua": {
-      "bytes": 3224,
-      "sha256": "1ea803ff3ab30029bbb30e97ad49be893d1b7dee2f24ec32eac969de16bb72fc"
+      "bytes": 4928,
+      "sha256": "b660e282806f5d8f086c8403676b2fbaf70c32298931d5b1ba19e594cf5babff"
     },
     "mame/polybolosci/plugin.json": {
       "bytes": 243,
-      "sha256": "6ef843f98b4217e022029bbe6314fde4fabed6fc266125b16ef3dcbb7f6479a2"
+      "sha256": "a8a19b3687e6f73c7d4b1fa38cfa0a3aca25cea32b56847445b230c93a8936e9"
+    },
+    "mame/test_harness.lua": {
+      "bytes": 2327,
+      "sha256": "696e9622cb4d54c3241e7e9e1bc3b5805b0838a5829ad7927e2399c50e05f8c1"
     },
     "motiondeck/polybolos-ci-bridge.json": {
-      "bytes": 1078,
-      "sha256": "82ee8f80135c1f28026f203a5e8b4cafbeac033e5b69deea0d31328828c6f32c"
+      "bytes": 1198,
+      "sha256": "eae1fbf2bdc9c2127e867ff406f935f1cd61182c56a87f7f6c9e7d5d2b343856"
     },
     "test_bridge.py": {
-      "bytes": 4507,
-      "sha256": "e2f78d9571156bfd0ab1d825611e8e4b43d90866b3c5d740f33e44a0df5d6d0a"
+      "bytes": 8162,
+      "sha256": "2b3fe66f9bbc105dbb867a02acf0126e28f75e8c9c03529f3bd6e23d0f86a84e"
     },
     "test_plugin.py": {
-      "bytes": 1294,
-      "sha256": "0278d7e4d950670ff6a8aeae888e602ce5c0ce49c7cd5292b9cace17605c8af8"
+      "bytes": 1599,
+      "sha256": "1307f6f11cd477a7e15cbf34ad2e439731bd5f4505ba4b88846def41a556c5c6"
     }
   },
-  "schema": "ai-execution-audit/polybolos-ci-cabinet-bundle@1"
+  "schema": "ai-execution-audit/polybolos-ci-cabinet-bundle@2"
 }

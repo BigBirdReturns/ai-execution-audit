@@ -48,6 +48,45 @@ describe('stable Command Intelligence observation time', () => {
     ).toBe(new Date(updateMs + staleAfterMs + 1).toISOString());
   });
 
+  it('does not let a later process start manufacture a new non-stale state', () => {
+    const store = new CommandIntelligenceStore();
+    const updateMs = Date.parse('2026-08-01T00:00:00.000Z');
+    const staleAfterMs = 300_000;
+    store.upsert(entity(new Date(updateMs).toISOString()));
+
+    const beforeRestart = deriveStableObservationAt(
+      store,
+      staleAfterMs,
+      updateMs + 10_000,
+      updateMs - 1_000,
+    );
+    const afterRestart = deriveStableObservationAt(
+      store,
+      staleAfterMs,
+      updateMs + 120_000,
+      updateMs + 120_000,
+    );
+    expect(beforeRestart).toBe(new Date(updateMs).toISOString());
+    expect(afterRestart).toBe(beforeRestart);
+  });
+
+  it('still advances to the one exact stale transition after restart', () => {
+    const store = new CommandIntelligenceStore();
+    const updateMs = Date.parse('2026-08-01T00:00:00.000Z');
+    const staleAfterMs = 5_000;
+    store.upsert(entity(new Date(updateMs).toISOString()));
+
+    const afterRestartAndStale = deriveStableObservationAt(
+      store,
+      staleAfterMs,
+      updateMs + 60_000,
+      updateMs + 60_000,
+    );
+    expect(afterRestartAndStale).toBe(
+      new Date(updateMs + staleAfterMs + 1).toISOString(),
+    );
+  });
+
   it('rejects invalid clocks', () => {
     const store = new CommandIntelligenceStore();
     expect(() => deriveStableObservationAt(store, -1, 0, 0)).toThrow(/staleAfterMs/);

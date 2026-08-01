@@ -1,0 +1,12 @@
+{
+  "schema": "ai-execution-audit/polybolos-ci-post-patches@1",
+  "patches": [
+    {
+      "path": "post_patches/sequence-zero.patch",
+      "bytes": 2591,
+      "sha256": "f0054f06e5a5143a18409d524e665af142676e2952fd9eaf6900b704534c4611",
+      "purpose": "Accept a valid empty initial Command Intelligence snapshot at sequence zero and retain a negative witness for the prior truthiness defect."
+    }
+  ],
+  "claim_boundary": "Post patches are admitted only after exact byte verification and git apply --check against the already qualified target integration."
+}
