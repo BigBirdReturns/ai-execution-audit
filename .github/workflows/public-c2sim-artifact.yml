@@ -10,6 +10,7 @@ on:
       - "mating_surface/tools/requirements-xsd11.txt"
       - "mating_surface/conformance/artifacts.test.mjs"
       - "mating_surface/conformance/test_xsd11_catalog.py"
+      - "mating_surface/test_hosts/**"
       - ".github/workflows/public-c2sim-artifact.yml"
   push:
     branches:
@@ -22,6 +23,7 @@ on:
       - "mating_surface/tools/requirements-xsd11.txt"
       - "mating_surface/conformance/artifacts.test.mjs"
       - "mating_surface/conformance/test_xsd11_catalog.py"
+      - "mating_surface/test_hosts/**"
       - ".github/workflows/public-c2sim-artifact.yml"
   workflow_dispatch:
 
@@ -77,6 +79,9 @@ jobs:
       - name: Run deterministic XSD 1.1 catalog tests
         run: python -m unittest mating_surface.conformance.test_xsd11_catalog -v
 
+      - name: Run standards-port fault-machine and verifier tests
+        run: node --test mating_surface/test_hosts/conformance/*.test.mjs
+
       - name: Refuse an unexpected upstream commit or Git blob
         run: |
           test "$(git -C upstream-c2sim rev-parse HEAD)" = "ca1efa3cb23d35eef80f31d87ca189de44eb99fd"
@@ -107,7 +112,24 @@ jobs:
             qualification/c2sim-public-reference/artifact-transaction.json \
             qualification/c2sim-public-reference/xsd11-catalog.json
 
-      - name: Retain public artifact and schema-catalog evidence
+      - name: Exercise the admitted artifact through the standards-port fault machine
+        run: |
+          node mating_surface/test_hosts/run_fault_machine_e2e.mjs \
+            qualification/c2sim-public-reference/artifact-transaction.json \
+            qualification/c2sim-public-reference/xsd11-catalog.json \
+            qualification/c2sim-public-reference/standard-port-fault-machine
+
+      - name: Reverify the retained run through the detached CLI
+        run: |
+          node mating_surface/test_hosts/core/fault_verifier.mjs \
+            qualification/c2sim-public-reference/standard-port-fault-machine/fault-run.json \
+            qualification/c2sim-public-reference/standard-port-fault-machine/test-frame.json \
+            qualification/c2sim-public-reference/standard-port-fault-machine/verification-cli.json
+          cmp \
+            qualification/c2sim-public-reference/standard-port-fault-machine/verification.json \
+            qualification/c2sim-public-reference/standard-port-fault-machine/verification-cli.json
+
+      - name: Retain public artifact, schema, and transport-fault evidence
         uses: actions/upload-artifact@v4
         with:
           name: public-c2sim-reference-artifact-qualification
