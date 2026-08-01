@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Apply the retained Polybolos Command Intelligence hardening overlay.
+"""Apply the retained Polybolos Command Intelligence integration.
 
 The target is the actual public Command Intelligence implementation in
-``simplifaisoul/osiris``, pinned by ``TARGET.json``. The script refuses to
-modify an unknown checkout: the commit and every named upstream blob must match
-before any file is written.
+``simplifaisoul/osiris``, pinned by ``TARGET.json``. The transaction refuses an
+unknown checkout: the commit and every named upstream blob must match before any
+file is written.
 
-The small, reviewable v1 overlay is copied first. The larger v2 integration
-patch is retained as whitespace-insensitive base64 parts, decoded locally,
-checked against pinned compressed and decoded identities, and admitted only
-after ``git apply --check`` succeeds against that exact overlay state.
+The small v1 hardening overlay is copied first. The larger v2 integration patch
+is reconstructed from whitespace-insensitive base64 parts, checked against
+pinned compressed and decoded identities, and admitted only after
+``git apply --check`` succeeds. A final reviewable post-overlay is then copied
+over the admitted v2 tree for narrowly scoped fixes discovered by the real CI
+run.
 """
 from __future__ import annotations
 
@@ -27,6 +29,7 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 TARGET_SPEC = HERE / "TARGET.json"
 OVERLAY_ROOT = HERE / "overlay"
+POST_OVERLAY_ROOT = HERE / "post_overlay"
 RECEIPT_NAME = "polybolos-ci-overlay-receipt.json"
 
 
@@ -53,13 +56,35 @@ def _sha256_bytes(data: bytes) -> str:
 
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
 
 
-def _decode_upgrade(spec: dict[str, Any]) -> tuple[bytes, list[dict[str, Any]], dict[str, Any]]:
+def _copy_tree(source_root: Path, target_root: Path) -> dict[str, dict[str, str]]:
+    if not source_root.exists():
+        return {}
+    files = sorted(path for path in source_root.rglob("*") if path.is_file())
+    if not files:
+        raise RuntimeError(f"declared overlay tree is empty: {source_root}")
+
+    copied: dict[str, dict[str, str]] = {}
+    for source in files:
+        rel = source.relative_to(source_root).as_posix()
+        destination = target_root / rel
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+        copied[rel] = {
+            "sha256": _sha256(destination),
+            "git_blob_sha": _git_blob_sha(destination.read_bytes()),
+        }
+    return copied
+
+
+def _decode_upgrade(
+    spec: dict[str, Any],
+) -> tuple[bytes, list[dict[str, Any]], dict[str, Any]]:
     upgrade = spec.get("upgrade_v2")
     if not isinstance(upgrade, dict):
         return b"", [], {}
@@ -151,7 +176,13 @@ def _patch_paths(patch_path: Path, target_root: Path) -> list[str]:
 
 
 def _final_changes(target_root: Path) -> dict[str, dict[str, Any]]:
-    output = _run("git", "status", "--porcelain=v1", "--untracked-files=all", cwd=target_root)
+    output = _run(
+        "git",
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+        cwd=target_root,
+    )
     changes: dict[str, dict[str, Any]] = {}
     for line in output.splitlines():
         if len(line) < 4:
@@ -206,31 +237,34 @@ def apply(target_root: Path) -> dict[str, Any]:
         before[rel] = _sha256(path)
 
     upgrade_patch, upgrade_parts, upgrade_transport = _decode_upgrade(spec)
-
-    overlay_files = sorted(p for p in OVERLAY_ROOT.rglob("*") if p.is_file())
-    if not overlay_files:
-        raise RuntimeError(f"overlay is empty: {OVERLAY_ROOT}")
-
-    copied: dict[str, dict[str, str]] = {}
-    for source in overlay_files:
-        rel = source.relative_to(OVERLAY_ROOT).as_posix()
-        destination = target_root / rel
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, destination)
-        copied[rel] = {
-            "sha256": _sha256(destination),
-            "git_blob_sha": _git_blob_sha(destination.read_bytes()),
-        }
+    copied = _copy_tree(OVERLAY_ROOT, target_root)
 
     upgrade_record: dict[str, Any] | None = None
     if upgrade_patch:
-        with tempfile.NamedTemporaryFile(prefix="polybolos-ci-v2-", suffix=".patch", delete=False) as tmp:
-            tmp.write(upgrade_patch)
-            patch_path = Path(tmp.name)
+        with tempfile.NamedTemporaryFile(
+            prefix="polybolos-ci-v2-",
+            suffix=".patch",
+            delete=False,
+        ) as temporary:
+            temporary.write(upgrade_patch)
+            patch_path = Path(temporary.name)
         try:
             changed_paths = _patch_paths(patch_path, target_root)
-            _run("git", "apply", "--check", "--whitespace=error-all", str(patch_path), cwd=target_root)
-            _run("git", "apply", "--whitespace=error-all", str(patch_path), cwd=target_root)
+            _run(
+                "git",
+                "apply",
+                "--check",
+                "--whitespace=error-all",
+                str(patch_path),
+                cwd=target_root,
+            )
+            _run(
+                "git",
+                "apply",
+                "--whitespace=error-all",
+                str(patch_path),
+                cwd=target_root,
+            )
         finally:
             patch_path.unlink(missing_ok=True)
         upgrade_record = {
@@ -241,22 +275,25 @@ def apply(target_root: Path) -> dict[str, Any]:
             "changed_paths": changed_paths,
         }
 
+    post_overlay = _copy_tree(POST_OVERLAY_ROOT, target_root)
     final_changes = _final_changes(target_root)
     if not final_changes:
         raise RuntimeError("overlay transaction produced no target changes")
 
     receipt = {
-        "schema": "ai-execution-audit/polybolos-ci-overlay-receipt@2",
+        "schema": "ai-execution-audit/polybolos-ci-overlay-receipt@3",
         "target_repository": spec["repository"],
         "target_commit": observed_commit,
         "verified_original_files": before,
         "copied_overlay_files": copied,
         "upgrade_v2": upgrade_record,
+        "post_overlay_files": post_overlay,
         "final_changes": final_changes,
         "claim_boundary": spec["claim_boundary"],
     }
     (target_root / RECEIPT_NAME).write_text(
-        json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     return receipt
 
