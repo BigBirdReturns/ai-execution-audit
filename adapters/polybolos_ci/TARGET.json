@@ -20,6 +20,7 @@
   "upgrade_v2": {
     "encoding": "zlib+base64",
     "parts_glob": "upgrade_v2_b64/part-*.b64",
+    "parts_count": 12,
     "compressed_sha256": "6364b5b78f908a8be4735d2261ebdc55bfb49f9ac6dd1ebc95727eaff1f88712",
     "compressed_bytes": 50100,
     "decoded_patch_sha256": "2e9556a5c700e57c930bb01c67b4d7179e66ea737bea87510ce2b83ef4b845f3",
