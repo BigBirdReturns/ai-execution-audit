@@ -6,7 +6,10 @@ on:
       - "mating_surface/artifacts/**"
       - "mating_surface/core/artifacts.mjs"
       - "mating_surface/tools/xml_wellformedness.mjs"
+      - "mating_surface/tools/xsd11_catalog.py"
+      - "mating_surface/tools/requirements-xsd11.txt"
       - "mating_surface/conformance/artifacts.test.mjs"
+      - "mating_surface/conformance/test_xsd11_catalog.py"
       - ".github/workflows/public-c2sim-artifact.yml"
   push:
     branches:
@@ -15,7 +18,10 @@ on:
       - "mating_surface/artifacts/**"
       - "mating_surface/core/artifacts.mjs"
       - "mating_surface/tools/xml_wellformedness.mjs"
+      - "mating_surface/tools/xsd11_catalog.py"
+      - "mating_surface/tools/requirements-xsd11.txt"
       - "mating_surface/conformance/artifacts.test.mjs"
+      - "mating_surface/conformance/test_xsd11_catalog.py"
       - ".github/workflows/public-c2sim-artifact.yml"
   workflow_dispatch:
 
@@ -29,7 +35,7 @@ concurrency:
 jobs:
   qualify-public-reference-artifact:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
 
     steps:
       - name: Check out the mating-surface estate
@@ -51,13 +57,25 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install the bounded XML validator
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: mating_surface/tools/requirements-xsd11.txt
+
+      - name: Install the bounded XML and XSD 1.1 validators
         run: |
           sudo apt-get update
           sudo apt-get install -y libxml2-utils
+          python -m pip install --require-hashes --only-binary=:all: \
+            -r mating_surface/tools/requirements-xsd11.txt
 
       - name: Run artifact custody and use-boundary tests
         run: node --test mating_surface/conformance/artifacts.test.mjs
+
+      - name: Run deterministic XSD 1.1 catalog tests
+        run: python -m unittest mating_surface.conformance.test_xsd11_catalog -v
 
       - name: Refuse an unexpected upstream commit or Git blob
         run: |
@@ -82,7 +100,14 @@ jobs:
             mating_surface/artifacts/public-reference/c2sim-rehearsal-use.json \
             qualification/c2sim-public-reference/artifact-transaction.json
 
-      - name: Retain public artifact qualification evidence
+      - name: Compile the exact admitted XSD with XMLSchema11
+        run: |
+          python mating_surface/tools/xsd11_catalog.py \
+            upstream-c2sim/C2SIM_SMX_LOX_V1.0.1.xsd \
+            qualification/c2sim-public-reference/artifact-transaction.json \
+            qualification/c2sim-public-reference/xsd11-catalog.json
+
+      - name: Retain public artifact and schema-catalog evidence
         uses: actions/upload-artifact@v4
         with:
           name: public-c2sim-reference-artifact-qualification
