@@ -54,10 +54,21 @@ def git_output(target: Path, *args: str) -> str:
 def build_replay_bundle(target: Path, output_root: Path, out_zip: Path) -> None:
     source_archive = output_root / "target-source.tar"
     with source_archive.open("wb") as f:
-        subprocess.run(["git", "archive", "--format=tar", "HEAD"], cwd=target, check=True, stdout=f)
+        subprocess.run(
+            ["git", "archive", "--format=tar", "HEAD"],
+            cwd=target,
+            check=True,
+            stdout=f,
+        )
 
-    shutil.copytree(HERE / "overlay", output_root / "overlay")
-    shutil.copy2(HERE / "TARGET.json", output_root / "TARGET.json")
+    # Preserve the complete integration factory rather than only the first
+    # overlay generation. The generated cabinet directory is omitted because
+    # its exact bundle, manifest, and materializer are already retained here.
+    shutil.copytree(
+        HERE,
+        output_root / "adapter-custody",
+        ignore=shutil.ignore_patterns("cabinet", "__pycache__", "*.pyc"),
+    )
     (output_root / "target-overlay.diff").write_text(
         subprocess.check_output(["git", "diff", "--binary"], cwd=target, text=True),
         encoding="utf-8",
@@ -164,6 +175,8 @@ def main() -> int:
             "offline_dependency_note": "npm dependencies are pinned by package-lock but not vendored into this bundle",
             "repository_wide_lint": False,
             "repository_wide_lint_note": "The upstream unscoped `eslint` command exceeds 6 GiB on a hosted runner. This transaction lints every Command Intelligence SDK and API file, runs the complete Vitest suite, and builds the complete Next application.",
+            "integration_factory_retained": True,
+            "integration_factory_note": "The replay bundle retains the exact target source archive, complete adapter custody, and binary target diff. Generated cabinet bytes are reconstructable from the retained cabinet bundle and materializer.",
         },
     }
     (artifacts / "decision_record.json").write_text(
