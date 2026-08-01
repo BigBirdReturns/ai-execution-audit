@@ -1,0 +1,138 @@
+{
+  "schema": "standards-mating-surface-venue/1",
+  "profileId": "joint-edge-command-authority/0.1",
+  "status": "research_profile",
+  "purpose": "Bind fielded command-and-control standards to independently verifiable authority continuity, partition behavior, replay, and reconciliation without replacing the fielded standards or product interfaces.",
+  "canonicalVocabulary": "selected_standard_artifacts",
+  "providerVocabulary": "edge_only",
+  "surfaceBranding": "none",
+  "ports": [
+    {
+      "id": "mission-command",
+      "direction": "bidirectional",
+      "selection": "exactly_one_program_profile",
+      "allowedStandards": [
+        "afrl-oams-uci",
+        "mil-std-6017",
+        "mil-std-6016"
+      ],
+      "requirements": [
+        "exact revision or program profile",
+        "official schema, generated binding, or authorized controlled artifact",
+        "message identity and payload digest",
+        "no provider-private terms in the canonical port"
+      ]
+    },
+    {
+      "id": "real-time-data-plane",
+      "direction": "bidirectional",
+      "selection": "program_profile",
+      "allowedStandards": ["omg-dds"],
+      "requirements": [
+        "declared topic and key semantics",
+        "declared reliability, deadline, lifespan, history, durability, and resource limits",
+        "bounded degraded-link behavior",
+        "exact IDL or type-object identity"
+      ]
+    },
+    {
+      "id": "shared-situational-awareness",
+      "direction": "bidirectional",
+      "selection": "optional_program_profile",
+      "allowedStandards": ["usg-tak-cot"],
+      "requirements": [
+        "authorized TAK or CoT profile",
+        "observation remains separate from command authority",
+        "serverless and federated behavior declared where used"
+      ]
+    },
+    {
+      "id": "joint-symbology",
+      "direction": "presentation",
+      "selection": "required_when_displayed",
+      "allowedStandards": ["mil-std-2525"],
+      "requirements": [
+        "exact active or program-directed revision",
+        "symbology does not alter message semantics or authority"
+      ]
+    },
+    {
+      "id": "gateway-description",
+      "direction": "configuration",
+      "selection": "required_for_gateway_products",
+      "allowedStandards": [
+        "siso-std-014.1-2018-gdl",
+        "siso-std-014.2-2018-gfl"
+      ],
+      "requirements": [
+        "machine-readable capabilities",
+        "machine-readable filters",
+        "declared losses and non-reversible transformations",
+        "no silent semantic widening"
+      ]
+    },
+    {
+      "id": "simulation-and-rehearsal",
+      "direction": "bidirectional_test_only",
+      "selection": "scenario_and_federation_profile",
+      "allowedStandards": [
+        "siso-std-019-2020-c2sim",
+        "siso-std-007-2008-msdl",
+        "ieee-1278-dis",
+        "ieee-1516-hla",
+        "siso-std-017-2022-weblvc",
+        "siso-std-002-2021-link16-simulation"
+      ],
+      "requirements": [
+        "official schema or federation model",
+        "test-only separation from operational authority",
+        "scenario identity, fault schedule, and replay receipt",
+        "MAME and MotionDeck remain replaceable test hosts"
+      ]
+    },
+    {
+      "id": "platform-integration",
+      "direction": "deployment",
+      "selection": "target_platform_selects",
+      "allowedStandards": [
+        "afrl-oams-oms",
+        "army-cmoss",
+        "face-technical-standard"
+      ],
+      "requirements": [
+        "exact platform profile",
+        "declared hardware, operating-system, and software-component boundary",
+        "substitution and conformance evidence"
+      ]
+    }
+  ],
+  "sidecars": [
+    {
+      "id": "authority-continuity",
+      "visibility": "machine_and_operator_receipt",
+      "mayDefineDomainSemantics": false,
+      "binds": [
+        "standard identifier and revision",
+        "official artifact or schema identity",
+        "standard message identity and payload digest",
+        "issuing authority and delegation",
+        "software and configuration identity",
+        "communications profile and partition epoch",
+        "offline lease and expiry behavior",
+        "allow, hold, refuse, or safe-state disposition",
+        "replay, reconciliation, and detached evidence"
+      ]
+    }
+  ],
+  "acceptance": {
+    "refuseIf": [
+      "a provider-private schema is presented as canonical",
+      "a controlled standard has no authorized artifact binding",
+      "a public standard has no exact schema, IDL, FOM, PDU, or profile identity",
+      "a gateway omits its declared losses",
+      "simulation traffic can enter operational authority",
+      "branding or product UI becomes part of the operational message contract",
+      "an observation, candidate, or provider asserts its own authority"
+    ]
+  }
+}
