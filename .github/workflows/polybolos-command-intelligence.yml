@@ -64,7 +64,9 @@ jobs:
         run: luac5.4 -p adapters/polybolos_ci/cabinet/mame/polybolosci/init.lua
 
       - name: Verify the target and apply the retained integration
-        run: python adapters/polybolos_ci/apply_overlay.py target
+        run: |
+          python adapters/polybolos_ci/apply_overlay.py target
+          python adapters/polybolos_ci/normalize_receipt.py target
 
       - name: Run native tests, Command Intelligence lint, and production build
         run: python adapters/polybolos_ci/run_source_qualification.py target qualification
