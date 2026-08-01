@@ -1,0 +1,205 @@
+{
+  "schema": "standards-mating-surface-registry/1",
+  "asOf": "2026-08-01",
+  "policies": {
+    "canonicalTerms": "registered_standard_only",
+    "controlledPayloads": "opaque_until_authorized_artifact_loaded",
+    "providerTerms": "edge_adapter_only",
+    "brandAndUi": "outside_operational_contract",
+    "authority": "separate_verifiable_sidecar",
+    "simulation": "standard_scenario_and_gateway_contracts_only",
+    "unknownSemantics": "refuse_or_record_unresolved"
+  },
+  "standards": [
+    {
+      "id": "afrl-oams-oms",
+      "title": "Open Mission Systems",
+      "authority": "USAF Open Architecture Management / AFRL",
+      "roles": ["mission_system_architecture", "service_and_subsystem_interfaces"],
+      "officialLocator": "https://www.vdl.afrl.af.mil/programs/oam/oms.php",
+      "access": "program_or_government_sponsor",
+      "artifactPolicy": "official_profile_required",
+      "payloadPolicy": "no_local_redefinition"
+    },
+    {
+      "id": "afrl-oams-uci",
+      "title": "Universal Command and Control Interface",
+      "authority": "USAF Open Architecture Management / AFRL",
+      "roles": ["mission_level_command_and_control", "machine_to_machine_messages"],
+      "officialLocator": "https://www.vdl.afrl.af.mil/programs/oam/uci.php",
+      "access": "program_or_government_sponsor",
+      "artifactPolicy": "official_profile_and_generated_bindings_required",
+      "payloadPolicy": "no_local_redefinition"
+    },
+    {
+      "id": "omg-dds",
+      "title": "Data Distribution Service and RTPS family",
+      "authority": "Object Management Group",
+      "roles": ["real_time_publish_subscribe", "quality_of_service", "resource_and_deadline_control"],
+      "officialLocator": "https://www.omg.org/omg-dds-portal/",
+      "access": "public_specification",
+      "artifactPolicy": "exact_specification_and_idl_profile_required",
+      "payloadPolicy": "standard_topic_types_only"
+    },
+    {
+      "id": "usg-tak-cot",
+      "title": "TAK and Cursor-on-Target family",
+      "authority": "United States Government TAK Product Center",
+      "roles": ["shared_situational_awareness", "field_common_operating_picture", "edge_coordination"],
+      "officialLocator": "https://tak.gov/",
+      "access": "mixed_public_and_controlled",
+      "artifactPolicy": "authorized_sdk_or_profile_required",
+      "payloadPolicy": "observation_never_self_authorizes"
+    },
+    {
+      "id": "mil-std-6016",
+      "title": "Tactical Data Link 16 Message Standard",
+      "authority": "Defense Information Systems Agency",
+      "roles": ["joint_tactical_data_link", "coalition_interoperability"],
+      "officialLocator": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=123964",
+      "activeRevision": "H",
+      "activeDocumentDate": "2024-04-26",
+      "access": "controlled_distribution",
+      "artifactPolicy": "authorized_standard_artifact_required",
+      "payloadPolicy": "opaque_until_authorized_artifact_loaded"
+    },
+    {
+      "id": "mil-std-6017",
+      "title": "Variable Message Format",
+      "authority": "Defense Information Systems Agency",
+      "roles": ["joint_command_and_control_messages", "tactical_data_system_interoperability"],
+      "officialLocator": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=215903",
+      "activeDocumentDate": "2024-07-26",
+      "access": "controlled_distribution",
+      "artifactPolicy": "authorized_standard_artifact_required",
+      "payloadPolicy": "opaque_until_authorized_artifact_loaded"
+    },
+    {
+      "id": "mil-std-2525",
+      "title": "Joint Military Symbology",
+      "authority": "Defense Information Systems Agency",
+      "roles": ["joint_military_symbology", "operator_presentation"],
+      "officialLocator": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=114934",
+      "activeRevision": "E Change 1",
+      "activeDocumentDate": "2025-03-02",
+      "access": "public_release",
+      "artifactPolicy": "exact_revision_required",
+      "payloadPolicy": "presentation_only"
+    },
+    {
+      "id": "siso-std-019-2020-c2sim",
+      "title": "Command and Control Systems - Simulation Systems Interoperation",
+      "authority": "Simulation Interoperability Standards Organization",
+      "roles": ["c2_simulation_interoperation", "robotic_and_autonomous_simulation", "coalition_test"],
+      "officialLocator": "https://www.sisostandards.org/page/StandardsProducts",
+      "dataLocator": "https://www.sisostandards.org/page/DataFiles",
+      "access": "public_standard_and_schema_files",
+      "artifactPolicy": "official_schema_required",
+      "payloadPolicy": "simulation_and_test_only_unless_program_adopts"
+    },
+    {
+      "id": "siso-std-007-2008-msdl",
+      "title": "Military Scenario Definition Language",
+      "authority": "Simulation Interoperability Standards Organization",
+      "roles": ["scenario_definition", "reusable_test_and_training_initialization"],
+      "officialLocator": "https://www.sisostandards.org/page/StandardsProducts",
+      "dataLocator": "https://www.sisostandards.org/page/DataFiles",
+      "access": "public_standard_and_schema_files",
+      "artifactPolicy": "official_schema_required",
+      "payloadPolicy": "simulation_and_test"
+    },
+    {
+      "id": "siso-std-014.1-2018-gdl",
+      "title": "Gateway Description Language",
+      "authority": "Simulation Interoperability Standards Organization",
+      "roles": ["gateway_capability_description", "machine_readable_integration_requirements"],
+      "officialLocator": "https://www.sisostandards.org/page/StandardsProducts",
+      "dataLocator": "https://www.sisostandards.org/page/DataFiles",
+      "access": "public_standard_and_schema_files",
+      "artifactPolicy": "official_schema_required",
+      "payloadPolicy": "gateway_description"
+    },
+    {
+      "id": "siso-std-014.2-2018-gfl",
+      "title": "Gateway Filtering Language",
+      "authority": "Simulation Interoperability Standards Organization",
+      "roles": ["gateway_filter_description", "implementation_independent_filtering"],
+      "officialLocator": "https://www.sisostandards.org/page/StandardsProducts",
+      "dataLocator": "https://www.sisostandards.org/page/DataFiles",
+      "access": "public_standard_and_schema_files",
+      "artifactPolicy": "official_schema_required",
+      "payloadPolicy": "gateway_filtering"
+    },
+    {
+      "id": "siso-std-017-2022-weblvc",
+      "title": "Web Live, Virtual, Constructive Protocol",
+      "authority": "Simulation Interoperability Standards Organization",
+      "roles": ["web_simulation_interoperability", "json_object_and_interaction_exchange"],
+      "officialLocator": "https://www.sisostandards.org/page/StandardsProducts",
+      "access": "public_standard",
+      "artifactPolicy": "official_data_model_or_declared_extension_required",
+      "payloadPolicy": "simulation_and_rehearsal"
+    },
+    {
+      "id": "siso-std-002-2021-link16-simulation",
+      "title": "Standard for Link 16 Simulations",
+      "authority": "Simulation Interoperability Standards Organization",
+      "roles": ["link16_simulation", "hla_and_dis_interoperation"],
+      "officialLocator": "https://www.sisostandards.org/page/StandardsProducts",
+      "access": "public_standard_with_related_controlled_dependencies",
+      "artifactPolicy": "official_simulation_standard_required",
+      "payloadPolicy": "simulation_only"
+    },
+    {
+      "id": "ieee-1278-dis",
+      "title": "Distributed Interactive Simulation",
+      "authority": "IEEE / SISO",
+      "roles": ["distributed_simulation", "live_virtual_constructive_interoperation"],
+      "officialLocator": "https://www.sisostandards.org/page/StandardsProducts",
+      "access": "ieee_standard",
+      "artifactPolicy": "exact_standard_and_pdu_profile_required",
+      "payloadPolicy": "simulation_and_test"
+    },
+    {
+      "id": "ieee-1516-hla",
+      "title": "High Level Architecture for Modeling and Simulation",
+      "authority": "IEEE / SISO",
+      "roles": ["distributed_simulation_federation", "federation_object_models"],
+      "officialLocator": "https://www.sisostandards.org/page/StandardsProducts",
+      "dataLocator": "https://www.sisostandards.org/page/DataFiles",
+      "access": "ieee_standard_with_public_schema_files",
+      "artifactPolicy": "exact_standard_and_fom_required",
+      "payloadPolicy": "simulation_and_test"
+    },
+    {
+      "id": "siso-std-024-2024-sirl",
+      "title": "Simulation Interoperability Readiness Levels",
+      "authority": "Simulation Interoperability Standards Organization",
+      "roles": ["interoperability_risk_assessment", "evidence_readiness"],
+      "officialLocator": "https://www.sisostandards.org/page/StandardsProducts",
+      "access": "public_standard",
+      "artifactPolicy": "assessment_evidence_required",
+      "payloadPolicy": "assessment_only"
+    },
+    {
+      "id": "army-cmoss",
+      "title": "C5ISR/EW Modular Open Suite of Standards",
+      "authority": "United States Army",
+      "roles": ["mounted_platform_modularity", "hardware_and_software_integration"],
+      "officialLocator": "https://www.army.mil/article/288717/cmoss_mounted_form_factor_award_initiates_rapid_prototype_development",
+      "access": "program_and_consortium_artifacts",
+      "artifactPolicy": "target_platform_profile_required",
+      "payloadPolicy": "platform_integration"
+    },
+    {
+      "id": "face-technical-standard",
+      "title": "Future Airborne Capability Environment Technical Standard",
+      "authority": "The Open Group FACE Consortium",
+      "roles": ["portable_airborne_software_components", "conformance_and_certification"],
+      "officialLocator": "https://facesoftware.org/",
+      "access": "consortium_and_registered_portal",
+      "artifactPolicy": "exact_edition_and_conformance_profile_required",
+      "payloadPolicy": "platform_software_integration"
+    }
+  ]
+}
