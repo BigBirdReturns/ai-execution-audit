@@ -92,7 +92,11 @@ def main() -> int:
     overlay_receipt = json.loads(overlay_receipt_path.read_text(encoding="utf-8"))
 
     env = os.environ.copy()
-    env.update({"CI": "true", "NEXT_TELEMETRY_DISABLED": "1", "NODE_ENV": "test"})
+    env.update({
+        "CI": "true",
+        "NEXT_TELEMETRY_DISABLED": "1",
+        "NODE_OPTIONS": "--max-old-space-size=6144",
+    })
 
     commands = [
         ("npm-ci", ["npm", "ci"]),
