@@ -100,6 +100,32 @@ export function verifyPartitionJournal(journalPath, nodeTrustStore) {
   };
 }
 
+function baseDecisionIdentityBody(decision) {
+  return {
+    disposition: decision.disposition,
+    reasons: decision.reasons,
+    checkedAt: decision.checkedAt,
+    candidateId: decision.candidateId,
+    snapshotId: decision.snapshotId,
+    authorityId: decision.authorityId,
+    candidateVerified: decision.candidateVerified,
+    authorityVerified: decision.authorityVerified,
+  };
+}
+
+function verifyBaseDecision(decision) {
+  requireCondition(
+    isRecord(decision) && decision.schema === 'axm-candidate-authority-decision/1',
+    'base candidate-authority decision schema is invalid',
+  );
+  requireCondition(
+    decision.decisionId === digest('authoritydecision1', baseDecisionIdentityBody(decision)),
+    'base candidate-authority decision identity is invalid',
+  );
+  requireCondition(Array.isArray(decision.reasons) && decision.reasons.length > 0, 'base decision reasons are missing');
+  return decision;
+}
+
 function partitionDecisionIdentityBody(decision) {
   return {
     baseDecisionId: decision.baseDecisionId,
@@ -116,11 +142,28 @@ function partitionDecisionIdentityBody(decision) {
   };
 }
 
+function signedStateSummary(stateAfter) {
+  return {
+    currentAuthorityId: stateAfter.currentAuthorityId ?? null,
+    currentProfileId: stateAfter.currentProfileId ?? null,
+    lastObservationId: stateAfter.lastObservation?.observationId ?? null,
+    lastObservationAt: stateAfter.lastObservation?.observedAt ?? null,
+    activeEpochId: stateAfter.activeEpoch?.epochId ?? null,
+    pendingEpochId: stateAfter.pendingReconciliation?.epoch?.epochId ?? null,
+  };
+}
+
 export function verifyPartitionDecisionEvidence(decision, journalVerification) {
   requireCondition(
     isRecord(decision) && decision.schema === 'axm-partition-authority-decision/1',
     'partition decision schema is invalid',
   );
+  const baseDecision = verifyBaseDecision(decision.baseDecision);
+  requireCondition(decision.baseDecisionId === baseDecision.decisionId, 'partition decision cites a different base decision');
+  requireCondition(decision.candidateId === baseDecision.candidateId, 'partition candidate differs from its base decision');
+  requireCondition(decision.snapshotId === baseDecision.snapshotId, 'partition snapshot differs from its base decision');
+  requireCondition(decision.authorityId === baseDecision.authorityId, 'partition authority differs from its base decision');
+  requireCondition(decision.checkedAt === baseDecision.checkedAt, 'partition check time differs from its base decision');
   requireCondition(
     decision.decisionId === digest('partitiondecision1', partitionDecisionIdentityBody(decision)),
     'partition decision identity is invalid',
@@ -146,11 +189,22 @@ export function verifyPartitionDecisionEvidence(decision, journalVerification) {
       'partition decision is absent from the signed epoch state',
     );
   }
+  const state = signedStateSummary(record.stateAfter);
+  requireCondition(state.currentAuthorityId === decision.authorityId, 'signed runtime state used a different authority');
+  requireCondition(state.currentProfileId === decision.profileId, 'signed runtime state used a different profile');
+  if (decision.epochId) {
+    requireCondition(
+      state.activeEpochId === decision.epochId || state.pendingEpochId === decision.epochId,
+      'signed runtime state used a different partition epoch',
+    );
+  }
   return {
     recordSequence: record.sequence,
     recordId: record.recordId,
     journalSha256: journalVerification.journalSha256,
     lastRecordId: journalVerification.lastRecordId,
+    signedState: state,
+    baseDecisionId: baseDecision.decisionId,
   };
 }
 
@@ -212,5 +266,7 @@ export function verifyPartitionReconciliationEvidence(reconciliation, journalVer
     recordId: record.recordId,
     journalSha256: journalVerification.journalSha256,
     lastRecordId: journalVerification.lastRecordId,
+    signedPriorState: signedStateSummary(priorState),
+    signedAfterState: signedStateSummary(record.stateAfter),
   };
 }
