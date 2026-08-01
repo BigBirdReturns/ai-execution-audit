@@ -52,6 +52,9 @@ jobs:
       - name: Run detached candidate-authority gate tests
         run: node --test adapters/polybolos_ci/authority/authority_gate.test.mjs
 
+      - name: Run signed partition-runtime and reconciliation tests
+        run: node --test adapters/polybolos_ci/authority/partition_runtime.test.mjs
+
       - name: Materialize the read-only cabinet bridge
         run: python adapters/polybolos_ci/materialize_cabinet.py
 
