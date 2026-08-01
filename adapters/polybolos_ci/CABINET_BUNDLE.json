@@ -1,0 +1,34 @@
+{
+  "compressed_bytes": 7356,
+  "decoded_tar_bytes": 30720,
+  "decoded_tar_sha256": "d80bfc547e149b3ee2221d00a4c2d72be0398113692bb1a4360eaa7278ff0990",
+  "encoded_chars": 9195,
+  "encoding": "zlib+base85+tar",
+  "files": {
+    "bridge.py": {
+      "bytes": 13921,
+      "sha256": "7b2de4572eb460fd3e6dab85aeb810556d7ba50f9d81b401c1646ecf3927074e"
+    },
+    "mame/polybolosci/init.lua": {
+      "bytes": 3224,
+      "sha256": "1ea803ff3ab30029bbb30e97ad49be893d1b7dee2f24ec32eac969de16bb72fc"
+    },
+    "mame/polybolosci/plugin.json": {
+      "bytes": 243,
+      "sha256": "6ef843f98b4217e022029bbe6314fde4fabed6fc266125b16ef3dcbb7f6479a2"
+    },
+    "motiondeck/polybolos-ci-bridge.json": {
+      "bytes": 1078,
+      "sha256": "82ee8f80135c1f28026f203a5e8b4cafbeac033e5b69deea0d31328828c6f32c"
+    },
+    "test_bridge.py": {
+      "bytes": 4507,
+      "sha256": "e2f78d9571156bfd0ab1d825611e8e4b43d90866b3c5d740f33e44a0df5d6d0a"
+    },
+    "test_plugin.py": {
+      "bytes": 1294,
+      "sha256": "0278d7e4d950670ff6a8aeae888e602ce5c0ce49c7cd5292b9cace17605c8af8"
+    }
+  },
+  "schema": "ai-execution-audit/polybolos-ci-cabinet-bundle@1"
+}
