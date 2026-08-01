@@ -1,0 +1,70 @@
+name: Polybolos congruent-shape adapter qualification
+
+on:
+  pull_request:
+    paths:
+      - "adapters/polybolos/**"
+      - ".github/workflows/polybolos-adapter.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "adapters/polybolos/**"
+      - ".github/workflows/polybolos-adapter.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: polybolos-adapter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-congruent-shape-adapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out AXM audit harness
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run mapping and shape-admission suites
+        run: |
+          node --test \
+            adapters/polybolos/conformance/congruence.test.mjs \
+            adapters/polybolos/admission/admission.test.mjs
+
+      - name: Retain provisional conformance receipt
+        run: |
+          node adapters/polybolos/conformance/run_congruence.mjs \
+            qualification/polybolos-adapter/congruence-receipt.json
+
+      - name: Retain synthetic signed-admission receipt
+        run: |
+          node adapters/polybolos/admission/run_admission.mjs \
+            qualification/polybolos-adapter/shape-admission
+
+      - name: Generate a self-contained AXM checkpoint fixture
+        run: |
+          node adapters/polybolos/conformance/make_checkpoint_fixture.mjs \
+            qualification/polybolos-adapter/checkpoint-fixture.json
+
+      - name: Run the provisional shape through the existing AXM spoke
+        run: |
+          node adapters/polybolos/conformance/run_spoke_e2e.mjs \
+            qualification/polybolos-adapter/checkpoint-fixture.json \
+            qualification/polybolos-adapter/spoke-e2e
+
+      - name: Retain adapter qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: polybolos-congruent-shape-adapter-qualification
+          path: qualification/polybolos-adapter
+          if-no-files-found: error
