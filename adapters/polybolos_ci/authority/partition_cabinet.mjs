@@ -1,16 +1,17 @@
 import { createHash } from 'node:crypto';
 import { canonicalJson } from './authority_gate.mjs';
 import {
+  verifyPartitionDecisionEvidence,
+  verifyPartitionJournal,
+  verifyPartitionReconciliationEvidence,
+} from './partition_evidence.mjs';
+import {
   verifyLinkObservation,
   verifyPartitionAuthority,
 } from './partition_runtime.mjs';
 
 function requireCondition(condition, message) {
   if (!condition) throw new Error(message);
-}
-
-function isRecord(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function digest(prefix, value) {
@@ -56,15 +57,21 @@ function boundedLease(profile, decision) {
   };
 }
 
-function frameFromSemantic(semantic, capturedAt) {
-  parseTime(capturedAt, 'capturedAt');
+function frameFromSemantic(semantic, capturedAt, evidence) {
+  const capturedAtMs = parseTime(capturedAt, 'capturedAt');
   const stateId = digest('partitionstate1', semantic);
+  const normalizedCapturedAt = new Date(capturedAtMs).toISOString();
   return {
     schema: 'polybolos-partition-cabinet-frame/1',
     stateId,
-    frameId: digest('partitionframe1', { stateId, capturedAt }),
-    capturedAt: new Date(Date.parse(capturedAt)).toISOString(),
+    frameId: digest('partitionframe1', {
+      stateId,
+      capturedAt: normalizedCapturedAt,
+      evidence,
+    }),
+    capturedAt: normalizedCapturedAt,
     ...semantic,
+    evidence,
     claimBoundary:
       'This frame is a read-only diagnostic projection of verified partition-authority receipts. It grants no command, targeting, engagement, effector, emulator-input, process-launch, or weapons authority.',
   };
@@ -76,28 +83,55 @@ export function createPartitionDecisionFrame({
   observation,
   nodeTrustStore,
   decision,
+  journalPath,
   capturedAt,
 }) {
   const verifiedAuthority = verifyPartitionAuthority(authority, authorityTrustStore);
   const verifiedObservation = verifyLinkObservation(observation, nodeTrustStore);
-  requireCondition(
-    isRecord(decision) && decision.schema === 'axm-partition-authority-decision/1',
-    'partition decision schema is invalid',
-  );
+  const journal = verifyPartitionJournal(journalPath, nodeTrustStore);
+  const signedEvidence = verifyPartitionDecisionEvidence(decision, journal);
+
   requireCondition(decision.authorityId === verifiedAuthority.authorityId, 'decision authority does not match the frame authority');
   requireCondition(
-    decision.baseDecision?.candidateVerified === true && decision.baseDecision?.authorityVerified === true,
+    decision.baseDecision.candidateVerified === true && decision.baseDecision.authorityVerified === true,
     'partition frame requires verified candidate and authority receipts',
+  );
+  requireCondition(
+    signedEvidence.signedState.lastObservationId === verifiedObservation.observationId,
+    'provided link observation is not the one retained in signed runtime state',
+  );
+  requireCondition(
+    signedEvidence.signedState.lastObservationAt === verifiedObservation.observedAt,
+    'provided link observation time differs from signed runtime state',
   );
   const profile = profileFor(verifiedAuthority, verifiedObservation);
   requireCondition(profile, 'signed observation does not map to an authority profile');
   requireCondition(profile.id === decision.profileId, 'decision profile does not match the signed observation');
+  requireCondition(
+    signedEvidence.signedState.currentProfileId === profile.id,
+    'signed runtime profile differs from the cabinet profile',
+  );
+  requireCondition(
+    signedEvidence.signedState.currentAuthorityId === verifiedAuthority.authorityId,
+    'signed runtime authority differs from the cabinet authority',
+  );
   requireCondition(
     !profile.partition || decision.epochId,
     'partition decision is missing its runtime-owned epoch',
   );
 
   const lease = boundedLease(profile, decision);
+  const evidence = {
+    schema: 'axm-partition-cabinet-evidence/1',
+    kind: 'candidate_decision',
+    observationId: verifiedObservation.observationId,
+    recordSequence: signedEvidence.recordSequence,
+    recordId: signedEvidence.recordId,
+    baseDecisionId: signedEvidence.baseDecisionId,
+    journalSha256: signedEvidence.journalSha256,
+    journalLastRecordId: signedEvidence.lastRecordId,
+    journalRecordCount: journal.recordCount,
+  };
   const semantic = {
     mode: 'candidate',
     authorityId: decision.authorityId,
@@ -116,10 +150,12 @@ export function createPartitionDecisionFrame({
       candidate: true,
       authority: true,
       linkObservation: true,
+      signedJournal: true,
     },
     reconciliation: null,
     counts: {
       localDecisions: 1,
+      signedJournalRecords: journal.recordCount,
     },
     lamps: {
       connected: !profile.partition,
@@ -134,9 +170,10 @@ export function createPartitionDecisionFrame({
       reconciliationPending: false,
       reconciliationComplete: false,
       humanRequired: false,
+      signedEvidence: true,
     },
   };
-  return frameFromSemantic(semantic, capturedAt);
+  return frameFromSemantic(semantic, capturedAt, evidence);
 }
 
 export function createPartitionReconciliationFrame({
@@ -145,14 +182,14 @@ export function createPartitionReconciliationFrame({
   restoredObservation,
   nodeTrustStore,
   reconciliation,
+  journalPath,
   capturedAt,
 }) {
   const verifiedAuthority = verifyPartitionAuthority(returningAuthority, authorityTrustStore);
   const verifiedObservation = verifyLinkObservation(restoredObservation, nodeTrustStore);
-  requireCondition(
-    isRecord(reconciliation) && reconciliation.schema === 'axm-partition-reconciliation/1',
-    'reconciliation schema is invalid',
-  );
+  const journal = verifyPartitionJournal(journalPath, nodeTrustStore);
+  const signedEvidence = verifyPartitionReconciliationEvidence(reconciliation, journal);
+
   requireCondition(
     reconciliation.returningAuthorityId === verifiedAuthority.authorityId,
     'reconciliation returning authority does not match',
@@ -161,11 +198,38 @@ export function createPartitionReconciliationFrame({
     reconciliation.disposition === 'explicitly_superseded' || reconciliation.disposition === 'human_required',
     'reconciliation disposition is invalid',
   );
+  requireCondition(
+    signedEvidence.signedPriorState.lastObservationId === verifiedObservation.observationId,
+    'restored observation is not the one retained before signed reconciliation',
+  );
+  requireCondition(
+    signedEvidence.signedPriorState.lastObservationAt === verifiedObservation.observedAt,
+    'restored observation time differs from signed pre-reconciliation state',
+  );
   const profile = profileFor(verifiedAuthority, verifiedObservation);
   requireCondition(profile && !profile.partition, 'reconciliation frame requires a signed connected profile');
+  requireCondition(
+    signedEvidence.signedPriorState.currentProfileId === profile.id,
+    'signed pre-reconciliation profile differs from the cabinet profile',
+  );
+  requireCondition(
+    signedEvidence.signedAfterState.currentAuthorityId === verifiedAuthority.authorityId,
+    'signed post-reconciliation state did not install the returning authority',
+  );
+
   const localDecisionIds = Array.isArray(reconciliation.localDecisionIds)
     ? reconciliation.localDecisionIds.filter((value) => typeof value === 'string')
     : [];
+  const evidence = {
+    schema: 'axm-partition-cabinet-evidence/1',
+    kind: 'reconciliation',
+    observationId: verifiedObservation.observationId,
+    recordSequence: signedEvidence.recordSequence,
+    recordId: signedEvidence.recordId,
+    journalSha256: signedEvidence.journalSha256,
+    journalLastRecordId: signedEvidence.lastRecordId,
+    journalRecordCount: journal.recordCount,
+  };
   const semantic = {
     mode: 'reconciliation',
     authorityId: verifiedAuthority.authorityId,
@@ -194,6 +258,7 @@ export function createPartitionReconciliationFrame({
       candidate: null,
       authority: true,
       linkObservation: true,
+      signedJournal: true,
     },
     reconciliation: {
       reconciliationId: reconciliation.reconciliationId,
@@ -206,6 +271,7 @@ export function createPartitionReconciliationFrame({
     },
     counts: {
       localDecisions: localDecisionIds.length,
+      signedJournalRecords: journal.recordCount,
     },
     lamps: {
       connected: true,
@@ -220,7 +286,8 @@ export function createPartitionReconciliationFrame({
       reconciliationPending: reconciliation.disposition === 'human_required',
       reconciliationComplete: reconciliation.disposition === 'explicitly_superseded',
       humanRequired: reconciliation.disposition === 'human_required',
+      signedEvidence: true,
     },
   };
-  return frameFromSemantic(semantic, capturedAt);
+  return frameFromSemantic(semantic, capturedAt, evidence);
 }
