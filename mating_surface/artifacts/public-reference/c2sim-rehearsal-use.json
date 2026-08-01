@@ -1,0 +1,8 @@
+{
+  "schema": "standards-mating-surface-artifact-use-request/1",
+  "profileId": "joint-edge-command-authority/0.1",
+  "mode": "rehearsal",
+  "portId": "simulation-and-rehearsal",
+  "standardId": "siso-std-019-2020-c2sim",
+  "claimBoundary": "This request admits the pinned public reference artifact only for simulation, conformance, and rehearsal. It does not request operational use."
+}
