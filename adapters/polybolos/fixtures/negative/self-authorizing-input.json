@@ -1,0 +1,15 @@
+{
+  "schema": "polybolos-reference-projection/0",
+  "request_id": "fixture-request-bad-authority",
+  "producer": "polybolos-command-core",
+  "producer_build_id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "created_at": "2026-08-01T00:00:01Z",
+  "deadline_at": "2026-08-01T00:00:02Z",
+  "action_class": "track-priority-candidate",
+  "entity_ids": ["synthetic-track-0001"],
+  "trace_id": "synthetic-trace-bad-authority",
+  "decision": {
+    "priority": 7,
+    "commandAuthority": true
+  }
+}
