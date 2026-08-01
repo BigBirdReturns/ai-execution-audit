@@ -1,0 +1,73 @@
+diff --git a/src/lib/sdk/PolybolosClient.ts b/src/lib/sdk/PolybolosClient.ts
+index 6b2f369..cd0eebc 100644
+--- a/src/lib/sdk/PolybolosClient.ts
++++ b/src/lib/sdk/PolybolosClient.ts
+@@ -584,7 +584,13 @@ export class PolybolosClient {
+         typeof payload.sequence === 'number' && Number.isInteger(payload.sequence)
+           ? payload.sequence
+           : sequence;
+-      if (!snapshotSequence || page < 1 || totalPages < 1 || page > totalPages) return;
++      if (
++        snapshotSequence === null ||
++        snapshotSequence < 0 ||
++        page < 1 ||
++        totalPages < 1 ||
++        page > totalPages
++      ) return;
+       if (!this.snapshotAssembly || this.snapshotAssembly.sequence !== snapshotSequence) {
+         this.snapshotAssembly = {
+           sequence: snapshotSequence,
+diff --git a/src/lib/sdk/commandIntelligence.test.ts b/src/lib/sdk/commandIntelligence.test.ts
+index 4037457..a8635a2 100644
+--- a/src/lib/sdk/commandIntelligence.test.ts
++++ b/src/lib/sdk/commandIntelligence.test.ts
+@@ -230,6 +230,49 @@ describe('Polybolos Command Intelligence', () => {
+     client.destroy();
+   });
+ 
++  it('accepts an empty initial snapshot at sequence zero', async () => {
++    let source: {
++      onopen: ((event: Event) => void) | null;
++      onmessage: ((event: MessageEvent<string>) => void) | null;
++      onerror: ((event: Event) => void) | null;
++      close(): void;
++    } | null = null;
++    const updates: number[] = [];
++    const client = new PolybolosClient({
++      osirisBaseUrl: 'http://localhost',
++      onEntityUpdate: (entities) => updates.push(entities.length),
++      eventSourceFactory: () => {
++        source = {
++          onopen: null,
++          onmessage: null,
++          onerror: null,
++          close() {},
++        };
++        return source;
++      },
++    });
++    await client.initialize();
++    const emit = (value: unknown) =>
++      source?.onmessage?.({ data: JSON.stringify(value) } as MessageEvent<string>);
++
++    emit({
++      type: 'snapshot_page',
++      sequence: 0,
++      timestamp: '2026-08-01T00:00:00Z',
++      payload: { page: 1, totalPages: 1, sequence: 0, entities: [] },
++    });
++    emit({
++      type: 'snapshot_complete',
++      sequence: 0,
++      timestamp: '2026-08-01T00:00:00Z',
++      payload: { sequence: 0, entityCount: 0, pages: 1 },
++    });
++
++    expect(updates).toContain(0);
++    expect(client.getEntities()).toEqual([]);
++    client.destroy();
++  });
++
+   it('runs the cabinet from CI events and blocks refused transactions', () => {
+     const run = runCommandIntelligenceCabinet(
+       [
