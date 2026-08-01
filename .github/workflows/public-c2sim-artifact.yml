@@ -35,13 +35,16 @@ jobs:
       - name: Check out the mating-surface estate
         uses: actions/checkout@v4
 
-      - name: Check out the pinned OpenC2SIM reference source
+      - name: Check out only the pinned OpenC2SIM reference artifact
         uses: actions/checkout@v4
         with:
           repository: OpenC2SIM/OpenC2SIM.github.io
           ref: ca1efa3cb23d35eef80f31d87ca189de44eb99fd
           path: upstream-c2sim
           persist-credentials: false
+          filter: blob:none
+          sparse-checkout: C2SIM_SMX_LOX_V1.0.1.xsd
+          sparse-checkout-cone-mode: false
 
       - name: Set up Node
         uses: actions/setup-node@v4
