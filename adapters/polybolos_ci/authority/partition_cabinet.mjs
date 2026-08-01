@@ -212,10 +212,25 @@ export function createPartitionReconciliationFrame({
     signedEvidence.signedPriorState.currentProfileId === profile.id,
     'signed pre-reconciliation profile differs from the cabinet profile',
   );
-  requireCondition(
-    signedEvidence.signedAfterState.currentAuthorityId === verifiedAuthority.authorityId,
-    'signed post-reconciliation state did not install the returning authority',
-  );
+  if (reconciliation.disposition === 'explicitly_superseded') {
+    requireCondition(
+      signedEvidence.signedAfterState.currentAuthorityId === verifiedAuthority.authorityId,
+      'signed post-reconciliation state did not install the returning authority',
+    );
+    requireCondition(
+      signedEvidence.signedAfterState.pendingEpochId === null,
+      'signed explicit reconciliation left a pending partition epoch',
+    );
+  } else {
+    requireCondition(
+      signedEvidence.signedAfterState.currentAuthorityId === reconciliation.priorAuthorityId,
+      'human-required reconciliation silently changed current authority',
+    );
+    requireCondition(
+      signedEvidence.signedAfterState.pendingEpochId === reconciliation.epochId,
+      'human-required reconciliation did not preserve its pending epoch',
+    );
+  }
 
   const localDecisionIds = Array.isArray(reconciliation.localDecisionIds)
     ? reconciliation.localDecisionIds.filter((value) => typeof value === 'string')
