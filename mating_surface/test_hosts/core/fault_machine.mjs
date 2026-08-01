@@ -5,10 +5,48 @@ const LINK_STATES = new Set(['up', 'down']);
 const PARTITION_POLICIES = new Set(['buffer', 'drop']);
 const MODES = new Set(['test', 'rehearsal']);
 const BEHAVIORS = new Set(['pass', 'drop', 'duplicate', 'delay']);
+const EVENT_PHASE = 'apply_event_then_release_due';
 const MAX_PAYLOAD_BYTES = 1024 * 1024;
 const MAX_EVENTS = 10_000;
+const MAX_STEP = 1_000_000_000;
 const MAX_QUEUE_CAPACITY = 1_024;
 const MAX_DUPLICATE_COPIES = 8;
+
+const PACKET_KEYS = new Set([
+  'schema',
+  'packetId',
+  'profileId',
+  'portId',
+  'standardId',
+  'standardRevision',
+  'artifactAdmissionId',
+  'artifactUseId',
+  'artifactSha256',
+  'catalogId',
+  'messageIdentity',
+  'sourceSystemId',
+  'observedAt',
+  'payloadDigest',
+  'payloadBytes',
+  'validationClass',
+  'claimBoundary',
+]);
+const SCENARIO_KEYS = new Set([
+  'schema',
+  'scenarioId',
+  'mode',
+  'profileId',
+  'portId',
+  'standardId',
+  'artifactUseId',
+  'initialLinkState',
+  'partitionPolicy',
+  'queueCapacity',
+  'events',
+  'claimBoundary',
+]);
+const LINK_EVENT_KEYS = new Set(['step', 'type', 'state']);
+const SEND_EVENT_KEYS = new Set(['step', 'type', 'packetId', 'behavior', 'copies', 'releaseAt']);
 
 export class FaultMachineError extends Error {
   constructor(code, message) {
@@ -55,10 +93,14 @@ function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-function exactKeys(value, allowed, code, label) {
+function exactKeys(value, allowed, code, label, requireAll = false) {
   requireCondition(isRecord(value), code, `${label} must be an object`);
   const unexpected = Object.keys(value).filter((key) => !allowed.has(key)).sort();
   requireCondition(unexpected.length === 0, code, `${label} contains unsupported field ${unexpected[0]}`);
+  if (requireAll) {
+    const missing = [...allowed].filter((key) => !Object.prototype.hasOwnProperty.call(value, key));
+    requireCondition(missing.length === 0, code, `${label} is missing field ${missing[0]}`);
+  }
 }
 
 function boundedString(value, code, label, max = 512) {
@@ -66,6 +108,15 @@ function boundedString(value, code, label, max = 512) {
   const normalized = value.trim();
   requireCondition(normalized.length > 0 && normalized.length <= max, code, `${label} is empty or unbounded`);
   return normalized;
+}
+
+function boundedStep(value, code, label) {
+  requireCondition(
+    Number.isSafeInteger(value) && value >= 0 && value <= MAX_STEP,
+    code,
+    `${label} must be a safe integer between 0 and ${MAX_STEP}`,
+  );
+  return value;
 }
 
 function normalizedDateTime(value, code, label) {
@@ -138,7 +189,11 @@ export function createTestPacket({
 }) {
   const { admission, use } = validateArtifactTransaction(artifactTransaction, catalog);
   requireCondition(Buffer.isBuffer(payload), 'PAYLOAD_BYTES_INVALID', 'payload must be a Buffer');
-  requireCondition(payload.length > 0 && payload.length <= MAX_PAYLOAD_BYTES, 'PAYLOAD_BYTES_INVALID', 'payload is empty or exceeds 1 MiB');
+  requireCondition(
+    payload.length > 0 && payload.length <= MAX_PAYLOAD_BYTES,
+    'PAYLOAD_BYTES_INVALID',
+    'payload is empty or exceeds 1 MiB',
+  );
   const body = {
     schema: 'standards-port-test-packet/1',
     profileId: boundedString(use.profileId, 'PACKET_PROFILE_INVALID', 'profileId'),
@@ -167,16 +222,22 @@ export function createTestPacket({
 }
 
 export function verifyTestPacket(packet, payload, artifactTransaction, catalog) {
+  exactKeys(packet, PACKET_KEYS, 'PACKET_FIELDS_INVALID', 'test packet', true);
   requireCondition(
-    isRecord(packet) && packet.schema === 'standards-port-test-packet/1',
+    packet.schema === 'standards-port-test-packet/1',
     'PACKET_SCHEMA_INVALID',
     'test packet schema is invalid',
   );
+  boundedString(packet.claimBoundary, 'PACKET_CLAIM_BOUNDARY_INVALID', 'packet claimBoundary');
   requireCondition(
     packet.validationClass === 'opaque_transport_fixture',
     'PACKET_VALIDATION_CLASS_INVALID',
     'test packet validation class is unsupported',
   );
+  requireCondition(Buffer.isBuffer(payload), 'PACKET_PAYLOAD_MISSING', 'payload must be a Buffer');
+  requireCondition(packet.payloadDigest === sha256(payload), 'PACKET_PAYLOAD_MISMATCH', 'payload bytes do not match the test packet');
+  requireCondition(packet.payloadBytes === payload.length, 'PACKET_PAYLOAD_MISMATCH', 'payload length does not match the test packet');
+
   const rebuilt = createTestPacket({
     artifactTransaction,
     catalog,
@@ -185,49 +246,59 @@ export function verifyTestPacket(packet, payload, artifactTransaction, catalog) 
     sourceSystemId: packet.sourceSystemId,
     observedAt: packet.observedAt,
   });
-  requireCondition(packet.packetId === rebuilt.packetId, 'PACKET_IDENTITY_INVALID', 'test packet identity does not match its contents');
-  requireCondition(packet.payloadDigest === rebuilt.payloadDigest, 'PACKET_PAYLOAD_MISMATCH', 'payload bytes do not match the test packet');
-  requireCondition(packet.payloadBytes === rebuilt.payloadBytes, 'PACKET_PAYLOAD_MISMATCH', 'payload length does not match the test packet');
+  requireCondition(
+    packet.packetId === rebuilt.packetId,
+    'PACKET_IDENTITY_INVALID',
+    'test packet identity does not match its contents',
+  );
+  requireCondition(
+    canonicalJson(packetIdentityBody(packet)) === canonicalJson(packetIdentityBody(rebuilt)),
+    'PACKET_BINDING_INVALID',
+    'test packet fields do not match the admitted artifact binding',
+  );
   return packet;
 }
 
-const SCENARIO_KEYS = new Set([
-  'schema',
-  'scenarioId',
-  'mode',
-  'profileId',
-  'portId',
-  'standardId',
-  'artifactUseId',
-  'initialLinkState',
-  'partitionPolicy',
-  'queueCapacity',
-  'events',
-  'claimBoundary',
-]);
-const LINK_EVENT_KEYS = new Set(['step', 'type', 'state']);
-const SEND_EVENT_KEYS = new Set(['step', 'type', 'packetId', 'behavior', 'copies', 'releaseAt']);
+function scenarioIdentityBody(scenario) {
+  const { claimBoundary: _claimBoundary, ...body } = scenario;
+  return body;
+}
+
+export function deriveFaultScenarioDigest(scenario) {
+  validateFaultScenario(scenario);
+  return digest('standardfaultscenario1', scenarioIdentityBody(scenario));
+}
 
 export function validateFaultScenario(scenario) {
-  exactKeys(scenario, SCENARIO_KEYS, 'SCENARIO_FIELDS_INVALID', 'scenario');
+  exactKeys(scenario, SCENARIO_KEYS, 'SCENARIO_FIELDS_INVALID', 'scenario', true);
   requireCondition(
     scenario.schema === 'standards-port-fault-scenario/1',
     'SCENARIO_SCHEMA_INVALID',
     'fault scenario schema is invalid',
   );
   boundedString(scenario.scenarioId, 'SCENARIO_ID_INVALID', 'scenarioId');
+  boundedString(scenario.claimBoundary, 'SCENARIO_CLAIM_BOUNDARY_INVALID', 'claimBoundary');
   requireCondition(MODES.has(scenario.mode), 'SCENARIO_MODE_INVALID', 'scenario mode must be test or rehearsal');
   for (const key of ['profileId', 'portId', 'standardId', 'artifactUseId']) {
     boundedString(scenario[key], 'SCENARIO_BINDING_INVALID', key);
   }
   requireCondition(LINK_STATES.has(scenario.initialLinkState), 'SCENARIO_LINK_INVALID', 'initial link state is invalid');
-  requireCondition(PARTITION_POLICIES.has(scenario.partitionPolicy), 'SCENARIO_PARTITION_POLICY_INVALID', 'partition policy is invalid');
   requireCondition(
-    Number.isInteger(scenario.queueCapacity)
+    PARTITION_POLICIES.has(scenario.partitionPolicy),
+    'SCENARIO_PARTITION_POLICY_INVALID',
+    'partition policy is invalid',
+  );
+  requireCondition(
+    Number.isSafeInteger(scenario.queueCapacity)
       && scenario.queueCapacity >= 0
       && scenario.queueCapacity <= MAX_QUEUE_CAPACITY,
     'SCENARIO_QUEUE_INVALID',
     `queueCapacity must be an integer between 0 and ${MAX_QUEUE_CAPACITY}`,
+  );
+  requireCondition(
+    scenario.partitionPolicy !== 'drop' || scenario.queueCapacity === 0,
+    'SCENARIO_QUEUE_UNUSED',
+    'drop partition policy requires queueCapacity 0',
   );
   requireCondition(
     Array.isArray(scenario.events)
@@ -238,18 +309,22 @@ export function validateFaultScenario(scenario) {
   );
 
   let priorStep = -1;
+  let linkState = scenario.initialLinkState;
   const sentPacketIds = new Set();
   for (const event of scenario.events) {
     requireCondition(isRecord(event), 'SCENARIO_EVENT_INVALID', 'scenario event must be an object');
-    requireCondition(Number.isInteger(event.step) && event.step >= 0, 'SCENARIO_EVENT_INVALID', 'event step is invalid');
+    boundedStep(event.step, 'SCENARIO_EVENT_INVALID', 'event step');
     requireCondition(event.step > priorStep, 'SCENARIO_EVENT_ORDER_INVALID', 'event steps must be strictly increasing');
     priorStep = event.step;
 
     if (event.type === 'link') {
-      exactKeys(event, LINK_EVENT_KEYS, 'SCENARIO_EVENT_FIELDS_INVALID', 'link event');
+      exactKeys(event, LINK_EVENT_KEYS, 'SCENARIO_EVENT_FIELDS_INVALID', 'link event', true);
       requireCondition(LINK_STATES.has(event.state), 'SCENARIO_LINK_INVALID', 'link event state is invalid');
+      requireCondition(event.state !== linkState, 'SCENARIO_LINK_NOOP', 'link event must change state');
+      linkState = event.state;
       continue;
     }
+
     requireCondition(event.type === 'send', 'SCENARIO_EVENT_TYPE_INVALID', `unsupported event type ${event.type}`);
     exactKeys(event, SEND_EVENT_KEYS, 'SCENARIO_EVENT_FIELDS_INVALID', 'send event');
     const packetId = boundedString(event.packetId, 'SCENARIO_PACKET_INVALID', 'packetId');
@@ -259,7 +334,7 @@ export function validateFaultScenario(scenario) {
 
     if (event.behavior === 'duplicate') {
       requireCondition(
-        Number.isInteger(event.copies)
+        Number.isSafeInteger(event.copies)
           && event.copies >= 2
           && event.copies <= MAX_DUPLICATE_COPIES,
         'SCENARIO_DUPLICATE_INVALID',
@@ -267,11 +342,8 @@ export function validateFaultScenario(scenario) {
       );
       requireCondition(event.releaseAt === undefined, 'SCENARIO_BEHAVIOR_INVALID', 'duplicate behavior may not set releaseAt');
     } else if (event.behavior === 'delay') {
-      requireCondition(
-        Number.isInteger(event.releaseAt) && event.releaseAt > event.step,
-        'SCENARIO_DELAY_INVALID',
-        'delay releaseAt must be an integer after the send step',
-      );
+      boundedStep(event.releaseAt, 'SCENARIO_DELAY_INVALID', 'delay releaseAt');
+      requireCondition(event.releaseAt > event.step, 'SCENARIO_DELAY_INVALID', 'delay releaseAt must follow the send step');
       requireCondition(event.copies === undefined, 'SCENARIO_BEHAVIOR_INVALID', 'delay behavior may not set copies');
     } else {
       requireCondition(event.copies === undefined, 'SCENARIO_BEHAVIOR_INVALID', `${event.behavior} behavior may not set copies`);
@@ -284,9 +356,27 @@ export function validateFaultScenario(scenario) {
 function validatePacketSet(packets, payloads, artifactTransaction, catalog, scenario) {
   requireCondition(Array.isArray(packets) && packets.length > 0, 'PACKET_SET_INVALID', 'packet set is empty');
   requireCondition(payloads instanceof Map, 'PACKET_SET_INVALID', 'payloads must be a Map keyed by packetId');
+
+  const scenarioPacketIds = scenario.events
+    .filter((event) => event.type === 'send')
+    .map((event) => event.packetId);
+  const scenarioPacketSet = new Set(scenarioPacketIds);
+  requireCondition(
+    packets.length === scenarioPacketIds.length,
+    'PACKET_SET_NOT_EXACT',
+    'packet set must exactly match the scenario send events',
+  );
+  requireCondition(
+    payloads.size === packets.length,
+    'PAYLOAD_SET_NOT_EXACT',
+    'payload map must exactly match the packet set',
+  );
+
   const byId = new Map();
   for (const packet of packets) {
+    requireCondition(isRecord(packet), 'PACKET_SET_INVALID', 'packet set contains a non-object');
     requireCondition(!byId.has(packet.packetId), 'PACKET_SET_DUPLICATE', `duplicate packet ${packet.packetId}`);
+    requireCondition(scenarioPacketSet.has(packet.packetId), 'PACKET_SET_NOT_EXACT', `packet ${packet.packetId} is not used by the scenario`);
     const payload = payloads.get(packet.packetId);
     requireCondition(Buffer.isBuffer(payload), 'PACKET_PAYLOAD_MISSING', `payload is missing for packet ${packet.packetId}`);
     verifyTestPacket(packet, payload, artifactTransaction, catalog);
@@ -296,10 +386,11 @@ function validatePacketSet(packets, payloads, artifactTransaction, catalog, scen
     requireCondition(packet.artifactUseId === scenario.artifactUseId, 'PACKET_SCENARIO_MISMATCH', 'packet artifact use differs from the scenario');
     byId.set(packet.packetId, packet);
   }
-  for (const event of scenario.events) {
-    if (event.type === 'send') {
-      requireCondition(byId.has(event.packetId), 'SCENARIO_PACKET_UNKNOWN', `scenario cites unknown packet ${event.packetId}`);
-    }
+  for (const packetId of scenarioPacketIds) {
+    requireCondition(byId.has(packetId), 'SCENARIO_PACKET_UNKNOWN', `scenario cites unknown packet ${packetId}`);
+  }
+  for (const packetId of payloads.keys()) {
+    requireCondition(byId.has(packetId), 'PAYLOAD_SET_NOT_EXACT', `payload map contains unknown packet ${packetId}`);
   }
   return byId;
 }
@@ -344,6 +435,7 @@ export function runFaultScenario({
 }) {
   validateFaultScenario(scenario);
   const packetById = validatePacketSet(packets, payloads, artifactTransaction, catalog, scenario);
+  const scenarioDigest = deriveFaultScenarioDigest(scenario);
   let linkState = scenario.initialLinkState;
   const queue = [];
   const scheduled = [];
@@ -501,6 +593,10 @@ export function runFaultScenario({
     processDue(event.step);
   }
 
+  const pending = {
+    delayedPacketIds: scheduled.map((row) => row.attempt.packet.packetId),
+    bufferedPacketIds: queue.map((row) => row.packet.packetId),
+  };
   const deliveredOrder = firstUnique(deliveries.map((row) => row.packetId));
   const expectedDeliveredOrder = sendOrder.filter((packetId) => deliveredOrder.includes(packetId));
   const metrics = {
@@ -514,22 +610,28 @@ export function runFaultScenario({
     duplicateExtraCopies: deliveries.filter((row) => row.copyIndex > 0).length,
     delayedPackets: delayedPacketIds.size,
     bufferedPackets: bufferedPacketIds.size,
-    pendingDelayedPackets: scheduled.length,
-    pendingBufferedPackets: queue.length,
+    pendingDelayedPackets: pending.delayedPacketIds.length,
+    pendingBufferedPackets: pending.bufferedPacketIds.length,
     reordered: canonicalJson(deliveredOrder) !== canonicalJson(expectedDeliveredOrder),
     finalLinkState: linkState,
   };
   const body = {
     scenarioId: scenario.scenarioId,
+    scenarioDigest,
     mode: scenario.mode,
     profileId: scenario.profileId,
     portId: scenario.portId,
     standardId: scenario.standardId,
     artifactUseId: scenario.artifactUseId,
+    initialLinkState: scenario.initialLinkState,
+    partitionPolicy: scenario.partitionPolicy,
+    queueCapacity: scenario.queueCapacity,
+    eventPhase: EVENT_PHASE,
     packetIds: [...packetById.keys()].sort(),
     sendOrder,
     deliveries,
     drops,
+    pending,
     metrics,
     journalRoot: journal.at(-1)?.recordId ?? '0'.repeat(64),
   };
@@ -538,10 +640,6 @@ export function runFaultScenario({
     runId: digest('standardfaultrun1', body),
     ...body,
     journal,
-    pending: {
-      delayedPacketIds: scheduled.map((row) => row.attempt.packet.packetId),
-      bufferedPacketIds: queue.map((row) => row.packet.packetId),
-    },
     claimBoundary:
       'This run exercises transport behavior over opaque test packets at a rehearsal or test port. It does not interpret standard payload semantics, grant authority, or represent operational network performance.',
   };
@@ -553,14 +651,18 @@ export function createFaultFrame(run) {
     'FAULT_RUN_INVALID',
     'fault run receipt is invalid',
   );
+  requireCondition(isRecord(run.metrics) && isRecord(run.pending), 'FAULT_RUN_INVALID', 'fault run state is incomplete');
+  requireCondition(Array.isArray(run.journal), 'FAULT_RUN_INVALID', 'fault run journal is missing');
   const body = {
     runId: run.runId,
     scenarioId: run.scenarioId,
+    scenarioDigest: run.scenarioDigest,
     mode: run.mode,
     profileId: run.profileId,
     portId: run.portId,
     standardId: run.standardId,
     artifactUseId: run.artifactUseId,
+    eventPhase: run.eventPhase,
     status:
       run.metrics.pendingDelayedPackets === 0 && run.metrics.pendingBufferedPackets === 0
         ? 'complete'
