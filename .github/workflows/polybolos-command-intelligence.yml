@@ -23,7 +23,7 @@ concurrency:
 jobs:
   qualify-public-source-and-cabinet:
     runs-on: ubuntu-latest
-    timeout-minutes: 80
+    timeout-minutes: 85
 
     steps:
       - name: Check out audit harness
@@ -88,6 +88,12 @@ jobs:
 
       - name: Run actual CI candidate through signed external authority
         run: python adapters/polybolos_ci/run_candidate_authority_e2e.py target qualification/candidate-authority-e2e
+
+      - name: Run actual CI candidate through signed communications partition
+        run: |
+          node adapters/polybolos_ci/authority/run_partition_authority_e2e.mjs \
+            qualification/candidate-authority-e2e/candidate-transaction.json \
+            qualification/partition-authority-e2e
 
       - name: Retain qualification evidence
         if: always()
