@@ -111,6 +111,12 @@ jobs:
       - name: Run bounded checkpoints and witnesses at 5,000 and 20,000 entities
         run: python adapters/polybolos_ci/run_checkpoint_witness_e2e.py target qualification/checkpoint-witness-e2e
 
+      - name: Run provisional Polybolos shape through the existing AXM spoke
+        run: |
+          node adapters/polybolos/conformance/run_spoke_e2e.mjs \
+            qualification/checkpoint-witness-e2e/bounded-20000.json \
+            qualification/polybolos-congruent-spoke-e2e
+
       - name: Run bounded CI candidate through signed software, evidence, and partition authority
         run: |
           node adapters/polybolos_ci/authority/run_checkpoint_partition_e2e.mjs \
