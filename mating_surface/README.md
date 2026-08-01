@@ -77,8 +77,16 @@ Provider-specific folders are leaf implementations. They may contain codecs, gen
 
 When a provider already emits a venue standard, the adapter should pass that standard object through with identity and validation rather than normalize it into an AXM-owned surrogate.
 
+## Artifact custody
+
+The registry says which standard families a venue may select. `artifacts/` says which exact bytes, revision, validator, and use boundary were admitted for a particular transaction.
+
+Public implementation snapshots and synthetic fixtures remain test or rehearsal material. They cannot be renamed into official or operational artifacts. Controlled operational ports require a program-authorized artifact and validator. Every admitted message binds the payload digest to the exact artifact receipt without placing the standard payload inside an AXM-owned envelope.
+
+The first public lane pins an OpenC2SIM C2SIM 1.0.1 composite XSD for rehearsal tooling. It verifies the immutable upstream commit and Git blob, content SHA-256, XML well-formedness with network access disabled, and the expected C2SIM target namespace. It is explicitly classified as a public reference snapshot rather than an official SISO distribution artifact.
+
 ## Current state
 
-The registry and reference venue profile are public metadata and conformance scaffolding. Controlled standards remain metadata-only until their authorized artifacts are supplied. Public simulation schemas may be vendored and verified independently in later lanes.
+The registry and reference venue profile are public metadata and conformance scaffolding. One public C2SIM reference artifact is now admitted for rehearsal only. Controlled standards remain metadata-only until their authorized artifacts and approved validators are supplied.
 
 No operational command, targeting, engagement, effector control, weapons employment, or combat-effectiveness claim is made here.
