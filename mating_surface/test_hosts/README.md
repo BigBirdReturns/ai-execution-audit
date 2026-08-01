@@ -1,32 +1,14 @@
 # Standards-port test hosts
 
-This directory turns admitted venue-standard artifacts into deterministic transport and interoperability test fuel.
+This directory is the replaceable, read-only test-host boundary for the standards-first mating surface. It turns exact admitted artifacts into deterministic transport-fault evidence without implementing the standard's domain semantics. MAME, MotionDeck, a CLI, or another simulator may consume the retained frame, but no dashboard or live service belongs to the audit boundary.
 
-A test host is not part of the operational standard. It receives a read-only frame after the standards-port transaction has been compiled and executed. MAME, MotionDeck, a browser, a CLI, or another simulator may consume the same frame without becoming the source of domain semantics or authority.
+## Fault machine
 
-## Current fault machine
+`core/fault_machine.mjs` accepts opaque synthetic payloads only after each payload has been bound to one admitted artifact, one artifact-use receipt, one structural catalog, one venue profile, and one standard port. The packet and payload sets must exactly match the scenario's send events. Extra packets, extra payloads, provider fields, and operational artifact use are refused.
 
-`core/fault_machine.mjs` operates on opaque test packets bound to:
+A scenario can exercise pass-through delivery, explicit drop, deterministic duplication, deterministic delay, communications partition, bounded buffering, queue-capacity refusal, reconnect, FIFO recovery, and deliberately incomplete runs. A `drop` partition policy must use zero queue capacity, and link events must change state rather than recording no-op churn.
 
-- one admitted standards artifact;
-- one artifact use receipt;
-- one deterministic schema catalog;
-- one venue profile and port;
-- exact payload digests and byte counts.
-
-The machine can exercise:
-
-- pass-through delivery;
-- explicit drop;
-- deterministic duplication;
-- deterministic delay and reordering;
-- communications partition;
-- bounded buffering;
-- queue-capacity refusal;
-- reconnect and FIFO recovery;
-- incomplete runs with visible delayed or buffered residue.
-
-The machine never interprets the payload. The first C2SIM lane uses opaque synthetic bytes and labels them `opaque_transport_fixture`. They are not represented as schema-valid C2SIM messages.
+Each logical step applies its scenario event first. A reconnect then flushes the bounded FIFO queue. Due delayed packets are released after that event work. The run records this phase rule as `apply_event_then_release_due`, and conformance tests verify the same-step ordering.
 
 ## Receipt chain
 
@@ -39,18 +21,22 @@ XSD 1.1 structural catalog
         ↓
 opaque test packet and payload digest
         ↓
-deterministic fault scenario
+scenario digest and deterministic fault schedule
         ↓
 delivery / drop / buffer / delay journal
+        ↓
+detached run verification
         ↓
 read-only standards-port test frame
         ↓
 replaceable test host
 ```
 
-The frame contains counts, state, identities, and the journal root. It contains no payload bytes, provider product interface, command authority, targeting, engagement, effector, or execution surface.
+The run identity binds the executable scenario digest, exact packet set, queue policy, event phase, deliveries, drops, unresolved delayed or buffered packets, metrics, and journal root. `core/fault_verifier.mjs` reconstructs the journal chain, link transitions, FIFO queue, delayed-release schedule, delivery and drop closure, packet outcomes, metrics, run identity, and frame identity without access to payload bytes.
 
-## Run
+The frame contains only identities, bounded state, metrics, the journal root, and the last journal event. It contains no payload bytes, provider product interface, command authority, targeting, engagement, effector, execution, dashboard, or live-service surface.
+
+## Qualification
 
 ```bash
 node --test mating_surface/test_hosts/conformance/fault_machine.test.mjs
@@ -58,9 +44,12 @@ node --test mating_surface/test_hosts/conformance/fault_machine.test.mjs
 node mating_surface/test_hosts/run_fault_machine_e2e.mjs \
   qualification/c2sim-public-reference/artifact-transaction.json \
   qualification/c2sim-public-reference/xsd11-catalog.json \
-  qualification/standard-port-fault-machine
+  qualification/c2sim-public-reference/standard-port-fault-machine
+
+node mating_surface/test_hosts/core/fault_verifier.mjs \
+  qualification/c2sim-public-reference/standard-port-fault-machine/fault-run.json \
+  qualification/c2sim-public-reference/standard-port-fault-machine/test-frame.json \
+  qualification/c2sim-public-reference/standard-port-fault-machine/verification-cli.json
 ```
 
-## Next host boundary
-
-A MAME or MotionDeck adapter should read `standards-port-test-frame/1` and expose controls that compile into `standards-port-fault-scenario/1`. The adapter must not inspect or mutate standard payloads, invent military message semantics, reset authority, or convert the test host into an operational command path.
+The current C2SIM lane deliberately uses `opaque_transport_fixture` payloads. It does not claim that a C2SIM message instance was constructed or schema-validated, that the public reference artifact is an official operational distribution, or that the measured behavior represents a fielded network.
