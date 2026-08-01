@@ -1,4 +1,4 @@
-name: Polybolos Command Intelligence source qualification
+name: Polybolos Command Intelligence qualification
 
 on:
   pull_request:
@@ -21,9 +21,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  qualify-public-source:
+  qualify-public-source-and-cabinet:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
 
     steps:
       - name: Check out audit harness
@@ -49,10 +49,24 @@ jobs:
           cache: npm
           cache-dependency-path: target/package-lock.json
 
-      - name: Verify the target and apply the retained overlay
+      - name: Materialize the read-only cabinet bridge
+        run: python adapters/polybolos_ci/materialize_cabinet.py
+
+      - name: Run cabinet bridge refusal and custody tests
+        run: python -m unittest discover -s adapters/polybolos_ci/cabinet -p 'test_*.py' -v
+
+      - name: Install Lua 5.4
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+
+      - name: Parse the MAME plugin with Lua 5.4
+        run: luac5.4 -p adapters/polybolos_ci/cabinet/mame/polybolosci/init.lua
+
+      - name: Verify the target and apply the retained integration
         run: python adapters/polybolos_ci/apply_overlay.py target
 
-      - name: Run native tests, lint, and production build
+      - name: Run native tests, Command Intelligence lint, and production build
         run: python adapters/polybolos_ci/run_source_qualification.py target qualification
 
       - name: Retain qualification evidence
@@ -60,5 +74,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: polybolos-command-intelligence-qualification
-          path: qualification
+          path: |
+            qualification
+            adapters/polybolos_ci/cabinet/MATERIALIZATION_RECEIPT.json
           if-no-files-found: warn
