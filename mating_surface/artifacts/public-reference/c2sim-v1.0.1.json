@@ -1,0 +1,32 @@
+{
+  "schema": "standards-mating-surface-artifact-manifest/1",
+  "artifactId": "openc2sim-c2sim-smx-lox-v1.0.1",
+  "standardId": "siso-std-019-2020-c2sim",
+  "standardRevision": "C2SIM 1.0.1 / namespace 1.1",
+  "artifactClass": "reference_implementation_snapshot",
+  "useBoundary": "simulation_and_test_only",
+  "source": {
+    "repository": "OpenC2SIM/OpenC2SIM.github.io",
+    "commit": "ca1efa3cb23d35eef80f31d87ca189de44eb99fd",
+    "path": "C2SIM_SMX_LOX_V1.0.1.xsd",
+    "gitBlobSha": "3d82674d83fd679be0c9e4c05a09d49d16b6fbb9"
+  },
+  "mediaType": "application/xml",
+  "format": "xsd",
+  "expected": {
+    "rootLocalName": "schema",
+    "rootNamespace": "http://www.w3.org/2001/XMLSchema",
+    "targetNamespace": "http://www.sisostds.org/schemas/C2SIM/1.1",
+    "forbidDoctype": true
+  },
+  "validator": {
+    "kind": "xml_well_formedness",
+    "validatorId": "xmllint",
+    "semanticSchemaValidation": false
+  },
+  "license": {
+    "spdx": "MIT",
+    "source": "https://github.com/OpenC2SIM/OpenC2SIM.github.io"
+  },
+  "claimBoundary": "This manifest pins a public OpenC2SIM reference snapshot for simulation and conformance work. It is not represented as an official SISO distribution artifact and does not satisfy an operational program's controlled-artifact requirement."
+}

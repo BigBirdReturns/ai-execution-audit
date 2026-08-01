@@ -1,0 +1,90 @@
+name: Public C2SIM reference artifact qualification
+
+on:
+  pull_request:
+    paths:
+      - "mating_surface/artifacts/**"
+      - "mating_surface/core/artifacts.mjs"
+      - "mating_surface/tools/xml_wellformedness.mjs"
+      - "mating_surface/conformance/artifacts.test.mjs"
+      - ".github/workflows/public-c2sim-artifact.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mating_surface/artifacts/**"
+      - "mating_surface/core/artifacts.mjs"
+      - "mating_surface/tools/xml_wellformedness.mjs"
+      - "mating_surface/conformance/artifacts.test.mjs"
+      - ".github/workflows/public-c2sim-artifact.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-c2sim-artifact-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-public-reference-artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out the mating-surface estate
+        uses: actions/checkout@v4
+
+      - name: Check out only the pinned OpenC2SIM reference artifact
+        uses: actions/checkout@v4
+        with:
+          repository: OpenC2SIM/OpenC2SIM.github.io
+          ref: ca1efa3cb23d35eef80f31d87ca189de44eb99fd
+          path: upstream-c2sim
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: C2SIM_SMX_LOX_V1.0.1.xsd
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install the bounded XML validator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+
+      - name: Run artifact custody and use-boundary tests
+        run: node --test mating_surface/conformance/artifacts.test.mjs
+
+      - name: Refuse an unexpected upstream commit or Git blob
+        run: |
+          test "$(git -C upstream-c2sim rev-parse HEAD)" = "ca1efa3cb23d35eef80f31d87ca189de44eb99fd"
+          test "$(git -C upstream-c2sim hash-object C2SIM_SMX_LOX_V1.0.1.xsd)" = "3d82674d83fd679be0c9e4c05a09d49d16b6fbb9"
+
+      - name: Produce a network-disabled XML well-formedness receipt
+        run: |
+          mkdir -p qualification/c2sim-public-reference
+          node mating_surface/tools/xml_wellformedness.mjs \
+            upstream-c2sim/C2SIM_SMX_LOX_V1.0.1.xsd \
+            qualification/c2sim-public-reference/xml-wellformedness.json
+
+      - name: Admit the exact artifact for rehearsal only
+        run: |
+          node mating_surface/core/artifacts.mjs \
+            mating_surface/standards/registry.json \
+            mating_surface/venues/joint-edge-command-authority.json \
+            mating_surface/artifacts/public-reference/c2sim-v1.0.1.json \
+            upstream-c2sim/C2SIM_SMX_LOX_V1.0.1.xsd \
+            qualification/c2sim-public-reference/xml-wellformedness.json \
+            mating_surface/artifacts/public-reference/c2sim-rehearsal-use.json \
+            qualification/c2sim-public-reference/artifact-transaction.json
+
+      - name: Retain public artifact qualification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-c2sim-reference-artifact-qualification
+          path: qualification/c2sim-public-reference
+          if-no-files-found: error
