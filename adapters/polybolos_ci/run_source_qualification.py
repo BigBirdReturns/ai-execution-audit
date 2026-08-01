@@ -101,7 +101,10 @@ def main() -> int:
     commands = [
         ("npm-ci", ["npm", "ci"]),
         ("npm-test", ["npm", "test"]),
-        ("npm-lint", ["npm", "run", "lint"]),
+        (
+            "command-intelligence-lint",
+            ["npx", "--no-install", "eslint", "src/lib/sdk", "src/app/api/sdk"],
+        ),
         ("npm-build", ["npm", "run", "build"]),
     ]
     results: list[dict[str, Any]] = []
@@ -159,6 +162,8 @@ def main() -> int:
             "live_external_service_tested": False,
             "offline_dependency_replay": False,
             "offline_dependency_note": "npm dependencies are pinned by package-lock but not vendored into this bundle",
+            "repository_wide_lint": False,
+            "repository_wide_lint_note": "The upstream unscoped `eslint` command exceeds 6 GiB on a hosted runner. This transaction lints every Command Intelligence SDK and API file, runs the complete Vitest suite, and builds the complete Next application.",
         },
     }
     (artifacts / "decision_record.json").write_text(
