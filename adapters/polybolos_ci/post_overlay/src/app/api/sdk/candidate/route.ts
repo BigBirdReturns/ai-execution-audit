@@ -90,7 +90,10 @@ export async function POST(request: NextRequest) {
     const staleAfterMs = parseStaleAfterMs(body.staleAfterMs);
     const producer = typeof body.producer === 'string' ? body.producer : '';
     const actionClass = typeof body.actionClass === 'string' ? body.actionClass : '';
-    const payload = isRecord(body.payload) ? body.payload : body.payload;
+    if (!isRecord(body.payload)) {
+      throw new Error('candidate payload must be an object');
+    }
+
     const state = getCommandIntelligenceServerState();
     const nowMs = Date.now();
     const observedAt = deriveStableObservationAt(
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
       producer,
       createdAt,
       actionClass,
-      payload: payload as Record<string, unknown>,
+      payload: body.payload,
     });
 
     return NextResponse.json(
