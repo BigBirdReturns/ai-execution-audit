@@ -74,11 +74,24 @@ jobs:
           encoded_parts = []
           for row in manifest['chunks']:
               path = staging / row['name']
-              data = path.read_bytes()
+              raw = path.read_bytes()
+              if raw.endswith(b'\r\n'):
+                  data = raw[:-2]
+              elif raw.endswith(b'\n'):
+                  data = raw[:-1]
+              else:
+                  data = raw
               if len(data) != row['bytes']:
-                  raise SystemExit(f'chunk byte count mismatch: {row["name"]}')
-              if hashlib.sha256(data).hexdigest() != row['sha256']:
-                  raise SystemExit(f'chunk digest mismatch: {row["name"]}')
+                  raise SystemExit(
+                      f'chunk byte count mismatch: {row["name"]} '
+                      f'expected={row["bytes"]} observed={len(data)} raw={len(raw)}'
+                  )
+              observed_digest = hashlib.sha256(data).hexdigest()
+              if observed_digest != row['sha256']:
+                  raise SystemExit(
+                      f'chunk digest mismatch: {row["name"]} '
+                      f'expected={row["sha256"]} observed={observed_digest}'
+                  )
               encoded_parts.append(data)
 
           try:
