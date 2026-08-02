@@ -180,8 +180,8 @@ export function buildRehearsalConsolePack({
     ),
   };
   const manifest = {
-    schema: 'standards-rehearsal-console-build/2',
-    buildId: `standardsrehearsalconsole2_${createHash('sha256')
+    schema: 'standards-rehearsal-console-build/1',
+    buildId: `standardsrehearsalconsole1_${createHash('sha256')
       .update(canonicalJson(manifestBody), 'utf8')
       .digest('hex')}`,
     ...manifestBody,
