@@ -1,0 +1,132 @@
+name: Apply server-owned scenario acceptance staging payload
+
+on:
+  push:
+    branches:
+      - feature/server-owned-scenario-acceptance
+    paths:
+      - ".staging/scenario-acceptance/**"
+      - ".github/workflows/apply-scenario-acceptance-staging.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-scenario-acceptance-staging
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the staging branch
+        uses: actions/checkout@v6
+        with:
+          ref: feature/server-owned-scenario-acceptance
+          fetch-depth: 2
+
+      - name: Verify and apply the exact payload
+        run: |
+          python - <<'PY'
+          import base64
+          import hashlib
+          import io
+          import json
+          import shutil
+          import subprocess
+          import tarfile
+          from pathlib import Path, PurePosixPath
+
+          staging = Path('.staging/scenario-acceptance')
+          manifest_path = staging / 'manifest.json'
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          if manifest.get('schema') != 'scenario-acceptance-staging/1':
+              raise SystemExit('staging manifest schema is invalid')
+          if manifest.get('encoding') != 'base64' or manifest.get('archive') != 'tar.gz':
+              raise SystemExit('staging encoding or archive class is invalid')
+
+          base = manifest['baseCommit']
+          if subprocess.run(
+              ['git', 'merge-base', '--is-ancestor', base, 'HEAD'],
+              check=False,
+          ).returncode != 0:
+              raise SystemExit(f'staging base {base} is not an ancestor of HEAD')
+          changed = subprocess.check_output(
+              ['git', 'diff', '--name-only', f'{base}...HEAD'], text=True
+          ).splitlines()
+          permitted = {
+              '.github/workflows/apply-scenario-acceptance-staging.yml',
+          }
+          for path in changed:
+              if path in permitted or path.startswith('.staging/scenario-acceptance/'):
+                  continue
+              raise SystemExit(f'non-staging change exists before payload application: {path}')
+
+          encoded_parts = []
+          for row in manifest['chunks']:
+              path = staging / row['name']
+              data = path.read_bytes()
+              if len(data) != row['bytes']:
+                  raise SystemExit(f'chunk byte count mismatch: {row["name"]}')
+              if hashlib.sha256(data).hexdigest() != row['sha256']:
+                  raise SystemExit(f'chunk digest mismatch: {row["name"]}')
+              encoded_parts.append(data)
+
+          try:
+              archive = base64.b64decode(b''.join(encoded_parts), validate=True)
+          except Exception as error:
+              raise SystemExit(f'payload base64 is invalid: {error}') from error
+          if len(archive) != manifest['archiveBytes']:
+              raise SystemExit('archive byte count mismatch')
+          if hashlib.sha256(archive).hexdigest() != manifest['archiveSha256']:
+              raise SystemExit('archive digest mismatch')
+
+          declared = {row['path']: row for row in manifest['files']}
+          observed = set()
+          with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as tar:
+              members = tar.getmembers()
+              if len(members) != len(declared):
+                  raise SystemExit('archive member count differs from manifest')
+              for member in members:
+                  path = PurePosixPath(member.name)
+                  if path.is_absolute() or '..' in path.parts or not member.isfile():
+                      raise SystemExit(f'unsafe archive member: {member.name}')
+                  if member.name not in declared:
+                      raise SystemExit(f'undeclared archive member: {member.name}')
+                  extracted = tar.extractfile(member)
+                  if extracted is None:
+                      raise SystemExit(f'archive member has no bytes: {member.name}')
+                  data = extracted.read()
+                  row = declared[member.name]
+                  if len(data) != row['bytes']:
+                      raise SystemExit(f'file byte count mismatch: {member.name}')
+                  if hashlib.sha256(data).hexdigest() != row['sha256']:
+                      raise SystemExit(f'file digest mismatch: {member.name}')
+                  destination = Path(*path.parts)
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  destination.write_bytes(data)
+                  observed.add(member.name)
+          if observed != set(declared):
+              raise SystemExit('archive did not close over the declared file set')
+
+          for row in manifest['files']:
+              data = Path(row['path']).read_bytes()
+              if len(data) != row['bytes'] or hashlib.sha256(data).hexdigest() != row['sha256']:
+                  raise SystemExit(f'written file verification failed: {row["path"]}')
+
+          shutil.rmtree(staging)
+          Path('.github/workflows/apply-scenario-acceptance-staging.yml').unlink()
+          PY
+
+      - name: Commit the reviewed source tree and remove staging custody
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          test ! -e .staging/scenario-acceptance
+          test ! -e .github/workflows/apply-scenario-acceptance-staging.yml
+          git add -A
+          git commit -m "Make scenario acceptance server-owned"
+          git push origin HEAD:feature/server-owned-scenario-acceptance
