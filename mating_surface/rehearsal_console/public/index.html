@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Denied Communications Authority Rehearsal</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to controls</a>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">STANDARDS REHEARSAL CONSOLE</p>
+      <h1>Denied Communications Authority</h1>
+      <p class="subtitle">C2SIM reference conversation · external authority sidecar · local rehearsal only</p>
+    </div>
+    <div class="topbar-status" aria-live="polite">
+      <span class="status-dot" id="statusDot"></span>
+      <div>
+        <span class="status-label">CURRENT POSTURE</span>
+        <strong id="statusText">Loading</strong>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="workspace">
+    <section class="panel controls-panel" aria-labelledby="controlsTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="section-index">01</p>
+          <h2 id="controlsTitle">Scenario controls</h2>
+        </div>
+        <button class="button button-quiet" id="resetButton" type="button">Reset</button>
+      </div>
+
+      <fieldset class="control-group">
+        <legend>Authority conditions</legend>
+        <label class="field-row">
+          <span>Offline lease</span>
+          <select id="leaseSelect">
+            <option value="0">0 steps</option>
+            <option value="2">2 steps</option>
+            <option value="5" selected>5 steps</option>
+            <option value="10">10 steps</option>
+          </select>
+        </label>
+        <label class="toggle-row">
+          <input id="operatorToggle" type="checkbox" checked>
+          <span>Local operator present</span>
+        </label>
+        <label class="toggle-row">
+          <input id="duplicateToggle" type="checkbox" checked>
+          <span>Duplicate order in transport</span>
+        </label>
+        <label class="toggle-row">
+          <input id="delayToggle" type="checkbox" checked>
+          <span>Delay report one transport step</span>
+        </label>
+        <label class="field-row">
+          <span>Returning authority</span>
+          <select id="returnSelect">
+            <option value="continuous">Continuous</option>
+            <option value="superseding" selected>Explicitly superseding</option>
+            <option value="conflicting">Conflicting</option>
+            <option value="absent">Absent</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <div class="button-grid" aria-label="Scenario actions">
+        <button class="button button-primary" data-action="cut_headquarters" type="button">Cut headquarters</button>
+        <button class="button button-danger" data-action="isolate" type="button">Isolate node</button>
+        <button class="button button-primary" data-action="issue_order" type="button">Issue order</button>
+        <button class="button button-primary" data-action="issue_report" type="button">Issue report</button>
+        <button class="button button-attention" data-action="advance" data-steps="1" type="button">Advance 1 step</button>
+        <button class="button button-attention" data-action="advance" data-steps="3" type="button">Advance 3 steps</button>
+        <button class="button button-primary" data-action="restore" type="button">Restore communications</button>
+        <button class="button button-secondary" data-action="reconcile" type="button">Reconcile authority</button>
+      </div>
+
+      <div class="control-note">
+        <strong>Execution boundary</strong>
+        <p>The browser requests actions. The server imports the canonical authority runtime and returns its receipts. No decision rule is implemented in this page.</p>
+      </div>
+    </section>
+
+    <section class="panel state-panel" aria-labelledby="stateTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="section-index">02</p>
+          <h2 id="stateTitle">Authority state</h2>
+        </div>
+        <span class="step-counter">STEP <strong id="stepValue">0</strong></span>
+      </div>
+
+      <div class="state-strip">
+        <article class="metric-card">
+          <span>Link</span>
+          <strong id="linkValue">Connected</strong>
+        </article>
+        <article class="metric-card">
+          <span>Lease remaining</span>
+          <strong id="leaseValue">—</strong>
+        </article>
+        <article class="metric-card">
+          <span>Accepted</span>
+          <strong id="acceptedValue">0</strong>
+        </article>
+        <article class="metric-card">
+          <span>Replay refused</span>
+          <strong id="replayValue">0</strong>
+        </article>
+      </div>
+
+      <div class="authority-track" aria-label="Authority transition track">
+        <div class="track-node" data-track="connected">
+          <span class="track-index">A</span>
+          <div><strong>Connected</strong><small>Full profile</small></div>
+        </div>
+        <div class="track-line"></div>
+        <div class="track-node" data-track="headquarters_denied">
+          <span class="track-index">B</span>
+          <div><strong>HQ denied</strong><small>Delegated lease</small></div>
+        </div>
+        <div class="track-line"></div>
+        <div class="track-node" data-track="isolated">
+          <span class="track-index">C</span>
+          <div><strong>Isolated</strong><small>Restricted profile</small></div>
+        </div>
+        <div class="track-line"></div>
+        <div class="track-node" data-track="reconciled">
+          <span class="track-index">D</span>
+          <div><strong>Return</strong><small>Explicit classification</small></div>
+        </div>
+      </div>
+
+      <div class="decision-card" id="decisionCard">
+        <div>
+          <span class="decision-label">LATEST AUTHORITY RESULT</span>
+          <strong id="decisionDisposition">INITIALIZED</strong>
+        </div>
+        <p id="decisionReason">The schema-valid initialization messages were admitted while connected.</p>
+        <code id="decisionId">—</code>
+      </div>
+
+      <div class="message-grid">
+        <article>
+          <span>Schema-valid messages</span>
+          <strong id="schemaCount">4</strong>
+        </article>
+        <article>
+          <span>Authority allowed</span>
+          <strong id="allowedCount">0</strong>
+        </article>
+        <article>
+          <span>Held</span>
+          <strong id="heldCount">0</strong>
+        </article>
+        <article>
+          <span>Refused</span>
+          <strong id="refusedCount">0</strong>
+        </article>
+        <article>
+          <span>Safe-state decisions</span>
+          <strong id="safeCount">0</strong>
+        </article>
+        <article>
+          <span>Pending transport</span>
+          <strong id="pendingCount">0</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel evidence-panel" aria-labelledby="evidenceTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="section-index">03</p>
+          <h2 id="evidenceTitle">Receipts and provenance</h2>
+        </div>
+        <div class="receipt-actions">
+          <button class="button button-quiet" id="verifyButton" type="button">Verify session</button>
+          <button class="button button-quiet" id="exportButton" type="button">Export receipt</button>
+        </div>
+      </div>
+
+      <div class="provenance-grid">
+        <article>
+          <span>Authority implementation</span>
+          <strong id="authorityImplementation">MessageAuthorityRuntime</strong>
+          <code id="authorityHash">Loading</code>
+        </article>
+        <article>
+          <span>Semantic conversation</span>
+          <strong>C2SIM rehearsal</strong>
+          <code id="conversationId">Loading</code>
+        </article>
+        <article>
+          <span>Artifact admission</span>
+          <strong id="standardRevision">Loading</strong>
+          <code id="artifactId">Loading</code>
+        </article>
+      </div>
+
+      <div class="event-log" id="eventLog" aria-live="polite"></div>
+
+      <details class="receipt-inspector">
+        <summary>Inspect current state receipt</summary>
+        <pre id="receiptJson"></pre>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    <span>Rehearsal-only reference profile</span>
+    <span>No operational command, targeting, engagement, effector, execution, or weapons authority</span>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
