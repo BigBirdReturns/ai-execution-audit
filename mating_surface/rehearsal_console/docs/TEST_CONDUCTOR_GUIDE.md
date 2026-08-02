@@ -12,7 +12,7 @@ Confirm the following before each run:
 - the authority implementation is `MessageAuthorityRuntime` and its digest is visible;
 - the semantic conversation contains four schema-valid messages;
 - the public reference artifact and structural catalog are admitted for rehearsal only;
-- the selected scenario card matches the intended test objective;
+- the selected source-controlled scenario ID and definition ID match the intended test objective;
 - the initial conditions are correct;
 - the operator or evaluator understands the stop conditions.
 
@@ -20,7 +20,7 @@ Confirm the following before each run:
 
 1. Start from **Plan** with a clean reset.
 2. Read the expected result aloud or record it in the test log.
-3. Execute the displayed procedure without adding unplanned actions.
+3. Execute the displayed source-controlled procedure without adding unplanned actions. Any different configuration or action sequence is automatically retained as a deviation and cannot pass acceptance.
 4. Confirm isolation and returning-authority classification only after verifying the intended condition.
 5. Read persistent feedback after each action.
 6. When the observed result diverges, stop and preserve the current state. Do not reset before export.
@@ -77,7 +77,11 @@ Use the conflicting-return procedure with Returning Authority set to Absent.
 
 Expected: `returning_authority_absent`; no reconciliation receipt.
 
-## 5. Deviation record
+## 5. Acceptance interpretation
+
+The server, rather than the browser or conductor, evaluates the session against the selected catalog definition. A run can be `pass`, `fail`, `incomplete`, or `deviated`. Only `pass` is acceptance-eligible, and detached replay must also pass. Do not describe an exploratory variation as a qualified scenario result.
+
+## 6. Deviation record
 
 Record at minimum:
 
@@ -92,7 +96,7 @@ Record at minimum:
 - exported receipt ID;
 - disposition: rerun, defect, requirement question, or accepted deviation.
 
-## 6. Human-performance observations
+## 7. Human-performance observations
 
 Capture whether the user:
 

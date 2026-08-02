@@ -11,6 +11,12 @@ import {
   runFaultScenario,
 } from '../test_hosts/core/fault_machine.mjs';
 import { verifyConversation } from '../semantic/run_semantic_rehearsal.mjs';
+import {
+  REHEARSAL_SCENARIO_CATALOG,
+  evaluateScenario,
+  getScenario,
+  validateScenarioCatalog,
+} from './scenarios.mjs';
 
 const LINK_STATES = new Set(['connected', 'headquarters_denied', 'isolated']);
 const RETURN_MODES = new Set(['continuous', 'superseding', 'conflicting', 'absent']);
@@ -76,6 +82,39 @@ function normalizeConfig(input = {}) {
   }
   requireCondition(RETURN_MODES.has(config.returnMode), 'RETURN_MODE_INVALID', 'returnMode is invalid');
   return config;
+}
+
+function normalizeResetRequest(input = {}, defaultScenarioId = 'baseline-explicit-return') {
+  requireCondition(isRecord(input), 'RESET_INPUT_INVALID', 'reset input must be an object');
+  const structured = Object.hasOwn(input, 'scenarioId') || Object.hasOwn(input, 'config');
+  if (!structured) {
+    return {
+      scenarioId: defaultScenarioId,
+      config: input,
+    };
+  }
+  const unknown = Object.keys(input)
+    .filter((key) => !['scenarioId', 'config'].includes(key))
+    .sort();
+  requireCondition(
+    unknown.length === 0,
+    'RESET_INPUT_INVALID',
+    `unsupported reset field ${unknown[0]}`,
+  );
+  requireCondition(
+    typeof input.scenarioId === 'string' && input.scenarioId.trim(),
+    'SCENARIO_ID_INVALID',
+    'scenarioId is required',
+  );
+  requireCondition(
+    input.config === undefined || isRecord(input.config),
+    'RESET_INPUT_INVALID',
+    'reset config must be an object',
+  );
+  return {
+    scenarioId: input.scenarioId,
+    config: input.config ?? {},
+  };
 }
 
 function publicDecision(decision) {
@@ -222,7 +261,13 @@ function deriveAuthorityPosture(runtimeState, profile, step, reconciliation) {
 }
 
 export class StandardsRehearsalSession {
-  constructor({ fixture, provenance = {}, config = {} }) {
+  constructor({
+    fixture,
+    provenance = {},
+    scenarioCatalog = REHEARSAL_SCENARIO_CATALOG,
+    scenarioId = 'baseline-explicit-return',
+    config = {},
+  }) {
     requireCondition(
       fixture?.conversation,
       'FIXTURE_INVALID',
@@ -230,11 +275,17 @@ export class StandardsRehearsalSession {
     );
     this.fixture = fixture;
     this.provenance = structuredClone(provenance);
-    this.reset(config);
+    this.scenarioCatalog = validateScenarioCatalog(scenarioCatalog);
+    this.reset({ scenarioId, config });
   }
 
-  reset(config = {}) {
-    this.config = normalizeConfig(config);
+  reset(input = {}) {
+    const request = normalizeResetRequest(
+      input,
+      this.scenario?.scenarioId ?? 'baseline-explicit-return',
+    );
+    this.scenario = getScenario(request.scenarioId, this.scenarioCatalog);
+    this.config = normalizeConfig({ ...this.scenario.config, ...request.config });
     this.initialConfig = structuredClone(this.config);
     this.profile = createDefaultRehearsalAuthorityProfile({
       artifactAdmissionId: this.fixture.transaction.admission.admissionId,
@@ -715,8 +766,10 @@ export class StandardsRehearsalSession {
       leaseChangeRequiresReset: true,
       resetAvailable: true,
     };
-    const stateBody = {
+    const stateCore = {
       fixture: this.fixture.fixtureIdentity,
+      scenarioCatalogId: this.scenarioCatalog.catalogId,
+      scenario: structuredClone(this.scenario),
       initialConfig: this.initialConfig,
       config: this.config,
       currentStep: this.currentStep,
@@ -753,12 +806,25 @@ export class StandardsRehearsalSession {
       events: this.events.slice(-80),
       provenance: this.provenance,
     };
+    const stateCoreId = digest('standardsinteractivestatecore1', stateCore);
+    const evaluation = evaluateScenario({
+      scenario: this.scenario,
+      state: stateCore,
+      userActions: this.userActions,
+      initialConfig: this.initialConfig,
+      evaluatedStateCoreId: stateCoreId,
+    });
+    const stateBody = {
+      ...stateCore,
+      stateCoreId,
+      evaluation,
+    };
     return {
-      schema: 'standards-interactive-rehearsal-state/1',
-      stateId: digest('standardsinteractivestate1', stateBody),
+      schema: 'standards-interactive-rehearsal-state/2',
+      stateId: digest('standardsinteractivestate2', stateBody),
       ...stateBody,
       claimBoundary:
-        'This state is produced by the canonical standards authority runtime and a local deterministic rehearsal conductor. It alters no C2SIM XML and grants no operational authority.',
+        'This state is produced by the canonical standards authority runtime, a source-controlled scenario catalog, and a local deterministic rehearsal conductor. It alters no C2SIM XML and grants no operational authority.',
     };
   }
 
@@ -766,10 +832,16 @@ export class StandardsRehearsalSession {
     const state = this.publicState();
     const body = {
       fixtureIdentity: this.fixture.fixtureIdentity,
+      scenarioCatalogId: this.scenarioCatalog.catalogId,
+      scenarioId: this.scenario.scenarioId,
+      scenarioDefinitionId: this.scenario.scenarioDefinitionId,
       initialConfig: this.initialConfig,
       finalConfig: this.config,
       userActions: this.userActions,
+      finalStateCoreId: state.stateCoreId,
       finalStateId: state.stateId,
+      evaluationId: state.evaluation.evaluationId,
+      evaluationStatus: state.evaluation.status,
       authorityDecisionIds: state.decisions.map((row) => row.decisionId),
       receiverReceiptIds: state.receiverReceipts.map((row) => row.receiverReceiptId),
       reconciliationId: state.reconciliation?.reconciliationId ?? null,
@@ -778,20 +850,40 @@ export class StandardsRehearsalSession {
       provenance: this.provenance,
     };
     return {
-      schema: 'standards-interactive-rehearsal-receipt/1',
-      receiptId: digest('standardsinteractiverehearsal1', body),
+      schema: 'standards-interactive-rehearsal-receipt/2',
+      receiptId: digest('standardsinteractiverehearsal2', body),
       ...body,
       claimBoundary:
-        'This receipt replays one local standards rehearsal session. It does not prove target-host installation, operational command authority, or weapons effect.',
+        'This receipt replays one local standards rehearsal session against one source-controlled scenario definition. It does not prove target-host installation, operational command authority, or weapons effect.',
     };
   }
+
 }
 
-export function verifySessionReceipt(receipt, { fixture, provenance = {} }) {
+export function verifySessionReceipt(
+  receipt,
+  {
+    fixture,
+    provenance = {},
+    scenarioCatalog = REHEARSAL_SCENARIO_CATALOG,
+  },
+) {
   requireCondition(
-    isRecord(receipt) && receipt.schema === 'standards-interactive-rehearsal-receipt/1',
+    isRecord(receipt) && receipt.schema === 'standards-interactive-rehearsal-receipt/2',
     'SESSION_RECEIPT_INVALID',
     'interactive rehearsal receipt schema is invalid',
+  );
+  const catalog = validateScenarioCatalog(scenarioCatalog);
+  requireCondition(
+    receipt.scenarioCatalogId === catalog.catalogId,
+    'SESSION_SCENARIO_CATALOG_MISMATCH',
+    'interactive rehearsal receipt cites another scenario catalog',
+  );
+  const scenario = getScenario(receipt.scenarioId, catalog);
+  requireCondition(
+    receipt.scenarioDefinitionId === scenario.scenarioDefinitionId,
+    'SESSION_SCENARIO_DEFINITION_MISMATCH',
+    'interactive rehearsal receipt cites another scenario definition',
   );
   requireCondition(
     isRecord(receipt.initialConfig),
@@ -806,6 +898,8 @@ export function verifySessionReceipt(receipt, { fixture, provenance = {} }) {
   const session = new StandardsRehearsalSession({
     fixture,
     provenance,
+    scenarioCatalog: catalog,
+    scenarioId: receipt.scenarioId,
     config: receipt.initialConfig,
   });
   for (const row of receipt.userActions) {
@@ -827,17 +921,28 @@ export function verifySessionReceipt(receipt, { fixture, provenance = {} }) {
     'SESSION_RECEIPT_MISMATCH',
     'interactive rehearsal final configuration does not replay',
   );
+  requireCondition(
+    rebuilt.evaluationId === receipt.evaluationId
+      && rebuilt.evaluationStatus === receipt.evaluationStatus,
+    'SESSION_EVALUATION_MISMATCH',
+    'interactive rehearsal evaluation does not replay',
+  );
   return {
-    schema: 'standards-interactive-rehearsal-verification/1',
+    schema: 'standards-interactive-rehearsal-verification/2',
     status: 'pass',
     receiptId: receipt.receiptId,
+    scenarioCatalogId: rebuilt.scenarioCatalogId,
+    scenarioDefinitionId: rebuilt.scenarioDefinitionId,
+    finalStateCoreId: rebuilt.finalStateCoreId,
     finalStateId: rebuilt.finalStateId,
+    evaluationId: rebuilt.evaluationId,
+    evaluationStatus: rebuilt.evaluationStatus,
     userActions: receipt.userActions.length,
     authorityDecisionIds: rebuilt.authorityDecisionIds,
     receiverReceiptIds: rebuilt.receiverReceiptIds,
     reconciliationId: rebuilt.reconciliationId,
     transportRunId: rebuilt.transportRunId,
     claimBoundary:
-      'This receipt replays the interactive session through the same canonical authority runtime and fixture custody. It grants no operational authority.',
+      'This receipt replays the interactive session through the same canonical authority runtime, scenario catalog, and fixture custody. It grants no operational authority.',
   };
 }

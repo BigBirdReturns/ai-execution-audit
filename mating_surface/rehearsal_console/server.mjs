@@ -10,6 +10,10 @@ import {
   loadRehearsalFixture,
   verifySessionReceipt,
 } from './session.mjs';
+import {
+  REHEARSAL_SCENARIO_CATALOG,
+  publicScenarioCatalog,
+} from './scenarios.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PUBLIC_DIR = join(MODULE_DIR, 'public');
@@ -94,6 +98,7 @@ function buildProvenance({ buildManifestPath = null } = {}) {
     transportRuntime: join(root, 'test_hosts', 'core', 'fault_machine.mjs'),
     interactiveSession: join(MODULE_DIR, 'session.mjs'),
     httpHost: join(MODULE_DIR, 'server.mjs'),
+    scenarioCatalog: join(MODULE_DIR, 'scenarios.mjs'),
   };
   const sources = Object.fromEntries(
     Object.entries(paths).map(([key, path]) => [key, {
@@ -242,7 +247,12 @@ export function createRehearsalHttpServer({
 }) {
   const fixture = loadRehearsalFixture(evidenceRoot);
   const provenance = buildProvenance({ buildManifestPath });
-  const session = new StandardsRehearsalSession({ fixture, provenance });
+  const scenarioCatalog = REHEARSAL_SCENARIO_CATALOG;
+  const session = new StandardsRehearsalSession({
+    fixture,
+    provenance,
+    scenarioCatalog,
+  });
   const boundary = allowedRequestBoundary(host, port);
 
   const server = createServer(async (request, response) => {
@@ -256,11 +266,16 @@ export function createRehearsalHttpServer({
           status: 'ready',
           authorityRuntime: provenance.authorityImplementation,
           fixture: fixture.fixtureIdentity,
+          scenarioCatalogId: scenarioCatalog.catalogId,
           requestBoundary: {
             loopbackOnly: true,
             allowedAuthorities: [...boundary.authorities].sort(),
           },
         });
+        return;
+      }
+      if (url.pathname === '/api/scenarios' && request.method === 'GET') {
+        writeJson(response, 200, publicScenarioCatalog(scenarioCatalog));
         return;
       }
       if (url.pathname === '/api/state' && request.method === 'GET') {
@@ -279,7 +294,11 @@ export function createRehearsalHttpServer({
         writeJson(
           response,
           200,
-          verifySessionReceipt(session.exportReceipt(), { fixture, provenance }),
+          verifySessionReceipt(session.exportReceipt(), {
+            fixture,
+            provenance,
+            scenarioCatalog,
+          }),
         );
         return;
       }

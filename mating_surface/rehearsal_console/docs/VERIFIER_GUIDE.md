@@ -11,6 +11,7 @@ source commit
   -> authority runtime digest
   -> admitted C2SIM reference artifact
   -> XSD 1.1 structural catalog
+  -> source-controlled scenario catalog and definition
   -> four schema-valid message receipts
   -> payload-opaque transport packets
   -> authority decisions and tickets
@@ -25,6 +26,7 @@ source commit
 Open **Evidence** and confirm:
 
 - authority implementation name and SHA-256;
+- scenario catalog, scenario definition, and evaluation identities;
 - semantic conversation identity;
 - artifact admission identity and revision;
 - event order and reason codes;
@@ -36,9 +38,10 @@ Open **Evidence** and confirm:
 The exported receipt includes:
 
 - fixture identity;
+- scenario catalog ID, scenario ID, and scenario definition ID;
 - initial configuration;
 - recorded test-conductor actions and inputs;
-- final state ID;
+- state-core, evaluation, and final state IDs;
 - authority decision IDs;
 - receiver receipt IDs;
 - reconciliation or return-notice identity;
@@ -49,7 +52,7 @@ The receipt does not contain the standard XML payloads or private keys.
 
 ## 5. Detached replay
 
-Select **Verify current session** or submit the exported receipt to the local verification function. A passing result means that replaying the same actions from the same initial configuration through the same source identities reproduces the same receipt ID and final state ID.
+Select **Verify current session** or submit the exported receipt to the local verification function. A passing result means that replaying the same scenario definition, actions, and initial configuration through the same source identities reproduces the same evaluation ID, receipt ID, and final state ID.
 
 A replay failure must be treated as an evidence-custody failure even when the visible state appears plausible.
 
@@ -57,7 +60,7 @@ A replay failure must be treated as an evidence-custody failure even when the vi
 
 Verify refusal of:
 
-- changed source or artifact digest;
+- changed source, scenario catalog, scenario definition, or artifact digest;
 - altered action order or action input;
 - changed initial configuration;
 - duplicate message acceptance;

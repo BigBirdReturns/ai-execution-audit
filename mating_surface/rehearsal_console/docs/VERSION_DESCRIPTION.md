@@ -18,7 +18,7 @@ Browser: presentation and bounded API requests only
 
 ## 3. Version identity
 
-The controlling source commit, build ID, source-file SHA-256 values, semantic conversation ID, and verification ID are recorded in `build-manifest.json`. The manifest excludes itself from its file list and is content-addressed from the remaining manifest body.
+The controlling source commit, build ID, source-file SHA-256 values, scenario catalog ID, semantic conversation ID, and verification ID are recorded in `build-manifest.json`. The manifest excludes itself from its file list and is content-addressed from the remaining manifest body.
 
 ## 4. Required environment
 
@@ -31,6 +31,7 @@ The controlling source commit, build ID, source-file SHA-256 values, semantic co
 
 - browser HTML, CSS, and JavaScript;
 - loopback HTTP host;
+- content-addressed scenario catalog and server-owned acceptance evaluator;
 - interactive session conductor;
 - canonical authority sidecar;
 - semantic conversation verifier;
@@ -51,7 +52,9 @@ The controlling source commit, build ID, source-file SHA-256 values, semantic co
 - strict Content Security Policy;
 - static path normalization;
 - no remote URLs in the public interface;
-- no C2SIM XML in browser state.
+- no C2SIM XML in browser state;
+- no scenario or acceptance implementation in browser code;
+- catalog, definition, evaluation, and state identities in exported receipts.
 
 ## 7. Known limitations
 

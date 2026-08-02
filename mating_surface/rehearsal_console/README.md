@@ -6,7 +6,7 @@ This directory contains the neutral, loopback-only interactive host for the stan
 
 ```text
 Plan
-  select a qualified scenario
+  select a source-controlled qualified scenario
   review objective, expected result, and pass condition
   record initial conditions
         ↓
@@ -28,7 +28,7 @@ Guide remains available at any time and links to role-based support documentatio
 
 ## Execution boundary
 
-The browser contains presentation, test-plan metadata, expected-versus-observed comparison, and local API calls. It does not implement authority, lease, replay, partition, reconciliation, or C2SIM semantic decisions.
+The browser contains presentation and local API calls. Scenario definitions, procedures, checks, and expected-versus-observed acceptance evaluation are source-controlled and executed server-side. It does not implement authority, lease, replay, partition, reconciliation, or C2SIM semantic decisions.
 
 The Node host directly imports:
 
@@ -38,7 +38,11 @@ mating_surface/semantic/run_semantic_rehearsal.mjs
 mating_surface/test_hosts/core/fault_machine.mjs
 ```
 
-The server owns bounded session execution and returns receipts. The host binds only to loopback and mechanically refuses unrecognized Host, foreign Origin, cross-site fetch context, non-JSON state-changing requests, oversized requests, and path traversal.
+The server owns bounded session execution, loads the content-addressed scenario catalog, computes the acceptance evaluation, and returns receipts. The host binds only to loopback and mechanically refuses unrecognized Host, foreign Origin, cross-site fetch context, non-JSON state-changing requests, oversized requests, and path traversal.
+
+## Scenario and acceptance ownership
+
+`scenarios.mjs` is the canonical rehearsal acceptance catalog. Each definition binds its baseline configuration, ordered procedure, and checks. Exact runs may pass; unfinished runs remain incomplete; expectation mismatches fail; and configuration or procedure drift is retained as a non-accepting deviation. See `docs/SCENARIO_CATALOG_AND_ACCEPTANCE.md`.
 
 ## Qualified scenarios
 
