@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { canonicalJson } from '../semantic/authority_sidecar.mjs';
 
 function requireCondition(condition, message) {
   if (!condition) throw new Error(message);
@@ -61,8 +62,13 @@ export function buildRehearsalConsolePack({
   const qualification = resolve(qualificationRoot);
   const repository = resolve(repositoryRoot);
   const output = resolve(outputDir);
-  const semanticVerification = readJson(join(qualification, 'semantic-rehearsal-verification.json'));
-  requireCondition(semanticVerification.status === 'pass', 'semantic rehearsal verification did not pass');
+  const semanticVerification = readJson(
+    join(qualification, 'semantic-rehearsal-verification.json'),
+  );
+  requireCondition(
+    semanticVerification.status === 'pass',
+    'semantic rehearsal verification did not pass',
+  );
   requireCondition(
     typeof sourceCommit === 'string' && /^[0-9a-f]{40}$/.test(sourceCommit),
     'sourceCommit must be a 40-character lowercase Git SHA',
@@ -123,7 +129,8 @@ export function buildRehearsalConsolePack({
     private: true,
     type: 'module',
     scripts: {
-      start: 'node mating_surface/rehearsal_console/server.mjs --evidence evidence --build-manifest build-manifest.json --host 127.0.0.1 --port 8787',
+      start:
+        'node mating_surface/rehearsal_console/server.mjs --evidence evidence --build-manifest build-manifest.json --host 127.0.0.1 --port 8787',
     },
     engines: {
       node: '>=24',
@@ -132,18 +139,20 @@ export function buildRehearsalConsolePack({
 
   writeFileSync(
     join(output, 'README.md'),
-    `# Denied Communications Authority Rehearsal\n\n` +
-      `This local pack runs the neutral standards rehearsal console against the exact source and evidence listed in \`build-manifest.json\`.\n\n` +
-      `On Windows, run \`START_STANDARDS_REHEARSAL.cmd\`. On Linux or macOS, run \`./start-standards-rehearsal.sh\`. Node.js 24 or newer is required.\n\n` +
-      `The host binds only to \`127.0.0.1\`. The browser contains presentation code and API calls; authority decisions execute in the packaged \`MessageAuthorityRuntime\` module.\n\n` +
-      `This is a rehearsal-only reference profile. It grants no operational command, targeting, engagement, effector, execution, or weapons authority.\n`,
+    `# Denied Communications Authority Rehearsal\n\n`
+      + `This local pack runs the neutral standards rehearsal console against the exact source and evidence listed in \`build-manifest.json\`.\n\n`
+      + `On Windows, run \`START_STANDARDS_REHEARSAL.cmd\`. On Linux or macOS, run \`./start-standards-rehearsal.sh\`. Node.js 24 or newer is required.\n\n`
+      + `The host binds only to \`127.0.0.1\`. The browser contains presentation code and API calls; authority decisions execute in the packaged \`MessageAuthorityRuntime\` module.\n\n`
+      + `This is a rehearsal-only reference profile. It grants no operational command, targeting, engagement, effector, execution, or weapons authority.\n`,
     'utf8',
   );
 
   const filesBeforeManifest = listFiles(output);
   const manifestBody = {
     sourceCommit,
-    semanticConversationId: readJson(join(output, 'evidence/semantic-conversation/conversation.json')).semanticConversationId,
+    semanticConversationId: readJson(
+      join(output, 'evidence/semantic-conversation/conversation.json'),
+    ).semanticConversationId,
     semanticVerificationId: semanticVerification.verificationId,
     runtimeMode: 'server_side_direct_import',
     authorityImplementation: 'MessageAuthorityRuntime',
@@ -161,7 +170,7 @@ export function buildRehearsalConsolePack({
   const manifest = {
     schema: 'standards-rehearsal-console-build/1',
     buildId: `standardsrehearsalconsole1_${createHash('sha256')
-      .update(JSON.stringify(manifestBody, Object.keys(manifestBody).sort()), 'utf8')
+      .update(canonicalJson(manifestBody), 'utf8')
       .digest('hex')}`,
     ...manifestBody,
     manifestSelfExcluded: true,
@@ -174,7 +183,9 @@ export function buildRehearsalConsolePack({
 
 function main(argv) {
   if (argv.length !== 4) {
-    console.error('usage: build_pack.mjs <qualification-root> <repository-root> <output-dir> <source-commit>');
+    console.error(
+      'usage: build_pack.mjs <qualification-root> <repository-root> <output-dir> <source-commit>',
+    );
     return 2;
   }
   const [qualificationRoot, repositoryRoot, outputDir, sourceCommit] = argv;
