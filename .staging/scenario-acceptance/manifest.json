@@ -1,0 +1,183 @@
+{
+  "schema": "scenario-acceptance-staging/1",
+  "encoding": "base64",
+  "archive": "tar.gz",
+  "archiveBytes": 52512,
+  "archiveSha256": "4c6ea08737fd23e86329dae904f74383f9bae562e10be213414642774a4dc44e",
+  "chunks": [
+    {
+      "name": "chunk-000.txt",
+      "bytes": 5600,
+      "sha256": "f7add8993ad19338cd3306be132962bef97ea50775ee726bbdbb68f087f91ccc"
+    },
+    {
+      "name": "chunk-001.txt",
+      "bytes": 5600,
+      "sha256": "fa9a5fa7ccffb48018ce175fce0e3a42a566f9237694c1955fc84e2b3ed1fc8e"
+    },
+    {
+      "name": "chunk-002.txt",
+      "bytes": 5600,
+      "sha256": "546374380c8486e08fde5d85b662d36327a4df7e5ab3da135481b50662b1f6db"
+    },
+    {
+      "name": "chunk-003.txt",
+      "bytes": 5600,
+      "sha256": "13f30c6b8431cffda7437db5ce32259ba20742dc1e79446bf6ebfe14de55ff71"
+    },
+    {
+      "name": "chunk-004.txt",
+      "bytes": 5600,
+      "sha256": "fb9554bd5b2fe49ea8cd10175259521776a33f49027da27d43b03f2c2ce2be08"
+    },
+    {
+      "name": "chunk-005.txt",
+      "bytes": 5600,
+      "sha256": "d9f285424ee6aa801c3606667f6c27865cac2761edc0194dab27fe668454851e"
+    },
+    {
+      "name": "chunk-006.txt",
+      "bytes": 5600,
+      "sha256": "4c707c7ad436143a3a7cf4e718cafc854f8a4aa6dc3bdf8cbadfd345f41c5779"
+    },
+    {
+      "name": "chunk-007.txt",
+      "bytes": 5600,
+      "sha256": "500b018b0594b1165954e665e89c9d86202e9cca49845607388d51b5bc373e7e"
+    },
+    {
+      "name": "chunk-008.txt",
+      "bytes": 5600,
+      "sha256": "db72d76d12b2905e86e8940cf677e672bd2b5771a8440983d399fb70f0c427c5"
+    },
+    {
+      "name": "chunk-009.txt",
+      "bytes": 5600,
+      "sha256": "e70c0096960b7d3f225d51cfb00e1bc6d62b254806c18ef67d825244203c2f07"
+    },
+    {
+      "name": "chunk-010.txt",
+      "bytes": 5600,
+      "sha256": "14f9168fa24f970fdd9417e3f089bf5502cec35de6b8c385b1867123ad5f0c1e"
+    },
+    {
+      "name": "chunk-011.txt",
+      "bytes": 5600,
+      "sha256": "9627d27d899ee0dcdccd0b694640b77338a94438b70182d0a369c7e1db0f6002"
+    },
+    {
+      "name": "chunk-012.txt",
+      "bytes": 2816,
+      "sha256": "ed9b0ed5fa9a5345e6036ac1a2e55d05c30d5206ac76637182d60dd504254b00"
+    }
+  ],
+  "files": [
+    {
+      "path": "mating_surface/rehearsal_console/README.md",
+      "bytes": 3426,
+      "sha256": "3271e766d4a2cf9a838d54752a84b2a41696d0457d922b25f01ad785a68eeeef"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/scenarios.mjs",
+      "bytes": 26104,
+      "sha256": "961bda349f5fbcbd3d07236c94af039d416bd2ee0381473cafa33fb9ba0593fb"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/session.mjs",
+      "bytes": 32544,
+      "sha256": "c74a4967e14294f47041bd3c68d9de7b00fcbc8666c83ac461ea240a754a73ef"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/server.mjs",
+      "bytes": 13724,
+      "sha256": "ab94dc4d1aba83d6a0bf9fbe49dff29b827bca7ae501cf0344a624b93fdc00a6"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/public/index.html",
+      "bytes": 27815,
+      "sha256": "6707f870defff5623409492e39914d19ee77e48a98ce64a1924d2e34c39a38c7"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/public/app.js",
+      "bytes": 35422,
+      "sha256": "ee1e70e383d220cef746ee6fb7d69242eeca5426f1d7ecd0d87d3b75efe91cff"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/build_pack.mjs",
+      "bytes": 8118,
+      "sha256": "f3de0e6014cee2461a9b6eb2e320846cbd1a6f1e9ef638b807b8d3a0c84d7299"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/qualify_console.mjs",
+      "bytes": 14834,
+      "sha256": "dbf5c69ac8174703d3971ca5fe44d66bb94ed794e3f80d27e32bd2e9cee5ab67"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/conformance/hsi_contract.test.mjs",
+      "bytes": 7326,
+      "sha256": "3ed8c5f2f465bc8eba2e1497855bfaa1e1d6b3a6c96e03703a9529e0b0196903"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/conformance/scenario_catalog.test.mjs",
+      "bytes": 5476,
+      "sha256": "f74eca1fcbfc0914150746810b85119ae2dd3f864c44b26c0cadf6ce9d4b5b38"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/README.md",
+      "bytes": 3861,
+      "sha256": "e485407b1f0fa01b9ff701927077af166614f25f3991c1318fdf5ca19ee90aef"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/SCENARIO_CATALOG_AND_ACCEPTANCE.md",
+      "bytes": 6193,
+      "sha256": "0771e0f518009550eaacf3b1090c0bec11c7a617cbff99413bcd398728d4a9b7"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/USER_GUIDE.md",
+      "bytes": 4371,
+      "sha256": "674fb718c87792f154abcaea6290fd7aba32ab2287e7662f13f8390f34bf4418"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/TEST_CONDUCTOR_GUIDE.md",
+      "bytes": 3836,
+      "sha256": "58cff945fec2c21a8b447f7d8cd66b1993b4340232d2215c4f847c707dec12cb"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/VERIFIER_GUIDE.md",
+      "bytes": 2703,
+      "sha256": "42e50854897d5aadd3e555c030faa3f8b96c80761de0447b79093793213822bb"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/INTERFACE_DESIGN_DESCRIPTION.md",
+      "bytes": 4353,
+      "sha256": "c060de21a776a3f6fd88702ec68d827907bceb4d73f71b145a6e55cf9da92491"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/TEST_PLAN.md",
+      "bytes": 3281,
+      "sha256": "5ba21be3730efac903e1e4fb0c20af5b1ded25b0f301790100d7a768feb16e7a"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/TEST_REPORT.md",
+      "bytes": 2899,
+      "sha256": "b218bc299e4c38bc6a60b9ea46f536f89f5f0c94e2d66abac7d0f21e594ce41d"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/TRACEABILITY_MATRIX.md",
+      "bytes": 3331,
+      "sha256": "3c2fc4dfb5aefdeeb7c1987f84853efc4cf4387ccf449c2739ac6fe602b74288"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/VERSION_DESCRIPTION.md",
+      "bytes": 2501,
+      "sha256": "c889a804fb1e54d55e9e39075370315571791751cd9515e3d5ead51da8207e3c"
+    },
+    {
+      "path": "mating_surface/rehearsal_console/docs/IMPLEMENTATION_NOTE.md",
+      "bytes": 1511,
+      "sha256": "f85050d156f1179e67e3e876ffeb70da0ed99274c08a6641169be8988603b7ba"
+    }
+  ],
+  "baseCommit": "f794c66779fdc65af54c047f2989c7333d490b49",
+  "claimBoundary": "Temporary content-addressed staging payload. The applying workflow must verify, extract only the declared paths, and delete all staging files before review."
+}
