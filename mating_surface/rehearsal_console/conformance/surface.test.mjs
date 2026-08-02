@@ -36,10 +36,24 @@ test('public surface contains no provider, AXM, or rejected arcade branding', as
     text('public/styles.css'),
     text('public/app.js'),
   ]).then((values) => values.join('\n'));
-  for (const phrase of ['axm', 'dandelion', 'polybolos', 'defense solution arcade', 'command core']) {
-    assert.equal(new RegExp(phrase, 'i').test(combined), false, `public surface contains ${phrase}`);
+  for (const phrase of [
+    'axm',
+    'dandelion',
+    'polybolos',
+    'defense solution arcade',
+    'command core',
+  ]) {
+    assert.equal(
+      new RegExp(phrase, 'i').test(combined),
+      false,
+      `public surface contains ${phrase}`,
+    );
   }
-  assert.equal(/https?:\/\//i.test(combined), false, 'public surface contains a remote URL');
+  assert.equal(
+    /https?:\/\//i.test(combined),
+    false,
+    'public surface contains a remote URL',
+  );
 });
 
 test('visual palette contains no green theme colors', async () => {
@@ -68,7 +82,11 @@ test('browser code renders receipts and does not implement authority decisions',
     'createHash(',
     "from '../semantic/authority_sidecar.mjs'",
   ]) {
-    assert.equal(app.includes(forbidden), false, `browser code contains authority implementation token ${forbidden}`);
+    assert.equal(
+      app.includes(forbidden),
+      false,
+      `browser code contains authority implementation token ${forbidden}`,
+    );
   }
   assert.match(app, /requestJson\('\/api\/action'/);
   assert.match(app, /requestJson\('\/api\/state'/);
@@ -80,21 +98,46 @@ test('server-side session imports and instantiates the canonical authority runti
   assert.match(session, /new MessageAuthorityRuntime\(this\.profile\)/);
   assert.match(session, /runFaultScenario\(/);
   assert.match(session, /verifyConversation\(/);
+  assert.match(session, /initialConfig/);
+  assert.match(session, /SESSION_CLOSED/);
 });
 
-test('host is loopback-only and serves a strict content security policy', async () => {
+test('host is loopback-only, same-origin, JSON-only, and serves a strict CSP', async () => {
   const server = await text('server.mjs');
   assert.match(server, /host: '127\.0\.0\.1'/);
   assert.match(server, /the rehearsal console may bind only to the loopback interface/);
+  assert.match(server, /HOST_HEADER_REFUSED/);
+  assert.match(server, /ORIGIN_REFUSED/);
+  assert.match(server, /FETCH_SITE_REFUSED/);
+  assert.match(server, /CONTENT_TYPE_REFUSED/);
   assert.match(server, /default-src 'self'/);
   assert.match(server, /frame-ancestors 'none'/);
   assert.match(server, /object-src 'none'/);
+});
+
+test('pack and qualification identities use recursive canonical JSON', async () => {
+  const [pack, qualification] = await Promise.all([
+    text('build_pack.mjs'),
+    text('qualify_console.mjs'),
+  ]);
+  assert.match(pack, /canonicalJson\(manifestBody\)/);
+  assert.match(qualification, /canonicalJson\(body\)/);
+  assert.equal(
+    pack.includes('JSON.stringify(manifestBody, Object.keys(manifestBody).sort())'),
+    false,
+  );
 });
 
 test('HTML uses external presentation assets and states the execution boundary', async () => {
   const html = await text('public/index.html');
   assert.equal(/<style\b/i.test(html), false);
   assert.equal(/<script(?![^>]*src=)/i.test(html), false);
-  assert.match(html, /The browser requests actions\. The server imports the canonical authority runtime/);
-  assert.match(html, /No operational command, targeting, engagement, effector, execution, or weapons authority/);
+  assert.match(
+    html,
+    /The browser requests actions\. The server imports the canonical authority runtime/,
+  );
+  assert.match(
+    html,
+    /No operational command, targeting, engagement, effector, execution, or weapons authority/,
+  );
 });
