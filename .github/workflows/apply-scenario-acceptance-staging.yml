@@ -7,6 +7,12 @@ on:
     paths:
       - ".staging/scenario-acceptance/**"
       - ".github/workflows/apply-scenario-acceptance-staging.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".staging/scenario-acceptance/**"
+      - ".github/workflows/apply-scenario-acceptance-staging.yml"
 
 permissions:
   contents: write
