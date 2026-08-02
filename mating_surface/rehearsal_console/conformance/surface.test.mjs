@@ -70,7 +70,7 @@ test('browser code renders receipts and does not implement authority decisions',
   ]) {
     assert.equal(app.includes(forbidden), false, `browser code contains authority implementation token ${forbidden}`);
   }
-  assert.match(app, /fetch\('\/api\/action'/);
+  assert.match(app, /requestJson\('\/api\/action'/);
   assert.match(app, /requestJson\('\/api\/state'/);
 });
 
