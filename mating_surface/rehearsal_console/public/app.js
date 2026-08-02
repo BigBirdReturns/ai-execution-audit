@@ -43,6 +43,7 @@ const labels = {
   explicitly_superseded: 'Reconciled: explicitly superseded',
   continuous_authority: 'Reconciled: continuous authority',
   human_required: 'Human decision required',
+  returning_authority_absent: 'Returning authority absent',
 };
 
 const reasonLabels = {
@@ -58,12 +59,11 @@ const reasonLabels = {
   MESSAGE_REPLAY: 'A second delivery of the same message identity was refused as replay.',
   ADMISSION_TICKET_EXPIRED: 'The message arrived after its admission ticket expired.',
   RETURNING_AUTHORITY_CLASSIFIED: 'Returning authority was classified without rewriting the partition history.',
-  RETURNING_AUTHORITY_ABSENT: 'No returning authority was supplied for reconciliation.',
+  RETURNING_AUTHORITY_ABSENT: 'No returning authority was supplied. The partition remains unresolved until a human resets or supplies authority.',
   AUTHORITY_CLOCK_ADVANCED: 'The rehearsal clock advanced. The authority lease was not renewed or reset.',
   LIVE_CONFIGURATION_UPDATED: 'The local rehearsal controls were updated. Authority rules remain server-owned.',
 };
 
-let currentState = null;
 let toastTimer = null;
 
 function shortId(value, length = 22) {
@@ -81,7 +81,10 @@ function titleCase(value) {
 function toneForState(state) {
   const status = state.status;
   if (['safe_state', 'lease_expired'].includes(status)) return 'danger';
-  if (['headquarters_denied', 'isolated', 'human_required'].includes(status)) return 'attention';
+  if (
+    ['headquarters_denied', 'isolated', 'human_required', 'returning_authority_absent']
+      .includes(status)
+  ) return 'attention';
   if (['explicitly_superseded', 'continuous_authority'].includes(status)) return 'resolved';
   if (state.latestDecision?.disposition === 'refuse') return 'danger';
   if (state.latestDecision?.disposition === 'hold') return 'attention';
@@ -133,6 +136,13 @@ function latestOutcome(state) {
       id: state.reconciliation.reconciliationId,
     };
   }
+  if (state.returnNotice) {
+    return {
+      disposition: state.returnNotice.status,
+      reason: 'RETURNING_AUTHORITY_ABSENT',
+      id: state.returnNotice.partitionEpochId,
+    };
+  }
   if (state.latestReceiver?.disposition === 'refuse') {
     return {
       disposition: state.latestReceiver.disposition,
@@ -155,7 +165,7 @@ function latestOutcome(state) {
 }
 
 function renderTrack(state, tone) {
-  const active = state.reconciliation
+  const active = state.reconciliation || state.returnNotice
     ? 'reconciled'
     : state.linkState;
   document.querySelectorAll('[data-track]').forEach((node) => {
@@ -201,10 +211,14 @@ function applyControlState(state) {
     };
     button.disabled = mapping[action] === false;
   });
+  elements.operatorToggle.disabled = controls.canChangeLocalOperator === false;
+  elements.duplicateToggle.disabled = controls.canChangeDuplicateOrder === false;
+  elements.delayToggle.disabled = controls.canChangeDelayReport === false;
+  elements.returnSelect.disabled = controls.canChangeReturnMode === false;
+  elements.resetButton.disabled = controls.resetAvailable === false;
 }
 
 function render(state) {
-  currentState = state;
   const tone = toneForState(state);
   const outcome = latestOutcome(state);
   elements.statusDot.dataset.tone = tone;
@@ -282,7 +296,9 @@ for (const [element, key] of [
   [elements.delayToggle, 'delayReport'],
   [elements.returnSelect, 'returnMode'],
 ]) {
-  element.addEventListener('change', () => runAction('set_configuration', { [key]: key === 'returnMode' ? element.value : element.checked }));
+  element.addEventListener('change', () => runAction('set_configuration', {
+    [key]: key === 'returnMode' ? element.value : element.checked,
+  }));
 }
 
 elements.leaseSelect.addEventListener('change', () => {
@@ -301,7 +317,9 @@ elements.verifyButton.addEventListener('click', async () => {
 elements.exportButton.addEventListener('click', async () => {
   try {
     const receipt = await requestJson('/api/export');
-    const blob = new Blob([`${JSON.stringify(receipt, null, 2)}\n`], { type: 'application/json' });
+    const blob = new Blob([`${JSON.stringify(receipt, null, 2)}\n`], {
+      type: 'application/json',
+    });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `standards-rehearsal-${receipt.receiptId.slice(-12)}.json`;
