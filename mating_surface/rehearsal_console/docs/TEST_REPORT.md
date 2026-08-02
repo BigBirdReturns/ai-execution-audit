@@ -27,17 +27,19 @@ The prior baseline established:
 - desktop and mobile browser rendering;
 - exported session replay through the same canonical runtime.
 
+The scenario-catalog increment further establishes a content-addressed source catalog, server-owned pass/fail/incomplete/deviated evaluation, catalog and definition tamper refusal, and detached replay closure over the evaluation identity.
+
 ## 4. HSI and documentation increment
 
 The current increment adds:
 
 - Plan, Run, Evaluate, Evidence, and Guide work areas;
 - explicit separation of run, communications, and authority state;
-- qualified scenario cards with objective, expected result, pass condition, and procedure;
+- source-controlled qualified scenario cards with objective, expected result, pass condition, procedure, and machine checks;
 - next-action runbook guidance;
 - persistent action result, reason, and recovery;
 - confirmation for isolation, returning-authority classification, and resetting a started run;
-- expected-versus-observed matrix;
+- server-owned expected-versus-observed matrix and visible deviation classification;
 - persistent verification and export results;
 - role-based support documentation;
 - keyboard-operable work-area tabs;

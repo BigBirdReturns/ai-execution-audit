@@ -131,6 +131,7 @@
             <li><span class="check-mark" aria-hidden="true">✓</span><span><strong>Loopback-only host</strong><small>No remote service or fielded network is exercised</small></span></li>
             <li><span class="check-mark" aria-hidden="true">✓</span><span><strong>Replayable session receipt</strong><small>Exported actions can be independently reconstructed</small></span></li>
           </ul>
+          <p class="execution-boundary">The browser requests actions. The server imports the canonical authority runtime and the source-controlled scenario catalog, then returns receipts and acceptance evaluation.</p>
           <div class="plan-actions">
             <button class="button button-primary button-large" id="startButton" type="button">Start clean rehearsal</button>
             <p id="planStatus">The current server session is ready to be replaced by this plan.</p>
@@ -315,6 +316,7 @@
             <article><span>Authority implementation</span><strong id="authorityImplementation">MessageAuthorityRuntime</strong><code id="authorityHash">Loading</code></article>
             <article><span>Semantic conversation</span><strong>C2SIM rehearsal</strong><code id="conversationId">Loading</code></article>
             <article><span>Artifact admission</span><strong id="standardRevision">Loading</strong><code id="artifactId">Loading</code></article>
+            <article><span>Acceptance scenario</span><strong id="scenarioDefinitionName">Loading</strong><code id="scenarioDefinitionId">Loading</code></article>
           </div>
           <button class="button button-quiet button-full" id="exportButton" type="button">Export session receipt</button>
           <article class="export-result" id="exportResult" aria-live="polite"><strong>No receipt exported</strong><p>The exported JSON contains the initial configuration, test-conductor actions, runtime identities, and final receipt IDs.</p></article>
@@ -385,6 +387,7 @@
             <li><a href="/docs/TEST_PLAN.md" target="_blank"><strong>Software test plan</strong><span>Environment, cases, methods, and acceptance gates</span></a></li>
             <li><a href="/docs/TEST_REPORT.md" target="_blank"><strong>Software test report</strong><span>Qualified results and remaining physical tests</span></a></li>
             <li><a href="/docs/ACCESSIBILITY_AND_HUMAN_FACTORS.md" target="_blank"><strong>Accessibility and HFE plan</strong><span>Prototype conformance strategy and unresolved validation</span></a></li>
+            <li><a href="/docs/SCENARIO_CATALOG_AND_ACCEPTANCE.md" target="_blank"><strong>Scenario catalog and acceptance</strong><span>Server-owned scenario definitions, deviations, and pass criteria</span></a></li>
             <li><a href="/docs/REFERENCE_BASELINE.md" target="_blank"><strong>Reference baseline</strong><span>Public HSI, accessibility, C2SIM, and documentation authorities</span></a></li>
             <li><a href="/docs/TRACEABILITY_MATRIX.md" target="_blank"><strong>Traceability matrix</strong><span>UI requirement to test and evidence mapping</span></a></li>
             <li><a href="/docs/VERSION_DESCRIPTION.md" target="_blank"><strong>Version description</strong><span>Source, dependencies, configuration, and known limits</span></a></li>

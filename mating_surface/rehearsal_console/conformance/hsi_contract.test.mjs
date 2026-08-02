@@ -14,13 +14,17 @@ const requiredDocuments = [
   'USER_GUIDE.md',
   'TEST_CONDUCTOR_GUIDE.md',
   'VERIFIER_GUIDE.md',
+  'HUMAN_SYSTEM_EXPECTATIONS.md',
+  'SCENARIO_CATALOG_AND_ACCEPTANCE.md',
   'INTERFACE_DESIGN_DESCRIPTION.md',
   'TEST_PLAN.md',
   'TEST_REPORT.md',
   'ACCESSIBILITY_AND_HUMAN_FACTORS.md',
+  'ACCEPTANCE_CHECKLIST.md',
   'TRACEABILITY_MATRIX.md',
   'VERSION_DESCRIPTION.md',
   'REFERENCE_BASELINE.md',
+  'IMPLEMENTATION_NOTE.md',
 ];
 
 test('operator workflow separates plan, run, evaluation, evidence, and guidance', async () => {
@@ -48,28 +52,36 @@ test('run, communications, and authority state remain independent and color-inde
   assert.match(html, /LATEST AUTHORITY RECEIPT/);
 });
 
-test('scenario cards declare objective, expected result, pass condition, and procedure before execution', async () => {
-  const [html, app] = await Promise.all([
+test('scenario definitions, procedures, and acceptance checks are server-owned', async () => {
+  const [html, app, scenarios, session, server] = await Promise.all([
     text('public/index.html'),
     text('public/app.js'),
+    text('scenarios.mjs'),
+    text('session.mjs'),
+    text('server.mjs'),
   ]);
   for (const id of ['scenarioObjective', 'scenarioExpected', 'scenarioPass', 'scenarioProcedure']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
-  for (const scenario of [
-    'baseline',
-    'operatorAbsent',
-    'leaseExpired',
-    'isolated',
-    'conflictingReturn',
-    'noReturn',
+  for (const scenarioId of [
+    'baseline-explicit-return',
+    'local-operator-absent',
+    'offline-lease-expiry',
+    'total-node-isolation',
+    'conflicting-returning-authority',
+    'returning-authority-absent',
   ]) {
-    assert.match(app, new RegExp(`${scenario}:\\s*\\{`));
+    assert.match(scenarios, new RegExp(`scenarioId: '${scenarioId}'`));
   }
-  assert.match(app, /objective:/);
-  assert.match(app, /expected:/);
-  assert.match(app, /pass:/);
-  assert.match(app, /procedure:/);
+  assert.match(scenarios, /standardrehearsalscenariocatalog1/);
+  assert.match(scenarios, /evaluateScenario/);
+  assert.match(session, /evaluateScenario\(/);
+  assert.match(session, /scenarioDefinitionId/);
+  assert.match(server, /url\.pathname === '\/api\/scenarios'/);
+  assert.match(app, /requestJson\('\/api\/scenarios'/);
+  assert.match(app, /state\.evaluation/);
+  assert.equal(app.includes('const scenarios ='), false);
+  assert.equal(app.includes('function evaluationRows'), false);
 });
 
 test('actions provide persistent feedback, recovery, and critical confirmations', async () => {
@@ -109,6 +121,18 @@ test('guide and package provide role-specific documentation without claiming for
   const docs = await readdir(new URL('docs/', root));
   for (const name of requiredDocuments) {
     assert.equal(docs.includes(name), true, `missing support document ${name}`);
+  }
+  for (const name of [
+    'README.md',
+    'USER_GUIDE.md',
+    'TEST_PLAN.md',
+    'TEST_REPORT.md',
+    'ACCESSIBILITY_AND_HUMAN_FACTORS.md',
+    'SCENARIO_CATALOG_AND_ACCEPTANCE.md',
+    'REFERENCE_BASELINE.md',
+    'TRACEABILITY_MATRIX.md',
+    'VERSION_DESCRIPTION.md',
+  ]) {
     assert.match(html, new RegExp(`/docs/${name.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}`));
   }
   const combined = await Promise.all(requiredDocuments.map((name) => text(`docs/${name}`)))
@@ -122,6 +146,7 @@ test('guide and package provide role-specific documentation without claiming for
   assert.match(combined, /Formal Section 508|formal Section 508/);
   assert.match(combined, /MIL-STD-1472/);
   assert.match(combined, /does not claim formal|Formal .* pending|formal .* pending/i);
+  assert.match(combined, /source-controlled scenario catalog/i);
 });
 
 test('host serves packaged markdown documentation through the bounded static resolver', async () => {
@@ -132,6 +157,9 @@ test('host serves packaged markdown documentation through the bounded static res
   assert.match(server, /url\.pathname\.startsWith\('\/docs\/'\)/);
   assert.match(server, /text\/markdown; charset=utf-8/);
   assert.match(pack, /rehearsal_console\/docs/);
+  assert.match(pack, /rehearsal_console\/scenarios\.mjs/);
+  assert.match(pack, /scenarioCatalogId/);
+  assert.match(pack, /acceptanceEvaluation: 'server_side_source_controlled'/);
   assert.match(pack, /interactionModel: 'plan_run_evaluate_evidence_guide'/);
   assert.match(pack, /supportDocumentation: true/);
 });
@@ -143,12 +171,13 @@ test('browser remains presentation-only while exposing verification and evidence
     'createDefaultRehearsalAuthorityProfile',
     "from '../semantic/authority_sidecar.mjs'",
     'allowedMessageClasses.includes',
+    'createHash(',
   ]) {
-    assert.equal(app.includes(forbidden), false, `browser contains authority token ${forbidden}`);
+    assert.equal(app.includes(forbidden), false, `browser contains authority or identity token ${forbidden}`);
   }
   assert.match(app, /requestJson\('\/api\/action'/);
   assert.match(app, /requestJson\('\/api\/verify'/);
   assert.match(app, /requestJson\('\/api\/export'/);
-  assert.match(app, /evaluationRows/);
+  assert.match(app, /state\.evaluation/);
   assert.match(app, /renderEvidence/);
 });

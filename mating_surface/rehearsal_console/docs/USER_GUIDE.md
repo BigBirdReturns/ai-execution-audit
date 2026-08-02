@@ -26,7 +26,7 @@ Inspects exact message, artifact, runtime, transport, authority, and session ide
 
 ### Plan
 
-Plan separates test setup from execution. Select a qualified scenario, read its objective and pass condition, review the conditions, and start a clean run. Starting a new plan replaces the current local session after confirmation.
+Plan separates test setup from execution. Select a source-controlled qualified scenario, read its objective and pass condition, review the baseline conditions, and start a clean run. Changing those conditions creates an exploratory variation which cannot receive a qualified pass. Starting a new plan replaces the current local session after confirmation.
 
 ### Run
 
@@ -34,7 +34,7 @@ Run presents the current procedure, the next expected action, three separate sta
 
 ### Evaluate
 
-Evaluate compares the scenario card with the observed state. The comparison is a test-conductor aid. Detached session replay is the controlling verification mechanism.
+Evaluate renders the server-owned comparison between the source-controlled scenario and the observed state. Results are pass, fail, incomplete, or deviated. Detached session replay is still required before acceptance.
 
 ### Evidence
 
@@ -70,7 +70,16 @@ Expected: final state `human_required` with both histories preserved.
 
 Expected: final state `returning_authority_absent`; no reconciliation receipt is invented.
 
-## 5. Error handling
+## 5. Acceptance status
+
+- **Pass**: exact qualified configuration and procedure completed; all checks matched.
+- **Fail**: exact procedure completed, but one or more checks did not match.
+- **Incomplete**: the procedure has not completed.
+- **Deviated**: the initial conditions or action ledger departed from the qualified scenario; the result remains useful evidence but is not acceptance-eligible.
+
+See `SCENARIO_CATALOG_AND_ACCEPTANCE.md` for the controlling contract.
+
+## 6. Error handling
 
 The station uses persistent feedback. A refused request displays an error code, an application-level explanation, and a recovery action. Common recovery paths are:
 
@@ -80,7 +89,7 @@ The station uses persistent feedback. A refused request displays an error code, 
 - `MESSAGE_ALREADY_SENT`: reset to rerun the message;
 - `HOST_FAILURE`: confirm the loopback host is still running and reload.
 
-## 6. Keyboard and accessibility
+## 7. Keyboard and accessibility
 
 - Use Tab and Shift+Tab to move among controls.
 - Use Left and Right Arrow, Home, and End to move among work-area tabs.

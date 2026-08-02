@@ -8,7 +8,7 @@ This document is shaped by DI-IPSC-81436, Interface Design Description. It is a 
 
 ### Browser presentation
 
-Owns work-area navigation, scenario cards, test-conductor instructions, expected-versus-observed comparison, accessible feedback, and evidence presentation. It does not own authority, lease, replay, partition, reconciliation, or C2SIM semantics.
+Owns work-area navigation, accessible feedback, and presentation of server-supplied scenario cards, evaluations, and evidence. It does not own authority, lease, replay, partition, reconciliation, or C2SIM semantics.
 
 ### Loopback HTTP host
 
@@ -16,7 +16,7 @@ Owns same-origin request handling, input bounds, static documentation delivery, 
 
 ### Interactive session conductor
 
-Maps bounded user actions into calls to the canonical authority runtime and the canonical transport fault machine. It records the action ledger and assembles public state.
+Loads the source-controlled scenario catalog, maps bounded user actions into calls to the canonical authority runtime and transport fault machine, records the action ledger, computes the acceptance evaluation, and assembles public state.
 
 ### Canonical authority runtime
 
@@ -28,9 +28,13 @@ Owns exact artifact custody, schema-valid semantic receipts, payload digests, de
 
 ## 3. Browser-to-host interface
 
+### GET `/api/scenarios`
+
+Returns the bounded public scenario catalog. Definitions, procedures, configurations, and checks originate from `scenarios.mjs`.
+
 ### GET `/api/state`
 
-Returns `standards-interactive-rehearsal-state/1`.
+Returns `standards-interactive-rehearsal-state/2`, including scenario identity and server-owned evaluation.
 
 ### POST `/api/action`
 
@@ -42,6 +46,8 @@ Input:
   "input": {}
 }
 ```
+
+For `reset`, `input` may carry a bounded `scenarioId` and complete configuration object. Other actions accept only their documented bounded inputs.
 
 State-changing requests require loopback Host, same-origin or absent Origin, same-site fetch context, and `application/json` content type.
 
@@ -57,7 +63,11 @@ Returns the interactive session receipt.
 
 Returns packaged support documentation as UTF-8 Markdown. Path traversal is refused by the static path resolver.
 
-## 4. User-interface state model
+## 4. Scenario and acceptance model
+
+`scenarios.mjs` defines a content-addressed catalog. The session binds one scenario definition, its baseline configuration, ordered procedure, and machine-evaluated checks. The server classifies each state as pass, fail, incomplete, or deviated. Browser JavaScript may render these results but may not define checks or calculate acceptance.
+
+## 5. User-interface state model
 
 The interface presents three independent state dimensions:
 
@@ -67,7 +77,7 @@ The interface presents three independent state dimensions:
 
 The dimensions must not be collapsed into one color or one generic health label.
 
-## 5. Interaction model
+## 6. Interaction model
 
 The primary sequence is Plan, Run, Evaluate, Evidence. Guide is available at any time.
 
@@ -79,10 +89,10 @@ Critical or terminal actions require confirmation:
 
 Errors remain visible until superseded by a later action. Each error includes a code, application-level explanation, and recovery instruction.
 
-## 6. Data minimization
+## 7. Data minimization
 
 The browser receives message identities, decision receipts, transport metrics, and source provenance. It does not receive standard XML payloads, private key material, provider implementation details, or operational target data.
 
-## 7. Replaceable provider boundary
+## 8. Replaceable provider boundary
 
 A provider enters at the program-selected standard port. The provider-specific adapter may translate only the residue between its native representation and the authorized standard artifact. The rehearsal UI does not adopt provider product terms or become a provider dashboard.

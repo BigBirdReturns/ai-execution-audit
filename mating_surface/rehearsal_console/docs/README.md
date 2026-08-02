@@ -10,7 +10,7 @@ The documentation is organized by role because the operator, test conductor, ver
 
 | Role | Primary document | Main responsibility |
 |---|---|---|
-| Test conductor | `TEST_CONDUCTOR_GUIDE.md` | Select the case, establish initial conditions, execute the procedure, and record deviations |
+| Test conductor | `TEST_CONDUCTOR_GUIDE.md` and `SCENARIO_CATALOG_AND_ACCEPTANCE.md` | Select the controlled case, establish initial conditions, execute the procedure, and preserve deviations |
 | Operator or mission SME | `OPERATOR_QUICKSTART.md` | Judge whether actions, status, consequences, and recovery are understandable |
 | General user | `USER_GUIDE.md` | Operate Plan, Run, Evaluate, Evidence, and Guide |
 | V&V reviewer | `VERIFIER_GUIDE.md` | Reconstruct source, message, transport, authority, and session identities |
@@ -19,13 +19,17 @@ The documentation is organized by role because the operator, test conductor, ver
 | Accessibility and HSI reviewer | `HUMAN_SYSTEM_EXPECTATIONS.md` and `ACCESSIBILITY_AND_HUMAN_FACTORS.md` | Evaluate expected interaction doctrine and prototype evidence |
 | Configuration manager | `VERSION_DESCRIPTION.md` | Maintain exact release inventory and claim boundary |
 
+## Acceptance baseline
+
+`SCENARIO_CATALOG_AND_ACCEPTANCE.md` describes the source-controlled scenario catalog, server-owned acceptance evaluation, pass/fail/incomplete/deviated states, receipt closure, and scenario change-control process. The browser renders this contract but does not own it.
+
 ## Human-system baseline
 
 `HUMAN_SYSTEM_EXPECTATIONS.md` records the role, workflow, state, feedback, confirmation, accessibility, documentation, and evidence patterns expected of a defense rehearsal and acceptance station. `REFERENCE_BASELINE.md` records the public DoD HSI, human-engineering, accessibility, C2SIM, and software-documentation sources used to shape those expectations.
 
 ## Workflow
 
-The intended workflow is Plan, Run, Evaluate, then Evidence. Planning makes the objective, expected result, pass condition, and initial conditions visible before action. Running exposes only server-enabled actions and retains persistent result and recovery text. Evaluation compares expected and observed behavior and invokes detached replay. Evidence exposes exact receipts and source identities.
+The intended workflow is Plan, Run, Evaluate, then Evidence. Planning makes the objective, expected result, pass condition, and initial conditions visible before action. Running exposes only server-enabled actions and retains persistent result and recovery text. Evaluation renders the server-owned comparison between the selected source-controlled scenario and the observed state, then invokes detached replay. Evidence exposes exact receipts and source identities.
 
 ## Documentation status
 

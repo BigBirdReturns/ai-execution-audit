@@ -10,6 +10,7 @@ This plan describes qualification of the denied-communications authority rehears
 - four schema-valid semantic messages;
 - payload-opaque transport fault machine;
 - canonical `MessageAuthorityRuntime`;
+- source-controlled scenario catalog and server-owned acceptance evaluator;
 - interactive session conductor;
 - loopback HTTP host;
 - browser presentation and support documentation;
@@ -33,16 +34,18 @@ This plan describes qualification of the denied-communications authority rehears
 4. Total isolation.
 5. Conflicting returning authority.
 6. Returning authority absent.
-7. Exported session replay.
-8. Live configuration replay before message lock.
-9. Session closure refusal.
-10. Host, Origin, fetch-site, content-type, request-size, and path-boundary refusal.
-11. Keyboard tab navigation and visible focus.
-12. Persistent action feedback and recovery guidance.
-13. Critical-action confirmation.
-14. Color-independent state presentation.
-15. Documentation inventory and link integrity.
-16. Desktop and mobile responsive rendering.
+7. Exact catalog and scenario-definition identity.
+8. Qualified pass, expectation fail, incomplete, and deviation semantics.
+9. Exported session replay.
+10. Live configuration deviation before message lock.
+11. Session closure refusal.
+12. Host, Origin, fetch-site, content-type, request-size, and path-boundary refusal.
+13. Keyboard tab navigation and visible focus.
+14. Persistent action feedback and recovery guidance.
+15. Critical-action confirmation.
+16. Color-independent state presentation.
+17. Documentation inventory and link integrity.
+18. Desktop and mobile responsive rendering.
 
 ## 5. Methods
 
@@ -62,7 +65,9 @@ This plan describes qualification of the denied-communications authority rehears
 A build is promotable only when:
 
 - all source and runtime tests pass;
-- all seven qualified scenarios reproduce expected identities;
+- the scenario catalog and every definition reconstruct their content identities;
+- every qualified scenario reproduces its expected evaluation and receipt identities;
+- changed configuration or off-procedure actions are classified as deviations and cannot pass;
 - no C2SIM XML payload enters browser state;
 - no browser authority implementation exists;
 - critical actions require confirmation;

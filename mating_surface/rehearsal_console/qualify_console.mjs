@@ -16,6 +16,10 @@ import {
   loadRehearsalFixture,
   verifySessionReceipt,
 } from './session.mjs';
+import {
+  REHEARSAL_SCENARIO_CATALOG,
+  getScenario,
+} from './scenarios.mjs';
 import { buildRehearsalConsolePack } from './build_pack.mjs';
 
 function requireCondition(condition, message) {
@@ -35,13 +39,16 @@ function provenance(repositoryRoot, sourceCommit) {
     authorityRuntime: 'mating_surface/semantic/authority_sidecar.mjs',
     semanticFixtureVerifier: 'mating_surface/semantic/run_semantic_rehearsal.mjs',
     transportRuntime: 'mating_surface/test_hosts/core/fault_machine.mjs',
+    scenarioCatalog: 'mating_surface/rehearsal_console/scenarios.mjs',
     interactiveSession: 'mating_surface/rehearsal_console/session.mjs',
     httpHost: 'mating_surface/rehearsal_console/server.mjs',
   };
   return {
-    schema: 'standards-rehearsal-console-provenance/1',
+    schema: 'standards-rehearsal-console-provenance/2',
     runtimeMode: 'server_side_direct_import',
     authorityImplementation: 'MessageAuthorityRuntime',
+    acceptanceEvaluation: 'server_side_source_controlled',
+    scenarioCatalogId: REHEARSAL_SCENARIO_CATALOG.catalogId,
     sourceCommit,
     sources: Object.fromEntries(
       Object.entries(sourcePaths).map(([key, path]) => [key, {
@@ -50,25 +57,50 @@ function provenance(repositoryRoot, sourceCommit) {
       }]),
     ),
     claimBoundary:
-      'Authority decisions execute in the named repository module. Browser code is not part of the authority implementation.',
+      'Authority decisions and acceptance evaluation execute in the named repository modules. Browser code is not part of either implementation.',
   };
 }
 
-function runCase({ fixture, provenanceReceipt, name, config, actions, assertState }) {
+function runCase({
+  fixture,
+  provenanceReceipt,
+  name,
+  scenarioId,
+  config = {},
+  actions,
+  expectedEvaluation = 'pass',
+  assertState,
+}) {
+  const scenario = getScenario(scenarioId);
   const session = new StandardsRehearsalSession({
     fixture,
     provenance: provenanceReceipt,
-    config,
+    scenarioCatalog: REHEARSAL_SCENARIO_CATALOG,
+    scenarioId,
+    config: { ...scenario.config, ...config },
   });
   for (const [action, input = {}] of actions) session.apply(action, input);
   const state = session.publicState();
   assertState(state);
+  requireCondition(
+    state.scenario.scenarioId === scenarioId,
+    `${name} used another scenario definition`,
+  );
+  requireCondition(
+    state.evaluation.status === expectedEvaluation,
+    `${name} evaluation was ${state.evaluation.status}, expected ${expectedEvaluation}`,
+  );
   const receipt = session.exportReceipt();
   const verification = verifySessionReceipt(receipt, {
     fixture,
     provenance: provenanceReceipt,
+    scenarioCatalog: REHEARSAL_SCENARIO_CATALOG,
   });
   requireCondition(verification.status === 'pass', `${name} did not replay`);
+  requireCondition(
+    verification.evaluationId === state.evaluation.evaluationId,
+    `${name} evaluation identity did not replay`,
+  );
   for (const value of [state, receipt, verification]) {
     requireCondition(
       !JSON.stringify(value).includes('<?xml'),
@@ -114,13 +146,7 @@ export function qualifyConsole({
     fixture,
     provenanceReceipt,
     name: 'baseline',
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: true,
-      duplicateOrder: true,
-      delayReport: true,
-      returnMode: 'superseding',
-    },
+    scenarioId: 'baseline-explicit-return',
     actions: [
       ['cut_headquarters'],
       ['issue_order'],
@@ -153,6 +179,10 @@ export function qualifyConsole({
         state.controls.canAdvance === false,
         'baseline remained mutable after reconciliation',
       );
+      requireCondition(
+        state.evaluation.acceptanceEligible === true,
+        'baseline was not acceptance eligible',
+      );
     },
   });
 
@@ -160,13 +190,7 @@ export function qualifyConsole({
     fixture,
     provenanceReceipt,
     name: 'operator-absent',
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: false,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'superseding',
-    },
+    scenarioId: 'local-operator-absent',
     actions: [
       ['cut_headquarters'],
       ['issue_order'],
@@ -191,13 +215,7 @@ export function qualifyConsole({
     fixture,
     provenanceReceipt,
     name: 'lease-expired',
-    config: {
-      offlineLeaseSteps: 2,
-      localOperatorPresent: true,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'superseding',
-    },
+    scenarioId: 'offline-lease-expiry',
     actions: [
       ['cut_headquarters'],
       ['advance', { steps: 3 }],
@@ -223,13 +241,7 @@ export function qualifyConsole({
     fixture,
     provenanceReceipt,
     name: 'isolated',
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: true,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'superseding',
-    },
+    scenarioId: 'total-node-isolation',
     actions: [
       ['isolate'],
       ['issue_order'],
@@ -254,13 +266,7 @@ export function qualifyConsole({
     fixture,
     provenanceReceipt,
     name: 'conflicting-return',
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: true,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'conflicting',
-    },
+    scenarioId: 'conflicting-returning-authority',
     actions: [
       ['cut_headquarters'],
       ['issue_order'],
@@ -284,18 +290,16 @@ export function qualifyConsole({
     fixture,
     provenanceReceipt,
     name: 'live-configuration-replay',
+    scenarioId: 'local-operator-absent',
     config: {
-      offlineLeaseSteps: 5,
       localOperatorPresent: true,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'superseding',
     },
     actions: [
       ['cut_headquarters'],
       ['set_configuration', { localOperatorPresent: false }],
       ['issue_order'],
     ],
+    expectedEvaluation: 'deviated',
     assertState(state) {
       requireCondition(
         state.initialConfig.localOperatorPresent === true,
@@ -309,6 +313,10 @@ export function qualifyConsole({
         state.latestDecision?.reason === 'LOCAL_OPERATOR_REQUIRED',
         'live-configuration case did not apply the changed operator state',
       );
+      requireCondition(
+        state.evaluation.acceptanceEligible === false,
+        'live configuration variation was incorrectly accepted',
+      );
     },
   });
 
@@ -316,13 +324,7 @@ export function qualifyConsole({
     fixture,
     provenanceReceipt,
     name: 'returning-authority-absent',
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: true,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'absent',
-    },
+    scenarioId: 'returning-authority-absent',
     actions: [
       ['cut_headquarters'],
       ['issue_order'],
@@ -349,13 +351,8 @@ export function qualifyConsole({
   const closedSession = new StandardsRehearsalSession({
     fixture,
     provenance: provenanceReceipt,
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: true,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'superseding',
-    },
+    scenarioCatalog: REHEARSAL_SCENARIO_CATALOG,
+    scenarioId: 'baseline-explicit-return',
   });
   for (const [action, input = {}] of [
     ['cut_headquarters'],
@@ -396,11 +393,24 @@ export function qualifyConsole({
   const body = {
     sourceCommit,
     fixtureIdentity: fixture.fixtureIdentity,
+    scenarioCatalogId: REHEARSAL_SCENARIO_CATALOG.catalogId,
     provenance: provenanceReceipt,
     caseReceiptIds: Object.fromEntries(
       Object.entries(cases).map(([name, value]) => [
         name,
         value.receipt.receiptId,
+      ]),
+    ),
+    caseEvaluationIds: Object.fromEntries(
+      Object.entries(cases).map(([name, value]) => [
+        name,
+        value.state.evaluation.evaluationId,
+      ]),
+    ),
+    caseEvaluationStatuses: Object.fromEntries(
+      Object.entries(cases).map(([name, value]) => [
+        name,
+        value.state.evaluation.status,
       ]),
     ),
     caseFinalStateIds: Object.fromEntries(
@@ -413,14 +423,17 @@ export function qualifyConsole({
     files: Object.fromEntries(fileRows),
   };
   const qualificationReceipt = {
-    schema: 'standards-rehearsal-console-qualification/1',
+    schema: 'standards-rehearsal-console-qualification/2',
     status: 'pass',
-    qualificationId: `standardsrehearsalconsolequalification1_${createHash('sha256')
+    qualificationId: `standardsrehearsalconsolequalification2_${createHash('sha256')
       .update(canonicalJson(body), 'utf8')
       .digest('hex')}`,
     ...body,
     assertions: {
       directAuthorityRuntimeImport: true,
+      serverOwnedScenarioCatalog: true,
+      serverOwnedAcceptanceEvaluation: true,
+      deviationsCannotPassAcceptance: true,
       baselineReplayRefusal: true,
       localOperatorHold: true,
       offlineLeaseSafeState: true,
@@ -434,7 +447,7 @@ export function qualifyConsole({
       loopbackOnlyHost: true,
     },
     claimBoundary:
-      'This qualification covers the source-pinned local interactive rehearsal host and deterministic authority cases. It does not establish target-host or operational qualification.',
+      'This qualification covers the source-pinned local interactive rehearsal host, source-controlled scenario catalog, server-side acceptance evaluation, and deterministic authority cases. It does not establish target-host or operational qualification.',
   };
   writeJson(join(output, 'qualification.json'), qualificationReceipt);
   return qualificationReceipt;
@@ -458,6 +471,7 @@ function main(argv) {
     status: receipt.status,
     qualificationId: receipt.qualificationId,
     packBuildId: receipt.packBuildId,
+    scenarioCatalogId: receipt.scenarioCatalogId,
     cases: Object.keys(receipt.caseReceiptIds),
     outputDir: resolve(outputDir),
   }, null, 2)}\n`);

@@ -74,6 +74,8 @@ const elements = {
   conversationId: document.querySelector('#conversationId'),
   standardRevision: document.querySelector('#standardRevision'),
   artifactId: document.querySelector('#artifactId'),
+  scenarioDefinitionName: document.querySelector('#scenarioDefinitionName'),
+  scenarioDefinitionId: document.querySelector('#scenarioDefinitionId'),
   exportButton: document.querySelector('#exportButton'),
   exportResult: document.querySelector('#exportResult'),
   eventLog: document.querySelector('#eventLog'),
@@ -84,157 +86,7 @@ const elements = {
   confirmActionButton: document.querySelector('#confirmActionButton'),
 };
 
-const scenarios = {
-  baseline: {
-    name: 'Baseline partition and explicit return',
-    shortName: 'Baseline return',
-    objective: 'Prove that an order and report survive a bounded headquarters partition, a duplicate delivery is refused as replay, and returning authority explicitly supersedes the local generation.',
-    expected: 'Four unique messages accepted, one duplicate refused, final authority explicitly superseded.',
-    pass: 'Replay refusal equals 1, accepted messages equal 4, and final status is explicitly superseded.',
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: true,
-      duplicateOrder: true,
-      delayReport: true,
-      returnMode: 'superseding',
-    },
-    procedure: [
-      ['cut_headquarters', 'Cut headquarters link', 'Begin one persistent partition epoch.'],
-      ['issue_order', 'Issue order', 'Submit the schema-valid order under the delegated profile.'],
-      ['issue_report', 'Issue report', 'Submit the report with one deterministic transport delay.'],
-      ['restore', 'Restore communications', 'Close the partition without rewriting its history.'],
-      ['reconcile', 'Classify returning authority', 'Apply explicit supersession and close the run.'],
-    ],
-    checks: [
-      ['Unique message acceptance', '4 accepted', (state) => [state.messages.receiverAccepted, 4]],
-      ['Replay handling', '1 replay refused', (state) => [state.messages.replayRefused, 1]],
-      ['Returning authority', 'Explicitly superseded', (state) => [state.status, 'explicitly_superseded']],
-      ['Pending transport', '0 messages', (state) => [pendingCount(state), 0]],
-    ],
-  },
-  operatorAbsent: {
-    name: 'Local operator absent',
-    shortName: 'Operator absent',
-    objective: 'Prove that a valid order is held when the delegated profile requires a local operator and none is present.',
-    expected: 'Order held with LOCAL_OPERATOR_REQUIRED; no order delivery enters transport.',
-    pass: 'Latest authority decision is hold with reason LOCAL_OPERATOR_REQUIRED.',
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: false,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'superseding',
-    },
-    procedure: [
-      ['cut_headquarters', 'Cut headquarters link', 'Begin the delegated partition.'],
-      ['issue_order', 'Issue order', 'Observe the missing-local-operator hold.'],
-    ],
-    checks: [
-      ['Order disposition', 'Hold', (state) => [state.latestDecision?.disposition, 'hold']],
-      ['Decision reason', 'LOCAL_OPERATOR_REQUIRED', (state) => [state.latestDecision?.reason, 'LOCAL_OPERATOR_REQUIRED']],
-      ['Unique message acceptance', '2 initialization messages', (state) => [state.messages.receiverAccepted, 2]],
-    ],
-  },
-  leaseExpired: {
-    name: 'Offline authority lease expiry',
-    shortName: 'Lease expiry',
-    objective: 'Prove that advancing beyond the delegated lease produces safe state before the order is admitted.',
-    expected: 'Order receives safe_state with OFFLINE_LEASE_EXPIRED.',
-    pass: 'One safe-state decision is retained and the order never enters transport.',
-    config: {
-      offlineLeaseSteps: 2,
-      localOperatorPresent: true,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'superseding',
-    },
-    procedure: [
-      ['cut_headquarters', 'Cut headquarters link', 'Start the two-tick delegated lease.'],
-      ['advance', 'Advance 3 ticks', 'Move beyond the lease without renewing it.'],
-      ['issue_order', 'Issue order', 'Observe the safe-state result.'],
-    ],
-    checks: [
-      ['Order disposition', 'Safe state', (state) => [state.latestDecision?.disposition, 'safe_state']],
-      ['Decision reason', 'OFFLINE_LEASE_EXPIRED', (state) => [state.latestDecision?.reason, 'OFFLINE_LEASE_EXPIRED']],
-      ['Safe-state decisions', '1', (state) => [state.messages.safeStateDecisions, 1]],
-    ],
-  },
-  isolated: {
-    name: 'Total node isolation',
-    shortName: 'Isolation refusal',
-    objective: 'Prove that the order class does not survive the fully isolated authority profile.',
-    expected: 'Order refused with MESSAGE_CLASS_NOT_AUTHORIZED_IN_PROFILE.',
-    pass: 'Link remains isolated and the latest decision is refuse.',
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: true,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'superseding',
-    },
-    procedure: [
-      ['isolate', 'Isolate node', 'Enter the fully isolated communications condition.'],
-      ['issue_order', 'Issue order', 'Observe profile refusal for the order class.'],
-    ],
-    checks: [
-      ['Communications state', 'Isolated', (state) => [state.linkState, 'isolated']],
-      ['Order disposition', 'Refuse', (state) => [state.latestDecision?.disposition, 'refuse']],
-      ['Decision reason', 'MESSAGE_CLASS_NOT_AUTHORIZED_IN_PROFILE', (state) => [state.latestDecision?.reason, 'MESSAGE_CLASS_NOT_AUTHORIZED_IN_PROFILE']],
-    ],
-  },
-  conflictingReturn: {
-    name: 'Conflicting returning authority',
-    shortName: 'Conflict review',
-    objective: 'Prove that conflicting returning authority preserves both histories and requires a human disposition.',
-    expected: 'Final status human_required; no mechanical winner is selected.',
-    pass: 'Reconciliation status equals human_required.',
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: true,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'conflicting',
-    },
-    procedure: [
-      ['cut_headquarters', 'Cut headquarters link', 'Begin the partition.'],
-      ['issue_order', 'Issue order', 'Admit the order under delegated authority.'],
-      ['issue_report', 'Issue report', 'Admit the report under the same partition.'],
-      ['restore', 'Restore communications', 'Close the partition.'],
-      ['reconcile', 'Classify returning authority', 'Present conflicting authority and require human review.'],
-    ],
-    checks: [
-      ['Returning authority', 'Human required', (state) => [state.status, 'human_required']],
-      ['Reconciliation receipt', 'human_required', (state) => [state.reconciliation?.status, 'human_required']],
-      ['Unique message acceptance', '4 accepted', (state) => [state.messages.receiverAccepted, 4]],
-    ],
-  },
-  noReturn: {
-    name: 'Returning authority absent',
-    shortName: 'No authority return',
-    objective: 'Prove that the system exposes an unresolved return instead of silently inventing or selecting authority.',
-    expected: 'Final status returning_authority_absent and the session closes until reset.',
-    pass: 'The return notice is retained and no reconciliation receipt is invented.',
-    config: {
-      offlineLeaseSteps: 5,
-      localOperatorPresent: true,
-      duplicateOrder: false,
-      delayReport: false,
-      returnMode: 'absent',
-    },
-    procedure: [
-      ['cut_headquarters', 'Cut headquarters link', 'Begin the partition.'],
-      ['issue_order', 'Issue order', 'Admit the order under delegated authority.'],
-      ['issue_report', 'Issue report', 'Admit the report under the same partition.'],
-      ['restore', 'Restore communications', 'Close the partition.'],
-      ['reconcile', 'Classify returning authority', 'Record that no returning authority was supplied.'],
-    ],
-    checks: [
-      ['Returning authority', 'Absent and unresolved', (state) => [state.status, 'returning_authority_absent']],
-      ['Return notice', 'retained', (state) => [Boolean(state.returnNotice), true]],
-      ['Reconciliation receipt', 'not created', (state) => [state.reconciliation, null]],
-    ],
-  },
-};
+let scenarioCatalog = null;
 
 const labels = {
   connected: 'Connected',
@@ -284,14 +136,10 @@ const recoveryByCode = {
 };
 
 let currentState = null;
-let activeScenarioId = 'baseline';
-let activeView = 'plan';
+let activeScenarioId = 'baseline-explicit-return';
 let pendingConfirmation = null;
 let lastVerification = null;
 
-function isRecord(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
 
 function titleCase(value) {
   return String(value ?? '—')
@@ -311,7 +159,9 @@ function pendingCount(state) {
 }
 
 function scenario() {
-  return scenarios[activeScenarioId];
+  const selected = scenarioCatalog?.scenarios?.find((row) => row.scenarioId === activeScenarioId);
+  if (!selected) throw new Error(`Scenario ${activeScenarioId} is not available from the local host.`);
+  return selected;
 }
 
 async function requestJson(path, options = {}) {
@@ -349,12 +199,12 @@ function setSelectedConfig(config) {
   elements.returnSelect.value = config.returnMode;
 }
 
-function configsEqual(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function identifyScenarioFromConfig(config) {
-  return Object.entries(scenarios).find(([, value]) => configsEqual(value.config, config))?.[0] ?? null;
+function planConfigDeviations() {
+  const baseline = scenario().config;
+  const selected = selectedConfig();
+  return Object.keys(baseline).filter((key) => (
+    JSON.stringify(baseline[key]) !== JSON.stringify(selected[key])
+  ));
 }
 
 function latestOutcome(state) {
@@ -436,31 +286,18 @@ function normalizedUserEvents(state) {
 }
 
 function procedureProgress(state) {
-  const observed = [...normalizedUserEvents(state)];
-  return scenario().procedure.map(([action, label, help], index) => {
-    const found = observed.indexOf(action);
-    if (found >= 0) observed.splice(found, 1);
-    const complete = found >= 0;
-    const priorComplete = scenario().procedure.slice(0, index).every(([prior]) => normalizedUserEvents(state).includes(prior));
-    return {
-      action,
-      label,
-      help,
-      status: complete ? 'complete' : priorComplete ? 'active' : 'pending',
-    };
-  });
+  return state.evaluation?.procedure?.steps ?? state.scenario?.procedure?.map((row, index) => ({
+    ...row,
+    status: index === 0 ? 'active' : 'pending',
+  })) ?? [];
 }
 
 function nextProcedureStep(state) {
   return procedureProgress(state).find((row) => row.status === 'active') ?? null;
 }
 
-function toneForState(state) {
-  return authorityPosture(state).tone;
-}
 
 function switchView(view, { focus = true } = {}) {
-  activeView = view;
   for (const tab of elements.tabs) {
     const selected = tab.dataset.view === view;
     tab.setAttribute('aria-selected', String(selected));
@@ -478,24 +315,31 @@ function switchView(view, { focus = true } = {}) {
 }
 
 function renderScenarioPlan() {
+  if (!scenarioCatalog) return;
   const selected = scenario();
   elements.scenarioSelect.value = activeScenarioId;
   elements.scenarioName.textContent = selected.name;
   elements.scenarioObjective.textContent = selected.objective;
-  elements.scenarioExpected.textContent = selected.expected;
-  elements.scenarioPass.textContent = selected.pass;
-  elements.scenarioProcedure.replaceChildren(...selected.procedure.map(([, label, help]) => {
+  elements.scenarioExpected.textContent = selected.expectedOutcome;
+  elements.scenarioPass.textContent = selected.passCondition;
+  elements.scenarioProcedure.replaceChildren(...selected.procedure.map((row) => {
     const item = document.createElement('li');
     const strong = document.createElement('strong');
-    strong.textContent = label;
+    strong.textContent = row.label;
     const detail = document.createElement('span');
-    detail.textContent = ` — ${help}`;
+    detail.textContent = ` — ${row.help}`;
     item.append(strong, detail);
     return item;
   }));
   elements.activeScenarioName.textContent = selected.shortName;
   elements.reviewScenario.textContent = selected.name;
-  elements.reviewExpected.textContent = selected.expected;
+  elements.reviewExpected.textContent = selected.expectedOutcome;
+  const deviations = planConfigDeviations();
+  if (deviations.length > 0) {
+    elements.planStatus.textContent = `Exploratory variation: ${deviations.join(', ')} differs from the qualified scenario. The server will preserve the variation but will not issue an acceptance pass.`;
+  } else if (!currentState || normalizedUserEvents(currentState).length === 0) {
+    elements.planStatus.textContent = 'Qualified scenario conditions match the source-controlled acceptance plan.';
+  }
 }
 
 function renderTrack(state, tone) {
@@ -578,9 +422,11 @@ function renderControls(state) {
   });
   const runStarted = normalizedUserEvents(state).length > 0;
   elements.startButton.textContent = runStarted ? 'Restart with this plan' : 'Start clean rehearsal';
-  elements.planStatus.textContent = runStarted
-    ? 'Starting this plan will discard the current local run after confirmation.'
-    : 'Starting the plan resets the server session and records the selected conditions as the initial configuration.';
+  if (runStarted) {
+    elements.planStatus.textContent = 'Starting another plan will discard the current local run after confirmation. Export evidence first when the current run must be retained.';
+  } else {
+    renderScenarioPlan();
+  }
 }
 
 function renderHeader(state) {
@@ -627,27 +473,9 @@ function renderPosture(state) {
   renderTrack(state, authority.tone);
 }
 
-function compareValue(observed, expected) {
-  if (expected === null) return observed === null;
-  return observed === expected;
-}
-
-function evaluationRows(state) {
-  return scenario().checks.map(([name, expectedText, observe]) => {
-    const [observed, expected] = observe(state);
-    const complete = normalizedUserEvents(state).length >= scenario().procedure.length;
-    const passed = complete && compareValue(observed, expected);
-    return {
-      name,
-      expectedText,
-      observedText: observed === null || observed === undefined ? 'Not present' : titleCase(observed),
-      status: passed ? 'pass' : complete ? 'fail' : 'pending',
-    };
-  });
-}
-
 function renderEvaluation(state) {
-  const rows = evaluationRows(state);
+  const evaluation = state.evaluation;
+  const rows = evaluation?.checks ?? [];
   elements.acceptanceRows.replaceChildren(...rows.map((row) => {
     const tr = document.createElement('tr');
     for (const value of [row.name, row.expectedText, row.observedText]) {
@@ -658,23 +486,46 @@ function renderEvaluation(state) {
     const status = document.createElement('td');
     const mark = document.createElement('span');
     mark.className = 'result-mark';
-    mark.dataset.tone = row.status === 'pass' ? 'resolved' : row.status === 'fail' ? 'danger' : 'attention';
-    mark.textContent = row.status === 'pass' ? '✓ Pass' : row.status === 'fail' ? '× Fail' : '… Pending';
+    const pending = evaluation.status === 'incomplete' && row.status === 'fail';
+    const rowStatus = pending ? 'pending' : row.status;
+    mark.dataset.tone = rowStatus === 'pass' ? 'resolved' : rowStatus === 'fail' ? 'danger' : 'attention';
+    mark.textContent = rowStatus === 'pass' ? '✓ Pass' : rowStatus === 'fail' ? '× Fail' : '… Pending';
     status.append(mark);
     tr.append(status);
     return tr;
   }));
 
-  const allComplete = rows.every((row) => row.status !== 'pending');
-  const allPass = rows.every((row) => row.status === 'pass');
-  elements.outcomeBanner.dataset.tone = !allComplete ? 'attention' : allPass ? 'resolved' : 'danger';
-  elements.outcomeSymbol.textContent = !allComplete ? '…' : allPass ? '✓' : '×';
-  elements.outcomeLabel.textContent = !allComplete ? 'Run incomplete' : allPass ? 'Expected outcome observed' : 'Observed result diverges';
-  elements.outcomeExplanation.textContent = !allComplete
-    ? 'Complete the selected procedure before accepting or rejecting the run.'
-    : allPass
-      ? 'The visible acceptance checks match the selected scenario card. Run detached verification before export.'
-      : 'One or more visible checks differ from the scenario card. Inspect the event history and exact receipt.';
+  const outcome = evaluation?.status ?? 'incomplete';
+  const outcomeMap = {
+    pass: {
+      tone: 'resolved',
+      symbol: '✓',
+      label: 'Qualified outcome observed',
+      explanation: 'The source-controlled scenario, exact initial configuration, recorded procedure, and acceptance checks all match. Detached replay is still required before export.',
+    },
+    fail: {
+      tone: 'danger',
+      symbol: '×',
+      label: 'Observed result diverges',
+      explanation: 'The planned procedure completed, but one or more server-evaluated acceptance checks failed. Inspect the event history and exact receipt.',
+    },
+    deviated: {
+      tone: 'attention',
+      symbol: '△',
+      label: 'Exploratory variation recorded',
+      explanation: 'The run changed a qualified condition or departed from the source-controlled procedure. The result remains evidence-bearing but is not eligible for an acceptance pass.',
+    },
+    incomplete: {
+      tone: 'attention',
+      symbol: '…',
+      label: 'Run incomplete',
+      explanation: 'Complete the source-controlled procedure before accepting or rejecting the run.',
+    },
+  }[outcome];
+  elements.outcomeBanner.dataset.tone = outcomeMap.tone;
+  elements.outcomeSymbol.textContent = outcomeMap.symbol;
+  elements.outcomeLabel.textContent = outcomeMap.label;
+  elements.outcomeExplanation.textContent = outcomeMap.explanation;
 
   elements.reviewObserved.textContent = authorityPosture(state).value;
   elements.reviewComms.textContent = commsPosture(state).value;
@@ -690,7 +541,7 @@ function renderEvaluation(state) {
     strong.textContent = lastVerification.status === 'pass' ? '✓ Detached replay passed' : '× Verification refused';
     const detail = document.createElement('p');
     detail.textContent = lastVerification.status === 'pass'
-      ? `Receipt ${shortId(lastVerification.receiptId)} rebuilt to the same final state.`
+      ? `Receipt ${shortId(lastVerification.receiptId)} rebuilt the same scenario definition, evaluation, and final state.`
       : `${lastVerification.error ?? 'VERIFY_FAILED'}: ${lastVerification.message ?? 'Session could not be reconstructed.'}`;
     elements.verificationResult.append(strong, detail);
   }
@@ -706,14 +557,16 @@ function renderEvidence(state) {
   elements.standardRevision.textContent = state.fixture.standardRevision;
   elements.artifactId.textContent = state.fixture.artifactAdmissionId;
   elements.artifactId.title = state.fixture.artifactAdmissionId;
+  elements.scenarioDefinitionName.textContent = state.scenario.name;
+  elements.scenarioDefinitionId.textContent = state.scenario.scenarioDefinitionId;
+  elements.scenarioDefinitionId.title = state.scenario.scenarioDefinitionId;
   elements.receiptJson.textContent = JSON.stringify(state, null, 2);
   renderEvents(state.events);
 }
 
 function render(state) {
   currentState = state;
-  const matchingScenario = identifyScenarioFromConfig(state.initialConfig ?? state.config);
-  if (matchingScenario && normalizedUserEvents(state).length > 0) activeScenarioId = matchingScenario;
+  if (state.scenario?.scenarioId) activeScenarioId = state.scenario.scenarioId;
   renderScenarioPlan();
   renderHeader(state);
   renderProcedure(state);
@@ -804,13 +657,17 @@ function confirmThen(kind, operation) {
 }
 
 function initializeScenarioOptions() {
-  for (const [id, value] of Object.entries(scenarios)) {
+  elements.scenarioSelect.replaceChildren();
+  for (const value of scenarioCatalog.scenarios) {
     const option = document.createElement('option');
-    option.value = id;
+    option.value = value.scenarioId;
     option.textContent = value.name;
     elements.scenarioSelect.append(option);
   }
-  setSelectedConfig(scenarios[activeScenarioId].config);
+  if (!scenarioCatalog.scenarios.some((row) => row.scenarioId === activeScenarioId)) {
+    activeScenarioId = scenarioCatalog.scenarios[0].scenarioId;
+  }
+  setSelectedConfig(scenario().config);
   renderScenarioPlan();
 }
 
@@ -839,7 +696,10 @@ elements.scenarioSelect.addEventListener('change', () => {
 elements.startButton.addEventListener('click', () => {
   const start = async () => {
     activeScenarioId = elements.scenarioSelect.value;
-    const state = await runAction('reset', selectedConfig());
+    const state = await runAction('reset', {
+      scenarioId: activeScenarioId,
+      config: selectedConfig(),
+    });
     lastVerification = null;
     render(state);
     switchView('run');
@@ -858,7 +718,10 @@ elements.startButton.addEventListener('click', () => {
 elements.returnToPlanButton.addEventListener('click', () => switchView('plan'));
 
 elements.runResetButton.addEventListener('click', () => confirmThen('reset', async () => {
-  const state = await runAction('reset', selectedConfig());
+  const state = await runAction('reset', {
+    scenarioId: activeScenarioId,
+    config: selectedConfig(),
+  });
   lastVerification = null;
   render(state);
   switchView('plan');
@@ -925,13 +788,15 @@ elements.exportButton.addEventListener('click', async () => {
   }
 });
 
-initializeScenarioOptions();
-requestJson('/api/state')
-  .then((state) => {
-    currentState = state;
-    const match = identifyScenarioFromConfig(state.initialConfig ?? state.config);
-    if (match) activeScenarioId = match;
-    setSelectedConfig(scenario().config);
+Promise.all([
+  requestJson('/api/scenarios'),
+  requestJson('/api/state'),
+])
+  .then(([catalog, state]) => {
+    scenarioCatalog = catalog;
+    activeScenarioId = state.scenario?.scenarioId ?? catalog.scenarios[0].scenarioId;
+    initializeScenarioOptions();
+    setSelectedConfig(state.initialConfig ?? state.scenario.config);
     render(state);
     if (state.reconciliation || state.returnNotice) switchView('evaluate', { focus: false });
   })

@@ -12,6 +12,7 @@ import {
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { canonicalJson } from '../semantic/authority_sidecar.mjs';
+import { REHEARSAL_SCENARIO_CATALOG } from './scenarios.mjs';
 
 function requireCondition(condition, message) {
   if (!condition) throw new Error(message);
@@ -79,6 +80,7 @@ export function buildRehearsalConsolePack({
 
   const sourceFiles = [
     'mating_surface/rehearsal_console/README.md',
+    'mating_surface/rehearsal_console/scenarios.mjs',
     'mating_surface/rehearsal_console/session.mjs',
     'mating_surface/rehearsal_console/server.mjs',
     'mating_surface/rehearsal_console/public/index.html',
@@ -129,7 +131,7 @@ export function buildRehearsalConsolePack({
 
   writeJson(join(output, 'package.json'), {
     name: 'standards-denied-communications-rehearsal',
-    version: '1.1.0',
+    version: '1.2.0',
     private: true,
     type: 'module',
     scripts: {
@@ -147,7 +149,8 @@ export function buildRehearsalConsolePack({
       + `This local pack runs a neutral standards-based acceptance and rehearsal station against the exact source and evidence listed in \`build-manifest.json\`.\n\n`
       + `On Windows, run \`START_STANDARDS_REHEARSAL.cmd\`. On Linux or macOS, run \`./start-standards-rehearsal.sh\`. Node.js 24 or newer is required.\n\n`
       + `The operator workflow is Plan, Run, Evaluate, Evidence, and Guide. Role-specific support documentation is packaged under \`mating_surface/rehearsal_console/docs\` and served locally from \`/docs/\`.\n\n`
-      + `The host binds only to \`127.0.0.1\`. The browser contains presentation, test-plan metadata, and API calls; authority decisions execute in the packaged \`MessageAuthorityRuntime\` module.\n\n`
+      + `Qualified scenario definitions, procedures, and acceptance checks are source-controlled in \`mating_surface/rehearsal_console/scenarios.mjs\` and evaluated server-side. Browser presentation cannot redefine a pass. A changed configuration or off-procedure action is retained as an exploratory deviation.\n\n`
+      + `The host binds only to \`127.0.0.1\`. The browser contains presentation and API calls; authority decisions and scenario evaluation execute in packaged server-side modules.\n\n`
       + `This is a rehearsal-only reference profile. It grants no operational command, targeting, engagement, effector, execution, or weapons authority.\n`,
     'utf8',
   );
@@ -159,8 +162,10 @@ export function buildRehearsalConsolePack({
       join(output, 'evidence/semantic-conversation/conversation.json'),
     ).semanticConversationId,
     semanticVerificationId: semanticVerification.verificationId,
+    scenarioCatalogId: REHEARSAL_SCENARIO_CATALOG.catalogId,
     runtimeMode: 'server_side_direct_import',
     authorityImplementation: 'MessageAuthorityRuntime',
+    acceptanceEvaluation: 'server_side_source_controlled',
     interactionModel: 'plan_run_evaluate_evidence_guide',
     supportDocumentation: true,
     loopbackOnly: true,
@@ -175,14 +180,14 @@ export function buildRehearsalConsolePack({
     ),
   };
   const manifest = {
-    schema: 'standards-rehearsal-console-build/1',
-    buildId: `standardsrehearsalconsole1_${createHash('sha256')
+    schema: 'standards-rehearsal-console-build/2',
+    buildId: `standardsrehearsalconsole2_${createHash('sha256')
       .update(canonicalJson(manifestBody), 'utf8')
       .digest('hex')}`,
     ...manifestBody,
     manifestSelfExcluded: true,
     claimBoundary:
-      'This manifest binds the local console source, support documentation, and generated rehearsal evidence. It does not establish target-host, human-performance, accessibility, or operational qualification.',
+      'This manifest binds the local console source, scenario catalog, support documentation, and generated rehearsal evidence. It does not establish target-host, human-performance, accessibility, or operational qualification.',
   };
   writeJson(join(output, 'build-manifest.json'), manifest);
   return manifest;
@@ -206,6 +211,7 @@ function main(argv) {
     status: 'pass',
     buildId: manifest.buildId,
     sourceCommit: manifest.sourceCommit,
+    scenarioCatalogId: manifest.scenarioCatalogId,
     files: Object.keys(manifest.files).length,
     outputDir: resolve(outputDir),
   }, null, 2)}\n`);
