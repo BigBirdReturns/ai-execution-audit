@@ -29,6 +29,7 @@ jobs:
         id: apply
         shell: bash
         run: |
+          # A second run after payload removal is intentionally a no-op.
           shopt -s nullglob
           parts=(.hsi_patch/part*.b64)
           if [ ${#parts[@]} -eq 0 ]; then
