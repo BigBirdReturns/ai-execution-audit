@@ -13,12 +13,14 @@ import {
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PUBLIC_DIR = join(MODULE_DIR, 'public');
+const DEFAULT_DOCS_DIR = join(MODULE_DIR, 'docs');
 const MAX_REQUEST_BYTES = 64 * 1024;
 const MIME = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.css', 'text/css; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
   ['.json', 'application/json; charset=utf-8'],
+  ['.md', 'text/markdown; charset=utf-8'],
   ['.svg', 'image/svg+xml'],
 ]);
 
@@ -233,6 +235,7 @@ function enforceRequestBoundary(request, boundary) {
 export function createRehearsalHttpServer({
   evidenceRoot,
   publicDir = DEFAULT_PUBLIC_DIR,
+  docsDir = DEFAULT_DOCS_DIR,
   buildManifestPath = null,
   host = '127.0.0.1',
   port = 8787,
@@ -296,7 +299,14 @@ export function createRehearsalHttpServer({
         writeError(response, 405, 'METHOD_NOT_ALLOWED', 'method not allowed');
         return;
       }
-      const path = resolveStaticPath(publicDir, url.pathname);
+      const documentationRequest = url.pathname === '/docs' || url.pathname.startsWith('/docs/');
+      const staticRoot = documentationRequest ? docsDir : publicDir;
+      const staticPathname = documentationRequest
+        ? (url.pathname === '/docs' || url.pathname === '/docs/'
+          ? '/README.md'
+          : url.pathname.slice('/docs'.length))
+        : url.pathname;
+      const path = resolveStaticPath(staticRoot, staticPathname);
       if (!path) {
         writeError(response, 404, 'NOT_FOUND', 'resource not found');
         return;
