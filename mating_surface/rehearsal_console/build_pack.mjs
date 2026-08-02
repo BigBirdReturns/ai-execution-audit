@@ -82,10 +82,14 @@ export function buildRehearsalConsolePack({
     'mating_surface/rehearsal_console/README.md',
     'mating_surface/rehearsal_console/scenarios.mjs',
     'mating_surface/rehearsal_console/session.mjs',
+    'mating_surface/rehearsal_console/evaluator_disposition.mjs',
     'mating_surface/rehearsal_console/server.mjs',
     'mating_surface/rehearsal_console/public/index.html',
     'mating_surface/rehearsal_console/public/styles.css',
     'mating_surface/rehearsal_console/public/app.js',
+    'mating_surface/rehearsal_console/public/evaluator.html',
+    'mating_surface/rehearsal_console/public/evaluator.css',
+    'mating_surface/rehearsal_console/public/evaluator.js',
     'mating_surface/rehearsal_console/START_STANDARDS_REHEARSAL.cmd',
     'mating_surface/rehearsal_console/start-standards-rehearsal.sh',
     'mating_surface/semantic/authority_sidecar.mjs',
@@ -131,7 +135,7 @@ export function buildRehearsalConsolePack({
 
   writeJson(join(output, 'package.json'), {
     name: 'standards-denied-communications-rehearsal',
-    version: '1.2.0',
+    version: '1.3.0',
     private: true,
     type: 'module',
     scripts: {
@@ -150,7 +154,8 @@ export function buildRehearsalConsolePack({
       + `On Windows, run \`START_STANDARDS_REHEARSAL.cmd\`. On Linux or macOS, run \`./start-standards-rehearsal.sh\`. Node.js 24 or newer is required.\n\n`
       + `The operator workflow is Plan, Run, Evaluate, Evidence, and Guide. Role-specific support documentation is packaged under \`mating_surface/rehearsal_console/docs\` and served locally from \`/docs/\`.\n\n`
       + `Qualified scenario definitions, procedures, and acceptance checks are source-controlled in \`mating_surface/rehearsal_console/scenarios.mjs\` and evaluated server-side. Browser presentation cannot redefine a pass. A changed configuration or off-procedure action is retained as an exploratory deviation.\n\n`
-      + `The host binds only to \`127.0.0.1\`. The browser contains presentation and API calls; authority decisions and scenario evaluation execute in packaged server-side modules.\n\n`
+      + `The separate evaluator workspace is available at \`/evaluator.html\`. It preserves the automatic result and detached replay receipt, then issues one immutable local accept, reject, or defer disposition. The local process signature protects receipt integrity but does not authenticate organizational authority or constitute program acceptance.\n\n`
+      + `The host binds only to \`127.0.0.1\`. The browser contains presentation and API calls; authority decisions, scenario evaluation, and evaluator-disposition integrity execute in packaged server-side modules.\n\n`
       + `This is a rehearsal-only reference profile. It grants no operational command, targeting, engagement, effector, execution, or weapons authority.\n`,
     'utf8',
   );
@@ -166,6 +171,7 @@ export function buildRehearsalConsolePack({
     runtimeMode: 'server_side_direct_import',
     authorityImplementation: 'MessageAuthorityRuntime',
     acceptanceEvaluation: 'server_side_source_controlled',
+    evaluatorDisposition: 'separate_local_signed_receipt',
     interactionModel: 'plan_run_evaluate_evidence_guide',
     supportDocumentation: true,
     loopbackOnly: true,
@@ -187,7 +193,7 @@ export function buildRehearsalConsolePack({
     ...manifestBody,
     manifestSelfExcluded: true,
     claimBoundary:
-      'This manifest binds the local console source, scenario catalog, support documentation, and generated rehearsal evidence. It does not establish target-host, human-performance, accessibility, or operational qualification.',
+      'This manifest binds the local console source, scenario catalog, evaluator-disposition module, support documentation, and generated rehearsal evidence. It does not establish evaluator identity, program acceptance authority, target-host, human-performance, accessibility, or operational qualification.',
   };
   writeJson(join(output, 'build-manifest.json'), manifest);
   return manifest;
@@ -212,6 +218,7 @@ function main(argv) {
     buildId: manifest.buildId,
     sourceCommit: manifest.sourceCommit,
     scenarioCatalogId: manifest.scenarioCatalogId,
+    evaluatorDisposition: manifest.evaluatorDisposition,
     files: Object.keys(manifest.files).length,
     outputDir: resolve(outputDir),
   }, null, 2)}\n`);
