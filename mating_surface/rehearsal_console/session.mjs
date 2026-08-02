@@ -46,6 +46,19 @@ function readJson(path) {
 
 function normalizeConfig(input = {}) {
   requireCondition(isRecord(input), 'CONFIG_INVALID', 'configuration must be an object');
+  const allowed = new Set([
+    'offlineLeaseSteps',
+    'localOperatorPresent',
+    'duplicateOrder',
+    'delayReport',
+    'returnMode',
+  ]);
+  const unknown = Object.keys(input).filter((key) => !allowed.has(key)).sort();
+  requireCondition(
+    unknown.length === 0,
+    'CONFIG_FIELD_INVALID',
+    `unsupported configuration field ${unknown[0]}`,
+  );
   const config = {
     offlineLeaseSteps: input.offlineLeaseSteps ?? 5,
     localOperatorPresent: input.localOperatorPresent ?? true,
@@ -176,7 +189,9 @@ function deriveAuthorityPosture(runtimeState, profile, step, reconciliation) {
       expiresAtStep: reconciliation.partitionStartedAtStep + profile.offlineLeaseSteps,
       elapsedSteps: reconciliation.partitionClosedAtStep - reconciliation.partitionStartedAtStep,
       remainingSteps: 0,
-      expired: reconciliation.partitionClosedAtStep > reconciliation.partitionStartedAtStep + profile.offlineLeaseSteps,
+      expired:
+        reconciliation.partitionClosedAtStep
+        > reconciliation.partitionStartedAtStep + profile.offlineLeaseSteps,
     };
   }
   if (runtimeState.linkState === 'connected') {
@@ -208,7 +223,11 @@ function deriveAuthorityPosture(runtimeState, profile, step, reconciliation) {
 
 export class StandardsRehearsalSession {
   constructor({ fixture, provenance = {}, config = {} }) {
-    requireCondition(fixture?.conversation, 'FIXTURE_INVALID', 'fixture is missing the semantic conversation');
+    requireCondition(
+      fixture?.conversation,
+      'FIXTURE_INVALID',
+      'fixture is missing the semantic conversation',
+    );
     this.fixture = fixture;
     this.provenance = structuredClone(provenance);
     this.reset(config);
@@ -216,6 +235,7 @@ export class StandardsRehearsalSession {
 
   reset(config = {}) {
     this.config = normalizeConfig(config);
+    this.initialConfig = structuredClone(this.config);
     this.profile = createDefaultRehearsalAuthorityProfile({
       artifactAdmissionId: this.fixture.transaction.admission.admissionId,
       artifactUseId: this.fixture.transaction.use.useId,
@@ -231,6 +251,7 @@ export class StandardsRehearsalSession {
     this.processedDeliveryIds = new Set();
     this.transportRun = null;
     this.reconciliation = null;
+    this.returnNotice = null;
     this.userActions = [];
     this.events = [];
     this._issueAutomatic('submit_initialization');
@@ -238,7 +259,6 @@ export class StandardsRehearsalSession {
     this._record('reset', {
       disposition: 'ready',
       reason: 'INITIALIZATION_ACCEPTED',
-      config: this.config,
     });
     return this.publicState();
   }
@@ -253,7 +273,7 @@ export class StandardsRehearsalSession {
     return this.currentStep;
   }
 
-  _record(action, result = {}, user = false, input = null) {
+  _record(action, result = {}) {
     const row = {
       sequence: this.events.length,
       step: this.currentStep,
@@ -266,8 +286,40 @@ export class StandardsRehearsalSession {
       reconciliationId: result.reconciliationId ?? null,
     };
     this.events.push(row);
-    if (user) this.userActions.push({ action, input: input ?? {} });
     return row;
+  }
+
+  _recordUserAction(action, input = {}) {
+    requireCondition(isRecord(input), 'ACTION_INPUT_INVALID', 'action input must be an object');
+    this.userActions.push({ action, input: structuredClone(input) });
+  }
+
+  _closed() {
+    return this.reconciliation !== null || this.returnNotice !== null;
+  }
+
+  _awaitingReconciliation() {
+    return (
+      this.runtime.linkState === 'connected'
+      && this.runtime.closedEpochs.length > 0
+      && !this._closed()
+    );
+  }
+
+  _requireOpen() {
+    requireCondition(
+      !this._closed(),
+      'SESSION_CLOSED',
+      'the returning-authority result closed this rehearsal; reset to continue',
+    );
+  }
+
+  _requireNotAwaitingReconciliation() {
+    requireCondition(
+      !this._awaitingReconciliation(),
+      'RECONCILIATION_REQUIRED',
+      'the partition is closed and must be reconciled before another rehearsal action',
+    );
   }
 
   _issueAutomatic(messageClass) {
@@ -277,7 +329,11 @@ export class StandardsRehearsalSession {
       step,
       localOperatorPresent: true,
     });
-    requireCondition(result.decision.disposition === 'allow', 'INITIALIZATION_REFUSED', `${messageClass} was not admitted`);
+    requireCondition(
+      result.decision.disposition === 'allow',
+      'INITIALIZATION_REFUSED',
+      `${messageClass} was not admitted`,
+    );
     this.ticketByMessageId.set(receipt.messageId, result.ticket);
     this.sentClasses.add(messageClass);
     this.transportEvents.push({
@@ -286,11 +342,11 @@ export class StandardsRehearsalSession {
       packetId: this.fixture.packetByClass.get(messageClass).packetId,
       behavior: 'pass',
     });
-    this._recomputeTransport();
     this._record('automatic_message', {
       ...result.decision,
       messageClass,
     });
+    this._recomputeTransport();
   }
 
   _transportScenario() {
@@ -322,7 +378,10 @@ export class StandardsRehearsalSession {
       throw new RehearsalSessionError('PACKET_UNKNOWN', `unknown packet ${packetId}`);
     });
     const payloads = new Map(
-      sendPacketIds.map((packetId) => [packetId, this.fixture.payloadByPacketId.get(packetId)]),
+      sendPacketIds.map((packetId) => [
+        packetId,
+        this.fixture.payloadByPacketId.get(packetId),
+      ]),
     );
     this.transportRun = runFaultScenario({
       scenario: this._transportScenario(),
@@ -334,18 +393,58 @@ export class StandardsRehearsalSession {
     for (const delivery of this.transportRun.deliveries) {
       if (this.processedDeliveryIds.has(delivery.deliveryId)) continue;
       const ticket = this.ticketByMessageId.get(delivery.messageIdentity);
-      requireCondition(ticket, 'DELIVERY_TICKET_MISSING', `delivery ${delivery.deliveryId} has no authority ticket`);
-      const receipt = this.runtime.receiveDelivery(ticket, delivery, delivery.deliveryStep);
+      requireCondition(
+        ticket,
+        'DELIVERY_TICKET_MISSING',
+        `delivery ${delivery.deliveryId} has no authority ticket`,
+      );
+      const receipt = this.runtime.receiveDelivery(
+        ticket,
+        delivery,
+        delivery.deliveryStep,
+      );
       this.processedDeliveryIds.add(delivery.deliveryId);
       this._record('receiver_delivery', receipt);
     }
   }
 
   setConfiguration(patch) {
+    this._requireOpen();
+    this._requireNotAwaitingReconciliation();
     requireCondition(isRecord(patch), 'CONFIG_INVALID', 'configuration patch must be an object');
-    const allowed = new Set(['localOperatorPresent', 'duplicateOrder', 'delayReport', 'returnMode']);
-    const unknown = Object.keys(patch).filter((key) => !allowed.has(key));
-    requireCondition(unknown.length === 0, 'CONFIG_FIELD_INVALID', `unsupported live configuration field ${unknown[0]}`);
+    const allowed = new Set([
+      'localOperatorPresent',
+      'duplicateOrder',
+      'delayReport',
+      'returnMode',
+    ]);
+    const unknown = Object.keys(patch).filter((key) => !allowed.has(key)).sort();
+    requireCondition(
+      unknown.length === 0,
+      'CONFIG_FIELD_INVALID',
+      `unsupported live configuration field ${unknown[0]}`,
+    );
+    if (Object.hasOwn(patch, 'duplicateOrder')) {
+      requireCondition(
+        !this.sentClasses.has('order'),
+        'CONFIG_LOCKED',
+        'duplicateOrder is locked after the order enters transport',
+      );
+    }
+    if (Object.hasOwn(patch, 'delayReport')) {
+      requireCondition(
+        !this.sentClasses.has('report'),
+        'CONFIG_LOCKED',
+        'delayReport is locked after the report enters transport',
+      );
+    }
+    if (Object.hasOwn(patch, 'localOperatorPresent')) {
+      requireCondition(
+        !this.sentClasses.has('order'),
+        'CONFIG_LOCKED',
+        'localOperatorPresent is locked after the order enters transport',
+      );
+    }
     const next = normalizeConfig({ ...this.config, ...patch });
     requireCondition(
       next.offlineLeaseSteps === this.config.offlineLeaseSteps,
@@ -353,29 +452,52 @@ export class StandardsRehearsalSession {
       'offline lease changes require reset',
     );
     this.config = next;
+    this._recordUserAction('set_configuration', patch);
     this._record('set_configuration', {
       disposition: 'updated',
       reason: 'LIVE_CONFIGURATION_UPDATED',
-    }, true, patch);
+    });
     return this.publicState();
   }
 
   cutHeadquarters() {
-    requireCondition(this.runtime.linkState === 'connected', 'LINK_TRANSITION_INVALID', 'headquarters can only be cut from connected state');
+    this._requireOpen();
+    this._requireNotAwaitingReconciliation();
+    requireCondition(
+      this.runtime.linkState === 'connected',
+      'LINK_TRANSITION_INVALID',
+      'headquarters can only be cut from connected state',
+    );
+    requireCondition(
+      this.runtime.closedEpochs.length === 0,
+      'RECONCILIATION_REQUIRED',
+      'the prior partition must be reconciled before another partition begins',
+    );
     const step = this._nextStep();
     this.runtime.setLinkState('headquarters_denied', step);
     this.transportEvents.push({ step, type: 'link', state: 'down' });
     this._recomputeTransport();
+    this._recordUserAction('cut_headquarters');
     this._record('cut_headquarters', {
       disposition: 'degraded',
       reason: 'HEADQUARTERS_LINK_DENIED',
-    }, true);
+    });
     return this.publicState();
   }
 
   isolate() {
-    requireCondition(this.runtime.linkState !== 'isolated', 'LINK_TRANSITION_INVALID', 'node is already isolated');
-    requireCondition(this.runtime.linkState !== 'connected' || this.transportEvents.at(-1)?.type !== 'link', 'LINK_TRANSITION_INVALID', 'invalid isolation transition');
+    this._requireOpen();
+    this._requireNotAwaitingReconciliation();
+    requireCondition(
+      this.runtime.linkState !== 'isolated',
+      'LINK_TRANSITION_INVALID',
+      'node is already isolated',
+    );
+    requireCondition(
+      this.runtime.closedEpochs.length === 0,
+      'RECONCILIATION_REQUIRED',
+      'the prior partition must be reconciled before isolation begins',
+    );
     const prior = this.runtime.linkState;
     const step = this._nextStep();
     this.runtime.setLinkState('isolated', step);
@@ -383,36 +505,54 @@ export class StandardsRehearsalSession {
       this.transportEvents.push({ step, type: 'link', state: 'down' });
       this._recomputeTransport();
     }
+    this._recordUserAction('isolate');
     this._record('isolate', {
       disposition: 'degraded',
       reason: 'NODE_ISOLATED',
-    }, true);
+    });
     return this.publicState();
   }
 
   restore() {
-    requireCondition(this.runtime.linkState !== 'connected', 'LINK_TRANSITION_INVALID', 'communications are already connected');
+    this._requireOpen();
+    requireCondition(
+      this.runtime.linkState !== 'connected',
+      'LINK_TRANSITION_INVALID',
+      'communications are already connected',
+    );
     const step = this._nextStep();
     this.runtime.setLinkState('connected', step);
     this.transportEvents.push({ step, type: 'link', state: 'up' });
     this._recomputeTransport();
+    this._recordUserAction('restore');
     this._record('restore', {
       disposition: 'connected',
       reason: 'COMMUNICATIONS_RESTORED',
-    }, true);
+    });
     return this.publicState();
   }
 
   issue(messageClass) {
-    requireCondition(ISSUABLE_CLASSES.has(messageClass), 'MESSAGE_CLASS_INVALID', 'only order and report may be issued interactively');
-    requireCondition(!this.sentClasses.has(messageClass), 'MESSAGE_ALREADY_SENT', `${messageClass} has already entered transport`);
+    this._requireOpen();
+    this._requireNotAwaitingReconciliation();
+    requireCondition(
+      ISSUABLE_CLASSES.has(messageClass),
+      'MESSAGE_CLASS_INVALID',
+      'only order and report may be issued interactively',
+    );
+    requireCondition(
+      !this.sentClasses.has(messageClass),
+      'MESSAGE_ALREADY_SENT',
+      `${messageClass} has already entered transport`,
+    );
     const step = this._nextStep();
     const receipt = this.fixture.receiptByClass.get(messageClass);
     const result = this.runtime.evaluateMessage(receipt, {
       step,
       localOperatorPresent: this.config.localOperatorPresent,
     });
-    this._record('issue_message', result.decision, true, { messageClass });
+    this._recordUserAction(`issue_${messageClass}`);
+    this._record('issue_message', result.decision);
     if (result.decision.disposition !== 'allow') return this.publicState();
 
     this.ticketByMessageId.set(receipt.messageId, result.ticket);
@@ -437,25 +577,46 @@ export class StandardsRehearsalSession {
   }
 
   advance(steps = 1) {
+    this._requireOpen();
+    this._requireNotAwaitingReconciliation();
     this._nextStep(steps);
+    this._recordUserAction('advance', { steps });
     this._record('advance', {
       disposition: 'advanced',
       reason: 'AUTHORITY_CLOCK_ADVANCED',
-    }, true, { steps });
+    });
     return this.publicState();
   }
 
   reconcile() {
-    requireCondition(this.runtime.linkState === 'connected', 'RECONCILIATION_LINK_INVALID', 'restore communications before reconciliation');
-    requireCondition(this.runtime.closedEpochs.length > 0, 'RECONCILIATION_EPOCH_MISSING', 'no closed partition epoch exists');
+    this._requireOpen();
+    requireCondition(
+      this.runtime.linkState === 'connected',
+      'RECONCILIATION_LINK_INVALID',
+      'restore communications before reconciliation',
+    );
+    requireCondition(
+      this.runtime.closedEpochs.length > 0,
+      'RECONCILIATION_EPOCH_MISSING',
+      'no closed partition epoch exists',
+    );
+    const step = this._nextStep();
+    this._recordUserAction('reconcile');
     if (this.config.returnMode === 'absent') {
+      const epoch = this.runtime.closedEpochs.at(-1);
+      this.returnNotice = {
+        schema: 'standards-returning-authority-notice/1',
+        status: 'returning_authority_absent',
+        attemptedAtStep: step,
+        partitionEpochId: epoch.partitionEpochId,
+      };
       this._record('reconcile', {
-        disposition: 'not_attempted',
+        disposition: this.returnNotice.status,
         reason: 'RETURNING_AUTHORITY_ABSENT',
-      }, true);
+      });
       return this.publicState();
     }
-    const step = this._nextStep();
+
     const args = {
       step,
       returningAuthorityGeneration: 1,
@@ -473,14 +634,14 @@ export class StandardsRehearsalSession {
       disposition: this.reconciliation.status,
       reason: 'RETURNING_AUTHORITY_CLASSIFIED',
       reconciliationId: this.reconciliation.reconciliationId,
-    }, true);
+    });
     return this.publicState();
   }
 
   apply(action, input = {}) {
+    requireCondition(isRecord(input), 'ACTION_INPUT_INVALID', 'action input must be an object');
     switch (action) {
       case 'reset':
-        this.userActions.push({ action: 'reset', input });
         return this.reset(input);
       case 'set_configuration':
         return this.setConfiguration(input);
@@ -518,17 +679,55 @@ export class StandardsRehearsalSession {
     const latestDecision = decisions.at(-1) ?? null;
     const latestReceiver = receiverReceipts.at(-1) ?? null;
     const status = this.reconciliation?.status
+      ?? this.returnNotice?.status
       ?? (latestDecision?.disposition === 'safe_state' ? 'safe_state' : posture.mode);
+    const awaitingReconciliation = this._awaitingReconciliation();
+    const closed = this._closed();
+    const controls = {
+      canCutHeadquarters:
+        !closed
+        && !awaitingReconciliation
+        && runtimeState.linkState === 'connected'
+        && runtimeState.closedEpochs.length === 0,
+      canIsolate:
+        !closed
+        && !awaitingReconciliation
+        && runtimeState.linkState !== 'isolated'
+        && runtimeState.closedEpochs.length === 0,
+      canIssueOrder:
+        !closed
+        && !awaitingReconciliation
+        && !this.sentClasses.has('order'),
+      canIssueReport:
+        !closed
+        && !awaitingReconciliation
+        && !this.sentClasses.has('report'),
+      canAdvance: !closed && !awaitingReconciliation,
+      canRestore: !closed && runtimeState.linkState !== 'connected',
+      canReconcile: !closed && awaitingReconciliation,
+      canChangeLocalOperator:
+        !closed && !awaitingReconciliation && !this.sentClasses.has('order'),
+      canChangeDuplicateOrder:
+        !closed && !awaitingReconciliation && !this.sentClasses.has('order'),
+      canChangeDelayReport:
+        !closed && !awaitingReconciliation && !this.sentClasses.has('report'),
+      canChangeReturnMode: !closed,
+      leaseChangeRequiresReset: true,
+      resetAvailable: true,
+    };
     const stateBody = {
       fixture: this.fixture.fixtureIdentity,
+      initialConfig: this.initialConfig,
       config: this.config,
       currentStep: this.currentStep,
       status,
       linkState: runtimeState.linkState,
       posture,
+      controls,
       latestDecision,
       latestReceiver,
       reconciliation: publicReconciliation(this.reconciliation),
+      returnNotice: this.returnNotice,
       messages: {
         schemaValid: this.fixture.conversation.messages.length,
         authorityDecisions: decisions.length,
@@ -567,12 +766,14 @@ export class StandardsRehearsalSession {
     const state = this.publicState();
     const body = {
       fixtureIdentity: this.fixture.fixtureIdentity,
-      config: this.config,
+      initialConfig: this.initialConfig,
+      finalConfig: this.config,
       userActions: this.userActions,
       finalStateId: state.stateId,
       authorityDecisionIds: state.decisions.map((row) => row.decisionId),
       receiverReceiptIds: state.receiverReceipts.map((row) => row.receiverReceiptId),
       reconciliationId: state.reconciliation?.reconciliationId ?? null,
+      returnNotice: state.returnNotice,
       transportRunId: state.transport?.runId ?? null,
       provenance: this.provenance,
     };
@@ -592,21 +793,39 @@ export function verifySessionReceipt(receipt, { fixture, provenance = {} }) {
     'SESSION_RECEIPT_INVALID',
     'interactive rehearsal receipt schema is invalid',
   );
-  requireCondition(Array.isArray(receipt.userActions), 'SESSION_RECEIPT_INVALID', 'userActions must be an array');
-  const session = new StandardsRehearsalSession({ fixture, provenance, config: receipt.config });
+  requireCondition(
+    isRecord(receipt.initialConfig),
+    'SESSION_RECEIPT_INVALID',
+    'initialConfig must be an object',
+  );
+  requireCondition(
+    Array.isArray(receipt.userActions),
+    'SESSION_RECEIPT_INVALID',
+    'userActions must be an array',
+  );
+  const session = new StandardsRehearsalSession({
+    fixture,
+    provenance,
+    config: receipt.initialConfig,
+  });
   for (const row of receipt.userActions) {
-    requireCondition(isRecord(row) && typeof row.action === 'string', 'SESSION_RECEIPT_INVALID', 'user action is invalid');
-    if (row.action === 'reset') {
-      session.reset(row.input ?? {});
-      continue;
-    }
-    session.apply(row.action, row.input ?? {});
+    requireCondition(
+      isRecord(row) && typeof row.action === 'string' && isRecord(row.input),
+      'SESSION_RECEIPT_INVALID',
+      'user action is invalid',
+    );
+    session.apply(row.action, row.input);
   }
   const rebuilt = session.exportReceipt();
   requireCondition(
     rebuilt.receiptId === receipt.receiptId,
     'SESSION_RECEIPT_MISMATCH',
     'interactive rehearsal receipt does not replay to the same identity',
+  );
+  requireCondition(
+    canonicalJson(rebuilt.finalConfig) === canonicalJson(receipt.finalConfig),
+    'SESSION_RECEIPT_MISMATCH',
+    'interactive rehearsal final configuration does not replay',
   );
   return {
     schema: 'standards-interactive-rehearsal-verification/1',
