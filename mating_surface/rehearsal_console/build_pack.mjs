@@ -96,6 +96,10 @@ export function buildRehearsalConsolePack({
     requireCondition(statSync(source).isFile(), `missing source file ${path}`);
     copyFile(source, join(output, path));
   }
+  copyTree(
+    join(repository, 'mating_surface/rehearsal_console/docs'),
+    join(output, 'mating_surface/rehearsal_console/docs'),
+  );
 
   copyFile(
     join(repository, 'mating_surface/rehearsal_console/START_STANDARDS_REHEARSAL.cmd'),
@@ -125,7 +129,7 @@ export function buildRehearsalConsolePack({
 
   writeJson(join(output, 'package.json'), {
     name: 'standards-denied-communications-rehearsal',
-    version: '1.0.0',
+    version: '1.1.0',
     private: true,
     type: 'module',
     scripts: {
@@ -140,9 +144,10 @@ export function buildRehearsalConsolePack({
   writeFileSync(
     join(output, 'README.md'),
     `# Denied Communications Authority Rehearsal\n\n`
-      + `This local pack runs the neutral standards rehearsal console against the exact source and evidence listed in \`build-manifest.json\`.\n\n`
+      + `This local pack runs a neutral standards-based acceptance and rehearsal station against the exact source and evidence listed in \`build-manifest.json\`.\n\n`
       + `On Windows, run \`START_STANDARDS_REHEARSAL.cmd\`. On Linux or macOS, run \`./start-standards-rehearsal.sh\`. Node.js 24 or newer is required.\n\n`
-      + `The host binds only to \`127.0.0.1\`. The browser contains presentation code and API calls; authority decisions execute in the packaged \`MessageAuthorityRuntime\` module.\n\n`
+      + `The operator workflow is Plan, Run, Evaluate, Evidence, and Guide. Role-specific support documentation is packaged under \`mating_surface/rehearsal_console/docs\` and served locally from \`/docs/\`.\n\n`
+      + `The host binds only to \`127.0.0.1\`. The browser contains presentation, test-plan metadata, and API calls; authority decisions execute in the packaged \`MessageAuthorityRuntime\` module.\n\n`
       + `This is a rehearsal-only reference profile. It grants no operational command, targeting, engagement, effector, execution, or weapons authority.\n`,
     'utf8',
   );
@@ -156,6 +161,8 @@ export function buildRehearsalConsolePack({
     semanticVerificationId: semanticVerification.verificationId,
     runtimeMode: 'server_side_direct_import',
     authorityImplementation: 'MessageAuthorityRuntime',
+    interactionModel: 'plan_run_evaluate_evidence_guide',
+    supportDocumentation: true,
     loopbackOnly: true,
     files: Object.fromEntries(
       filesBeforeManifest.map((path) => {
@@ -175,7 +182,7 @@ export function buildRehearsalConsolePack({
     ...manifestBody,
     manifestSelfExcluded: true,
     claimBoundary:
-      'This manifest binds the local console source and generated rehearsal evidence. It does not establish target-host or operational qualification.',
+      'This manifest binds the local console source, support documentation, and generated rehearsal evidence. It does not establish target-host, human-performance, accessibility, or operational qualification.',
   };
   writeJson(join(output, 'build-manifest.json'), manifest);
   return manifest;

@@ -132,10 +132,8 @@ test('HTML uses external presentation assets and states the execution boundary',
   const html = await text('public/index.html');
   assert.equal(/<style\b/i.test(html), false);
   assert.equal(/<script(?![^>]*src=)/i.test(html), false);
-  assert.match(
-    html,
-    /The browser requests actions\. The server imports the canonical authority runtime/,
-  );
+  assert.match(html, /Canonical runtime imported server-side/);
+  assert.match(html, /The browser has no authority decision implementation/);
   assert.match(
     html,
     /No operational command, targeting, engagement, effector, execution, or weapons authority/,
