@@ -11,6 +11,7 @@ on:
       - "mating_surface/conformance/artifacts.test.mjs"
       - "mating_surface/conformance/test_xsd11_catalog.py"
       - "mating_surface/test_hosts/**"
+      - "mating_surface/semantic/**"
       - ".github/workflows/public-c2sim-artifact.yml"
   push:
     branches:
@@ -24,6 +25,7 @@ on:
       - "mating_surface/conformance/artifacts.test.mjs"
       - "mating_surface/conformance/test_xsd11_catalog.py"
       - "mating_surface/test_hosts/**"
+      - "mating_surface/semantic/**"
       - ".github/workflows/public-c2sim-artifact.yml"
   workflow_dispatch:
 
@@ -37,7 +39,7 @@ concurrency:
 jobs:
   qualify-public-reference-artifact:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
 
     steps:
       - name: Check out the mating-surface estate
@@ -83,6 +85,12 @@ jobs:
       - name: Run standards-port fault-machine and verifier tests
         run: node --test mating_surface/test_hosts/conformance/*.test.mjs
 
+      - name: Run C2SIM semantic compiler tests
+        run: python -m unittest mating_surface.semantic.conformance.test_c2sim_semantic -v
+
+      - name: Run semantic authority-sidecar tests
+        run: node --test mating_surface/semantic/conformance/*.test.mjs
+
       - name: Refuse an unexpected upstream commit or Git blob
         run: |
           test "$(git -C upstream-c2sim rev-parse HEAD)" = "ca1efa3cb23d35eef80f31d87ca189de44eb99fd"
@@ -113,14 +121,14 @@ jobs:
             qualification/c2sim-public-reference/artifact-transaction.json \
             qualification/c2sim-public-reference/xsd11-catalog.json
 
-      - name: Exercise the admitted artifact through the standards-port fault machine
+      - name: Exercise the admitted artifact through the payload-opaque fault machine
         run: |
           node mating_surface/test_hosts/run_fault_machine_e2e.mjs \
             qualification/c2sim-public-reference/artifact-transaction.json \
             qualification/c2sim-public-reference/xsd11-catalog.json \
             qualification/c2sim-public-reference/standard-port-fault-machine
 
-      - name: Reverify the retained run through the detached CLI
+      - name: Reverify the retained transport run through the detached CLI
         run: |
           node mating_surface/test_hosts/core/fault_verifier.mjs \
             qualification/c2sim-public-reference/standard-port-fault-machine/fault-run.json \
@@ -130,7 +138,68 @@ jobs:
             qualification/c2sim-public-reference/standard-port-fault-machine/verification.json \
             qualification/c2sim-public-reference/standard-port-fault-machine/verification-cli.json
 
-      - name: Retain public artifact, schema, and transport-fault evidence
+      - name: Compile and validate the standards-native C2SIM conversation
+        run: |
+          python mating_surface/semantic/c2sim_semantic.py \
+            upstream-c2sim/C2SIM_SMX_LOX_V1.0.1.xsd \
+            qualification/c2sim-public-reference/artifact-transaction.json \
+            qualification/c2sim-public-reference/xsd11-catalog.json \
+            qualification/c2sim-public-reference/semantic-conversation
+
+      - name: Run partition, replay, and reconciliation over the semantic conversation
+        run: |
+          node mating_surface/semantic/run_semantic_rehearsal.mjs \
+            qualification/c2sim-public-reference/semantic-conversation \
+            qualification/c2sim-public-reference/artifact-transaction.json \
+            qualification/c2sim-public-reference/xsd11-catalog.json \
+            qualification/c2sim-public-reference/semantic-rehearsal
+
+      - name: Reverify the complete semantic rehearsal detached
+        run: |
+          node mating_surface/semantic/verify_semantic_rehearsal.mjs \
+            qualification/c2sim-public-reference/semantic-conversation \
+            qualification/c2sim-public-reference/semantic-rehearsal \
+            qualification/c2sim-public-reference/semantic-rehearsal-verification.json
+
+      - name: Prove altered XML and host state are refused
+        run: |
+          cp -R \
+            qualification/c2sim-public-reference/semantic-conversation \
+            qualification/c2sim-public-reference/semantic-conversation-tampered
+          printf ' ' >> \
+            qualification/c2sim-public-reference/semantic-conversation-tampered/messages/03-order.xml
+          if node mating_surface/semantic/verify_semantic_rehearsal.mjs \
+            qualification/c2sim-public-reference/semantic-conversation-tampered \
+            qualification/c2sim-public-reference/semantic-rehearsal \
+            qualification/c2sim-public-reference/tampered-xml-verification.json; then
+            echo "tampered XML was incorrectly accepted" >&2
+            exit 1
+          fi
+          grep -q '"status": "refuse"' \
+            qualification/c2sim-public-reference/tampered-xml-verification.json
+
+          cp -R \
+            qualification/c2sim-public-reference/semantic-rehearsal \
+            qualification/c2sim-public-reference/semantic-rehearsal-tampered
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('qualification/c2sim-public-reference/semantic-rehearsal-tampered/semantic-host-frame.json')
+          value = json.loads(path.read_text())
+          value['messages']['receiverAccepted'] = 99
+          path.write_text(json.dumps(value, indent=2) + '\n')
+          PY
+          if node mating_surface/semantic/verify_semantic_rehearsal.mjs \
+            qualification/c2sim-public-reference/semantic-conversation \
+            qualification/c2sim-public-reference/semantic-rehearsal-tampered \
+            qualification/c2sim-public-reference/tampered-host-verification.json; then
+            echo "tampered host frame was incorrectly accepted" >&2
+            exit 1
+          fi
+          grep -q '"status": "refuse"' \
+            qualification/c2sim-public-reference/tampered-host-verification.json
+
+      - name: Retain artifact, schema, transport, and semantic rehearsal evidence
         uses: actions/upload-artifact@v7
         with:
           name: public-c2sim-reference-artifact-qualification
