@@ -1,0 +1,54 @@
+name: Apply HSI operator workflow patch
+
+on:
+  push:
+    branches:
+      - feature/hsi-operator-workflow-docs
+    paths:
+      - ".hsi_patch/**"
+      - ".github/workflows/apply-hsi-patch.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-hsi-operator-workflow-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the feature branch
+        uses: actions/checkout@v6
+        with:
+          ref: feature/hsi-operator-workflow-docs
+          fetch-depth: 0
+
+      - name: Apply the exact staged source payload
+        id: apply
+        shell: bash
+        run: |
+          shopt -s nullglob
+          parts=(.hsi_patch/part*.b64)
+          if [ ${#parts[@]} -eq 0 ]; then
+            echo "applied=false" >> "$GITHUB_OUTPUT"
+            echo "No staged patch remains."
+            exit 0
+          fi
+          cat "${parts[@]}" | base64 -d > /tmp/hsi-operator-workflow.tar.xz
+          echo "17a73919158c4a6bb9fbec26fd25c4dc7661b211ce5a4b61c919fa0f150f9ca9  /tmp/hsi-operator-workflow.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/hsi-operator-workflow.tar.xz -C .
+          rm -rf .hsi_patch
+          echo "applied=true" >> "$GITHUB_OUTPUT"
+
+      - name: Commit the applied source and documentation
+        if: steps.apply.outputs.applied == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Align rehearsal console with HSI operator workflows and documentation"
+          git push origin HEAD:feature/hsi-operator-workflow-docs
