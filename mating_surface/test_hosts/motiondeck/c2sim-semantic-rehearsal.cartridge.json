@@ -1,0 +1,143 @@
+{
+  "schema": "handbus.game-cartridge.v1",
+  "schema_version": "1.0.0",
+  "id": "standards.c2sim-semantic-rehearsal",
+  "version": "0.1.0",
+  "title": "C2SIM Semantic Rehearsal",
+  "kind": "native",
+  "description": "Offline read-only rehearsal surface for a schema-valid C2SIM conversation, transport faults, external authority, replay refusal, and reconciliation receipts.",
+  "capabilities": {
+    "required": [
+      "host.windows",
+      "display.tv",
+      "storage.local",
+      "profile.cartridge"
+    ],
+    "optional": [
+      "input.keyboard",
+      "controller.gamepad"
+    ],
+    "forbidden": [
+      "network.remote",
+      "execution.weapons",
+      "authority.command"
+    ],
+    "initial": [
+      "host.windows",
+      "display.tv",
+      "storage.local"
+    ]
+  },
+  "policy": {
+    "platforms": [
+      "windows"
+    ],
+    "preferred_adapters": [],
+    "forbidden_adapters": [
+      "trace.recording-provider"
+    ],
+    "offline_required": true,
+    "open_source_only": true,
+    "child_safe": false,
+    "max_latency_ms": 250
+  },
+  "launch": {
+    "kind": "direct-owned-title",
+    "executable": "START_C2SIM_SEMANTIC_REHEARSAL.cmd",
+    "foreign_launcher": "forbidden"
+  },
+  "actions": [
+    {
+      "semantic": "rehearsal.view.next",
+      "output": "keyboard.or.gamepad"
+    },
+    {
+      "semantic": "rehearsal.view.previous",
+      "output": "keyboard.or.gamepad"
+    },
+    {
+      "semantic": "rehearsal.frame.reload",
+      "output": "keyboard.or.gamepad"
+    },
+    {
+      "semantic": "rehearsal.return",
+      "output": "keyboard.or.gamepad"
+    }
+  ],
+  "feedback": [
+    {
+      "semantic": "rehearsal.status",
+      "output": "display"
+    },
+    {
+      "semantic": "rehearsal.receipt",
+      "output": "local-file"
+    }
+  ],
+  "spaces": {
+    "operator": "cabinet",
+    "display": "tv"
+  },
+  "safety": {
+    "fail_closed": true,
+    "forced_neutral_ms": 250,
+    "adult_operator_required": true,
+    "execution_authority": "none"
+  },
+  "permissions": [
+    "storage.local",
+    "input.keyboard",
+    "controller.gamepad"
+  ],
+  "data_flows": [
+    {
+      "id": "semantic-rehearsal-frame",
+      "source": "standards-semantic-rehearsal-frame/1",
+      "sink": "motiondeck-owned-surface",
+      "data_classes": [
+        "unclassified-rehearsal-receipt"
+      ],
+      "persist": true,
+      "retention_seconds": 0,
+      "network": "none",
+      "encrypted": false,
+      "redacted": true
+    }
+  ],
+  "resource_budget": {
+    "maximum": {
+      "latency_ms": 250,
+      "cpu_pct": 20,
+      "gpu_pct": 20,
+      "memory_mb": 512,
+      "bandwidth_mbps": 0
+    }
+  },
+  "assets": [],
+  "migrations": [],
+  "fallbacks": [],
+  "qualification": {
+    "requirements": [
+      {
+        "claim": "host.launch",
+        "minimum_tier": "host",
+        "environment_bound": true
+      },
+      {
+        "claim": "input.cabinet",
+        "minimum_tier": "hardware",
+        "environment_bound": true
+      },
+      {
+        "claim": "display.tv",
+        "minimum_tier": "room",
+        "environment_bound": true
+      }
+    ]
+  },
+  "evidence": {
+    "qualification": "source",
+    "boundary": "The cartridge shape, local launcher, generated surface, and read-only host projection are source-qualified. MotionDeck ingestion, Windows launch, cabinet controls, display, and physical acceptance remain target-host gates."
+  },
+  "fingerprint": "b849194c18e00e7dc1821eee7f1a333da51bd0b212fd5eb93f8a0087cb13c840"
+}

@@ -39,7 +39,7 @@ concurrency:
 jobs:
   qualify-public-reference-artifact:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 20
 
     steps:
       - name: Check out the mating-surface estate
@@ -69,10 +69,10 @@ jobs:
           cache: pip
           cache-dependency-path: mating_surface/tools/requirements-xsd11.txt
 
-      - name: Install the bounded XML and XSD 1.1 validators
+      - name: Install the bounded XML, XSD 1.1, and Lua validators
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxml2-utils
+          sudo apt-get install -y libxml2-utils lua5.4
           python -m pip install --require-hashes --only-binary=:all: \
             -r mating_surface/tools/requirements-xsd11.txt
 
@@ -82,7 +82,7 @@ jobs:
       - name: Run deterministic XSD 1.1 catalog tests
         run: python -m unittest mating_surface.conformance.test_xsd11_catalog -v
 
-      - name: Run standards-port fault-machine and verifier tests
+      - name: Run standards-port fault-machine and test-host tests
         run: node --test mating_surface/test_hosts/conformance/*.test.mjs
 
       - name: Run C2SIM semantic compiler tests
@@ -161,6 +161,61 @@ jobs:
             qualification/c2sim-public-reference/semantic-rehearsal \
             qualification/c2sim-public-reference/semantic-rehearsal-verification.json
 
+      - name: Compile read-only MAME and MotionDeck projections
+        run: |
+          node mating_surface/test_hosts/host_projection.mjs \
+            qualification/c2sim-public-reference/semantic-rehearsal/semantic-host-frame.json \
+            . \
+            qualification/c2sim-public-reference/test-host-projections
+
+      - name: Qualify the MAME plugin source and dry-run-first installer
+        env:
+          MAME_ROOT: ${{ runner.temp }}/mame-root
+          FRAME: qualification/c2sim-public-reference/semantic-rehearsal/semantic-host-frame.json
+        run: |
+          luac5.4 -p mating_surface/test_hosts/mame/c2simrehearsal/init.lua
+          lua5.4 \
+            mating_surface/test_hosts/mame/smoke.lua \
+            mating_surface/test_hosts/mame/c2simrehearsal/init.lua
+
+          mkdir -p "${MAME_ROOT}"
+          pwsh -NoProfile -File \
+            mating_surface/test_hosts/mame/Install-C2SIMRehearsalPlugin.ps1 \
+            -MameRoot "${MAME_ROOT}" \
+            -FramePath "${FRAME}" \
+            > "${RUNNER_TEMP}/mame-install-dry-run.json"
+          test ! -e "${MAME_ROOT}/plugins/c2simrehearsal"
+
+          pwsh -NoProfile -File \
+            mating_surface/test_hosts/mame/Install-C2SIMRehearsalPlugin.ps1 \
+            -MameRoot "${MAME_ROOT}" \
+            -FramePath "${FRAME}" \
+            -Apply \
+            > "${RUNNER_TEMP}/mame-install-apply.json"
+
+          test "$(find "${MAME_ROOT}/plugins/c2simrehearsal" -maxdepth 1 -type f | wc -l)" -eq 3
+          cmp \
+            mating_surface/test_hosts/mame/c2simrehearsal/init.lua \
+            "${MAME_ROOT}/plugins/c2simrehearsal/init.lua"
+          cmp \
+            mating_surface/test_hosts/mame/c2simrehearsal/plugin.json \
+            "${MAME_ROOT}/plugins/c2simrehearsal/plugin.json"
+          cmp \
+            "${FRAME}" \
+            "${MAME_ROOT}/plugins/c2simrehearsal/semantic-host-frame.json"
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          for name in ['mame-install-dry-run.json', 'mame-install-apply.json']:
+              value = json.loads((Path(os.environ['RUNNER_TEMP']) / name).read_text())
+              if value.get('schema') != 'c2sim-semantic-rehearsal-mame-install-plan/1':
+                  raise SystemExit(f'invalid installer receipt: {name}')
+              if value.get('authority') != 'none' or value.get('target_host_qualified') is not False:
+                  raise SystemExit(f'installer widened authority or qualification: {name}')
+          PY
+
       - name: Prove altered XML and host state are refused
         env:
           TAMPER_ROOT: ${{ runner.temp }}/c2sim-semantic-tamper
@@ -209,13 +264,14 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import re
           from pathlib import Path
 
           root = Path('qualification/c2sim-public-reference')
           files = sorted(path for path in root.rglob('*') if path.is_file())
           relative = [path.relative_to(root).as_posix() for path in files]
-          if len(files) != 30:
-              raise SystemExit(f'expected 30 retained files, found {len(files)}: {relative}')
+          if len(files) != 39:
+              raise SystemExit(f'expected 39 retained files, found {len(files)}: {relative}')
 
           forbidden = [path for path in relative if 'tampered/' in path or '-tampered/' in path]
           if forbidden:
@@ -231,6 +287,26 @@ jobs:
           if xml_files != expected_xml:
               raise SystemExit(f'unexpected retained XML paths: {xml_files}')
 
+          projection_root = root / 'test-host-projections'
+          projection_files = sorted(
+              path.relative_to(projection_root).as_posix()
+              for path in projection_root.rglob('*')
+              if path.is_file()
+          )
+          expected_projection_files = [
+              'mame/Install-C2SIMRehearsalPlugin.ps1',
+              'mame/c2simrehearsal/init.lua',
+              'mame/c2simrehearsal/plugin.json',
+              'mame/c2simrehearsal/semantic-host-frame.json',
+              'motiondeck/START_C2SIM_SEMANTIC_REHEARSAL.cmd',
+              'motiondeck/c2sim-semantic-rehearsal.cartridge.json',
+              'motiondeck/c2sim-semantic-rehearsal.html',
+              'motiondeck/semantic-host-frame.json',
+              'projection-receipt.json',
+          ]
+          if projection_files != expected_projection_files:
+              raise SystemExit(f'unexpected projection estate: {projection_files}')
+
           for path in files:
               if path.suffix == '.json':
                   value = json.loads(path.read_text())
@@ -242,10 +318,28 @@ jobs:
           verification = json.loads((root / 'semantic-rehearsal-verification.json').read_text())
           if verification.get('status') != 'pass':
               raise SystemExit('detached semantic rehearsal verification did not pass')
-          print(json.dumps({'status': 'pass', 'retainedFiles': len(files), 'xmlFiles': xml_files}, indent=2))
+
+          projection = json.loads((projection_root / 'projection-receipt.json').read_text())
+          if projection.get('status') != 'pass':
+              raise SystemExit('test-host projection did not pass')
+          if projection['mame']['authority'] != 'none' or projection['motiondeck']['authority'] != 'none':
+              raise SystemExit('test-host projection widened authority')
+          if projection['mame']['targetHostQualified'] or projection['motiondeck']['targetHostQualified']:
+              raise SystemExit('test-host projection overclaimed target qualification')
+
+          html = (projection_root / 'motiondeck/c2sim-semantic-rehearsal.html').read_text()
+          if re.search(r'<script\b|https?://|polybolos|dandelion', html, re.I):
+              raise SystemExit('generated MotionDeck surface contains executable, remote, or product-owned content')
+
+          print(json.dumps({
+              'status': 'pass',
+              'retainedFiles': len(files),
+              'xmlFiles': xml_files,
+              'projectionFiles': projection_files,
+          }, indent=2))
           PY
 
-      - name: Retain artifact, schema, transport, and semantic rehearsal evidence
+      - name: Retain artifact, schema, transport, semantic, and test-host evidence
         uses: actions/upload-artifact@v7
         with:
           name: public-c2sim-reference-artifact-qualification
