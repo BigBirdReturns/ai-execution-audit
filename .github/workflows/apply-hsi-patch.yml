@@ -7,16 +7,23 @@ on:
     paths:
       - ".hsi_patch/**"
       - ".github/workflows/apply-hsi-patch.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".hsi_patch/**"
+      - ".github/workflows/apply-hsi-patch.yml"
 
 permissions:
   contents: write
 
 concurrency:
-  group: apply-hsi-operator-workflow-${{ github.ref }}
+  group: apply-hsi-operator-workflow-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   apply:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Check out the feature branch
@@ -24,6 +31,7 @@ jobs:
         with:
           ref: feature/hsi-operator-workflow-docs
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Apply the exact staged source payload
         id: apply
