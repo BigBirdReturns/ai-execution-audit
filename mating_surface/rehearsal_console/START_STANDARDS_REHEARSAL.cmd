@@ -1,12 +1,26 @@
 @echo off
 setlocal
-set "ROOT=%~dp0..\..\"
+set "HERE=%~dp0"
+if exist "%HERE%mating_surface\rehearsal_console\server.mjs" (
+  set "ROOT=%HERE%"
+) else (
+  set "ROOT=%HERE%..\..\"
+)
 set "EVIDENCE=%ROOT%evidence"
 set "MANIFEST=%ROOT%build-manifest.json"
 
 where node >nul 2>nul
 if errorlevel 1 (
   echo Node.js 24 or newer is required.
+  exit /b 1
+)
+
+if not exist "%ROOT%mating_surface\rehearsal_console\server.mjs" (
+  echo Rehearsal console source is missing.
+  exit /b 1
+)
+if not exist "%EVIDENCE%\semantic-conversation\conversation.json" (
+  echo Rehearsal evidence is missing.
   exit /b 1
 )
 
