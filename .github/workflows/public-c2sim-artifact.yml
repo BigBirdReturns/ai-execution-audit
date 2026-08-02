@@ -162,14 +162,19 @@ jobs:
             qualification/c2sim-public-reference/semantic-rehearsal-verification.json
 
       - name: Prove altered XML and host state are refused
+        env:
+          TAMPER_ROOT: ${{ runner.temp }}/c2sim-semantic-tamper
         run: |
+          rm -rf "${TAMPER_ROOT}"
+          mkdir -p "${TAMPER_ROOT}"
+
           cp -R \
             qualification/c2sim-public-reference/semantic-conversation \
-            qualification/c2sim-public-reference/semantic-conversation-tampered
+            "${TAMPER_ROOT}/semantic-conversation"
           printf ' ' >> \
-            qualification/c2sim-public-reference/semantic-conversation-tampered/messages/03-order.xml
+            "${TAMPER_ROOT}/semantic-conversation/messages/03-order.xml"
           if node mating_surface/semantic/verify_semantic_rehearsal.mjs \
-            qualification/c2sim-public-reference/semantic-conversation-tampered \
+            "${TAMPER_ROOT}/semantic-conversation" \
             qualification/c2sim-public-reference/semantic-rehearsal \
             qualification/c2sim-public-reference/tampered-xml-verification.json; then
             echo "tampered XML was incorrectly accepted" >&2
@@ -180,24 +185,65 @@ jobs:
 
           cp -R \
             qualification/c2sim-public-reference/semantic-rehearsal \
-            qualification/c2sim-public-reference/semantic-rehearsal-tampered
-          python - <<'PY'
+            "${TAMPER_ROOT}/semantic-rehearsal"
+          TAMPER_ROOT="${TAMPER_ROOT}" python - <<'PY'
           import json
+          import os
           from pathlib import Path
-          path = Path('qualification/c2sim-public-reference/semantic-rehearsal-tampered/semantic-host-frame.json')
+          path = Path(os.environ['TAMPER_ROOT']) / 'semantic-rehearsal' / 'semantic-host-frame.json'
           value = json.loads(path.read_text())
           value['messages']['receiverAccepted'] = 99
           path.write_text(json.dumps(value, indent=2) + '\n')
           PY
           if node mating_surface/semantic/verify_semantic_rehearsal.mjs \
             qualification/c2sim-public-reference/semantic-conversation \
-            qualification/c2sim-public-reference/semantic-rehearsal-tampered \
+            "${TAMPER_ROOT}/semantic-rehearsal" \
             qualification/c2sim-public-reference/tampered-host-verification.json; then
             echo "tampered host frame was incorrectly accepted" >&2
             exit 1
           fi
           grep -q '"status": "refuse"' \
             qualification/c2sim-public-reference/tampered-host-verification.json
+
+      - name: Audit the retained evidence tree
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('qualification/c2sim-public-reference')
+          files = sorted(path for path in root.rglob('*') if path.is_file())
+          relative = [path.relative_to(root).as_posix() for path in files]
+          if len(files) != 30:
+              raise SystemExit(f'expected 30 retained files, found {len(files)}: {relative}')
+
+          forbidden = [path for path in relative if 'tampered/' in path or '-tampered/' in path]
+          if forbidden:
+              raise SystemExit(f'tamper fixture trees escaped into retained evidence: {forbidden}')
+
+          xml_files = [path for path in relative if path.endswith('.xml')]
+          expected_xml = [
+              'semantic-conversation/messages/01-submit-initialization.xml',
+              'semantic-conversation/messages/02-object-initialization.xml',
+              'semantic-conversation/messages/03-order.xml',
+              'semantic-conversation/messages/04-report.xml',
+          ]
+          if xml_files != expected_xml:
+              raise SystemExit(f'unexpected retained XML paths: {xml_files}')
+
+          for path in files:
+              if path.suffix == '.json':
+                  value = json.loads(path.read_text())
+                  if '<?xml' in path.read_text():
+                      raise SystemExit(f'raw XML escaped into JSON evidence: {path}')
+                  if path.name.startswith('tampered-') and value.get('status') != 'refuse':
+                      raise SystemExit(f'negative-control receipt did not refuse: {path}')
+
+          verification = json.loads((root / 'semantic-rehearsal-verification.json').read_text())
+          if verification.get('status') != 'pass':
+              raise SystemExit('detached semantic rehearsal verification did not pass')
+          print(json.dumps({'status': 'pass', 'retainedFiles': len(files), 'xmlFiles': xml_files}, indent=2))
+          PY
 
       - name: Retain artifact, schema, transport, and semantic rehearsal evidence
         uses: actions/upload-artifact@v7
