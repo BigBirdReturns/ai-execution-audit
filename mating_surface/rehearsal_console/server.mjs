@@ -5,6 +5,13 @@ import { readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
+  EvaluatorDispositionError,
+  EvaluatorDispositionRegistry,
+  createAcceptancePackage,
+  createLocalEvaluatorSigner,
+  verifyEvaluatorDisposition,
+} from './evaluator_disposition.mjs';
+import {
   RehearsalSessionError,
   StandardsRehearsalSession,
   loadRehearsalFixture,
@@ -97,6 +104,7 @@ function buildProvenance({ buildManifestPath = null } = {}) {
     semanticFixtureVerifier: join(root, 'semantic', 'run_semantic_rehearsal.mjs'),
     transportRuntime: join(root, 'test_hosts', 'core', 'fault_machine.mjs'),
     interactiveSession: join(MODULE_DIR, 'session.mjs'),
+    evaluatorDisposition: join(MODULE_DIR, 'evaluator_disposition.mjs'),
     httpHost: join(MODULE_DIR, 'server.mjs'),
     scenarioCatalog: join(MODULE_DIR, 'scenarios.mjs'),
   };
@@ -120,7 +128,7 @@ function buildProvenance({ buildManifestPath = null } = {}) {
     sources,
     build,
     claimBoundary:
-      'Authority decisions are executed server-side by the repository authority_sidecar module named above. The browser contains presentation and API calls only.',
+      'Authority decisions and evaluator-disposition integrity execute server-side in the named repository modules. The browser contains presentation and API calls only.',
   };
 }
 
@@ -244,6 +252,7 @@ export function createRehearsalHttpServer({
   buildManifestPath = null,
   host = '127.0.0.1',
   port = 8787,
+  evaluatorSigner = createLocalEvaluatorSigner(),
 }) {
   const fixture = loadRehearsalFixture(evidenceRoot);
   const provenance = buildProvenance({ buildManifestPath });
@@ -253,7 +262,24 @@ export function createRehearsalHttpServer({
     provenance,
     scenarioCatalog,
   });
+  const dispositionRegistry = new EvaluatorDispositionRegistry(evaluatorSigner);
   const boundary = allowedRequestBoundary(host, port);
+
+  function currentSessionEvidence() {
+    const sessionReceipt = session.exportReceipt();
+    const sessionVerification = verifySessionReceipt(sessionReceipt, {
+      fixture,
+      provenance,
+      scenarioCatalog,
+    });
+    return { sessionReceipt, sessionVerification };
+  }
+
+  function currentDisposition() {
+    const evidence = currentSessionEvidence();
+    const receipt = dispositionRegistry.get(evidence.sessionReceipt.receiptId);
+    return { ...evidence, receipt };
+  }
 
   const server = createServer(async (request, response) => {
     try {
@@ -267,6 +293,7 @@ export function createRehearsalHttpServer({
           authorityRuntime: provenance.authorityImplementation,
           fixture: fixture.fixtureIdentity,
           scenarioCatalogId: scenarioCatalog.catalogId,
+          evaluatorSigner: evaluatorSigner.publicIdentity,
           requestBoundary: {
             loopbackOnly: true,
             allowedAuthorities: [...boundary.authorities].sort(),
@@ -291,15 +318,67 @@ export function createRehearsalHttpServer({
         return;
       }
       if (url.pathname === '/api/verify' && request.method === 'GET') {
+        writeJson(response, 200, currentSessionEvidence().sessionVerification);
+        return;
+      }
+      if (url.pathname === '/api/disposition' && request.method === 'GET') {
+        const { sessionReceipt, receipt } = currentDisposition();
+        writeJson(response, 200, {
+          schema: 'standards-evaluator-disposition-state/1',
+          sessionReceiptId: sessionReceipt.receiptId,
+          status: receipt ? 'issued' : 'none',
+          receipt,
+          signer: evaluatorSigner.publicIdentity,
+          claimBoundary:
+            'A local disposition is separate from automatic evaluation and does not constitute program acceptance authority.',
+        });
+        return;
+      }
+      if (url.pathname === '/api/disposition' && request.method === 'POST') {
+        const body = await readRequestJson(request);
+        const evidence = currentSessionEvidence();
+        const receipt = dispositionRegistry.issue({
+          ...evidence,
+          evaluator: body.evaluator,
+          disposition: body.disposition,
+          rationale: body.rationale,
+        });
+        writeJson(response, 201, receipt);
+        return;
+      }
+      if (url.pathname === '/api/disposition/verify' && request.method === 'GET') {
+        const evidence = currentDisposition();
+        if (!evidence.receipt) {
+          throw new EvaluatorDispositionError(
+            'EVALUATOR_DISPOSITION_MISSING',
+            'the current session has no evaluator disposition',
+          );
+        }
         writeJson(
           response,
           200,
-          verifySessionReceipt(session.exportReceipt(), {
-            fixture,
-            provenance,
-            scenarioCatalog,
-          }),
+          verifyEvaluatorDisposition(evidence.receipt, evidence),
         );
+        return;
+      }
+      if (url.pathname === '/api/acceptance-package' && request.method === 'GET') {
+        const evidence = currentDisposition();
+        if (!evidence.receipt) {
+          throw new EvaluatorDispositionError(
+            'EVALUATOR_DISPOSITION_MISSING',
+            'the current session has no evaluator disposition',
+          );
+        }
+        const dispositionVerification = verifyEvaluatorDisposition(
+          evidence.receipt,
+          evidence,
+        );
+        writeJson(response, 200, createAcceptancePackage({
+          sessionReceipt: evidence.sessionReceipt,
+          sessionVerification: evidence.sessionVerification,
+          dispositionReceipt: evidence.receipt,
+          dispositionVerification,
+        }));
         return;
       }
       if (url.pathname === '/api/action' && request.method === 'POST') {
@@ -349,7 +428,10 @@ export function createRehearsalHttpServer({
         writeError(response, 400, 'JSON_INVALID', 'request body is not valid JSON');
       } else if (error instanceof HostBoundaryError) {
         writeError(response, error.status, error.code, error.message);
-      } else if (error instanceof RehearsalSessionError) {
+      } else if (
+        error instanceof RehearsalSessionError
+        || error instanceof EvaluatorDispositionError
+      ) {
         writeError(response, 409, error.code, error.message);
       } else {
         writeError(
@@ -362,7 +444,15 @@ export function createRehearsalHttpServer({
     }
   });
 
-  return { server, session, fixture, provenance, boundary };
+  return {
+    server,
+    session,
+    fixture,
+    provenance,
+    boundary,
+    evaluatorSigner,
+    dispositionRegistry,
+  };
 }
 
 export async function startRehearsalServer(options) {
@@ -372,6 +462,8 @@ export async function startRehearsalServer(options) {
     fixture,
     provenance,
     boundary,
+    evaluatorSigner,
+    dispositionRegistry,
   } = createRehearsalHttpServer(options);
   await new Promise((resolvePromise, rejectPromise) => {
     server.once('error', rejectPromise);
@@ -380,7 +472,15 @@ export async function startRehearsalServer(options) {
       resolvePromise();
     });
   });
-  return { server, session, fixture, provenance, boundary };
+  return {
+    server,
+    session,
+    fixture,
+    provenance,
+    boundary,
+    evaluatorSigner,
+    dispositionRegistry,
+  };
 }
 
 async function main(argv) {
@@ -399,6 +499,7 @@ async function main(argv) {
     address,
     fixture: started.fixture.fixtureIdentity,
     provenance: started.provenance,
+    evaluatorSigner: started.evaluatorSigner.publicIdentity,
     requestBoundary: {
       loopbackOnly: true,
       allowedAuthorities: [...started.boundary.authorities].sort(),
