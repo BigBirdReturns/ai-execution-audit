@@ -1,40 +1,36 @@
-# Rehearsal Console Documentation Set
+# Denied Communications Authority Rehearsal documentation
 
 ## Purpose
 
-This documentation set supports a local, unclassified, standards-based denied-communications authority rehearsal. The station is a test and acceptance instrument. It is not a tactical common operating picture, a vendor product interface, or an operational command path.
+This documentation set supports the neutral loopback rehearsal station in `mating_surface/rehearsal_console`. The station is a test-conductor and evaluation instrument for a standards-valid C2SIM reference conversation plus an external authority sidecar. It is not a tactical common operating picture, a provider product interface, or an operational command system.
 
-The documents are organized around the people who use the station and the evidence an acquirer or evaluator needs to assess it. They are shaped by active DoD software data-item descriptions and public human-factors and accessibility guidance, but they are not contractual data items unless a contract explicitly invokes and tailors them.
+The documentation is organized by role because the operator, test conductor, verifier, and integrator need different information at different points in the workflow.
 
 ## Role map
 
-| Role | Primary document | Primary task |
-| --- | --- | --- |
-| Test conductor | `TEST_CONDUCTOR_GUIDE.md` | Select, execute, and record a qualified scenario |
-| Operator or mission SME | `OPERATOR_QUICKSTART.md` | Assess whether actions, outcomes, and recovery guidance are understandable |
-| Hands-on user | `USER_GUIDE.md` | Operate Plan, Run, Evaluate, Evidence, and Guide work areas |
+| Role | Primary document | Main responsibility |
+|---|---|---|
+| Test conductor | `TEST_CONDUCTOR_GUIDE.md` | Select the case, establish initial conditions, execute the procedure, and record deviations |
+| Operator or mission SME | `OPERATOR_QUICKSTART.md` | Judge whether actions, status, consequences, and recovery are understandable |
+| General user | `USER_GUIDE.md` | Operate Plan, Run, Evaluate, Evidence, and Guide |
 | V&V reviewer | `VERIFIER_GUIDE.md` | Reconstruct source, message, transport, authority, and session identities |
-| Integrator | `INTERFACE_DESIGN_DESCRIPTION.md` | Replace the reference fixture at a program-selected standard port |
-| Test lead or acquirer | `TEST_PLAN.md` and `TEST_REPORT.md` | Assess planned coverage and executed results |
-| Accessibility or HSI reviewer | `ACCESSIBILITY_AND_HUMAN_FACTORS.md` and `REFERENCE_BASELINE.md` | Review governing public references, prototype accessibility, and human-performance evidence |
-| Configuration manager | `VERSION_DESCRIPTION.md` | Identify the exact source, dependencies, evidence, and known limitations |
+| Integrator | `INTERFACE_DESIGN_DESCRIPTION.md` | Replace the reference fixture at a selected standard port without moving authority logic into the browser |
+| Test lead | `TEST_PLAN.md` and `TEST_REPORT.md` | Maintain qualification scope, procedures, results, and remaining tests |
+| Accessibility and HSI reviewer | `HUMAN_SYSTEM_EXPECTATIONS.md` and `ACCESSIBILITY_AND_HUMAN_FACTORS.md` | Evaluate expected interaction doctrine and prototype evidence |
+| Configuration manager | `VERSION_DESCRIPTION.md` | Maintain exact release inventory and claim boundary |
 
-## Document status
+## Human-system baseline
 
-| Document | Status | Controlling evidence |
-| --- | --- | --- |
-| Operator quickstart | Baseline | Interactive console workflow |
-| User guide | Baseline | Current source and qualified scenarios |
-| Test conductor guide | Baseline | Seven deterministic scenario cases |
-| Verifier guide | Baseline | Export and replay receipt chain |
-| Interface design description | Baseline | Canonical runtime, loopback host, and standard-port boundary |
-| Test plan | Baseline | GitHub qualification workflow and local negative controls |
-| Test report | Baseline | Most recent qualified source commit and retained artifacts |
-| Accessibility and HFE plan | Prototype alignment | Formal Section 508 and MIL-STD-1472 evaluation pending |
-| Reference baseline | Baseline | Public HSI, accessibility, C2SIM, and DID authorities |
-| Traceability matrix | Baseline | Requirement-to-source-to-test mapping |
-| Version description | Baseline | Build manifest and source provenance |
+`HUMAN_SYSTEM_EXPECTATIONS.md` records the role, workflow, state, feedback, confirmation, accessibility, documentation, and evidence patterns expected of a defense rehearsal and acceptance station. `REFERENCE_BASELINE.md` records the public DoD HSI, human-engineering, accessibility, C2SIM, and software-documentation sources used to shape those expectations.
 
-## Governing claim boundary
+## Workflow
 
-The current evidence covers deterministic, unclassified rehearsal behavior over a public C2SIM reference artifact, a loopback-only host, a canonical authority runtime, and replayable receipts. It does not qualify an operational C2SIM profile, a fielded network, target hardware, a tactical user population, an external provider implementation, or any command, targeting, engagement, effector, execution, or weapons capability.
+The intended workflow is Plan, Run, Evaluate, then Evidence. Planning makes the objective, expected result, pass condition, and initial conditions visible before action. Running exposes only server-enabled actions and retains persistent result and recovery text. Evaluation compares expected and observed behavior and invokes detached replay. Evidence exposes exact receipts and source identities.
+
+## Documentation status
+
+These files are DID-shaped working artifacts. They follow the information architecture normally expected of a Software User Manual, Interface Design Description, Software Test Plan, Software Test Report, and Software Version Description. They are not represented as contract data items unless a contract or data-item list explicitly invokes the corresponding DID and tailoring.
+
+## Claim boundary
+
+The current evidence covers a loopback-only, unclassified rehearsal profile, one public C2SIM reference artifact, deterministic fault injection, direct server-side use of the canonical authority runtime, and replayable local receipts. It does not qualify an operational C2SIM profile, field network, Polybolos implementation, target MAME or MotionDeck installation, operational operator population, command authority, targeting, engagement, effector control, execution path, or weapons capability.
