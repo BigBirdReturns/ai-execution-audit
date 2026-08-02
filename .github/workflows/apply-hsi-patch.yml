@@ -37,9 +37,8 @@ jobs:
         id: apply
         shell: bash
         run: |
-          # A second run after payload removal is intentionally a no-op.
           shopt -s nullglob
-          parts=(.hsi_patch/part*.b64)
+          parts=(.hsi_patch/new*.b64)
           if [ ${#parts[@]} -eq 0 ]; then
             echo "applied=false" >> "$GITHUB_OUTPUT"
             echo "No staged patch remains."
