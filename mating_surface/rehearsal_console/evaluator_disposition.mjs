@@ -101,8 +101,9 @@ function validateSessionInputs(sessionReceipt, sessionVerification) {
   );
 }
 
-function signerIdentity(publicKey) {
-  const der = createPublicKey(publicKey).export({ type: 'spki', format: 'der' });
+function signerIdentity(key) {
+  const publicKey = key?.type === 'public' ? key : createPublicKey(key);
+  const der = publicKey.export({ type: 'spki', format: 'der' });
   return {
     keyId: `ed25519:${createHash('sha256').update(der).digest('hex')}`,
     publicKeySpkiBase64: der.toString('base64'),
@@ -192,7 +193,11 @@ export function createLocalEvaluatorSigner({ clock = () => new Date() } = {}) {
         );
       }
       const now = clock();
-      requireCondition(now instanceof Date && Number.isFinite(now.getTime()), 'EVALUATOR_CLOCK_INVALID', 'clock did not return a valid Date');
+      requireCondition(
+        now instanceof Date && Number.isFinite(now.getTime()),
+        'EVALUATOR_CLOCK_INVALID',
+        'clock did not return a valid Date',
+      );
       const body = dispositionBody({
         sessionReceipt,
         sessionVerification,
@@ -210,7 +215,11 @@ export function createLocalEvaluatorSigner({ clock = () => new Date() } = {}) {
         claimBoundary:
           'This local Ed25519 signature proves receipt integrity for one rehearsal-host process. It does not independently authenticate the evaluator, establish program acceptance, or grant operational authority.',
       };
-      receipt.signature = signBytes(null, signaturePayload(receipt), privateKey).toString('base64');
+      receipt.signature = signBytes(
+        null,
+        signaturePayload(receipt),
+        privateKey,
+      ).toString('base64');
       return receipt;
     },
   };
