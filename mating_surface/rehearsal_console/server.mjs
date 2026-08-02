@@ -22,6 +22,15 @@ const MIME = new Map([
   ['.svg', 'image/svg+xml'],
 ]);
 
+class HostBoundaryError extends Error {
+  constructor(status, code, message) {
+    super(message);
+    this.name = 'HostBoundaryError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 function sha256File(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
@@ -57,12 +66,19 @@ function parseArgs(argv) {
     }
   }
   if (!result.evidenceRoot) {
-    result.evidenceRoot = resolve(MODULE_DIR, '../../qualification/c2sim-public-reference');
+    result.evidenceRoot = resolve(
+      MODULE_DIR,
+      '../../qualification/c2sim-public-reference',
+    );
   }
   if (!Number.isSafeInteger(result.port) || result.port < 1 || result.port > 65535) {
     throw new Error('port must be an integer between 1 and 65535');
   }
-  if (result.host !== '127.0.0.1' && result.host !== '::1' && result.host !== 'localhost') {
+  if (
+    result.host !== '127.0.0.1'
+    && result.host !== '::1'
+    && result.host !== 'localhost'
+  ) {
     throw new Error('the rehearsal console may bind only to the loopback interface');
   }
   return result;
@@ -79,7 +95,7 @@ function buildProvenance({ buildManifestPath = null } = {}) {
   };
   const sources = Object.fromEntries(
     Object.entries(paths).map(([key, path]) => [key, {
-      path: path.replace(resolve(MODULE_DIR, '../..') + '/', ''),
+      path: path.replace(`${resolve(MODULE_DIR, '../..')}/`, ''),
       sha256: sha256File(path),
     }]),
   );
@@ -105,7 +121,8 @@ function securityHeaders(contentType = 'application/json; charset=utf-8') {
   return {
     'Content-Type': contentType,
     'Cache-Control': 'no-store',
-    'Content-Security-Policy': "default-src 'self'; connect-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+    'Content-Security-Policy':
+      "default-src 'self'; connect-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Resource-Policy': 'same-origin',
     'Referrer-Policy': 'no-referrer',
@@ -129,17 +146,36 @@ function writeError(response, status, code, message) {
 }
 
 async function readRequestJson(request) {
+  const contentType = String(request.headers['content-type'] ?? '')
+    .split(';', 1)[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== 'application/json') {
+    throw new HostBoundaryError(
+      415,
+      'CONTENT_TYPE_REFUSED',
+      'state-changing requests require application/json',
+    );
+  }
   let size = 0;
   const chunks = [];
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > MAX_REQUEST_BYTES) throw new RehearsalSessionError('REQUEST_TOO_LARGE', 'request exceeds 64 KiB');
+    if (size > MAX_REQUEST_BYTES) {
+      throw new RehearsalSessionError(
+        'REQUEST_TOO_LARGE',
+        'request exceeds 64 KiB',
+      );
+    }
     chunks.push(chunk);
   }
   if (chunks.length === 0) return {};
   const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new RehearsalSessionError('REQUEST_INVALID', 'request body must be a JSON object');
+    throw new RehearsalSessionError(
+      'REQUEST_INVALID',
+      'request body must be a JSON object',
+    );
   }
   return value;
 }
@@ -153,20 +189,74 @@ function resolveStaticPath(publicDir, pathname) {
   return path;
 }
 
-export function createRehearsalHttpServer({ evidenceRoot, publicDir = DEFAULT_PUBLIC_DIR, buildManifestPath = null }) {
+function allowedRequestBoundary(host, port) {
+  const authorities = new Set([
+    `127.0.0.1:${port}`,
+    `localhost:${port}`,
+    `[::1]:${port}`,
+  ]);
+  if (host === 'localhost') authorities.add(`localhost:${port}`);
+  if (host === '::1') authorities.add(`[::1]:${port}`);
+  const origins = new Set(
+    [...authorities].map((authority) => `http://${authority}`),
+  );
+  return { authorities, origins };
+}
+
+function enforceRequestBoundary(request, boundary) {
+  const authority = String(request.headers.host ?? '').toLowerCase();
+  if (!boundary.authorities.has(authority)) {
+    throw new HostBoundaryError(
+      421,
+      'HOST_HEADER_REFUSED',
+      'request Host is outside the loopback rehearsal boundary',
+    );
+  }
+  const origin = request.headers.origin;
+  if (origin && !boundary.origins.has(String(origin).toLowerCase())) {
+    throw new HostBoundaryError(
+      403,
+      'ORIGIN_REFUSED',
+      'cross-origin access to the rehearsal host is refused',
+    );
+  }
+  const fetchSite = String(request.headers['sec-fetch-site'] ?? '').toLowerCase();
+  if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') {
+    throw new HostBoundaryError(
+      403,
+      'FETCH_SITE_REFUSED',
+      'cross-site access to the rehearsal host is refused',
+    );
+  }
+}
+
+export function createRehearsalHttpServer({
+  evidenceRoot,
+  publicDir = DEFAULT_PUBLIC_DIR,
+  buildManifestPath = null,
+  host = '127.0.0.1',
+  port = 8787,
+}) {
   const fixture = loadRehearsalFixture(evidenceRoot);
   const provenance = buildProvenance({ buildManifestPath });
   const session = new StandardsRehearsalSession({ fixture, provenance });
+  const boundary = allowedRequestBoundary(host, port);
 
   const server = createServer(async (request, response) => {
     try {
-      const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+      enforceRequestBoundary(request, boundary);
+      const authority = String(request.headers.host).toLowerCase();
+      const url = new URL(request.url ?? '/', `http://${authority}`);
       if (url.pathname === '/api/health' && request.method === 'GET') {
         writeJson(response, 200, {
           schema: 'standards-rehearsal-console-health/1',
           status: 'ready',
           authorityRuntime: provenance.authorityImplementation,
           fixture: fixture.fixtureIdentity,
+          requestBoundary: {
+            loopbackOnly: true,
+            allowedAuthorities: [...boundary.authorities].sort(),
+          },
         });
         return;
       }
@@ -183,13 +273,20 @@ export function createRehearsalHttpServer({ evidenceRoot, publicDir = DEFAULT_PU
         return;
       }
       if (url.pathname === '/api/verify' && request.method === 'GET') {
-        writeJson(response, 200, verifySessionReceipt(session.exportReceipt(), { fixture, provenance }));
+        writeJson(
+          response,
+          200,
+          verifySessionReceipt(session.exportReceipt(), { fixture, provenance }),
+        );
         return;
       }
       if (url.pathname === '/api/action' && request.method === 'POST') {
         const body = await readRequestJson(request);
         if (typeof body.action !== 'string') {
-          throw new RehearsalSessionError('ACTION_INVALID', 'action must be a string');
+          throw new RehearsalSessionError(
+            'ACTION_INVALID',
+            'action must be a string',
+          );
         }
         const state = session.apply(body.action, body.input ?? {});
         writeJson(response, 200, state);
@@ -211,7 +308,9 @@ export function createRehearsalHttpServer({ evidenceRoot, publicDir = DEFAULT_PU
         writeError(response, 404, 'NOT_FOUND', 'resource not found');
         return;
       }
-      const headers = securityHeaders(MIME.get(extname(path)) ?? 'application/octet-stream');
+      const headers = securityHeaders(
+        MIME.get(extname(path)) ?? 'application/octet-stream',
+      );
       headers['Cache-Control'] = 'no-cache';
       response.writeHead(200, headers);
       if (request.method === 'HEAD') response.end();
@@ -219,19 +318,32 @@ export function createRehearsalHttpServer({ evidenceRoot, publicDir = DEFAULT_PU
     } catch (error) {
       if (error instanceof SyntaxError) {
         writeError(response, 400, 'JSON_INVALID', 'request body is not valid JSON');
+      } else if (error instanceof HostBoundaryError) {
+        writeError(response, error.status, error.code, error.message);
       } else if (error instanceof RehearsalSessionError) {
         writeError(response, 409, error.code, error.message);
       } else {
-        writeError(response, 500, 'HOST_FAILURE', error instanceof Error ? error.message : 'host failure');
+        writeError(
+          response,
+          500,
+          'HOST_FAILURE',
+          error instanceof Error ? error.message : 'host failure',
+        );
       }
     }
   });
 
-  return { server, session, fixture, provenance };
+  return { server, session, fixture, provenance, boundary };
 }
 
 export async function startRehearsalServer(options) {
-  const { server, session, fixture, provenance } = createRehearsalHttpServer(options);
+  const {
+    server,
+    session,
+    fixture,
+    provenance,
+    boundary,
+  } = createRehearsalHttpServer(options);
   await new Promise((resolvePromise, rejectPromise) => {
     server.once('error', rejectPromise);
     server.listen(options.port, options.host, () => {
@@ -239,7 +351,7 @@ export async function startRehearsalServer(options) {
       resolvePromise();
     });
   });
-  return { server, session, fixture, provenance };
+  return { server, session, fixture, provenance, boundary };
 }
 
 async function main(argv) {
@@ -258,6 +370,10 @@ async function main(argv) {
     address,
     fixture: started.fixture.fixtureIdentity,
     provenance: started.provenance,
+    requestBoundary: {
+      loopbackOnly: true,
+      allowedAuthorities: [...started.boundary.authorities].sort(),
+    },
   }, null, 2)}\n`);
   const close = () => started.server.close(() => process.exit(0));
   process.once('SIGINT', close);
