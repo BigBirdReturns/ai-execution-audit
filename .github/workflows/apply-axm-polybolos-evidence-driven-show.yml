@@ -1,0 +1,158 @@
+name: Apply AXM Polybolos evidence-driven show surface
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .show-materialize/READY
+  push:
+    branches:
+      - agent/axm-polybolos-evidence-driven-show
+    paths:
+      - .show-materialize/READY
+
+permissions:
+  contents: write
+
+concurrency:
+  group: axm-polybolos-evidence-driven-show-materialization
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out exact staging head
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: agent/axm-polybolos-evidence-driven-show
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Verify lease and reconstruct the exact patch
+        env:
+          STAGING_BRANCH: agent/axm-polybolos-evidence-driven-show
+          BASE_MAIN: 19a061bb6fa4eaa73fe95e2b0279d139d9de39a3
+          EXPECTED_B64_BYTES: "70447"
+          EXPECTED_B64_SHA256: d95c99b096eb7b9633b60933fe8176e045adb3cdd353be542a465903c005b504
+          EXPECTED_GZIP_BYTES: "52147"
+          EXPECTED_GZIP_SHA256: b2abc683af71582128f3bf70ea3d7eb686465d6983dadf361e8440e74b243f68
+          EXPECTED_PATCH_BYTES: "212654"
+          EXPECTED_PATCH_SHA256: 2f84137403461b6c2fd245f525e4e958f115553fc3da50c25f9f15285bb7b4a6
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "$STAGING_BRANCH"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "origin/$STAGING_BRANCH")"
+          git rev-parse HEAD > /tmp/staging-head
+          test "$(git rev-parse "$BASE_MAIN^{commit}")" = "$BASE_MAIN"
+          test "$(git merge-base "$BASE_MAIN" HEAD)" = "$BASE_MAIN"
+
+          cat \
+            .show-materialize/part-00.b64 \
+            .show-materialize/part-01.b64 \
+            .show-materialize/part-02.b64 \
+            > /tmp/axm-polybolos-show.patch.gz.b64
+          test "$(wc -c < /tmp/axm-polybolos-show.patch.gz.b64)" = "$EXPECTED_B64_BYTES"
+          test "$(sha256sum /tmp/axm-polybolos-show.patch.gz.b64 | cut -d' ' -f1)" = "$EXPECTED_B64_SHA256"
+
+          base64 --decode /tmp/axm-polybolos-show.patch.gz.b64 \
+            > /tmp/axm-polybolos-show.patch.gz
+          test "$(wc -c < /tmp/axm-polybolos-show.patch.gz)" = "$EXPECTED_GZIP_BYTES"
+          test "$(sha256sum /tmp/axm-polybolos-show.patch.gz | cut -d' ' -f1)" = "$EXPECTED_GZIP_SHA256"
+
+          gzip --decompress --stdout /tmp/axm-polybolos-show.patch.gz \
+            > /tmp/axm-polybolos-show.patch
+          test "$(wc -c < /tmp/axm-polybolos-show.patch)" = "$EXPECTED_PATCH_BYTES"
+          test "$(sha256sum /tmp/axm-polybolos-show.patch | cut -d' ' -f1)" = "$EXPECTED_PATCH_SHA256"
+
+          git apply --check /tmp/axm-polybolos-show.patch
+          git apply /tmp/axm-polybolos-show.patch
+          git diff --check
+
+      - name: Qualify the evidence-driven show product
+        run: |
+          set -euo pipefail
+          node --check mating_surface/rehearsal_console/show/evidence_cartridge.mjs
+          node --check mating_surface/rehearsal_console/show/public/app.js
+          node --check mating_surface/rehearsal_console/server.mjs
+          node --check mating_surface/rehearsal_console/build_pack.mjs
+          node --test mating_surface/rehearsal_console/conformance/show_surface.test.mjs
+          node --test mating_surface/rehearsal_console/conformance/*.test.mjs
+
+          grep -q "version: '1.5.0'" mating_surface/rehearsal_console/build_pack.mjs
+          grep -q "defaultLaunchSurface: '/show/'" mating_surface/rehearsal_console/build_pack.mjs
+          grep -q '"automaticEvaluationStatus": "incomplete"' \
+            mating_surface/rehearsal_console/show/public/cartridges/mark-standing-orders-20260802.json
+          grep -q '"acceptanceEligible": false' \
+            mating_surface/rehearsal_console/show/public/cartridges/mark-standing-orders-20260802.json
+          grep -q '"observations": 20000' \
+            mating_surface/rehearsal_console/show/public/cartridges/synthetic-20000-reference.json
+          ! grep -R -q 'SO-CHROME-R1' mating_surface/rehearsal_console/show
+          ! grep -R -q 'standing_orders_proof_20260802_215108.log' \
+            mating_surface/rehearsal_console/show/public/cartridges
+
+      - name: Remove transport and prove the exact permanent product
+        env:
+          BASE_MAIN: 19a061bb6fa4eaa73fe95e2b0279d139d9de39a3
+        run: |
+          set -euo pipefail
+          rm -rf .show-materialize
+          rm -f .github/workflows/apply-axm-polybolos-evidence-driven-show.yml
+
+          git diff --check
+          git diff --name-status "$BASE_MAIN" | sort > /tmp/actual-paths
+          cat > /tmp/expected-paths <<'EOF'
+          M	mating_surface/rehearsal_console/README.md
+          M	mating_surface/rehearsal_console/START_STANDARDS_REHEARSAL.cmd
+          M	mating_surface/rehearsal_console/build_pack.mjs
+          A	mating_surface/rehearsal_console/conformance/show_surface.test.mjs
+          M	mating_surface/rehearsal_console/docs/INTERFACE_DESIGN_DESCRIPTION.md
+          A	mating_surface/rehearsal_console/docs/PRODUCT_STACK.md
+          M	mating_surface/rehearsal_console/docs/README.md
+          M	mating_surface/rehearsal_console/docs/TEST_PLAN.md
+          M	mating_surface/rehearsal_console/docs/TEST_REPORT.md
+          M	mating_surface/rehearsal_console/docs/TRACEABILITY_MATRIX.md
+          M	mating_surface/rehearsal_console/docs/VERSION_DESCRIPTION.md
+          M	mating_surface/rehearsal_console/server.mjs
+          A	mating_surface/rehearsal_console/show/README.md
+          A	mating_surface/rehearsal_console/show/evidence_cartridge.mjs
+          A	mating_surface/rehearsal_console/show/public/app.js
+          A	mating_surface/rehearsal_console/show/public/cartridges/mark-standing-orders-20260802.json
+          A	mating_surface/rehearsal_console/show/public/cartridges/synthetic-20000-reference.json
+          A	mating_surface/rehearsal_console/show/public/index.html
+          A	mating_surface/rehearsal_console/show/public/scenarios.html
+          A	mating_surface/rehearsal_console/show/public/styles.css
+          M	mating_surface/rehearsal_console/start-standards-rehearsal.sh
+          EOF
+          sort -o /tmp/expected-paths /tmp/expected-paths
+          diff -u /tmp/expected-paths /tmp/actual-paths
+          test "$(wc -l < /tmp/actual-paths)" = "21"
+          test ! -e .show-materialize
+          test ! -e .github/workflows/apply-axm-polybolos-evidence-driven-show.yml
+
+      - name: Commit exact workflow-free product and publish under lease
+        env:
+          STAGING_BRANCH: agent/axm-polybolos-evidence-driven-show
+          BASE_MAIN: 19a061bb6fa4eaa73fe95e2b0279d139d9de39a3
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Restore AXM x POLYBOLOS evidence-driven show surface"
+
+          node --test mating_surface/rehearsal_console/conformance/show_surface.test.mjs
+          test "$(git diff --name-only "$BASE_MAIN" HEAD | wc -l)" = "21"
+          test -z "$(git status --porcelain)"
+
+          remote_head="$(git ls-remote origin "refs/heads/$STAGING_BRANCH" | cut -f1)"
+          test "$remote_head" = "$(cat /tmp/staging-head)"
+          git push origin "HEAD:refs/heads/$STAGING_BRANCH"
