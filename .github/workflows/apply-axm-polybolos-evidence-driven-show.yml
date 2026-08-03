@@ -1,6 +1,11 @@
 name: Apply AXM Polybolos evidence-driven show surface
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .show-materialize/READY
   push:
     branches:
       - agent/axm-polybolos-evidence-driven-show
