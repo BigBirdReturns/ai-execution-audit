@@ -104,7 +104,7 @@ test('digest tampering and self-asserted automatic promotion fail closed', async
   assert.throws(
     () => verifyExternalEvidenceQualification(changedDigest),
     (error) => error instanceof ExternalEvidenceError
-      && error.code === 'EXTERNAL_EVIDENCE_SET_ID_MISMATCH',
+      && error.code === 'EXTERNAL_CLOSURE_SOURCE_MISMATCH',
   );
 
   const promoted = structuredClone(retained.qualification);
@@ -154,26 +154,36 @@ test('all required claims still remain incomplete without canonical closure', ()
   assert.equal(receipt.automaticEvaluation.acceptanceEligible, false);
 });
 
-test('exact source-set binding and detached canonical replay are required for automatic pass', () => {
-  const provisional = createExternalEvidenceQualification(baseInput());
-  const receipt = createExternalEvidenceQualification(baseInput({
-    closure: {
-      sourceEvidenceSetId: provisional.sourceEvidenceSetId,
-      scenarioCatalogId: 'standardrehearsalscenariocatalog1_' + '1'.repeat(64),
-      scenarioDefinitionId: 'standardrehearsalscenario1_' + '2'.repeat(64),
-      sessionReceiptId: 'standardsinteractiverehearsal2_' + '3'.repeat(64),
-      sessionVerificationId: 'standardsinteractiverehearsalverification2_' + '4'.repeat(64),
-      detachedReplayStatus: 'pass',
-    },
-  }));
+test('all required claim passes remain incomplete because admission has no canonical-closure authority', () => {
+  const receipt = createExternalEvidenceQualification(baseInput());
   const verification = verifyExternalEvidenceQualification(receipt);
-  assert.equal(receipt.automaticEvaluation.status, 'pass');
-  assert.equal(receipt.automaticEvaluation.canonicalClosureComplete, true);
-  assert.equal(receipt.automaticEvaluation.acceptanceEligible, true);
+  assert.equal(receipt.automaticEvaluation.requiredPassCount, 1);
+  assert.equal(receipt.automaticEvaluation.requiredIncompleteCount, 0);
+  assert.equal(receipt.automaticEvaluation.status, 'incomplete');
+  assert.equal(receipt.automaticEvaluation.canonicalClosureComplete, false);
+  assert.equal(receipt.automaticEvaluation.acceptanceEligible, false);
   assert.equal(verification.status, 'pass');
 });
 
-test('another source evidence set cannot borrow a canonical session closure', () => {
+test('self-asserted canonical IDs and replay status are refused before evaluation', () => {
+  const provisional = createExternalEvidenceQualification(baseInput());
+  assert.throws(
+    () => createExternalEvidenceQualification(baseInput({
+      closure: {
+        sourceEvidenceSetId: provisional.sourceEvidenceSetId,
+        scenarioCatalogId: 'standardrehearsalscenariocatalog1_' + '1'.repeat(64),
+        scenarioDefinitionId: 'standardrehearsalscenario1_' + '2'.repeat(64),
+        sessionReceiptId: 'standardsinteractiverehearsal2_' + '3'.repeat(64),
+        sessionVerificationId: 'standardsinteractiverehearsalverification2_' + '4'.repeat(64),
+        detachedReplayStatus: 'pass',
+      },
+    })),
+    (error) => error instanceof ExternalEvidenceError
+      && error.code === 'EXTERNAL_CANONICAL_CLOSURE_UNVERIFIED',
+  );
+});
+
+test('a source evidence set cannot borrow or rewrite another session closure', () => {
   const first = createExternalEvidenceQualification(baseInput());
   const input = baseInput({
     closure: {
@@ -186,11 +196,19 @@ test('another source evidence set cannot borrow a canonical session closure', ()
     },
   });
   input.observations[0].value = 2;
-  const second = createExternalEvidenceQualification(input);
-  assert.notEqual(second.sourceEvidenceSetId, first.sourceEvidenceSetId);
-  assert.equal(second.automaticEvaluation.status, 'incomplete');
-  assert.equal(second.automaticEvaluation.canonicalClosureComplete, false);
-  assert.equal(second.automaticEvaluation.acceptanceEligible, false);
+  assert.throws(
+    () => createExternalEvidenceQualification(input),
+    (error) => error instanceof ExternalEvidenceError
+      && error.code === 'EXTERNAL_CANONICAL_CLOSURE_UNVERIFIED',
+  );
+});
+
+test('a required failed claim produces fail but never acceptance eligibility', () => {
+  const receipt = createExternalEvidenceQualification(baseInput({ claimResult: 'fail' }));
+  assert.equal(receipt.automaticEvaluation.status, 'fail');
+  assert.equal(receipt.automaticEvaluation.requiredFailCount, 1);
+  assert.equal(receipt.automaticEvaluation.canonicalClosureComplete, false);
+  assert.equal(receipt.automaticEvaluation.acceptanceEligible, false);
 });
 
 test('undeclared receipt fields are refused rather than ignored', () => {

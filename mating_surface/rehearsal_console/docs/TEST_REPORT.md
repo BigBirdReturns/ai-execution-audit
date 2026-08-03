@@ -115,14 +115,21 @@ Controlling result:
 
 The producer report correctly describes the admin injection, the ten allowlisted authorizations, the five safe denials, and the presented mapping. It outruns the controlling log when it promotes an active-state Boolean into an authority signature, treats the injected interval as a signed lease, asserts independent headquarters/local-link and operator-presence witnesses, imports an unwitnessed epoch identity, asserts replay or explicit returning-authority supersession, interprets acknowledgement as full reconciliation, or concludes that operational capability is ready.
 
-The external-evidence verifier therefore refuses raw-source publication, digest tampering, undeclared fields, pass without cited observations, caller-promoted automatic status, and closure borrowed from another source evidence set. The normal pack builder also verifies that the retained receipt remains private-digest-only, automatically incomplete, and acceptance-ineligible.
+The external-evidence verifier therefore refuses raw-source publication, digest tampering, undeclared fields, pass without cited observations, caller-promoted automatic status, self-asserted canonical catalog/session/replay values, and closure borrowed from another source evidence set. External-evidence admission has no automatic-pass path: required failures produce `fail`; every other admitted result remains `incomplete`. The normal pack builder also verifies that the retained receipt remains private-digest-only, automatically incomplete, and acceptance-ineligible.
 
-## 8. Interpretation
+## 8. Post-merge closure hardening
+
+A late automated review correctly identified that the original generic future-pass branch trusted nonempty catalog and session identifiers plus a caller-supplied replay status instead of loading and verifying the cited artifacts. The retained standing-orders receipt was not acceptance-eligible and did not exercise that branch, but the forward contract was unsafe.
+
+The repair removes canonical-closure authority from external-evidence admission rather than inventing a session binding. Non-null catalog, definition, session receipt, or session verification identifiers and any replay status other than `absent` now fail closed. Even an all-pass external claim set remains `incomplete` and `acceptanceEligible: false`. A future closure transaction must be separately implemented and reviewed, load the actual catalog and session artifacts, call `verifySessionReceipt`, and require the verified session itself to bind the exact external source evidence set.
+
+## 9. Interpretation
 
 Passing automated checks establishes source, receipt, and interaction-contract consistency. It does not establish that representative warfighters can use the station effectively under operational workload. The external receipt establishes bounded behavior inside a scripted admin-inject harness; it does not establish signed authority custody, physical network partition, replay closure, returning-authority supersession, operational suitability, or human performance.
 
-## 9. Open findings
+## 10. Open findings
 
+- No separately verified canonical-closure implementation exists for external evidence.
 - No canonical session reproduces the retained external source evidence set.
 - No signed authority or lease identity, issuer, generation, validity, signature, or verification receipt is retained for that source.
 - No duplicate message or receiver replay disposition is retained for that source.

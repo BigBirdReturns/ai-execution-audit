@@ -26,7 +26,7 @@ The documentation is organized by role because the operator, test conductor, eva
 
 `EVALUATOR_DISPOSITION.md` describes the separate human disposition. A replay-verified automatic pass may be accepted, rejected, or deferred. A fail, incomplete, or deviated automatic result cannot be converted into an accepted qualified result by the local evaluator lane.
 
-`EXTERNAL_EVIDENCE_ADMISSION.md` describes the detached admission of logs and reports produced outside the canonical session runtime. Private source bytes remain outside the repository. A digest-bound external receipt may qualify bounded observations, but it remains automatically incomplete until every required claim passes and the exact source evidence set is bound to a canonical scenario, session receipt, session verification, and passing detached replay.
+`EXTERNAL_EVIDENCE_ADMISSION.md` describes the detached admission of logs and reports produced outside the canonical session runtime. Private source bytes remain outside the repository. A digest-bound external receipt may qualify bounded observations, but this admission lane has no automatic-pass or acceptance authority. It remains `fail` or `incomplete`; self-asserted canonical session identifiers and replay status are refused. Any future closure path requires a separate verifier that loads and validates the actual canonical artifacts and a session-side binding to the exact external source evidence set.
 
 ## Human-system baseline
 
