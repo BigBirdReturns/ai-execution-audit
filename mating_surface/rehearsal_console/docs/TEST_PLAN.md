@@ -12,6 +12,8 @@ This plan describes qualification of the denied-communications authority rehears
 - canonical `MessageAuthorityRuntime`;
 - source-controlled scenario catalog and server-owned acceptance evaluator;
 - interactive session conductor;
+- separate local evaluator-disposition signer and verifier;
+- digest-only external-evidence admission and verifier;
 - loopback HTTP host;
 - browser presentation and support documentation;
 - export and detached replay receipt chain.
@@ -39,13 +41,23 @@ This plan describes qualification of the denied-communications authority rehears
 9. Exported session replay.
 10. Live configuration deviation before message lock.
 11. Session closure refusal.
-12. Host, Origin, fetch-site, content-type, request-size, and path-boundary refusal.
-13. Keyboard tab navigation and visible focus.
-14. Persistent action feedback and recovery guidance.
-15. Critical-action confirmation.
-16. Color-independent state presentation.
-17. Documentation inventory and link integrity.
-18. Desktop and mobile responsive rendering.
+12. Evaluator accept, reject, and defer disposition.
+13. Automatic non-pass cannot receive local accept.
+14. Evaluator signature, session-binding, and immutable-registry refusal.
+15. Host, Origin, fetch-site, content-type, request-size, and path-boundary refusal.
+16. Keyboard tab navigation and visible focus.
+17. Persistent action feedback and recovery guidance.
+18. Critical-action confirmation.
+19. Color-independent state presentation.
+20. Documentation inventory and link integrity.
+21. Desktop and mobile responsive rendering.
+22. Digest-only private external source retains no raw bytes, filename, local path, body, or encoded payload.
+23. External source artifact and observation identities reconstruct exactly.
+24. Required external claims cannot pass without cited observations.
+25. External automatic status cannot be caller-promoted.
+26. An external source remains incomplete without exact canonical catalog, definition, session, verification, and passing detached replay closure.
+27. Another source evidence set cannot borrow an existing canonical session closure.
+28. Producer-report assertions remain claim dispositions rather than independent observations.
 
 ## 5. Methods
 
@@ -54,6 +66,7 @@ This plan describes qualification of the denied-communications authority rehears
 - semantic schema validation;
 - deterministic positive and negative runtime cases;
 - detached receipt replay;
+- external-evidence receipt reconstruction;
 - browser API exercise;
 - DOM assertions;
 - screenshot inspection;
@@ -68,17 +81,26 @@ A build is promotable only when:
 - the scenario catalog and every definition reconstruct their content identities;
 - every qualified scenario reproduces its expected evaluation and receipt identities;
 - changed configuration or off-procedure actions are classified as deviations and cannot pass;
+- an automatic non-pass cannot be converted into a local evaluator accept;
 - no C2SIM XML payload enters browser state;
-- no browser authority implementation exists;
+- no browser authority or acceptance implementation exists;
 - critical actions require confirmation;
 - errors are persistent and corrective;
 - state is not conveyed by color alone;
 - support documentation is packaged and reachable;
 - exported sessions replay to the same final identity;
+- every retained external-evidence receipt reconstructs exactly;
+- private digest-only evidence retains `rawSourceCommitted: false` and no raw source path or payload;
+- external automatic status is derived from required claims and exact canonical closure rather than caller input;
+- the retained standing-orders external receipt remains `incomplete` and `acceptanceEligible: false`;
 - the claim boundary remains visible.
 
 ## 7. Deferred tests
 
+- canonical reproduction of the retained external standing-orders source session;
+- signed authority or offline-lease object with exact issuer, scope, generation, validity, signature, and verification;
+- independent headquarters-link and local-link topology observations;
+- receiver-side replay and reconciliation closure for the retained external source;
 - formal Section 508 Trusted Tester evaluation;
 - formal MIL-STD-1472 human engineering evaluation;
 - representative operator usability test;
