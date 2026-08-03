@@ -1,0 +1,113 @@
+name: apply-external-evidence-canonical-closure-hotfix
+
+on:
+  push:
+    branches:
+      - agent/external-evidence-canonical-closure-hotfix
+    paths:
+      - .github/workflows/apply-external-evidence-canonical-closure-hotfix.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: external-evidence-canonical-closure-hotfix
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact staging head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify lease, reconstruct patch, and apply fail-closed repair
+        env:
+          BASE_MAIN: 386b1dcd99b1e0bcaf16e5b175dbfc614b291b4e
+          EXPECTED_B64_BYTES: '11356'
+          EXPECTED_B64_SHA256: d8e31d1c74ebfaf89fa902ffa325841757bf315c2fd94ababb0122d266e36ba4
+          EXPECTED_PATCH_BYTES: '34203'
+          EXPECTED_PATCH_SHA256: d16bc37e8fb2bb36736972825e8e7a8cc505c3fbf8e8aef4ae178418246b5c5b
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "agent/external-evidence-canonical-closure-hotfix"
+          test "$(git rev-parse "$BASE_MAIN^{commit}")" = "$BASE_MAIN"
+          test "$(git merge-base "$BASE_MAIN" HEAD)" = "$BASE_MAIN"
+
+          cat \
+            .hotfix/external-evidence-canonical-closure-00.b64 \
+            .hotfix/external-evidence-canonical-closure-01.b64 \
+            .hotfix/external-evidence-canonical-closure-02.b64 \
+            > /tmp/external-evidence-hotfix.patch.gz.b64
+          test "$(wc -c < /tmp/external-evidence-hotfix.patch.gz.b64)" = "$EXPECTED_B64_BYTES"
+          test "$(sha256sum /tmp/external-evidence-hotfix.patch.gz.b64 | cut -d' ' -f1)" = "$EXPECTED_B64_SHA256"
+
+          base64 --decode /tmp/external-evidence-hotfix.patch.gz.b64 \
+            | gzip --decompress \
+            > /tmp/external-evidence-hotfix.patch
+          test "$(wc -c < /tmp/external-evidence-hotfix.patch)" = "$EXPECTED_PATCH_BYTES"
+          test "$(sha256sum /tmp/external-evidence-hotfix.patch | cut -d' ' -f1)" = "$EXPECTED_PATCH_SHA256"
+
+          git apply --check /tmp/external-evidence-hotfix.patch
+          git apply /tmp/external-evidence-hotfix.patch
+          git diff --check
+
+      - name: Prove closure authority is withheld and receipts remain exact
+        run: |
+          set -euo pipefail
+          node --check mating_surface/rehearsal_console/external_evidence.mjs
+          node --check mating_surface/rehearsal_console/build_pack.mjs
+          node --test mating_surface/rehearsal_console/conformance/external_evidence.test.mjs
+          node --test mating_surface/rehearsal_console/conformance/*.test.mjs
+
+          ! grep -q "canonicalClosureComplete =" mating_surface/rehearsal_console/external_evidence.mjs
+          ! grep -q "automaticEvaluation.status, 'pass'" mating_surface/rehearsal_console/conformance/external_evidence.test.mjs
+          grep -q "EXTERNAL_CANONICAL_CLOSURE_UNVERIFIED" mating_surface/rehearsal_console/external_evidence.mjs
+          grep -q "version: '1.4.1'" mating_surface/rehearsal_console/build_pack.mjs
+
+      - name: Remove transport and prove exact ten-path product
+        env:
+          BASE_MAIN: 386b1dcd99b1e0bcaf16e5b175dbfc614b291b4e
+        run: |
+          set -euo pipefail
+          rm -rf .hotfix
+          rm -f .github/workflows/apply-external-evidence-canonical-closure-hotfix.yml
+
+          git diff --check
+          git diff --name-status "$BASE_MAIN" | sort > /tmp/actual-paths
+          cat > /tmp/expected-paths <<'EOF'
+          M	mating_surface/rehearsal_console/README.md
+          M	mating_surface/rehearsal_console/build_pack.mjs
+          M	mating_surface/rehearsal_console/conformance/external_evidence.test.mjs
+          M	mating_surface/rehearsal_console/docs/EXTERNAL_EVIDENCE_ADMISSION.md
+          M	mating_surface/rehearsal_console/docs/README.md
+          M	mating_surface/rehearsal_console/docs/TEST_PLAN.md
+          M	mating_surface/rehearsal_console/docs/TEST_REPORT.md
+          M	mating_surface/rehearsal_console/docs/TRACEABILITY_MATRIX.md
+          M	mating_surface/rehearsal_console/docs/VERSION_DESCRIPTION.md
+          M	mating_surface/rehearsal_console/external_evidence.mjs
+          EOF
+          sort -o /tmp/expected-paths /tmp/expected-paths
+          diff -u /tmp/expected-paths /tmp/actual-paths
+          test ! -e .hotfix
+          test ! -e .github/workflows/apply-external-evidence-canonical-closure-hotfix.yml
+
+      - name: Commit exact workflow-free product and publish under lease
+        env:
+          BASE_MAIN: 386b1dcd99b1e0bcaf16e5b175dbfc614b291b4e
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix external evidence canonical closure authority"
+
+          node --test mating_surface/rehearsal_console/conformance/external_evidence.test.mjs
+          test "$(git diff --name-only "$BASE_MAIN" HEAD | wc -l)" = "10"
+          test -z "$(git status --porcelain)"
+
+          remote_head="$(git ls-remote origin "refs/heads/$GITHUB_REF_NAME" | cut -f1)"
+          test "$remote_head" = "$GITHUB_SHA"
+          git push origin "HEAD:refs/heads/$GITHUB_REF_NAME"
