@@ -26,6 +26,7 @@ Evaluator disposition
 Evidence
   inspect source and artifact custody
   export the session, verification, disposition, and combined package
+  inspect separately admitted external-evidence receipts
 ```
 
 Guide remains available at any time and links to role-based support documentation under `docs/`. The separate evaluator workspace is served at `/evaluator.html`.
@@ -53,6 +54,12 @@ The server owns bounded session execution, loads the content-addressed scenario 
 
 `evaluator_disposition.mjs` keeps human disposition separate from automatic evidence. An automatic `pass` may receive an `accept`, `reject`, or `defer` disposition. Automatic `fail`, `incomplete`, and `deviated` results cannot be converted into an accepted qualified result. The local Ed25519 key protects receipt integrity for the current host process but does not authenticate organizational identity or establish program acceptance authority. See `docs/EVALUATOR_DISPOSITION.md`.
 
+## External evidence ownership
+
+`external_evidence.mjs` validates detached evidence produced outside the canonical session runtime. The retained standing-orders artifact is digest-only: its private source bytes are not committed. The module derives the automatic result from bounded observations, required claim dispositions, and exact canonical-session closure. A caller cannot self-assert a pass, and one evidence set cannot borrow another session's catalog, definition, receipt, verification, or replay result.
+
+The retained external result is deliberately `incomplete` and acceptance-ineligible. It establishes only that the presented synthetic allowlist mapping passed inside an admin-injected harness. See `docs/EXTERNAL_EVIDENCE_ADMISSION.md`.
+
 ## Qualified scenarios
 
 - baseline partition, duplicate order, delayed report, and explicit supersession;
@@ -64,9 +71,11 @@ The server owns bounded session execution, loads the content-addressed scenario 
 - exported session replay;
 - evaluator accept, reject, defer, tamper refusal, and immutable one-disposition custody.
 
+The digest-only standing-orders receipt is not added to this scenario list because it was not executed by the canonical session runtime.
+
 ## Documentation
 
-Start with `docs/README.md`. The set includes operator, user, conductor, evaluator, verifier, interface-design, test, accessibility, traceability, and version artifacts. The documents are DID-shaped working artifacts. They are not contractual data items unless a contract invokes and tailors them.
+Start with `docs/README.md`. The set includes operator, user, conductor, evaluator, verifier, external-evidence, interface-design, test, accessibility, traceability, and version artifacts. The documents are DID-shaped working artifacts. They are not contractual data items unless a contract invokes and tailors them.
 
 ## Run from a source checkout
 
@@ -81,6 +90,12 @@ node mating_surface/rehearsal_console/server.mjs \
 
 Open `http://127.0.0.1:8787`. Open `http://127.0.0.1:8787/evaluator.html` for the separate evaluator disposition.
 
+Verify the detached external receipt with:
+
+```bash
+node --test mating_surface/rehearsal_console/conformance/external_evidence.test.mjs
+```
+
 ## Claim boundary
 
-The current evidence covers an unclassified public C2SIM reference artifact, deterministic local transport faults, canonical authority receipts, loopback interaction, detached replay, and local evaluator-disposition integrity. It does not authenticate evaluator identity, establish contractual or program acceptance, qualify an operational C2SIM profile, field network, representative operator readiness, target hardware, external provider integration, or any command, targeting, engagement, effector, execution, or weapons capability.
+The current evidence covers an unclassified public C2SIM reference artifact, deterministic local transport faults, canonical authority receipts, loopback interaction, detached replay, local evaluator-disposition integrity, and one private-source digest-only external-evidence qualification. The external receipt is automatically incomplete and acceptance-ineligible. It does not authenticate evaluator identity, establish contractual or program acceptance, qualify an operational C2SIM profile, field network, representative operator readiness, target hardware, external provider integration, or any command, targeting, engagement, effector, execution, or weapons capability.
