@@ -29,6 +29,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: agent/axm-polybolos-evidence-driven-show
 
       - name: Set up Node
         uses: actions/setup-node@v6
@@ -38,6 +39,7 @@ jobs:
 
       - name: Verify lease and reconstruct the exact patch
         env:
+          STAGING_BRANCH: agent/axm-polybolos-evidence-driven-show
           BASE_MAIN: 19a061bb6fa4eaa73fe95e2b0279d139d9de39a3
           EXPECTED_B64_BYTES: "70447"
           EXPECTED_B64_SHA256: d95c99b096eb7b9633b60933fe8176e045adb3cdd353be542a465903c005b504
@@ -47,7 +49,9 @@ jobs:
           EXPECTED_PATCH_SHA256: 2f84137403461b6c2fd245f525e4e958f115553fc3da50c25f9f15285bb7b4a6
         run: |
           set -euo pipefail
-          test "$GITHUB_REF_NAME" = "agent/axm-polybolos-evidence-driven-show"
+          test "$(git branch --show-current)" = "$STAGING_BRANCH"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "origin/$STAGING_BRANCH")"
+          git rev-parse HEAD > /tmp/staging-head
           test "$(git rev-parse "$BASE_MAIN^{commit}")" = "$BASE_MAIN"
           test "$(git merge-base "$BASE_MAIN" HEAD)" = "$BASE_MAIN"
 
@@ -136,6 +140,7 @@ jobs:
 
       - name: Commit exact workflow-free product and publish under lease
         env:
+          STAGING_BRANCH: agent/axm-polybolos-evidence-driven-show
           BASE_MAIN: 19a061bb6fa4eaa73fe95e2b0279d139d9de39a3
         run: |
           set -euo pipefail
@@ -148,6 +153,6 @@ jobs:
           test "$(git diff --name-only "$BASE_MAIN" HEAD | wc -l)" = "21"
           test -z "$(git status --porcelain)"
 
-          remote_head="$(git ls-remote origin "refs/heads/$GITHUB_REF_NAME" | cut -f1)"
-          test "$remote_head" = "$GITHUB_SHA"
-          git push origin "HEAD:refs/heads/$GITHUB_REF_NAME"
+          remote_head="$(git ls-remote origin "refs/heads/$STAGING_BRANCH" | cut -f1)"
+          test "$remote_head" = "$(cat /tmp/staging-head)"
+          git push origin "HEAD:refs/heads/$STAGING_BRANCH"
