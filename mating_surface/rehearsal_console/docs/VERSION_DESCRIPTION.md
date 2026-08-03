@@ -8,7 +8,7 @@ This document is shaped by DI-IPSC-81442, Software Version Description. It is a 
 
 Product: Denied Communications Authority Rehearsal
 
-Pack version: `1.4.0`
+Pack version: `1.4.1`
 
 Runtime mode: server-side direct import
 
@@ -18,7 +18,7 @@ Host: loopback-only Node.js service
 
 Browser: presentation and bounded API requests only
 
-External evidence: digest-only admission and detached verification
+External evidence: digest-only admission and detached integrity verification; no canonical-closure authority
 
 ## 3. Version identity
 
@@ -80,13 +80,16 @@ The private external log and producer-report bytes are not packaged. The pack re
 - automatic non-pass cannot receive a local evaluator accept;
 - private digest-only external evidence cannot retain raw bytes, a source path, filename, body, or encoded payload;
 - external automatic result is derived and cannot be caller-promoted;
-- external pass requires exact source-evidence-set closure to a canonical catalog, definition, session, verification, and passing detached replay;
-- another external source cannot borrow that closure.
+- external admission can produce only `fail` or `incomplete`, never acceptance eligibility;
+- self-asserted catalog, definition, session, verification, and replay closure values are refused;
+- another external source cannot borrow or rewrite a closure;
+- any future external pass requires a separate verifier that loads the actual artifacts, calls `verifySessionReceipt`, and proves session-side binding to the exact source evidence set.
 
 ## 7. Known limitations
 
 - retained external standing-orders result is `incomplete` and `acceptanceEligible: false`;
 - reference artifact is public rehearsal material, not an operational controlled artifact;
+- no canonical-closure verifier is implemented for external evidence;
 - no canonical session reproduces the retained external source evidence set;
 - no signed authority, duplicate replay, returning supersession, receiver-ledger closure, or detached replay is retained for that external source;
 - no representative operator usability result;

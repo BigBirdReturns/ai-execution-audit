@@ -55,9 +55,10 @@ This plan describes qualification of the denied-communications authority rehears
 23. External source artifact and observation identities reconstruct exactly.
 24. Required external claims cannot pass without cited observations.
 25. External automatic status cannot be caller-promoted.
-26. An external source remains incomplete without exact canonical catalog, definition, session, verification, and passing detached replay closure.
-27. Another source evidence set cannot borrow an existing canonical session closure.
-28. Producer-report assertions remain claim dispositions rather than independent observations.
+26. Even when every required external claim is marked pass, admission remains incomplete and acceptance-ineligible.
+27. Self-asserted catalog, definition, session receipt, session verification, or passing detached-replay values are refused before evaluation.
+28. Another source evidence set cannot borrow or rewrite a canonical session closure.
+29. Producer-report assertions remain claim dispositions rather than independent observations.
 
 ## 5. Methods
 
@@ -91,12 +92,15 @@ A build is promotable only when:
 - exported sessions replay to the same final identity;
 - every retained external-evidence receipt reconstructs exactly;
 - private digest-only evidence retains `rawSourceCommitted: false` and no raw source path or payload;
-- external automatic status is derived from required claims and exact canonical closure rather than caller input;
+- external automatic status is derived from required claims and can only be `fail` or `incomplete`;
+- external admission has no automatic-pass or acceptance authority;
+- self-asserted canonical catalog, definition, session, verification, and replay values are refused;
 - the retained standing-orders external receipt remains `incomplete` and `acceptanceEligible: false`;
 - the claim boundary remains visible.
 
 ## 7. Deferred tests
 
+- a separately reviewed canonical-closure verifier that loads actual scenario and session artifacts, calls `verifySessionReceipt`, and proves session-side binding to the exact external source evidence set;
 - canonical reproduction of the retained external standing-orders source session;
 - signed authority or offline-lease object with exact issuer, scope, generation, validity, signature, and verification;
 - independent headquarters-link and local-link topology observations;

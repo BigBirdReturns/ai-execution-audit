@@ -25,9 +25,9 @@ private or public source artifact
 → bounded observations
 → claim-by-claim disposition
 → producer-report correction
-→ canonical-session closure check
-→ automatic result
-→ detached verification
+→ self-asserted canonical closure refused
+→ bounded fail or incomplete result
+→ detached receipt-integrity verification
 ```
 
 A private source is admitted as `private_digest_only`. The repository may retain its byte count, SHA-256 identity, bounded observations, and claim dispositions. It must not retain the raw source bytes, filename, local path, body, or encoded payload.
@@ -40,13 +40,7 @@ The verifier derives the automatic result. Callers cannot submit or overwrite it
 
 ```text
 required claim fails
-→ fail
-
-all required claims pass
-+ exact source evidence set is bound to a canonical scenario definition
-+ exact session receipt and verification are present
-+ detached replay passes
-→ pass and acceptance-eligible
+→ fail and not acceptance-eligible
 
 otherwise
 → incomplete and not acceptance-eligible
@@ -54,7 +48,9 @@ otherwise
 
 `pass_within_harness`, `pass_for_logged_sample`, `partial`, `not_run`, `not_witnessed`, and `not_acquired` are evidence-bearing states. None is treated as a complete required-claim pass.
 
-An earlier canonical session cannot close a later external source by analogy. The canonical closure must bind the exact `sourceEvidenceSetId` plus the exact scenario catalog, scenario definition, session receipt, session verification, and detached replay result.
+This admission module deliberately has no automatic `pass` path. Its `canonicalClosure` object may retain the exact external `sourceEvidenceSetId` as self-custody, but catalog, definition, session receipt, session verification, and detached-replay claims must remain absent. Self-asserted values fail closed.
+
+A future canonical-closure transaction requires a separately reviewed verifier that loads the cited scenario catalog and definition, loads the actual session receipt and verification, calls the canonical `verifySessionReceipt` implementation, and proves that the verified session itself binds the exact external source evidence set. That authority is not implemented by external-evidence admission.
 
 ## Retained standing-orders qualification
 
@@ -163,8 +159,9 @@ The test suite verifies that:
 - digest tampering fails closed;
 - a caller cannot promote the automatic result;
 - a required pass cannot omit evidence;
-- all required claims still remain incomplete without canonical closure;
-- another evidence set cannot borrow a session closure;
+- all required claim passes still remain incomplete because admission has no canonical-closure authority;
+- self-asserted catalog, definition, session, verification, and replay values are refused;
+- another evidence set cannot borrow or rewrite a session closure;
 - undeclared receipt fields are refused.
 
 ## Next canonical receipt
@@ -178,10 +175,11 @@ The next controlled case should freeze the objective, expected result, pass cond
 5. a duplicate delivery with a stable message identity and receiver-side replay refusal;
 6. a returning authority generation and explicit supersession, hold, refuse, or human-required classification;
 7. receiver accepted, rejected, and duplicate sets;
-8. deterministic detached replay over the exact source session.
+8. deterministic detached replay over the exact source session;
+9. a separately reviewed canonical-closure verifier that loads those artifacts, calls `verifySessionReceipt`, and requires the verified session to bind this exact `sourceEvidenceSetId`.
 
 Representative-user, accessibility, target-hardware, field-network, operational-profile, safety, and provider-integration evaluations remain separate future gates.
 
 ## Claim boundary
 
-This lane qualifies digest custody, bounded observations, claim dispositions, and deterministic receipt integrity. It does not publish private source material, turn a producer report into independent evidence, import another session by analogy, authenticate an evaluator, establish contractual or program acceptance, or grant operational command, targeting, engagement, effector, execution, or weapons authority.
+This lane qualifies digest custody, bounded observations, claim dispositions, and deterministic receipt integrity. It has no automatic-pass or canonical-closure authority. It does not publish private source material, turn a producer report into independent evidence, import another session by analogy, authenticate an evaluator, establish contractual or program acceptance, or grant operational command, targeting, engagement, effector, execution, or weapons authority.

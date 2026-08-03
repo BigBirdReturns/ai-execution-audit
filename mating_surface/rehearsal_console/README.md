@@ -56,7 +56,7 @@ The server owns bounded session execution, loads the content-addressed scenario 
 
 ## External evidence ownership
 
-`external_evidence.mjs` validates detached evidence produced outside the canonical session runtime. The retained standing-orders artifact is digest-only: its private source bytes are not committed. The module derives the automatic result from bounded observations, required claim dispositions, and exact canonical-session closure. A caller cannot self-assert a pass, and one evidence set cannot borrow another session's catalog, definition, receipt, verification, or replay result.
+`external_evidence.mjs` validates detached evidence produced outside the canonical session runtime. The retained standing-orders artifact is digest-only: its private source bytes are not committed. The admission module derives bounded `fail` or `incomplete` results only and has no canonical-closure or acceptance authority. It refuses self-asserted catalog, definition, session, verification, or replay claims. A future closure path must be separately implemented, load and verify the cited canonical artifacts, call the canonical session verifier, and require the verified session itself to bind the exact external source evidence set.
 
 The retained external result is deliberately `incomplete` and acceptance-ineligible. It establishes only that the presented synthetic allowlist mapping passed inside an admin-injected harness. See `docs/EXTERNAL_EVIDENCE_ADMISSION.md`.
 

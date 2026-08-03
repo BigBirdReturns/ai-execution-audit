@@ -29,10 +29,11 @@
 | EV-003 | Bind every external observation to an exact source artifact identity | Observation `sourceArtifactId` | Unknown-source refusal and receipt reconstruction |
 | EV-004 | Require cited observations for a required claim pass | Claim `evidenceObservationIds` | Pass-without-evidence refusal test |
 | EV-005 | Derive external automatic status rather than trust caller input | `deriveAutomaticEvaluation` | Self-promotion tamper refusal test |
-| EV-006 | Require exact canonical session closure for external acceptance | `canonicalClosure` | Incomplete-without-closure and exact-closure tests |
-| EV-007 | Prevent one source evidence set from borrowing another session closure | `sourceEvidenceSetId` closure equality | Cross-source closure-refusal test |
-| EV-008 | Keep producer-report statements separate from controlling observations | `producerReportReview` and claim dispositions | Receipt review and documentation audit |
-| EV-009 | Keep the retained standing-orders receipt incomplete and acceptance-ineligible | Pack-builder external-evidence assertions | Build qualification and manifest audit |
+| EV-006 | Withhold canonical-closure authority from external admission | `deriveAutomaticEvaluation` | All-pass admission remains incomplete test |
+| EV-007 | Refuse self-asserted canonical catalog, session, verification, and replay values | `normalizeClosure` | Unverified-closure refusal test |
+| EV-008 | Prevent one source evidence set from borrowing or rewriting another session closure | `sourceEvidenceSetId` plus closure refusal | Cross-source closure-refusal test |
+| EV-009 | Keep producer-report statements separate from controlling observations | `producerReportReview` and claim dispositions | Receipt review and documentation audit |
+| EV-010 | Keep the retained standing-orders receipt incomplete and acceptance-ineligible | Pack-builder external-evidence assertions | Build qualification and manifest audit |
 | DOC-001 | Hands-on user instructions | `USER_GUIDE.md` | Documentation inventory |
 | DOC-002 | Position or task quickstart | `OPERATOR_QUICKSTART.md` | Documentation inventory |
 | DOC-003 | Test conduct procedure | `TEST_CONDUCTOR_GUIDE.md` | Documentation inventory |

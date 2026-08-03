@@ -18,7 +18,6 @@ const CLAIM_RESULTS = new Set([
   'not_witnessed',
   'not_acquired',
 ]);
-const DETACHED_REPLAY_STATES = new Set(['pass', 'fail', 'absent']);
 const SIMPLE_VALUE_TYPES = new Set(['string', 'number', 'boolean']);
 
 export class ExternalEvidenceError extends Error {
@@ -303,18 +302,29 @@ function normalizeClosure(closure) {
     'EXTERNAL_CLOSURE_INVALID',
     'canonicalClosure',
   );
+  const canonicalIdentityFields = [
+    'scenarioCatalogId',
+    'scenarioDefinitionId',
+    'sessionReceiptId',
+    'sessionVerificationId',
+  ];
   requireCondition(
-    DETACHED_REPLAY_STATES.has(closure.detachedReplayStatus),
-    'EXTERNAL_CLOSURE_INVALID',
-    'detachedReplayStatus is invalid',
+    canonicalIdentityFields.every((key) => closure[key] === null)
+      && closure.detachedReplayStatus === 'absent',
+    'EXTERNAL_CANONICAL_CLOSURE_UNVERIFIED',
+    'external-evidence admission cannot accept self-asserted canonical closure identifiers; a separately implemented verifier must load and validate the cited catalog, session receipt, replay verification, and session-side source-evidence binding',
   );
   return {
-    sourceEvidenceSetId: optionalIdentity(closure.sourceEvidenceSetId, 'EXTERNAL_CLOSURE_INVALID', 'sourceEvidenceSetId'),
-    scenarioCatalogId: optionalIdentity(closure.scenarioCatalogId, 'EXTERNAL_CLOSURE_INVALID', 'scenarioCatalogId'),
-    scenarioDefinitionId: optionalIdentity(closure.scenarioDefinitionId, 'EXTERNAL_CLOSURE_INVALID', 'scenarioDefinitionId'),
-    sessionReceiptId: optionalIdentity(closure.sessionReceiptId, 'EXTERNAL_CLOSURE_INVALID', 'sessionReceiptId'),
-    sessionVerificationId: optionalIdentity(closure.sessionVerificationId, 'EXTERNAL_CLOSURE_INVALID', 'sessionVerificationId'),
-    detachedReplayStatus: closure.detachedReplayStatus,
+    sourceEvidenceSetId: optionalIdentity(
+      closure.sourceEvidenceSetId,
+      'EXTERNAL_CLOSURE_INVALID',
+      'sourceEvidenceSetId',
+    ),
+    scenarioCatalogId: null,
+    scenarioDefinitionId: null,
+    sessionReceiptId: null,
+    sessionVerificationId: null,
+    detachedReplayStatus: 'absent',
   };
 }
 
@@ -322,40 +332,23 @@ function sourceEvidenceBody(source, testContext, observations) {
   return { source, testContext, observations };
 }
 
-function deriveAutomaticEvaluation(claims, closure, sourceEvidenceSetId) {
+function deriveAutomaticEvaluation(claims) {
   const required = claims.filter((claim) => claim.requiredForAcceptance);
   const failClaims = required.filter((claim) => claim.result === 'fail');
   const passClaims = required.filter((claim) => claim.result === 'pass');
   const incompleteClaims = required.filter((claim) => claim.result !== 'pass' && claim.result !== 'fail');
-  const closureIds = [
-    closure.scenarioCatalogId,
-    closure.scenarioDefinitionId,
-    closure.sessionReceiptId,
-    closure.sessionVerificationId,
-  ];
-  const canonicalClosureComplete = closure.sourceEvidenceSetId === sourceEvidenceSetId
-    && closure.detachedReplayStatus === 'pass'
-    && closureIds.every((value) => typeof value === 'string' && value.length > 0);
-  const status = failClaims.length > 0
-    ? 'fail'
-    : required.length > 0
-      && passClaims.length === required.length
-      && canonicalClosureComplete
-      ? 'pass'
-      : 'incomplete';
+  const status = failClaims.length > 0 ? 'fail' : 'incomplete';
   return {
     status,
     requiredClaimCount: required.length,
     requiredPassCount: passClaims.length,
     requiredIncompleteCount: incompleteClaims.length,
     requiredFailCount: failClaims.length,
-    canonicalClosureComplete,
-    acceptanceEligible: status === 'pass' && canonicalClosureComplete,
-    controllingStatement: status === 'pass'
-      ? 'The exact external evidence set is closed to a canonical replay-verified session and every required acceptance claim passed.'
-      : status === 'fail'
-        ? 'At least one required acceptance claim failed.'
-        : 'Observed external evidence may qualify bounded behavior, but canonical end-to-end acceptance closure is incomplete.',
+    canonicalClosureComplete: false,
+    acceptanceEligible: false,
+    controllingStatement: status === 'fail'
+      ? 'At least one required acceptance claim failed.'
+      : 'Observed external evidence may qualify bounded behavior, but canonical end-to-end acceptance closure is incomplete.',
   };
 }
 
@@ -460,7 +453,13 @@ export function createExternalEvidenceQualification(input) {
   );
   const nextEvidence = input.nextEvidence.map((item) => boundedString(item, 'EXTERNAL_NEXT_EVIDENCE_INVALID', 'next evidence item', 2_000));
   const sourceEvidenceSetId = digest('standardsexternalevidenceset1', sourceEvidenceBody(source, testContext, observations));
-  const automaticEvaluation = deriveAutomaticEvaluation(claimDispositions, canonicalClosure, sourceEvidenceSetId);
+  requireCondition(
+    canonicalClosure.sourceEvidenceSetId === null
+      || canonicalClosure.sourceEvidenceSetId === sourceEvidenceSetId,
+    'EXTERNAL_CLOSURE_SOURCE_MISMATCH',
+    'canonicalClosure sourceEvidenceSetId does not match the reconstructed external source evidence set',
+  );
+  const automaticEvaluation = deriveAutomaticEvaluation(claimDispositions);
   const receipt = {
     schema: QUALIFICATION_SCHEMA,
     receiptId: '',

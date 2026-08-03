@@ -164,7 +164,7 @@ export function buildRehearsalConsolePack({
 
   writeJson(join(output, 'package.json'), {
     name: 'standards-denied-communications-rehearsal',
-    version: '1.4.0',
+    version: '1.4.1',
     private: true,
     type: 'module',
     scripts: {
@@ -184,7 +184,7 @@ export function buildRehearsalConsolePack({
       + `The operator workflow is Plan, Run, Evaluate, Evidence, and Guide. Role-specific support documentation is packaged under \`mating_surface/rehearsal_console/docs\` and served locally from \`/docs/\`.\n\n`
       + `Qualified scenario definitions, procedures, and acceptance checks are source-controlled in \`mating_surface/rehearsal_console/scenarios.mjs\` and evaluated server-side. Browser presentation cannot redefine a pass. A changed configuration or off-procedure action is retained as an exploratory deviation.\n\n`
       + `The separate evaluator workspace is available at \`/evaluator.html\`. It preserves the automatic result and detached replay receipt, then issues one immutable local accept, reject, or defer disposition. The local process signature protects receipt integrity but does not authenticate organizational authority or constitute program acceptance.\n\n`
-      + `One private-source external test is retained as a digest-only, automatically incomplete evidence receipt. Its raw log and producer-report bytes are not packaged. It cannot borrow the canonical scenario pass or evaluator disposition. See \`mating_surface/rehearsal_console/docs/EXTERNAL_EVIDENCE_ADMISSION.md\`.\n\n`
+      + `One private-source external test is retained as a digest-only, automatically incomplete evidence receipt. Its raw log and producer-report bytes are not packaged. External-evidence admission has no acceptance-closure authority and refuses self-asserted canonical session identifiers or replay status. See \`mating_surface/rehearsal_console/docs/EXTERNAL_EVIDENCE_ADMISSION.md\`.\n\n`
       + `The host binds only to \`127.0.0.1\`. The browser contains presentation and API calls; authority decisions, scenario evaluation, and evaluator-disposition integrity execute in packaged server-side modules.\n\n`
       + `This is a rehearsal-only reference profile. It grants no operational command, targeting, engagement, effector, execution, or weapons authority.\n`,
     'utf8',
@@ -233,7 +233,7 @@ export function buildRehearsalConsolePack({
     ...manifestBody,
     manifestSelfExcluded: true,
     claimBoundary:
-      'This manifest binds the local console source, scenario catalog, evaluator-disposition module, digest-only external-evidence admission, support documentation, and generated rehearsal evidence. The external receipt remains incomplete and acceptance-ineligible. The manifest does not establish evaluator identity, program acceptance authority, target-host, human-performance, accessibility, or operational qualification.',
+      'This manifest binds the local console source, scenario catalog, evaluator-disposition module, digest-only external-evidence admission, support documentation, and generated rehearsal evidence. External-evidence admission has no canonical-closure authority; the retained receipt remains incomplete and acceptance-ineligible. The manifest does not establish evaluator identity, program acceptance authority, target-host, human-performance, accessibility, or operational qualification.',
   };
   writeJson(join(output, 'build-manifest.json'), manifest);
   return manifest;
