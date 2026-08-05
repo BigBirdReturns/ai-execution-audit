@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axm.local/schemas/axm-polybolos-candidate-input-1.json",
+  "title": "AXM Polybolos neutral candidate input",
+  "type": "object",
+  "required": [
+    "schema",
+    "mappingId",
+    "sourceShapeId",
+    "requestId",
+    "producer",
+    "producerBuildId",
+    "createdAt",
+    "deadlineAt",
+    "actionClass",
+    "entityIds",
+    "payload",
+    "trace"
+  ],
+  "properties": {
+    "schema": { "const": "axm-polybolos-candidate-input/1" },
+    "mappingId": { "type": "string", "pattern": "^polybolosmap1_[0-9a-f]{64}$" },
+    "sourceShapeId": { "type": "string", "pattern": "^polybolossource1_[0-9a-f]{64}$" },
+    "requestId": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "producer": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "producerBuildId": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "deadlineAt": { "type": "string", "format": "date-time" },
+    "actionClass": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "entityIds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+    },
+    "payload": { "type": "object" },
+    "trace": { "type": "object" }
+  },
+  "additionalProperties": true,
+  "description": "Neutral adapter output. This is not a Polybolos-native schema and carries no command authority."
+}

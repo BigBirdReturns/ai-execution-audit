@@ -1,0 +1,134 @@
+{
+  "schema": "axm-polybolos-shape-map/1",
+  "mapId": null,
+  "status": "provisional",
+  "externalShape": "polybolos-reference-projection/0",
+  "neutralShape": "axm-polybolos-candidate-input/1",
+  "authorityFieldPolicy": "refuse",
+  "unknownFieldPolicy": "digest_and_names",
+  "declaredLossIds": [
+    "entity-order-normalized",
+    "native-details-not-copied",
+    "return-shape-is-neutral"
+  ],
+  "mappings": [
+    {
+      "semantic": "request identity",
+      "source": "/request_id",
+      "target": "/requestId",
+      "status": "provisional",
+      "required": true,
+      "type": "bounded_string",
+      "roundTrip": "exact"
+    },
+    {
+      "semantic": "candidate producer",
+      "source": "/producer",
+      "target": "/producer",
+      "status": "provisional",
+      "required": true,
+      "type": "bounded_string",
+      "roundTrip": "exact"
+    },
+    {
+      "semantic": "producer build identity",
+      "source": "/producer_build_id",
+      "target": "/producerBuildId",
+      "status": "provisional",
+      "required": true,
+      "type": "bounded_string",
+      "roundTrip": "exact"
+    },
+    {
+      "semantic": "candidate creation time",
+      "source": "/created_at",
+      "target": "/createdAt",
+      "status": "provisional",
+      "required": true,
+      "type": "date_time",
+      "roundTrip": "normalized_datetime"
+    },
+    {
+      "semantic": "candidate deadline",
+      "source": "/deadline_at",
+      "target": "/deadlineAt",
+      "status": "provisional",
+      "required": true,
+      "type": "date_time",
+      "roundTrip": "normalized_datetime"
+    },
+    {
+      "semantic": "candidate action class",
+      "source": "/action_class",
+      "target": "/actionClass",
+      "status": "provisional",
+      "required": true,
+      "type": "bounded_string",
+      "roundTrip": "exact"
+    },
+    {
+      "semantic": "referenced Command Intelligence entities",
+      "source": "/entity_ids",
+      "target": "/entityIds",
+      "status": "provisional",
+      "required": true,
+      "type": "string_set",
+      "roundTrip": "set_equal"
+    },
+    {
+      "semantic": "candidate priority",
+      "source": "/decision/priority",
+      "target": "/payload/priority",
+      "status": "provisional",
+      "required": true,
+      "type": "finite_number",
+      "roundTrip": "exact"
+    },
+    {
+      "semantic": "native trace identity",
+      "source": "/trace_id",
+      "target": "/trace/traceId",
+      "status": "provisional",
+      "required": true,
+      "type": "bounded_string",
+      "roundTrip": "exact"
+    },
+    {
+      "semantic": "native reason codes",
+      "source": "/decision/reason_codes",
+      "target": "/trace/reasonCodes",
+      "status": "provisional",
+      "required": false,
+      "type": "string_set",
+      "roundTrip": "set_equal"
+    },
+    {
+      "semantic": "native decision duration in microseconds",
+      "source": "/decision/decision_duration_us",
+      "target": "/trace/decisionDurationUs",
+      "status": "provisional",
+      "required": false,
+      "type": "nonnegative_integer",
+      "roundTrip": "exact"
+    },
+    {
+      "semantic": "native input sequence",
+      "source": "/decision/input_sequence",
+      "target": "/trace/inputSequence",
+      "status": "provisional",
+      "required": false,
+      "type": "nonnegative_integer",
+      "roundTrip": "exact"
+    }
+  ],
+  "derived": [
+    {
+      "semantic": "candidate payload evidence closure",
+      "sourceTarget": "/entityIds",
+      "target": "/payload/entityIds",
+      "rule": "copy",
+      "status": "axm_neutral_contract"
+    }
+  ],
+  "claimBoundary": "This map is a synthetic reference projection for conformance only. It does not assert Polybolos private field names or internal schemas."
+}

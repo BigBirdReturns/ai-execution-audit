@@ -1,0 +1,10 @@
+{
+  "plugin": {
+    "name": "c2simrehearsal",
+    "description": "C2SIM semantic rehearsal receipt projection",
+    "version": "0.1.0",
+    "author": "Jonathan Sandhu",
+    "type": "plugin",
+    "start": "false"
+  }
+}

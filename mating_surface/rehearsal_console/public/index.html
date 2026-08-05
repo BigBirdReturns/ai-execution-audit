@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Denied Communications Authority Rehearsal</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to rehearsal workspace</a>
+
+  <header class="app-header">
+    <div class="header-copy">
+      <p class="eyebrow">STANDARDS REHEARSAL STATION</p>
+      <h1>Denied communications authority</h1>
+      <p class="subtitle">A test-conductor interface for one schema-valid C2SIM exchange and its external authority receipts.</p>
+    </div>
+    <div class="status-cluster" aria-label="Current rehearsal state" aria-live="polite">
+      <article class="status-chip" id="runChip" data-tone="normal">
+        <span class="status-symbol" aria-hidden="true">R</span>
+        <span><small>Run</small><strong id="runState">Ready</strong></span>
+      </article>
+      <article class="status-chip" id="commsChip" data-tone="normal">
+        <span class="status-symbol" aria-hidden="true">C</span>
+        <span><small>Communications</small><strong id="commsState">Connected</strong></span>
+      </article>
+      <article class="status-chip" id="authorityChip" data-tone="normal">
+        <span class="status-symbol" aria-hidden="true">A</span>
+        <span><small>Authority</small><strong id="authorityState">Initialized</strong></span>
+      </article>
+    </div>
+  </header>
+
+  <nav class="workspace-nav" aria-label="Rehearsal work areas" role="tablist">
+    <button class="workspace-tab" id="tab-plan" role="tab" aria-controls="view-plan" aria-selected="true" data-view="plan" type="button">Plan</button>
+    <button class="workspace-tab" id="tab-run" role="tab" aria-controls="view-run" aria-selected="false" data-view="run" type="button">Run</button>
+    <button class="workspace-tab" id="tab-evaluate" role="tab" aria-controls="view-evaluate" aria-selected="false" data-view="evaluate" type="button">Evaluate</button>
+    <button class="workspace-tab" id="tab-evidence" role="tab" aria-controls="view-evidence" aria-selected="false" data-view="evidence" type="button">Evidence</button>
+    <button class="workspace-tab" id="tab-guide" role="tab" aria-controls="view-guide" aria-selected="false" data-view="guide" type="button">Guide</button>
+  </nav>
+
+  <main id="main" class="workspace">
+    <section class="workspace-view" id="view-plan" role="tabpanel" aria-labelledby="tab-plan">
+      <div class="view-heading">
+        <div>
+          <p class="section-index">01 · PLAN</p>
+          <h2>Define the test before operating it</h2>
+          <p>Select a qualified scenario, review its expected outcome, then start a clean run. Test conditions are treated as a plan, not casual live controls.</p>
+        </div>
+        <span class="role-badge">Primary role · Test conductor</span>
+      </div>
+
+      <div class="plan-grid">
+        <section class="panel scenario-library" aria-labelledby="scenarioTitle">
+          <div class="panel-heading compact">
+            <div>
+              <span class="kicker">SCENARIO CARD</span>
+              <h3 id="scenarioTitle">Qualified scenario</h3>
+            </div>
+          </div>
+          <label class="field-stack" for="scenarioSelect">
+            <span>Scenario</span>
+            <select id="scenarioSelect"></select>
+          </label>
+          <article class="scenario-card">
+            <span class="scenario-classification">UNCLASSIFIED · REHEARSAL ONLY</span>
+            <h4 id="scenarioName">Baseline partition and return</h4>
+            <p id="scenarioObjective"></p>
+            <dl class="scenario-facts">
+              <div><dt>Expected result</dt><dd id="scenarioExpected"></dd></div>
+              <div><dt>Pass condition</dt><dd id="scenarioPass"></dd></div>
+            </dl>
+            <h5>Procedure</h5>
+            <ol class="procedure-preview" id="scenarioProcedure"></ol>
+          </article>
+        </section>
+
+        <section class="panel setup-panel" aria-labelledby="setupTitle">
+          <div class="panel-heading compact">
+            <div>
+              <span class="kicker">TEST CONFIGURATION</span>
+              <h3 id="setupTitle">Scenario conditions</h3>
+            </div>
+          </div>
+          <fieldset class="control-group" id="planControls">
+            <legend class="sr-only">Scenario conditions</legend>
+            <label class="field-row" for="leaseSelect">
+              <span><strong>Offline authority lease</strong><small>Rehearsal ticks after headquarters loss</small></span>
+              <select id="leaseSelect">
+                <option value="0">0 ticks</option>
+                <option value="2">2 ticks</option>
+                <option value="5" selected>5 ticks</option>
+                <option value="10">10 ticks</option>
+              </select>
+            </label>
+            <label class="toggle-row">
+              <input id="operatorToggle" type="checkbox" checked>
+              <span><strong>Local operator present</strong><small>Required by the delegated order profile</small></span>
+            </label>
+            <label class="toggle-row">
+              <input id="duplicateToggle" type="checkbox" checked>
+              <span><strong>Duplicate order in transport</strong><small>Exercises receiver replay refusal</small></span>
+            </label>
+            <label class="toggle-row">
+              <input id="delayToggle" type="checkbox" checked>
+              <span><strong>Delay report one transport tick</strong><small>Exercises buffered return ordering</small></span>
+            </label>
+            <label class="field-row" for="returnSelect">
+              <span><strong>Returning authority</strong><small>Classification applied after communications return</small></span>
+              <select id="returnSelect">
+                <option value="continuous">Continuous authority</option>
+                <option value="superseding" selected>Explicitly superseding</option>
+                <option value="conflicting">Conflicting authority</option>
+                <option value="absent">No returning authority</option>
+              </select>
+            </label>
+          </fieldset>
+        </section>
+
+        <section class="panel preflight-panel" aria-labelledby="preflightTitle">
+          <div class="panel-heading compact">
+            <div>
+              <span class="kicker">PREFLIGHT</span>
+              <h3 id="preflightTitle">Evidence and execution boundary</h3>
+            </div>
+          </div>
+          <ul class="check-list">
+            <li><span class="check-mark" aria-hidden="true">✓</span><span><strong>Four schema-valid messages</strong><small>Initialization, object state, order, and report</small></span></li>
+            <li><span class="check-mark" aria-hidden="true">✓</span><span><strong>Canonical runtime imported server-side</strong><small>The browser has no authority decision implementation</small></span></li>
+            <li><span class="check-mark" aria-hidden="true">✓</span><span><strong>Loopback-only host</strong><small>No remote service or fielded network is exercised</small></span></li>
+            <li><span class="check-mark" aria-hidden="true">✓</span><span><strong>Replayable session receipt</strong><small>Exported actions can be independently reconstructed</small></span></li>
+          </ul>
+          <p class="execution-boundary">The browser requests actions. The server imports the canonical authority runtime and the source-controlled scenario catalog, then returns receipts and acceptance evaluation.</p>
+          <div class="plan-actions">
+            <button class="button button-primary button-large" id="startButton" type="button">Start clean rehearsal</button>
+            <p id="planStatus">The current server session is ready to be replaced by this plan.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="workspace-view" id="view-run" role="tabpanel" aria-labelledby="tab-run" hidden>
+      <div class="view-heading compact-heading">
+        <div>
+          <p class="section-index">02 · RUN</p>
+          <h2 id="runTitle">Execute the bounded procedure</h2>
+          <p>Follow the scenario card. The station shows what happened, why the runtime decided it, and what action is available next.</p>
+        </div>
+        <div class="run-identifiers">
+          <span>Tick <strong id="tickValue">1</strong></span>
+          <span>Scenario <strong id="activeScenarioName">Baseline</strong></span>
+        </div>
+      </div>
+
+      <div class="run-grid">
+        <section class="panel procedure-panel" aria-labelledby="procedureTitle">
+          <div class="panel-heading compact">
+            <div><span class="kicker">RUNBOOK</span><h3 id="procedureTitle">Procedure progress</h3></div>
+          </div>
+          <div class="current-instruction" id="currentInstruction" tabindex="-1">
+            <span class="instruction-label">NEXT EXPECTED ACTION</span>
+            <strong id="nextActionLabel">Cut headquarters link</strong>
+            <p id="nextActionHelp">Begin the planned communications partition.</p>
+          </div>
+          <ol class="procedure-list" id="procedureList"></ol>
+          <button class="button button-quiet button-full" id="returnToPlanButton" type="button">Review scenario plan</button>
+        </section>
+
+        <section class="panel posture-panel" aria-labelledby="postureTitle">
+          <div class="panel-heading compact">
+            <div><span class="kicker">OBSERVED STATE</span><h3 id="postureTitle">System posture</h3></div>
+          </div>
+          <div class="state-plane-grid">
+            <article class="state-plane" id="runPlane" data-tone="normal"><span>Run lifecycle</span><strong id="runPlaneValue">Ready</strong><small id="runPlaneDetail">Plan loaded</small></article>
+            <article class="state-plane" id="linkPlane" data-tone="normal"><span>Communications</span><strong id="linkValue">Connected</strong><small id="linkDetail">Full profile available</small></article>
+            <article class="state-plane" id="authorityPlane" data-tone="normal"><span>Authority disposition</span><strong id="authorityPlaneValue">Initialized</strong><small id="authorityPlaneDetail">No interactive decision yet</small></article>
+          </div>
+
+          <div class="authority-track" aria-label="Communications and authority transition path">
+            <div class="track-node" data-track="connected"><span class="track-index">A</span><div><strong>Connected</strong><small>Full profile</small></div></div>
+            <div class="track-line"></div>
+            <div class="track-node" data-track="headquarters_denied"><span class="track-index">B</span><div><strong>HQ denied</strong><small>Delegated lease</small></div></div>
+            <div class="track-line"></div>
+            <div class="track-node" data-track="isolated"><span class="track-index">C</span><div><strong>Isolated</strong><small>Restricted profile</small></div></div>
+            <div class="track-line"></div>
+            <div class="track-node" data-track="reconciled"><span class="track-index">D</span><div><strong>Return</strong><small>Classify authority</small></div></div>
+          </div>
+
+          <article class="decision-card" id="decisionCard" data-tone="normal">
+            <div class="decision-heading"><span class="decision-icon" id="decisionIcon" aria-hidden="true">i</span><div><span>LATEST AUTHORITY RECEIPT</span><strong id="decisionDisposition">Initialized</strong></div></div>
+            <p id="decisionReason">The schema-valid initialization messages were admitted while connected.</p>
+            <code id="decisionId">—</code>
+          </article>
+
+          <div class="message-flow" aria-labelledby="messageFlowTitle">
+            <h4 id="messageFlowTitle">Message and transport status</h4>
+            <div class="message-flow-grid">
+              <article><span>Schema valid</span><strong id="schemaCount">4</strong></article>
+              <article><span>Authority allowed</span><strong id="allowedCount">0</strong></article>
+              <article><span>Held</span><strong id="heldCount">0</strong></article>
+              <article><span>Refused</span><strong id="refusedCount">0</strong></article>
+              <article><span>Safe state</span><strong id="safeCount">0</strong></article>
+              <article><span>Accepted</span><strong id="acceptedValue">0</strong></article>
+              <article><span>Replay refused</span><strong id="replayValue">0</strong></article>
+              <article><span>Pending transport</span><strong id="pendingCount">0</strong></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel action-panel" aria-labelledby="actionsTitle">
+          <div class="panel-heading compact">
+            <div><span class="kicker">TEST CONDUCTOR</span><h3 id="actionsTitle">Available actions</h3></div>
+          </div>
+
+          <div class="action-feedback" id="actionFeedback" data-tone="normal" role="status" aria-live="polite" tabindex="-1">
+            <span class="feedback-symbol" id="feedbackSymbol" aria-hidden="true">i</span>
+            <div><strong id="feedbackTitle">No action taken</strong><p id="feedbackMessage">Use the runbook to execute the selected scenario.</p><small id="feedbackRecovery">Only server-enabled actions can be submitted.</small></div>
+          </div>
+
+          <div class="action-groups">
+            <fieldset>
+              <legend>Communications condition</legend>
+              <div class="button-stack">
+                <button class="button button-primary" data-action="cut_headquarters" type="button">Cut headquarters link</button>
+                <button class="button button-danger" data-action="isolate" data-confirm="isolate" type="button">Isolate node</button>
+                <button class="button button-primary" data-action="restore" type="button">Restore communications</button>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>Standards exchange</legend>
+              <div class="button-stack two-column">
+                <button class="button button-primary" data-action="issue_order" type="button">Issue order</button>
+                <button class="button button-primary" data-action="issue_report" type="button">Issue report</button>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>Rehearsal clock</legend>
+              <div class="button-stack two-column">
+                <button class="button button-attention" data-action="advance" data-steps="1" type="button">Advance 1 tick</button>
+                <button class="button button-attention" data-action="advance" data-steps="3" type="button">Advance 3 ticks</button>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>Authority return</legend>
+              <button class="button button-secondary button-full" data-action="reconcile" data-confirm="reconcile" type="button">Classify returning authority</button>
+            </fieldset>
+          </div>
+          <button class="button button-quiet button-full" id="runResetButton" data-confirm="reset" type="button">End and reset rehearsal</button>
+        </section>
+      </div>
+    </section>
+
+    <section class="workspace-view" id="view-evaluate" role="tabpanel" aria-labelledby="tab-evaluate" hidden>
+      <div class="view-heading">
+        <div>
+          <p class="section-index">03 · EVALUATE</p>
+          <h2>Compare observed behavior with the scenario card</h2>
+          <p>The comparison below is a test-conductor aid. The detached replay receipt remains the controlling evidence.</p>
+        </div>
+        <span class="role-badge">Primary role · Evaluator</span>
+      </div>
+
+      <div class="evaluate-grid">
+        <section class="panel outcome-panel" aria-labelledby="outcomeTitle">
+          <div class="panel-heading compact"><div><span class="kicker">RUN ASSESSMENT</span><h3 id="outcomeTitle">Expected versus observed</h3></div></div>
+          <article class="outcome-banner" id="outcomeBanner" data-tone="normal">
+            <span class="outcome-symbol" id="outcomeSymbol" aria-hidden="true">…</span>
+            <div><strong id="outcomeLabel">Run incomplete</strong><p id="outcomeExplanation">Complete the selected procedure before assessing the result.</p></div>
+          </article>
+          <table class="acceptance-table">
+            <caption class="sr-only">Scenario acceptance checks</caption>
+            <thead><tr><th scope="col">Check</th><th scope="col">Expected</th><th scope="col">Observed</th><th scope="col">Status</th></tr></thead>
+            <tbody id="acceptanceRows"></tbody>
+          </table>
+        </section>
+
+        <section class="panel verification-panel" aria-labelledby="verificationTitle">
+          <div class="panel-heading compact"><div><span class="kicker">DETACHED REPLAY</span><h3 id="verificationTitle">Session verification</h3></div></div>
+          <p>Verification exports the recorded test-conductor actions, rebuilds the session through the same canonical runtime, and checks that the final identity is unchanged.</p>
+          <button class="button button-primary button-full" id="verifyButton" type="button">Verify current session</button>
+          <article class="verification-result" id="verificationResult" data-tone="normal" aria-live="polite">
+            <strong>Not yet verified</strong>
+            <p>Run verification after the procedure or whenever evidence custody is in question.</p>
+          </article>
+        </section>
+
+        <section class="panel review-panel" aria-labelledby="reviewTitle">
+          <div class="panel-heading compact"><div><span class="kicker">REVIEW NOTES</span><h3 id="reviewTitle">What the result means</h3></div></div>
+          <dl class="review-list">
+            <div><dt>Scenario</dt><dd id="reviewScenario">Baseline partition and return</dd></div>
+            <div><dt>Expected outcome</dt><dd id="reviewExpected">Explicit supersession with replay refusal</dd></div>
+            <div><dt>Observed authority state</dt><dd id="reviewObserved">Initialized</dd></div>
+            <div><dt>Communications state</dt><dd id="reviewComms">Connected</dd></div>
+            <div><dt>Partition epoch</dt><dd><code id="partitionEpoch">None</code></dd></div>
+            <div><dt>Session identity</dt><dd><code id="stateId">Loading</code></dd></div>
+          </dl>
+        </section>
+      </div>
+    </section>
+
+    <section class="workspace-view" id="view-evidence" role="tabpanel" aria-labelledby="tab-evidence" hidden>
+      <div class="view-heading">
+        <div>
+          <p class="section-index">04 · EVIDENCE</p>
+          <h2>Inspect receipts, event history, and source custody</h2>
+          <p>Human-readable findings appear first. Exact identifiers remain available for detached verification and integration review.</p>
+        </div>
+        <span class="role-badge">Primary role · V&amp;V reviewer</span>
+      </div>
+
+      <div class="evidence-grid">
+        <section class="panel provenance-panel" aria-labelledby="provenanceTitle">
+          <div class="panel-heading compact"><div><span class="kicker">SOURCE CUSTODY</span><h3 id="provenanceTitle">Provenance</h3></div></div>
+          <div class="provenance-grid">
+            <article><span>Authority implementation</span><strong id="authorityImplementation">MessageAuthorityRuntime</strong><code id="authorityHash">Loading</code></article>
+            <article><span>Semantic conversation</span><strong>C2SIM rehearsal</strong><code id="conversationId">Loading</code></article>
+            <article><span>Artifact admission</span><strong id="standardRevision">Loading</strong><code id="artifactId">Loading</code></article>
+            <article><span>Acceptance scenario</span><strong id="scenarioDefinitionName">Loading</strong><code id="scenarioDefinitionId">Loading</code></article>
+          </div>
+          <button class="button button-quiet button-full" id="exportButton" type="button">Export session receipt</button>
+          <article class="export-result" id="exportResult" aria-live="polite"><strong>No receipt exported</strong><p>The exported JSON contains the initial configuration, test-conductor actions, runtime identities, and final receipt IDs.</p></article>
+        </section>
+
+        <section class="panel event-panel" aria-labelledby="eventTitle">
+          <div class="panel-heading compact"><div><span class="kicker">EVENT HISTORY</span><h3 id="eventTitle">Chronological evidence</h3></div></div>
+          <div class="event-log" id="eventLog" aria-live="polite"></div>
+        </section>
+
+        <section class="panel receipt-panel" aria-labelledby="receiptTitle">
+          <div class="panel-heading compact"><div><span class="kicker">MACHINE RECEIPT</span><h3 id="receiptTitle">Current state object</h3></div></div>
+          <details class="receipt-inspector">
+            <summary>Open exact JSON</summary>
+            <pre id="receiptJson"></pre>
+          </details>
+        </section>
+      </div>
+    </section>
+
+    <section class="workspace-view" id="view-guide" role="tabpanel" aria-labelledby="tab-guide" hidden>
+      <div class="view-heading">
+        <div>
+          <p class="section-index">05 · GUIDE</p>
+          <h2>Use the station by role and task</h2>
+          <p>The station is a rehearsal and acceptance instrument. It is not a tactical common operating picture or a vendor product interface.</p>
+        </div>
+        <span class="role-badge">Support documentation</span>
+      </div>
+
+      <div class="guide-grid">
+        <section class="panel role-panel" aria-labelledby="roleTitle">
+          <div class="panel-heading compact"><div><span class="kicker">ROLE MAP</span><h3 id="roleTitle">Who does what</h3></div></div>
+          <div class="role-cards">
+            <article><strong>Test conductor</strong><p>Selects the scenario, confirms preconditions, executes the procedure, and records deviations.</p><a href="/docs/TEST_CONDUCTOR_GUIDE.md" target="_blank">Open conductor guide</a></article>
+            <article><strong>Operator or mission SME</strong><p>Assesses whether the displayed action, reason, and recovery are understandable under realistic workload.</p><a href="/docs/OPERATOR_QUICKSTART.md" target="_blank">Open operator quickstart</a></article>
+            <article><strong>V&amp;V reviewer</strong><p>Verifies source identities, message custody, replay closure, and the exported session receipt.</p><a href="/docs/VERIFIER_GUIDE.md" target="_blank">Open verifier guide</a></article>
+            <article><strong>Integrator</strong><p>Uses the interface design and traceability documents to replace the reference C2SIM fixture with a program-selected standard port.</p><a href="/docs/INTERFACE_DESIGN_DESCRIPTION.md" target="_blank">Open interface design</a></article>
+          </div>
+        </section>
+
+        <section class="panel workflow-panel" aria-labelledby="workflowTitle">
+          <div class="panel-heading compact"><div><span class="kicker">WORKFLOW</span><h3 id="workflowTitle">Plan → Run → Evaluate → Evidence</h3></div></div>
+          <ol class="workflow-steps">
+            <li><span>1</span><div><strong>Plan</strong><p>Choose a qualified scenario and make the expected result explicit before issuing an action.</p></div></li>
+            <li><span>2</span><div><strong>Run</strong><p>Follow the bounded runbook. Critical or terminal actions require confirmation.</p></div></li>
+            <li><span>3</span><div><strong>Evaluate</strong><p>Compare expected and observed results, then run detached replay verification.</p></div></li>
+            <li><span>4</span><div><strong>Evidence</strong><p>Export the exact receipt and inspect source, artifact, message, and event identities.</p></div></li>
+          </ol>
+        </section>
+
+        <section class="panel glossary-panel" aria-labelledby="glossaryTitle">
+          <div class="panel-heading compact"><div><span class="kicker">DECISION GLOSSARY</span><h3 id="glossaryTitle">What the outcomes mean</h3></div></div>
+          <dl class="glossary-list">
+            <div><dt>Allow</dt><dd>The message class is admitted by the current profile and receives a bounded ticket.</dd></div>
+            <div><dt>Hold</dt><dd>The message is valid but a required condition, such as local operator presence, is missing.</dd></div>
+            <div><dt>Refuse</dt><dd>The message or delivery is outside the current profile or repeats an identity already accepted.</dd></div>
+            <div><dt>Safe state</dt><dd>The offline authority lease expired before the action was evaluated.</dd></div>
+            <div><dt>Human required</dt><dd>Returning authority conflicts with the partition history and no mechanical winner is selected.</dd></div>
+          </dl>
+        </section>
+
+        <section class="panel document-panel" aria-labelledby="documentTitle">
+          <div class="panel-heading compact"><div><span class="kicker">DOCUMENT SET</span><h3 id="documentTitle">Acquisition and test artifacts</h3></div></div>
+          <ul class="document-list">
+            <li><a href="/docs/README.md" target="_blank"><strong>Documentation index</strong><span>Role map, status, and claim boundary</span></a></li>
+            <li><a href="/docs/USER_GUIDE.md" target="_blank"><strong>User guide</strong><span>Task-oriented operation by work area</span></a></li>
+            <li><a href="/docs/TEST_PLAN.md" target="_blank"><strong>Software test plan</strong><span>Environment, cases, methods, and acceptance gates</span></a></li>
+            <li><a href="/docs/TEST_REPORT.md" target="_blank"><strong>Software test report</strong><span>Qualified results and remaining physical tests</span></a></li>
+            <li><a href="/docs/ACCESSIBILITY_AND_HUMAN_FACTORS.md" target="_blank"><strong>Accessibility and HFE plan</strong><span>Prototype conformance strategy and unresolved validation</span></a></li>
+            <li><a href="/docs/SCENARIO_CATALOG_AND_ACCEPTANCE.md" target="_blank"><strong>Scenario catalog and acceptance</strong><span>Server-owned scenario definitions, deviations, and pass criteria</span></a></li>
+            <li><a href="/docs/REFERENCE_BASELINE.md" target="_blank"><strong>Reference baseline</strong><span>Public HSI, accessibility, C2SIM, and documentation authorities</span></a></li>
+            <li><a href="/docs/TRACEABILITY_MATRIX.md" target="_blank"><strong>Traceability matrix</strong><span>UI requirement to test and evidence mapping</span></a></li>
+            <li><a href="/docs/VERSION_DESCRIPTION.md" target="_blank"><strong>Version description</strong><span>Source, dependencies, configuration, and known limits</span></a></li>
+          </ul>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>Rehearsal-only reference profile</span>
+    <span>No operational command, targeting, engagement, effector, execution, or weapons authority</span>
+  </footer>
+
+  <dialog class="confirm-dialog" id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+    <form method="dialog">
+      <span class="dialog-kicker">CONFIRM TEST ACTION</span>
+      <h2 id="confirmTitle">Confirm action</h2>
+      <p id="confirmMessage">This action changes the rehearsal state.</p>
+      <div class="dialog-actions">
+        <button class="button button-quiet" value="cancel">Cancel</button>
+        <button class="button button-danger" id="confirmActionButton" value="confirm">Continue</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

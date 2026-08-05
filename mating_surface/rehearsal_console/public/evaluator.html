@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Evaluator Disposition · Denied Communications Authority Rehearsal</title>
+  <link rel="stylesheet" href="/evaluator.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to evaluator workspace</a>
+  <header>
+    <div>
+      <p class="eyebrow">SEPARATE EVALUATOR WORKSPACE</p>
+      <h1>Rehearsal disposition</h1>
+      <p>Review the automatic result and detached replay receipt, then issue a separate local disposition. This page does not calculate scenario acceptance.</p>
+    </div>
+    <a class="back-link" href="/">Return to rehearsal station</a>
+  </header>
+
+  <main id="main">
+    <section class="panel" aria-labelledby="automaticTitle">
+      <div class="panel-heading">
+        <div><span>01</span><h2 id="automaticTitle">Automatic evidence</h2></div>
+        <button id="refreshButton" type="button">Refresh</button>
+      </div>
+      <div class="summary-grid">
+        <article><span>Scenario</span><strong id="scenarioValue">Loading</strong></article>
+        <article><span>Automatic result</span><strong id="automaticValue">Loading</strong></article>
+        <article><span>Detached replay</span><strong id="verificationValue">Loading</strong></article>
+        <article><span>Session receipt</span><code id="sessionValue">Loading</code></article>
+      </div>
+      <p class="boundary">The automatic result is evidence produced by the source-controlled scenario catalog. It is not a human acceptance decision.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="dispositionTitle">
+      <div class="panel-heading">
+        <div><span>02</span><h2 id="dispositionTitle">Evaluator disposition</h2></div>
+        <strong id="dispositionState">Not issued</strong>
+      </div>
+      <form id="dispositionForm">
+        <div class="field-grid">
+          <label><span>Evaluator identifier</span><input id="evaluatorId" name="evaluatorId" maxlength="160" required autocomplete="off"></label>
+          <label><span>Role</span><input id="evaluatorRole" name="role" maxlength="160" required autocomplete="off" value="V&amp;V reviewer"></label>
+          <label><span>Organization</span><input id="evaluatorOrganization" name="organization" maxlength="160" autocomplete="off"></label>
+          <label><span>Disposition</span><select id="dispositionSelect" name="disposition"><option value="accept">Accept automatic result</option><option value="reject">Reject run</option><option value="defer">Defer decision</option></select></label>
+        </div>
+        <label class="rationale-field"><span>Rationale</span><textarea id="rationale" name="rationale" maxlength="4000" rows="6" placeholder="Required for reject and defer. For accept, record the review basis when useful."></textarea></label>
+        <div class="form-actions">
+          <button class="primary" id="issueButton" type="submit">Issue immutable disposition</button>
+          <p id="formStatus" role="status" aria-live="polite">One disposition may be issued for the current session receipt.</p>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="receiptTitle">
+      <div class="panel-heading">
+        <div><span>03</span><h2 id="receiptTitle">Disposition custody</h2></div>
+        <div class="button-row"><button id="verifyButton" type="button">Verify disposition</button><button id="exportButton" type="button">Export acceptance package</button></div>
+      </div>
+      <dl class="receipt-grid">
+        <div><dt>Disposition</dt><dd id="receiptDisposition">None</dd></div>
+        <div><dt>Evaluator</dt><dd id="receiptEvaluator">None</dd></div>
+        <div><dt>Signer class</dt><dd id="receiptSigner">Local process integrity only</dd></div>
+        <div><dt>Receipt identity</dt><dd><code id="receiptId">None</code></dd></div>
+      </dl>
+      <details><summary>Inspect disposition receipt</summary><pre id="receiptJson">No disposition has been issued.</pre></details>
+      <p class="warning">The local Ed25519 signature protects receipt integrity. It does not authenticate the evaluator against an organizational identity system and does not constitute program acceptance authority.</p>
+    </section>
+  </main>
+
+  <script type="module" src="/evaluator.js"></script>
+</body>
+</html>

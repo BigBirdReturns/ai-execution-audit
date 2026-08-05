@@ -1,0 +1,56 @@
+name: Standards-first mating surface qualification
+
+on:
+  pull_request:
+    paths:
+      - "mating_surface/**"
+      - "adapters/polybolos/README.md"
+      - ".github/workflows/standards-mating-surface.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mating_surface/**"
+      - "adapters/polybolos/README.md"
+      - ".github/workflows/standards-mating-surface.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: standards-mating-surface-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-standards-surface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the audit estate
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Run registry, venue, binding, and provider-boundary tests
+        run: node --test mating_surface/conformance/registry.test.mjs
+
+      - name: Compile the reference venue profile
+        run: |
+          mkdir -p qualification/standards-mating-surface
+          node mating_surface/core/registry.mjs \
+            mating_surface/standards/registry.json \
+            mating_surface/venues/joint-edge-command-authority.json \
+            | tee qualification/standards-mating-surface/profile-receipt.json
+
+      - name: Retain standards-surface qualification evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: standards-first-mating-surface-qualification
+          path: qualification/standards-mating-surface
+          if-no-files-found: error

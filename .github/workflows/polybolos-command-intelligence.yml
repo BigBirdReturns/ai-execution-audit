@@ -1,0 +1,135 @@
+name: Public Command Intelligence donor qualification
+
+on:
+  pull_request:
+    paths:
+      - "adapters/polybolos_ci/**"
+      - ".github/workflows/polybolos-command-intelligence.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "adapters/polybolos_ci/**"
+      - ".github/workflows/polybolos-command-intelligence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-command-intelligence-donor-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-public-source-and-cabinet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+
+    steps:
+      - name: Check out audit harness
+        uses: actions/checkout@v4
+
+      - name: Check out the pinned public Command Intelligence source
+        uses: actions/checkout@v4
+        with:
+          repository: simplifaisoul/osiris
+          ref: b9c0289c945b1908fe90f435c7e31bbc32c460f1
+          path: target
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: target/package-lock.json
+
+      - name: Run detached checkpoint-witness verification tests
+        run: node --test adapters/polybolos_ci/checkpoint/checkpoint_verifier.test.mjs
+
+      - name: Run detached checkpoint-authority gate tests
+        run: node --test adapters/polybolos_ci/authority/checkpoint_authority_gate.test.mjs
+
+      - name: Run detached candidate-authority gate tests
+        run: node --test adapters/polybolos_ci/authority/authority_gate.test.mjs
+
+      - name: Run signed partition-runtime and reconciliation tests
+        run: node --test adapters/polybolos_ci/authority/partition_runtime.test.mjs
+
+      - name: Run signed partition-cabinet evidence tests
+        run: |
+          node --test \
+            adapters/polybolos_ci/authority/partition_cabinet.test.mjs \
+            adapters/polybolos_ci/authority/partition_cabinet_human_required.test.mjs
+
+      - name: Materialize the read-only cabinet bridge
+        run: python adapters/polybolos_ci/materialize_cabinet.py
+
+      - name: Run cabinet bridge refusal and custody tests
+        run: python -m unittest discover -s adapters/polybolos_ci/cabinet -p 'test_*.py' -v
+
+      - name: Install Lua 5.4 and JSON support
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 lua-dkjson
+
+      - name: Parse the MAME plugins and offline harnesses with Lua 5.4
+        run: |
+          luac5.4 -p adapters/polybolos_ci/cabinet/mame/polybolosci/init.lua
+          luac5.4 -p adapters/polybolos_ci/cabinet/mame/test_harness.lua
+          luac5.4 -p adapters/polybolos_ci/authority/cabinet/mame/polybolospartition/init.lua
+          luac5.4 -p adapters/polybolos_ci/authority/cabinet/mame/test_harness.lua
+
+      - name: Verify the target and apply the retained integration
+        run: |
+          python adapters/polybolos_ci/apply_overlay.py target
+          python adapters/polybolos_ci/apply_post_patches.py target
+          python adapters/polybolos_ci/normalize_receipt.py target
+
+      - name: Run native tests, Command Intelligence lint, and production build
+        run: python adapters/polybolos_ci/run_source_qualification.py target qualification
+
+      - name: Run live WAL replay, provider-removal, and offline MAME transaction
+        run: python adapters/polybolos_ci/run_live_e2e.py target qualification/e2e
+
+      - name: Run live 5,000-entity ingest, SSE, split-brain, and WAL transaction
+        run: python adapters/polybolos_ci/run_live_scale_e2e_gate.py target qualification/scale-e2e
+
+      - name: Run bounded checkpoints and witnesses at 5,000 and 20,000 entities
+        run: python adapters/polybolos_ci/run_checkpoint_witness_e2e.py target qualification/checkpoint-witness-e2e
+
+      - name: Run bounded CI candidate through signed software, evidence, and partition authority
+        run: |
+          node adapters/polybolos_ci/authority/run_checkpoint_partition_e2e.mjs \
+            qualification/checkpoint-witness-e2e/bounded-20000.json \
+            qualification/checkpoint-partition-e2e
+
+      - name: Run actual public-source CI candidate through signed external authority
+        run: python adapters/polybolos_ci/run_candidate_authority_e2e.py target qualification/candidate-authority-e2e
+
+      - name: Run actual public-source CI candidate through signed communications partition
+        run: |
+          node adapters/polybolos_ci/authority/run_partition_authority_e2e.mjs \
+            qualification/candidate-authority-e2e/candidate-transaction.json \
+            qualification/partition-authority-e2e
+
+      - name: Project signed partition state through offline MAME and MotionDeck
+        run: |
+          node adapters/polybolos_ci/authority/run_partition_cabinet_e2e.mjs \
+            qualification/partition-authority-e2e \
+            qualification/partition-cabinet-e2e
+
+      - name: Retain donor qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-command-intelligence-donor-qualification
+          path: |
+            qualification
+            adapters/polybolos_ci/cabinet/MATERIALIZATION_RECEIPT.json
+          if-no-files-found: warn

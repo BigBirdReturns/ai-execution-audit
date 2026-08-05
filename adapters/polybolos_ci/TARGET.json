@@ -1,0 +1,35 @@
+{
+  "schema": "ai-execution-audit/polybolos-ci-target@2",
+  "repository": "simplifaisoul/osiris",
+  "commit": "b9c0289c945b1908fe90f435c7e31bbc32c460f1",
+  "default_branch": "master",
+  "purpose": "Qualify and harden the actual public Polybolos Command Intelligence implementation, wire that implementation into its real OSIRIS operator surface, and export a read-only cabinet projection without inventing a parallel intelligence layer.",
+  "files": {
+    "src/lib/sdk/PolybolosClient.ts": "7cdff49bb3791b505fa4d6f821b3b0bb765c62f4",
+    "src/lib/sdk/LatticeAdapter.ts": "122444fe36d4d07590f96c18993f1f7039508d86",
+    "src/lib/sdk/types.ts": "a4f6b73e4f9fb64ba025eb4a5456d301074b32ad",
+    "src/app/api/sdk/ingest/route.ts": "950787ec146e3f2591979001439ebcde3b21bb43",
+    "src/app/api/sdk/stream/route.ts": "c3d97bb32692704ae6e3c3a5f2576112cc4c5415",
+    "src/app/page.tsx": "ccbb6f6cf1998ac2eeb9f40c443bacb5bd409b56",
+    "src/components/OsirisMap.tsx": "1a74bb31df677984d01be374424a68edd85f08f1",
+    "src/components/LayerPanel.tsx": "950a726670e6f61b9caf549fe0bf5ed9d77be87b",
+    "eslint.config.mjs": "05e726d1b4201bc8c7716d2b058279676582e8c0",
+    "package.json": "28efbe58dd7100d6033c44a905b69aec19d39344",
+    "vitest.config.ts": "c7c33c592b6a63cb71f467fd7addd1f84ad89e79"
+  },
+  "upgrade_v2": {
+    "encoding": "zlib+base64",
+    "parts_glob": "upgrade_v2_b64/part-*.b64",
+    "parts_count": 12,
+    "compressed_sha256": "6364b5b78f908a8be4735d2261ebdc55bfb49f9ac6dd1ebc95727eaff1f88712",
+    "compressed_bytes": 50100,
+    "decoded_patch_sha256": "2e9556a5c700e57c930bb01c67b4d7179e66ea737bea87510ce2b83ef4b845f3",
+    "decoded_patch_bytes": 222129
+  },
+  "claim_boundary": [
+    "The public repository is Command Intelligence source, not COMMAND CORE or HOTL source.",
+    "The public Lattice adapter labels its raw types as simulated from public documentation. This lane does not substitute that adapter for Mark Brown's private qualified integration.",
+    "The cabinet projection is read-only derived observation. It carries no command, engagement, targeting, effector, input-output, or execution authority.",
+    "Passing this lane proves the pinned public source plus the retained overlay satisfies the stated software, API, UI, persistence, and projection checks. It does not prove private integration, operational adoption, classified behavior, weapons employment, or combat effectiveness."
+  ]
+}

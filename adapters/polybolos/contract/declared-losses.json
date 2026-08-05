@@ -1,0 +1,20 @@
+{
+  "schema": "axm-polybolos-declared-losses/1",
+  "losses": [
+    {
+      "id": "entity-order-normalized",
+      "description": "Entity references are treated as a set and sorted for deterministic evidence binding. Native ordering is not preserved unless Polybolos later declares order to be semantic.",
+      "severity": "visible_normalization"
+    },
+    {
+      "id": "native-details-not-copied",
+      "description": "Unmapped native details remain outside the neutral candidate. Their top-level names and canonical digest are retained so omission is visible without copying private implementation state.",
+      "severity": "intentional_omission"
+    },
+    {
+      "id": "return-shape-is-neutral",
+      "description": "AXM returns a neutral status projection. It does not claim to reproduce a Polybolos-native status object, operator panel, or internal workflow state.",
+      "severity": "one_way_boundary"
+    }
+  ]
+}

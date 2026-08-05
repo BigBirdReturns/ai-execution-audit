@@ -1,0 +1,40 @@
+{
+  "authority": [
+    "observe.derived"
+  ],
+  "claimBoundary": "This bridge projects a read-only local partition-authority frame whose receipts were verified against a node-signed journal. It cannot issue commands, mutate a game or emulator, reset an authority lease, reconcile a partition, or authorize execution.",
+  "controlOwner": "motiondeck",
+  "forbidden": [
+    "authority.command",
+    "authority.delegate",
+    "authority.reconcile",
+    "authority.lease-reset",
+    "execution.weapons",
+    "output.input",
+    "output.virtual-device",
+    "network.remote"
+  ],
+  "foreignUi": "operator-only",
+  "id": "polybolos.partition-authority.cabinet-frame",
+  "input": {
+    "captureField": "frameId",
+    "pathEnvironment": "POLYBOLOS_PARTITION_CABINET_FRAME",
+    "schema": "polybolos-partition-cabinet-frame/1",
+    "semanticStateField": "stateId",
+    "signedEvidenceField": "evidence.recordId"
+  },
+  "mode": "read-only-local-file",
+  "neutralization": {
+    "reason": "The provider exposes no stateful output or authority-bearing control surface.",
+    "required": false
+  },
+  "presentationOwner": "motiondeck",
+  "provides": [
+    "observation.partition-authority",
+    "presentation.cabinet-menu",
+    "evidence.signed-journal-receipt"
+  ],
+  "publicName": "Polybolos Partition Authority",
+  "schema": "polybolos-partition-authority-motiondeck-bridge/1",
+  "version": "0.1.0"
+}

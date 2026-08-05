@@ -1,0 +1,361 @@
+name: Standards rehearsal console qualification
+
+on:
+  pull_request:
+    paths:
+      - "mating_surface/rehearsal_console/**"
+      - "mating_surface/semantic/**"
+      - "mating_surface/test_hosts/core/**"
+      - "mating_surface/artifacts/**"
+      - "mating_surface/core/artifacts.mjs"
+      - "mating_surface/tools/**"
+      - ".github/workflows/standards-rehearsal-console.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mating_surface/rehearsal_console/**"
+      - "mating_surface/semantic/**"
+      - "mating_surface/test_hosts/core/**"
+      - "mating_surface/artifacts/**"
+      - "mating_surface/core/artifacts.mjs"
+      - "mating_surface/tools/**"
+      - ".github/workflows/standards-rehearsal-console.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: standards-rehearsal-console-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-console:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+
+    steps:
+      - name: Check out the audit estate
+        uses: actions/checkout@v6
+
+      - name: Check out only the pinned OpenC2SIM reference artifact
+        uses: actions/checkout@v6
+        with:
+          repository: OpenC2SIM/OpenC2SIM.github.io
+          ref: ca1efa3cb23d35eef80f31d87ca189de44eb99fd
+          path: upstream-c2sim
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: C2SIM_SMX_LOX_V1.0.1.xsd
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: mating_surface/tools/requirements-xsd11.txt
+
+      - name: Install bounded XML and XSD 1.1 validators
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils zip unzip
+          python -m pip install --require-hashes --only-binary=:all: \
+            -r mating_surface/tools/requirements-xsd11.txt
+
+      - name: Run neutral-surface and direct-runtime source tests
+        run: |
+          node --check mating_surface/rehearsal_console/session.mjs
+          node --check mating_surface/rehearsal_console/server.mjs
+          node --check mating_surface/rehearsal_console/public/app.js
+          node --check mating_surface/rehearsal_console/build_pack.mjs
+          node --check mating_surface/rehearsal_console/qualify_console.mjs
+          node --test mating_surface/rehearsal_console/conformance/*.test.mjs
+
+      - name: Refuse an unexpected upstream commit or Git blob
+        run: |
+          test "$(git -C upstream-c2sim rev-parse HEAD)" = "ca1efa3cb23d35eef80f31d87ca189de44eb99fd"
+          test "$(git -C upstream-c2sim hash-object C2SIM_SMX_LOX_V1.0.1.xsd)" = "3d82674d83fd679be0c9e4c05a09d49d16b6fbb9"
+
+      - name: Rebuild exact rehearsal evidence
+        run: |
+          mkdir -p qualification/c2sim-public-reference
+          node mating_surface/tools/xml_wellformedness.mjs \
+            upstream-c2sim/C2SIM_SMX_LOX_V1.0.1.xsd \
+            qualification/c2sim-public-reference/xml-wellformedness.json
+          node mating_surface/core/artifacts.mjs \
+            mating_surface/standards/registry.json \
+            mating_surface/venues/joint-edge-command-authority.json \
+            mating_surface/artifacts/public-reference/c2sim-v1.0.1.json \
+            upstream-c2sim/C2SIM_SMX_LOX_V1.0.1.xsd \
+            qualification/c2sim-public-reference/xml-wellformedness.json \
+            mating_surface/artifacts/public-reference/c2sim-rehearsal-use.json \
+            qualification/c2sim-public-reference/artifact-transaction.json
+          python mating_surface/tools/xsd11_catalog.py \
+            upstream-c2sim/C2SIM_SMX_LOX_V1.0.1.xsd \
+            qualification/c2sim-public-reference/artifact-transaction.json \
+            qualification/c2sim-public-reference/xsd11-catalog.json
+          python mating_surface/semantic/c2sim_semantic.py \
+            upstream-c2sim/C2SIM_SMX_LOX_V1.0.1.xsd \
+            qualification/c2sim-public-reference/artifact-transaction.json \
+            qualification/c2sim-public-reference/xsd11-catalog.json \
+            qualification/c2sim-public-reference/semantic-conversation
+          node mating_surface/semantic/run_semantic_rehearsal.mjs \
+            qualification/c2sim-public-reference/semantic-conversation \
+            qualification/c2sim-public-reference/artifact-transaction.json \
+            qualification/c2sim-public-reference/xsd11-catalog.json \
+            qualification/c2sim-public-reference/semantic-rehearsal
+          node mating_surface/semantic/verify_semantic_rehearsal.mjs \
+            qualification/c2sim-public-reference/semantic-conversation \
+            qualification/c2sim-public-reference/semantic-rehearsal \
+            qualification/c2sim-public-reference/semantic-rehearsal-verification.json
+
+      - name: Qualify interactive authority cases and build the local pack
+        run: |
+          node mating_surface/rehearsal_console/qualify_console.mjs \
+            qualification/c2sim-public-reference \
+            . \
+            qualification/rehearsal-console \
+            "${GITHUB_SHA}"
+          chmod +x qualification/rehearsal-console/pack/start-standards-rehearsal.sh
+          (
+            cd qualification/rehearsal-console/pack
+            zip -qr ../standards-rehearsal-console.zip .
+          )
+          unzip -t qualification/rehearsal-console/standards-rehearsal-console.zip \
+            > qualification/rehearsal-console/archive-test.txt
+
+      - name: Exercise request isolation, loopback API, and browser presentation
+        env:
+          HOST_ROOT: qualification/rehearsal-console/pack
+        run: |
+          node "${HOST_ROOT}/mating_surface/rehearsal_console/server.mjs" \
+            --evidence "${HOST_ROOT}/evidence" \
+            --build-manifest "${HOST_ROOT}/build-manifest.json" \
+            --host 127.0.0.1 \
+            --port 8787 \
+            > qualification/rehearsal-console/server.log 2>&1 &
+          echo $! > qualification/rehearsal-console/server.pid
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent \
+              http://127.0.0.1:8787/api/health \
+              > qualification/rehearsal-console/health.json; then
+              break
+            fi
+            sleep 0.25
+          done
+
+          host_code=$(curl --silent \
+            --output qualification/rehearsal-console/refused-host.json \
+            --write-out '%{http_code}' \
+            -H 'Host: attacker.invalid' \
+            http://127.0.0.1:8787/api/state)
+          test "${host_code}" = "421"
+
+          origin_code=$(curl --silent \
+            --output qualification/rehearsal-console/refused-origin.json \
+            --write-out '%{http_code}' \
+            -H 'Origin: https://attacker.invalid' \
+            -H 'Content-Type: application/json' \
+            -d '{"action":"cut_headquarters","input":{}}' \
+            http://127.0.0.1:8787/api/action)
+          test "${origin_code}" = "403"
+
+          fetch_site_code=$(curl --silent \
+            --output qualification/rehearsal-console/refused-fetch-site.json \
+            --write-out '%{http_code}' \
+            -H 'Sec-Fetch-Site: cross-site' \
+            -H 'Content-Type: application/json' \
+            -d '{"action":"cut_headquarters","input":{}}' \
+            http://127.0.0.1:8787/api/action)
+          test "${fetch_site_code}" = "403"
+
+          content_type_code=$(curl --silent \
+            --output qualification/rehearsal-console/refused-content-type.json \
+            --write-out '%{http_code}' \
+            -H 'Content-Type: text/plain' \
+            -d '{"action":"cut_headquarters","input":{}}' \
+            http://127.0.0.1:8787/api/action)
+          test "${content_type_code}" = "415"
+
+          curl --fail --silent \
+            http://127.0.0.1:8787/api/state \
+            > qualification/rehearsal-console/browser-initial-state.json
+          for action in cut_headquarters issue_order issue_report restore reconcile; do
+            curl --fail --silent \
+              -H 'Origin: http://127.0.0.1:8787' \
+              -H 'Sec-Fetch-Site: same-origin' \
+              -H 'Content-Type: application/json' \
+              -d "{\"action\":\"${action}\",\"input\":{}}" \
+              http://127.0.0.1:8787/api/action \
+              > "qualification/rehearsal-console/browser-${action}.json"
+          done
+          curl --fail --silent \
+            http://127.0.0.1:8787/api/state \
+            > qualification/rehearsal-console/browser-final-state.json
+          curl --fail --silent \
+            http://127.0.0.1:8787/api/verify \
+            > qualification/rehearsal-console/browser-session-verification.json
+
+          google-chrome --headless --no-sandbox --disable-gpu --hide-scrollbars \
+            --window-size=1440,1100 --virtual-time-budget=2500 \
+            --screenshot=qualification/rehearsal-console/console-desktop.png \
+            http://127.0.0.1:8787
+          google-chrome --headless --no-sandbox --disable-gpu --hide-scrollbars \
+            --window-size=390,844 --virtual-time-budget=2500 \
+            --screenshot=qualification/rehearsal-console/console-mobile.png \
+            http://127.0.0.1:8787
+          google-chrome --headless --no-sandbox --disable-gpu --virtual-time-budget=2500 \
+            --dump-dom http://127.0.0.1:8787 \
+            > qualification/rehearsal-console/rendered-dom.html
+          kill "$(cat qualification/rehearsal-console/server.pid)"
+
+      - name: Audit runtime provenance, receipts, package custody, and rendered surface
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          root = Path('qualification/rehearsal-console')
+          pack = root / 'pack'
+          manifest = json.loads((pack / 'build-manifest.json').read_text())
+          final_state = json.loads((root / 'browser-final-state.json').read_text())
+          verification = json.loads((root / 'browser-session-verification.json').read_text())
+          qualification = json.loads((root / 'qualification.json').read_text())
+          health = json.loads((root / 'health.json').read_text())
+
+          if qualification.get('status') != 'pass':
+              raise SystemExit('console qualification did not pass')
+          required_assertions = {
+              'directAuthorityRuntimeImport',
+              'baselineReplayRefusal',
+              'localOperatorHold',
+              'offlineLeaseSafeState',
+              'isolatedOrderRefusal',
+              'conflictingReturnHumanRequired',
+              'liveConfigurationReplay',
+              'absentReturningAuthorityVisible',
+              'closedSessionRefusesFurtherAction',
+              'exportedSessionsReplay',
+              'standardPayloadsAbsentFromBrowserState',
+              'loopbackOnlyHost',
+          }
+          if not required_assertions.issubset(
+              {key for key, value in qualification.get('assertions', {}).items() if value is True}
+          ):
+              raise SystemExit('qualification assertion set is incomplete')
+          if len(qualification.get('caseReceiptIds', {})) != 7:
+              raise SystemExit('expected seven qualified interactive cases')
+          if final_state.get('status') != 'explicitly_superseded':
+              raise SystemExit(f'unexpected final state: {final_state.get("status")}')
+          if final_state['messages']['receiverAccepted'] != 4:
+              raise SystemExit('browser path did not accept four unique messages')
+          if final_state['messages']['replayRefused'] != 1:
+              raise SystemExit('browser path did not refuse one replay')
+          if verification.get('status') != 'pass':
+              raise SystemExit('browser session did not replay')
+          if final_state['provenance']['runtimeMode'] != 'server_side_direct_import':
+              raise SystemExit('browser state does not identify direct server-side runtime import')
+          if health.get('requestBoundary', {}).get('loopbackOnly') is not True:
+              raise SystemExit('health receipt does not retain loopback-only boundary')
+          if '<?xml' in json.dumps(final_state):
+              raise SystemExit('standard XML escaped into browser state')
+
+          for name, code in [
+              ('refused-host.json', 'HOST_HEADER_REFUSED'),
+              ('refused-origin.json', 'ORIGIN_REFUSED'),
+              ('refused-fetch-site.json', 'FETCH_SITE_REFUSED'),
+              ('refused-content-type.json', 'CONTENT_TYPE_REFUSED'),
+          ]:
+              refusal = json.loads((root / name).read_text())
+              if refusal.get('status') != 'refuse' or refusal.get('error') != code:
+                  raise SystemExit(f'boundary refusal mismatch: {name}')
+
+          for relative, row in manifest['files'].items():
+              path = pack / relative
+              if not path.is_file():
+                  raise SystemExit(f'manifest file missing: {relative}')
+              data = path.read_bytes()
+              if len(data) != row['bytes']:
+                  raise SystemExit(f'byte count mismatch: {relative}')
+              if hashlib.sha256(data).hexdigest() != row['sha256']:
+                  raise SystemExit(f'digest mismatch: {relative}')
+
+          manifest_body = {
+              key: value
+              for key, value in manifest.items()
+              if key not in {
+                  'schema',
+                  'buildId',
+                  'manifestSelfExcluded',
+                  'claimBoundary',
+              }
+          }
+          canonical = json.dumps(
+              manifest_body,
+              ensure_ascii=False,
+              separators=(',', ':'),
+              sort_keys=True,
+          )
+          expected_build_id = 'standardsrehearsalconsole1_' + hashlib.sha256(
+              canonical.encode('utf-8')
+          ).hexdigest()
+          if manifest.get('buildId') != expected_build_id:
+              raise SystemExit('build manifest identity does not reconstruct')
+          if manifest.get('sourceCommit') != os.environ['GITHUB_SHA']:
+              raise SystemExit('pack source commit differs from the checked-out source')
+
+          provenance_path = final_state['provenance']['sources']['authorityRuntime']['path']
+          authority_path = pack / provenance_path
+          observed_authority = hashlib.sha256(authority_path.read_bytes()).hexdigest()
+          if observed_authority != final_state['provenance']['sources']['authorityRuntime']['sha256']:
+              raise SystemExit('authority module hash differs from rendered provenance')
+
+          dom = (root / 'rendered-dom.html').read_text()
+          for phrase in [
+              'Denied Communications Authority',
+              'MessageAuthorityRuntime',
+              'Explicitly Superseded',
+          ]:
+              if phrase.lower() not in dom.lower():
+                  raise SystemExit(f'rendered DOM missing {phrase}')
+          if re.search(r'axm|dandelion|polybolos|defense solution arcade', dom, re.I):
+              raise SystemExit('rejected product vocabulary entered rendered DOM')
+          if not (root / 'console-desktop.png').is_file() or not (root / 'console-mobile.png').is_file():
+              raise SystemExit('browser screenshots were not retained')
+          if (root / 'console-desktop.png').stat().st_size < 10000:
+              raise SystemExit('desktop screenshot is unexpectedly small')
+          if (root / 'console-mobile.png').stat().st_size < 5000:
+              raise SystemExit('mobile screenshot is unexpectedly small')
+
+          archive = root / 'standards-rehearsal-console.zip'
+          print(json.dumps({
+              'status': 'pass',
+              'qualificationId': qualification['qualificationId'],
+              'buildId': manifest['buildId'],
+              'sessionReceiptId': verification['receiptId'],
+              'archiveSha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
+              'archiveBytes': archive.stat().st_size,
+              'desktopBytes': (root / 'console-desktop.png').stat().st_size,
+              'mobileBytes': (root / 'console-mobile.png').stat().st_size,
+              'requestBoundaryRefusals': 4,
+              'qualifiedCases': len(qualification['caseReceiptIds']),
+          }, indent=2))
+          PY
+
+      - name: Retain console source, receipts, screenshots, and runnable pack
+        uses: actions/upload-artifact@v7
+        with:
+          name: standards-rehearsal-console-qualification
+          path: qualification/rehearsal-console
+          if-no-files-found: error

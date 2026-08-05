@@ -1,0 +1,40 @@
+{
+  "claim_boundary": "The bundle contains a read-only local observation bridge, static MAME diagnostic plugin, MotionDeck declaration, and refusal tests. It grants no command, targeting, engagement, input, emulator-memory, process-launch, or weapons authority.",
+  "compressed_bytes": 10207,
+  "compressed_sha256": "453c6ab8a2edc5678e57a1aeadc867e68e1172ed11a87b8e889531194d07c644",
+  "decoded_tar_bytes": 51200,
+  "decoded_tar_sha256": "6f8a46e2562f521195fbe851a85647a80957f2b8e99d0902b1245bef6205ba77",
+  "encoded_chars": 12759,
+  "encoding": "zlib+base85+tar",
+  "files": {
+    "bridge.py": {
+      "bytes": 18942,
+      "sha256": "282ff06afec91dc944a49826ad3eeb0bfd3278bcf4cc51991ba553b242b3d34d"
+    },
+    "mame/polybolosci/init.lua": {
+      "bytes": 4928,
+      "sha256": "b660e282806f5d8f086c8403676b2fbaf70c32298931d5b1ba19e594cf5babff"
+    },
+    "mame/polybolosci/plugin.json": {
+      "bytes": 243,
+      "sha256": "a8a19b3687e6f73c7d4b1fa38cfa0a3aca25cea32b56847445b230c93a8936e9"
+    },
+    "mame/test_harness.lua": {
+      "bytes": 2327,
+      "sha256": "696e9622cb4d54c3241e7e9e1bc3b5805b0838a5829ad7927e2399c50e05f8c1"
+    },
+    "motiondeck/polybolos-ci-bridge.json": {
+      "bytes": 1198,
+      "sha256": "eae1fbf2bdc9c2127e867ff406f935f1cd61182c56a87f7f6c9e7d5d2b343856"
+    },
+    "test_bridge.py": {
+      "bytes": 8162,
+      "sha256": "2b3fe66f9bbc105dbb867a02acf0126e28f75e8c9c03529f3bd6e23d0f86a84e"
+    },
+    "test_plugin.py": {
+      "bytes": 1599,
+      "sha256": "1307f6f11cd477a7e15cbf34ad2e439731bd5f4505ba4b88846def41a556c5c6"
+    }
+  },
+  "schema": "ai-execution-audit/polybolos-ci-cabinet-bundle@2"
+}
