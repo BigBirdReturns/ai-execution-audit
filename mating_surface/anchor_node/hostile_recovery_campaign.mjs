@@ -65,15 +65,28 @@ export function runConflictingAuthorityReconciliation(bundle) {
     localOperatorPresent: true,
   });
   verifyAuthorityDecision(decision, bundle.authorityProfile);
-  requireCondition(decision.disposition === 'allow' && ticket !== null, 'AUTHORITY_CONFLICT_SETUP_INVALID', 'local denied-communications decision was not admitted');
+  requireCondition(
+    decision.disposition === 'allow' && ticket !== null,
+    'AUTHORITY_CONFLICT_SETUP_INVALID',
+    'local denied-communications decision was not admitted',
+  );
   runtime.setLinkState('connected', 5);
   const reconciliation = runtime.reconcile({
     step: 6,
     returningAuthorityGeneration: bundle.authorityProfile.authorityGeneration + 1,
     supersedesGeneration: null,
   });
-  verifyReconciliation(reconciliation, bundle.authorityProfile);
-  requireCondition(reconciliation.status === 'human_required', 'AUTHORITY_CONFLICT_INVALID', 'conflicting returning authority was not held for human review');
+  verifyReconciliation(
+    reconciliation,
+    bundle.authorityProfile,
+    runtime.decisions,
+    runtime.receiverReceipts,
+  );
+  requireCondition(
+    reconciliation.status === 'human_required',
+    'AUTHORITY_CONFLICT_INVALID',
+    'conflicting returning authority was not held for human review',
+  );
   const body = {
     schema: 'spectra-anchor-node-conflicting-authority-recovery/1',
     localDecision: decision,
@@ -84,7 +97,8 @@ export function runConflictingAuthorityReconciliation(bundle) {
     canonicalStateMutated: false,
     status: 'human_required',
     authority: false,
-    claimBoundary: 'This receipt preserves one synthetic conflict between local and returning authority. It does not silently merge authority, rewrite mission state, or grant operational command authority.',
+    claimBoundary:
+      'This receipt preserves one synthetic conflict between local and returning authority. It does not silently merge authority, rewrite mission state, or grant operational command authority.',
   };
   return { ...body, recoveryId: digest('anchorauthorityconflictrecovery1', body) };
 }
@@ -108,7 +122,8 @@ export function runInterfaceDriftRefusal() {
     label: approved.label,
     bounds: { x: 480, y: 132, width: 240, height: 44 },
     observedPreState: 'review_draft',
-    claimBoundary: 'Invented observed surface. It is not a real application, operator action, or external system.',
+    claimBoundary:
+      'Invented observed surface. It is not a real application, operator action, or external system.',
   };
   const sameBounds = canonicalJson(approved.bounds) === canonicalJson(observed.bounds);
   const sameLabel = approved.label === observed.label;
@@ -121,7 +136,11 @@ export function runInterfaceDriftRefusal() {
       : !samePreState
         ? 'PRE_STATE_DRIFT'
         : 'CONTROL_ADMITTED';
-  requireCondition(disposition === 'refuse' && reason === 'INTERFACE_DRIFT', 'INTERFACE_DRIFT_FIXTURE_INVALID', 'fixture must exercise bounded drift refusal');
+  requireCondition(
+    disposition === 'refuse' && reason === 'INTERFACE_DRIFT',
+    'INTERFACE_DRIFT_FIXTURE_INVALID',
+    'fixture must exercise bounded drift refusal',
+  );
   const body = {
     schema: 'spectra-anchor-node-interface-drift-receipt/1',
     approvedContractDigest: digest('anchorinterfacecontract1', approved),
@@ -132,13 +151,18 @@ export function runInterfaceDriftRefusal() {
     interactionPerformed: false,
     postStateClaimed: false,
     authority: false,
-    claimBoundary: 'This receipt proves the synthetic interface adapter refused a moved control instead of improvising. It performs no click, command, or external action.',
+    claimBoundary:
+      'This receipt proves the synthetic interface adapter refused a moved control instead of improvising. It performs no click, command, or external action.',
   };
   return { ...body, driftReceiptId: digest('anchorinterfacedriftreceipt1', body) };
 }
 
 export function buildDerivedProjections(canonicalMissionState) {
-  requireCondition(canonicalMissionState?.schema === 'spectra-anchor-node-canonical-mission-state/1', 'CANONICAL_STATE_INVALID', 'canonical mission state is invalid');
+  requireCondition(
+    canonicalMissionState?.schema === 'spectra-anchor-node-canonical-mission-state/1',
+    'CANONICAL_STATE_INVALID',
+    'canonical mission state is invalid',
+  );
   const nodes = [
     ...canonicalMissionState.entities.map((row) => ({
       nodeId: row.entityId,
@@ -159,14 +183,16 @@ export function buildDerivedProjections(canonicalMissionState) {
       sourceRefs: [row.outputDigest],
     })),
   ].sort((a, b) => a.nodeId.localeCompare(b.nodeId));
-  const edges = canonicalMissionState.relationships.map((row) => ({
-    edgeId: row.relationshipStateId,
-    edgeType: row.relationshipType,
-    from: row.fromEntityId,
-    to: row.toEntityId,
-    state: row.state,
-    uncertaintyState: row.uncertainty.state,
-  })).sort((a, b) => a.edgeId.localeCompare(b.edgeId));
+  const edges = canonicalMissionState.relationships
+    .map((row) => ({
+      edgeId: row.relationshipStateId,
+      edgeType: row.relationshipType,
+      from: row.fromEntityId,
+      to: row.toEntityId,
+      state: row.state,
+      uncertaintyState: row.uncertainty.state,
+    }))
+    .sort((a, b) => a.edgeId.localeCompare(b.edgeId));
   const queryRows = [
     ...nodes.map((row) => ({
       rowType: 'node',
@@ -192,7 +218,8 @@ export function buildDerivedProjections(canonicalMissionState) {
       ...nodes.map((row) => row.nodeId),
       ...edges.map((row) => row.edgeId),
     ]),
-    claimBoundary: 'Derived graph, query, and cache projection for synthetic qualification. Deleting this object must not delete or modify canonical mission state.',
+    claimBoundary:
+      'Derived graph, query, and cache projection for synthetic qualification. Deleting this object must not delete or modify canonical mission state.',
   };
   return { ...body, projectionId: digest('anchorderivedprojections1', body) };
 }
@@ -207,8 +234,16 @@ export function runProjectionDestructionRebuild(bundle) {
     cacheKeysRemoved: before.cacheKeys.length,
   };
   const rebuilt = buildDerivedProjections(bundle.missionStateAfter);
-  requireCondition(canonicalJson(before) === canonicalJson(rebuilt), 'PROJECTION_REBUILD_MISMATCH', 'rebuilt projection differs');
-  requireCondition(before.sourceMissionStateId === bundle.missionStateAfter.missionStateId, 'PROJECTION_SOURCE_INVALID', 'projection cites another canonical state');
+  requireCondition(
+    canonicalJson(before) === canonicalJson(rebuilt),
+    'PROJECTION_REBUILD_MISMATCH',
+    'rebuilt projection differs',
+  );
+  requireCondition(
+    before.sourceMissionStateId === bundle.missionStateAfter.missionStateId,
+    'PROJECTION_SOURCE_INVALID',
+    'projection cites another canonical state',
+  );
   const body = {
     schema: 'spectra-anchor-node-projection-rebuild-receipt/1',
     canonicalMissionStateIdBefore: bundle.missionStateAfter.missionStateId,
@@ -219,15 +254,25 @@ export function runProjectionDestructionRebuild(bundle) {
     byteEquivalent: canonicalJson(before) === canonicalJson(rebuilt),
     status: 'PASS',
     authority: false,
-    claimBoundary: 'This receipt proves synthetic graph, query, and cache projections can be discarded and rebuilt without changing canonical mission state.',
+    claimBoundary:
+      'This receipt proves synthetic graph, query, and cache projections can be discarded and rebuilt without changing canonical mission state.',
   };
   return {
     projections: before,
-    receipt: { ...body, rebuildReceiptId: digest('anchorprojectionrebuildreceipt1', body) },
+    receipt: {
+      ...body,
+      rebuildReceiptId: digest('anchorprojectionrebuildreceipt1', body),
+    },
   };
 }
 
-function afterActionData({ bundle, faultCampaign, authorityConflict, interfaceDrift, projectionRebuild }) {
+function afterActionData({
+  bundle,
+  faultCampaign,
+  authorityConflict,
+  interfaceDrift,
+  projectionRebuild,
+}) {
   return {
     profileId: bundle.profileId,
     runId: bundle.runId,
@@ -236,7 +281,8 @@ function afterActionData({ bundle, faultCampaign, authorityConflict, interfaceDr
     taskReceiptId: bundle.taskReceipt.taskReceiptId,
     authorityDisposition: bundle.authorityDecision.disposition,
     faultCampaignId: faultCampaign.campaignId,
-    duplicateReplayRefused: faultCampaign.duplicateReceiverReceipts[1].reason === 'MESSAGE_REPLAY',
+    duplicateReplayRefused:
+      faultCampaign.duplicateReceiverReceipts[1].reason === 'MESSAGE_REPLAY',
     workerLossRecovered: faultCampaign.workerRecovery.acceptedCompletionCount === 1,
     authorityConflictStatus: authorityConflict.status,
     interfaceDisposition: interfaceDrift.disposition,
@@ -256,7 +302,16 @@ function afterActionData({ bundle, faultCampaign, authorityConflict, interfaceDr
 }
 
 export function renderAfterActionHtml(data) {
-  requireCondition(isRecord(data), 'AFTER_ACTION_DATA_INVALID', 'after-action data must be an object');
+  requireCondition(
+    isRecord(data),
+    'AFTER_ACTION_DATA_INVALID',
+    'after-action data must be an object',
+  );
+  requireCondition(
+    Array.isArray(data.unresolvedObligations),
+    'AFTER_ACTION_DATA_INVALID',
+    'unresolved obligations must be an array',
+  );
   const obligations = data.unresolvedObligations
     .map((value) => `<li><code>${escapeHtml(value)}</code></li>`)
     .join('');
@@ -308,7 +363,8 @@ export function runHostileRecoveryCampaign(bundle, faultCampaign) {
     htmlBytes: Buffer.byteLength(html, 'utf8'),
     generatedFromReceiptsOnly: true,
     hiddenBrowserState: false,
-    claimBoundary: 'Deterministic static presentation generated from retained synthetic receipts only. The browser owns no mission, authority, or acceptance state.',
+    claimBoundary:
+      'Deterministic static presentation generated from retained synthetic receipts only. The browser owns no mission, authority, or acceptance state.',
   };
   const body = {
     schema: 'spectra-anchor-node-hostile-recovery-campaign/1',
@@ -322,30 +378,103 @@ export function runHostileRecoveryCampaign(bundle, faultCampaign) {
     externalServiceCalls: 0,
     operationalCredentials: 0,
     authority: false,
-    claimBoundary: 'This campaign proves synthetic conflict hold, interface drift refusal, projection reconstruction, and receipt-only after-action rendering. It grants no operational or command authority.',
+    claimBoundary:
+      'This campaign proves synthetic conflict hold, interface drift refusal, projection reconstruction, and receipt-only after-action rendering. It grants no operational or command authority.',
   };
   return {
-    campaign: { ...body, campaignId: digest('anchorhostilerecoverycampaign1', body) },
+    campaign: {
+      ...body,
+      campaignId: digest('anchorhostilerecoverycampaign1', body),
+    },
     html,
   };
 }
 
-export function verifyHostileRecoveryCampaign(campaign, html, bundle, faultCampaign) {
-  requireCondition(isRecord(campaign) && campaign.schema === 'spectra-anchor-node-hostile-recovery-campaign/1', 'HOSTILE_CAMPAIGN_INVALID', 'hostile recovery campaign schema is invalid');
-  requireCondition(campaign.authority === false, 'HOSTILE_CAMPAIGN_INVALID', 'hostile recovery campaign cannot carry authority');
-  requireCondition(campaign.externalServiceCalls === 0, 'HOSTILE_CAMPAIGN_INVALID', 'hostile recovery campaign contains external calls');
-  requireCondition(campaign.operationalCredentials === 0, 'HOSTILE_CAMPAIGN_INVALID', 'hostile recovery campaign contains operational credentials');
-  requireCondition(campaign.authorityConflict.status === 'human_required', 'HOSTILE_CAMPAIGN_INVALID', 'authority conflict was not held');
-  requireCondition(campaign.authorityConflict.canonicalStateMutated === false, 'HOSTILE_CAMPAIGN_INVALID', 'authority reconciliation mutated canonical state');
-  requireCondition(campaign.interfaceDrift.disposition === 'refuse' && campaign.interfaceDrift.interactionPerformed === false, 'HOSTILE_CAMPAIGN_INVALID', 'interface drift did not refuse safely');
-  requireCondition(campaign.projectionRebuild.receipt.status === 'PASS' && campaign.projectionRebuild.receipt.canonicalStateMutated === false, 'HOSTILE_CAMPAIGN_INVALID', 'projection rebuild did not preserve canonical state');
-  requireCondition(campaign.afterAction.generatedFromReceiptsOnly === true && campaign.afterAction.hiddenBrowserState === false, 'HOSTILE_CAMPAIGN_INVALID', 'after-action surface relies on hidden state');
-  requireCondition(campaign.afterAction.htmlSha256 === sha256Text(html), 'AFTER_ACTION_HTML_MISMATCH', 'after-action HTML hash differs');
-  requireCondition(campaign.afterAction.htmlBytes === Buffer.byteLength(html, 'utf8'), 'AFTER_ACTION_HTML_MISMATCH', 'after-action HTML byte count differs');
-  requireCondition(campaign.campaignId === digest('anchorhostilerecoverycampaign1', bodyWithoutId(campaign, 'campaignId')), 'HOSTILE_CAMPAIGN_ID_INVALID', 'hostile recovery campaign identity is invalid');
+export function verifyHostileRecoveryCampaign(
+  campaign,
+  html,
+  bundle,
+  faultCampaign,
+) {
+  requireCondition(
+    isRecord(campaign)
+      && campaign.schema === 'spectra-anchor-node-hostile-recovery-campaign/1',
+    'HOSTILE_CAMPAIGN_INVALID',
+    'hostile recovery campaign schema is invalid',
+  );
+  requireCondition(
+    campaign.authority === false,
+    'HOSTILE_CAMPAIGN_INVALID',
+    'hostile recovery campaign cannot carry authority',
+  );
+  requireCondition(
+    campaign.externalServiceCalls === 0,
+    'HOSTILE_CAMPAIGN_INVALID',
+    'hostile recovery campaign contains external calls',
+  );
+  requireCondition(
+    campaign.operationalCredentials === 0,
+    'HOSTILE_CAMPAIGN_INVALID',
+    'hostile recovery campaign contains operational credentials',
+  );
+  requireCondition(
+    campaign.authorityConflict.status === 'human_required',
+    'HOSTILE_CAMPAIGN_INVALID',
+    'authority conflict was not held',
+  );
+  requireCondition(
+    campaign.authorityConflict.canonicalStateMutated === false,
+    'HOSTILE_CAMPAIGN_INVALID',
+    'authority reconciliation mutated canonical state',
+  );
+  requireCondition(
+    campaign.interfaceDrift.disposition === 'refuse'
+      && campaign.interfaceDrift.interactionPerformed === false,
+    'HOSTILE_CAMPAIGN_INVALID',
+    'interface drift did not refuse safely',
+  );
+  requireCondition(
+    campaign.projectionRebuild.receipt.status === 'PASS'
+      && campaign.projectionRebuild.receipt.canonicalStateMutated === false,
+    'HOSTILE_CAMPAIGN_INVALID',
+    'projection rebuild did not preserve canonical state',
+  );
+  requireCondition(
+    campaign.afterAction.generatedFromReceiptsOnly === true
+      && campaign.afterAction.hiddenBrowserState === false,
+    'HOSTILE_CAMPAIGN_INVALID',
+    'after-action surface relies on hidden state',
+  );
+  requireCondition(
+    campaign.afterAction.htmlSha256 === sha256Text(html),
+    'AFTER_ACTION_HTML_MISMATCH',
+    'after-action HTML hash differs',
+  );
+  requireCondition(
+    campaign.afterAction.htmlBytes === Buffer.byteLength(html, 'utf8'),
+    'AFTER_ACTION_HTML_MISMATCH',
+    'after-action HTML byte count differs',
+  );
+  requireCondition(
+    campaign.campaignId
+      === digest(
+        'anchorhostilerecoverycampaign1',
+        bodyWithoutId(campaign, 'campaignId'),
+      ),
+    'HOSTILE_CAMPAIGN_ID_INVALID',
+    'hostile recovery campaign identity is invalid',
+  );
   const replayed = runHostileRecoveryCampaign(bundle, faultCampaign);
-  requireCondition(canonicalJson(replayed.campaign) === canonicalJson(campaign), 'HOSTILE_CAMPAIGN_REPLAY_MISMATCH', 'hostile recovery campaign does not replay');
-  requireCondition(replayed.html === html, 'HOSTILE_CAMPAIGN_REPLAY_MISMATCH', 'after-action HTML does not replay');
+  requireCondition(
+    canonicalJson(replayed.campaign) === canonicalJson(campaign),
+    'HOSTILE_CAMPAIGN_REPLAY_MISMATCH',
+    'hostile recovery campaign does not replay',
+  );
+  requireCondition(
+    replayed.html === html,
+    'HOSTILE_CAMPAIGN_REPLAY_MISMATCH',
+    'after-action HTML does not replay',
+  );
   const receiptBody = {
     schema: 'spectra-anchor-node-hostile-recovery-verification/1',
     campaignId: campaign.campaignId,
@@ -357,9 +486,13 @@ export function verifyHostileRecoveryCampaign(campaign, html, bundle, faultCampa
     afterActionReceiptOnly: true,
     externalServiceCalls: 0,
     authority: 'none',
-    claimBoundary: 'This receipt proves deterministic reconstruction of the synthetic hostile-recovery campaign. It grants no field, operational, evaluator, adoption, or command authority.',
+    claimBoundary:
+      'This receipt proves deterministic reconstruction of the synthetic hostile-recovery campaign. It grants no field, operational, evaluator, adoption, or command authority.',
   };
-  return { ...receiptBody, verificationId: digest('anchorhostilerecoveryverification1', receiptBody) };
+  return {
+    ...receiptBody,
+    verificationId: digest('anchorhostilerecoveryverification1', receiptBody),
+  };
 }
 
 async function writeJson(path, value) {
@@ -378,7 +511,13 @@ async function main(argv) {
     await writeJson(campaignPath, result.campaign);
     await mkdir(dirname(htmlPath), { recursive: true });
     await writeFile(htmlPath, result.html, 'utf8');
-    process.stdout.write(`${JSON.stringify({ status: 'PASS', campaignId: result.campaign.campaignId, htmlSha256: result.campaign.afterAction.htmlSha256 }, null, 2)}\n`);
+    process.stdout.write(
+      `${JSON.stringify({
+        status: 'PASS',
+        campaignId: result.campaign.campaignId,
+        htmlSha256: result.campaign.afterAction.htmlSha256,
+      }, null, 2)}\n`,
+    );
     return;
   }
   if (command === 'verify') {
@@ -387,7 +526,12 @@ async function main(argv) {
     const campaign = JSON.parse(await readFile(resolve(argv[5]), 'utf8'));
     const html = await readFile(resolve(argv[6]), 'utf8');
     const outputPath = resolve(argv[7]);
-    const receipt = verifyHostileRecoveryCampaign(campaign, html, bundle, faultCampaign);
+    const receipt = verifyHostileRecoveryCampaign(
+      campaign,
+      html,
+      bundle,
+      faultCampaign,
+    );
     await writeJson(outputPath, receipt);
     process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
     return;
