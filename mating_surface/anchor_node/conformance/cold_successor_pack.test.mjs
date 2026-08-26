@@ -125,7 +125,7 @@ test('tampered after-action surface fails hash verification', async (t) => {
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, 'after-action.html');
   const original = await readFile(path, 'utf8');
-  await writeFile(path, original.replace('human_required', 'continuous_authority'), 'utf8');
+  await writeFile(path, original.replace('INTERFACE_DRIFT', 'INTERFACE_SHIFT'), 'utf8');
   await assertCode(verifyColdSuccessorPack(root), 'PACK_FILE_HASH_MISMATCH');
 });
 
