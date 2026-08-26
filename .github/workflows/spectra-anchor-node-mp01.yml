@@ -58,6 +58,7 @@ jobs:
           node --check mating_surface/anchor_node/vertical_slice.mjs
           node --check mating_surface/anchor_node/lattice_membrane.mjs
           node --check mating_surface/anchor_node/fault_worker_campaign.mjs
+          node --check mating_surface/anchor_node/hostile_recovery_campaign.mjs
           node --check mating_surface/anchor_node/cold_successor_pack.mjs
           for test_file in mating_surface/anchor_node/conformance/*.test.mjs; do
             node --check "$test_file"
@@ -159,6 +160,40 @@ jobs:
           cmp \
             qualification/anchor-node-mp01/fault-worker-verification-a.json \
             qualification/anchor-node-mp01/fault-worker-verification-b.json
+
+      - name: Exercise hostile recovery and receipt-only after-action reconstruction
+        run: |
+          node mating_surface/anchor_node/hostile_recovery_campaign.mjs run \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-a.json \
+            qualification/anchor-node-mp01/hostile-recovery-a.json \
+            qualification/anchor-node-mp01/after-action-a.html
+          node mating_surface/anchor_node/hostile_recovery_campaign.mjs run \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-b.json \
+            qualification/anchor-node-mp01/hostile-recovery-b.json \
+            qualification/anchor-node-mp01/after-action-b.html
+          cmp \
+            qualification/anchor-node-mp01/hostile-recovery-a.json \
+            qualification/anchor-node-mp01/hostile-recovery-b.json
+          cmp \
+            qualification/anchor-node-mp01/after-action-a.html \
+            qualification/anchor-node-mp01/after-action-b.html
+          node mating_surface/anchor_node/hostile_recovery_campaign.mjs verify \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-a.json \
+            qualification/anchor-node-mp01/hostile-recovery-a.json \
+            qualification/anchor-node-mp01/after-action-a.html \
+            qualification/anchor-node-mp01/hostile-recovery-verification-a.json
+          node mating_surface/anchor_node/hostile_recovery_campaign.mjs verify \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-b.json \
+            qualification/anchor-node-mp01/hostile-recovery-b.json \
+            qualification/anchor-node-mp01/after-action-b.html \
+            qualification/anchor-node-mp01/hostile-recovery-verification-b.json
+          cmp \
+            qualification/anchor-node-mp01/hostile-recovery-verification-a.json \
+            qualification/anchor-node-mp01/hostile-recovery-verification-b.json
 
       - name: Build and verify two source-pinned cold-successor packs
         run: |
