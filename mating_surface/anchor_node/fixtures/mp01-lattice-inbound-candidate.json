@@ -1,0 +1,23 @@
+{
+  "schema": "spectra-anchor-node-lattice-inbound-candidate/1",
+  "externalEnvelopeId": "SYN-LATTICE-INBOUND-001",
+  "adapterMode": "contract_simulator_only",
+  "classification": "invented_unclassified_synthetic_only",
+  "entities": [
+    {
+      "externalId": "SYN-REMOTE-TRACK-CHARLIE",
+      "entityType": "synthetic_track",
+      "attributes": {
+        "corridor": "SOUTH_SUPPORT_CORRIDOR",
+        "motion": "stationary"
+      },
+      "authority": false,
+      "claimBoundary": "Invented remote candidate for contract simulation only."
+    }
+  ],
+  "tasks": [],
+  "objects": [],
+  "authority": false,
+  "operationalCredentials": 0,
+  "claimBoundary": "No real Lattice endpoint, credential, entity, task, object, platform, mission, or operational data is present."
+}
