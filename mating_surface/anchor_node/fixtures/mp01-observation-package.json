@@ -1,0 +1,45 @@
+{
+  "schema": "spectra-anchor-node-synthetic-observation-package/1",
+  "packageId": "mp01-synthetic-observations-001",
+  "classification": "invented_unclassified_synthetic_only",
+  "capturedAt": "2026-08-26T00:00:00Z",
+  "observations": [
+    {
+      "observationId": "SYN-OBS-AIR-001",
+      "kind": "synthetic_airspace",
+      "source": "synthetic-sensor-alpha",
+      "observedAtStep": 0,
+      "entityExternalId": "SYN-TRACK-ALPHA",
+      "attributes": {
+        "corridor": "NORTH_SUPPORT_CORRIDOR",
+        "motion": "eastbound",
+        "altitudeBand": "medium",
+        "cooperativeIdentification": "unresolved"
+      },
+      "uncertainty": {
+        "state": "UNRESOLVED",
+        "reason": "Single invented source with no cooperative identification."
+      },
+      "claimBoundary": "Invented synthetic observation for local software qualification only. It is not a real track, person, platform, location, or threat report."
+    },
+    {
+      "observationId": "SYN-OBS-LOG-001",
+      "kind": "synthetic_logistics",
+      "source": "synthetic-manifest-bravo",
+      "observedAtStep": 0,
+      "entityExternalId": "SYN-DEPOT-BRAVO",
+      "attributes": {
+        "corridor": "NORTH_SUPPORT_CORRIDOR",
+        "plannedMovement": "resupply-window-01",
+        "materialClass": "medical-and-maintenance",
+        "status": "scheduled"
+      },
+      "uncertainty": {
+        "state": "PROVEN",
+        "reason": "Fixture-declared schedule only; no real movement or inventory exists."
+      },
+      "claimBoundary": "Invented synthetic logistics observation for local software qualification only. It is not a real unit, depot, route, mission, inventory, or movement."
+    }
+  ],
+  "claimBoundary": "No real sensor, unit, location, person, platform, mission, operational record, credential, or classified data is present."
+}
