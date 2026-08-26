@@ -10,6 +10,7 @@ import {
 } from '../cold_successor_pack.mjs';
 
 const SOURCE_COMMIT = '1'.repeat(40);
+const PACK_FILE_COUNT = 15;
 
 async function tempPack() {
   const root = await mkdtemp(join(tmpdir(), 'anchor-cold-successor-'));
@@ -18,15 +19,21 @@ async function tempPack() {
 }
 
 function assertCode(promise, code) {
-  return assert.rejects(promise, (error) => error instanceof ColdSuccessorPackError && error.code === code);
+  return assert.rejects(
+    promise,
+    (error) => error instanceof ColdSuccessorPackError && error.code === code,
+  );
 }
 
-test('cold successor pack builds and verifies from exact local source', async (t) => {
+test('cold successor pack builds and verifies the complete synthetic campaign', async (t) => {
   const root = await tempPack();
   t.after(() => rm(root, { recursive: true, force: true }));
   const receipt = await verifyColdSuccessorPack(root);
   assert.equal(receipt.status, 'PASS');
   assert.equal(receipt.fiveQuestionStatus, 'PASS');
+  assert.equal(receipt.faultWorkerStatus, 'PASS');
+  assert.equal(receipt.hostileRecoveryStatus, 'PASS');
+  assert.equal(receipt.afterActionReceiptOnly, true);
   assert.equal(receipt.deterministicReconstruction, true);
   assert.equal(receipt.externalServiceCalls, 0);
   assert.equal(receipt.operationalCredentials, 0);
@@ -38,13 +45,24 @@ test('pack manifest binds the complete declared file denominator', async (t) => 
   const root = await tempPack();
   t.after(() => rm(root, { recursive: true, force: true }));
   const manifest = JSON.parse(await readFile(join(root, 'manifest.json'), 'utf8'));
-  assert.equal(manifest.fileCount, 10);
-  assert.equal(manifest.files.length, 10);
-  assert.equal(new Set(manifest.files.map((row) => row.path)).size, 10);
+  assert.equal(manifest.fileCount, PACK_FILE_COUNT);
+  assert.equal(manifest.files.length, PACK_FILE_COUNT);
+  assert.equal(new Set(manifest.files.map((row) => row.path)).size, PACK_FILE_COUNT);
+  assert.deepEqual(
+    manifest.files.slice(-6).map((row) => row.path),
+    [
+      'fault-worker-campaign.json',
+      'fault-worker-verification.json',
+      'hostile-recovery-campaign.json',
+      'hostile-recovery-verification.json',
+      'after-action.html',
+      'five-question-answer.json',
+    ],
+  );
   assert.match(manifest.packId, /^anchorcoldsuccessorpack1_[0-9a-f]{64}$/);
 });
 
-test('five-question answer is complete and keeps the model non-authoritative', async (t) => {
+test('five-question answer binds proof, authority, obligations, and safe next action', async (t) => {
   const root = await tempPack();
   t.after(() => rm(root, { recursive: true, force: true }));
   const answer = JSON.parse(await readFile(join(root, 'five-question-answer.json'), 'utf8'));
@@ -54,7 +72,24 @@ test('five-question answer is complete and keeps the model non-authoritative', a
   );
   assert.equal(answer.questions.whoMayAct.modelAuthority, false);
   assert.equal(answer.questions.whatIsSafeNext.allowedEffect, 'local_review_only');
+  assert.equal(answer.questions.whatProvesIt.receiptIds.length, 5);
+  assert.equal(answer.questions.whatIsUnresolved.obligations.length, 3);
   assert.equal(answer.authority, 'none');
+});
+
+test('pack carries the receipt-only static after-action surface', async (t) => {
+  const root = await tempPack();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const html = await readFile(join(root, 'after-action.html'), 'utf8');
+  const campaign = JSON.parse(
+    await readFile(join(root, 'hostile-recovery-campaign.json'), 'utf8'),
+  );
+  assert.match(html, /Spectra Anchor Node Mission Profile 01/);
+  assert.match(html, /human_required/);
+  assert.match(html, /INTERFACE_DRIFT/);
+  assert.doesNotMatch(html, /<script/i);
+  assert.equal(campaign.afterAction.generatedFromReceiptsOnly, true);
+  assert.equal(campaign.afterAction.hiddenBrowserState, false);
 });
 
 test('repeated pack builds are byte-identical for one source commit', async (t) => {
@@ -70,7 +105,10 @@ test('repeated pack builds are byte-identical for one source commit', async (t) 
   for (const row of ma.files) {
     assert.deepEqual(await readFile(join(a, row.path)), await readFile(join(b, row.path)));
   }
-  assert.deepEqual(await readFile(join(a, 'manifest.json')), await readFile(join(b, 'manifest.json')));
+  assert.deepEqual(
+    await readFile(join(a, 'manifest.json')),
+    await readFile(join(b, 'manifest.json')),
+  );
 });
 
 test('tampered pack file fails hash verification', async (t) => {
@@ -79,6 +117,15 @@ test('tampered pack file fails hash verification', async (t) => {
   const path = join(root, 'synthetic-observations.json');
   const original = await readFile(path, 'utf8');
   await writeFile(path, original.replace('eastbound', 'westbound'), 'utf8');
+  await assertCode(verifyColdSuccessorPack(root), 'PACK_FILE_HASH_MISMATCH');
+});
+
+test('tampered after-action surface fails hash verification', async (t) => {
+  const root = await tempPack();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, 'after-action.html');
+  const original = await readFile(path, 'utf8');
+  await writeFile(path, original.replace('human_required', 'continuous_authority'), 'utf8');
   await assertCode(verifyColdSuccessorPack(root), 'PACK_FILE_HASH_MISMATCH');
 });
 
@@ -92,7 +139,10 @@ test('missing pack file fails closed', async (t) => {
 test('source commit must be an exact full hash', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'anchor-invalid-source-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  await assertCode(buildColdSuccessorPack(root, { sourceCommit: 'main' }), 'SOURCE_COMMIT_INVALID');
+  await assertCode(
+    buildColdSuccessorPack(root, { sourceCommit: 'main' }),
+    'SOURCE_COMMIT_INVALID',
+  );
 });
 
 test('manifest cannot make Lattice mandatory or grant authority', async (t) => {
