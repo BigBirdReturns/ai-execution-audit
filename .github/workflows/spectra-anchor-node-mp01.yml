@@ -5,6 +5,7 @@ on:
     paths:
       - "mating_surface/anchor_node/**"
       - "mating_surface/semantic/authority_sidecar.mjs"
+      - "mating_surface/test_hosts/core/**"
       - ".github/workflows/spectra-anchor-node-mp01.yml"
   push:
     branches:
@@ -12,6 +13,7 @@ on:
     paths:
       - "mating_surface/anchor_node/**"
       - "mating_surface/semantic/authority_sidecar.mjs"
+      - "mating_surface/test_hosts/core/**"
       - ".github/workflows/spectra-anchor-node-mp01.yml"
   workflow_dispatch:
 
@@ -55,11 +57,11 @@ jobs:
           node --check mating_surface/anchor_node/validate_mission_profile.mjs
           node --check mating_surface/anchor_node/vertical_slice.mjs
           node --check mating_surface/anchor_node/lattice_membrane.mjs
+          node --check mating_surface/anchor_node/fault_worker_campaign.mjs
           node --check mating_surface/anchor_node/cold_successor_pack.mjs
-          node --check mating_surface/anchor_node/conformance/mission_profile.test.mjs
-          node --check mating_surface/anchor_node/conformance/vertical_slice.test.mjs
-          node --check mating_surface/anchor_node/conformance/lattice_membrane.test.mjs
-          node --check mating_surface/anchor_node/conformance/cold_successor_pack.test.mjs
+          for test_file in mating_surface/anchor_node/conformance/*.test.mjs; do
+            node --check "$test_file"
+          done
 
       - name: Validate the frozen mission-profile contract
         run: |
@@ -134,6 +136,29 @@ jobs:
           cmp \
             qualification/anchor-node-mp01/lattice-reconciliation-a.json \
             qualification/anchor-node-mp01/lattice-reconciliation-b.json
+
+      - name: Exercise transport faults and synthetic worker-loss recovery
+        run: |
+          node mating_surface/anchor_node/fault_worker_campaign.mjs run \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-a.json
+          node mating_surface/anchor_node/fault_worker_campaign.mjs run \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-b.json
+          cmp \
+            qualification/anchor-node-mp01/fault-worker-campaign-a.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-b.json
+          node mating_surface/anchor_node/fault_worker_campaign.mjs verify \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-a.json \
+            qualification/anchor-node-mp01/fault-worker-verification-a.json
+          node mating_surface/anchor_node/fault_worker_campaign.mjs verify \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-b.json \
+            qualification/anchor-node-mp01/fault-worker-verification-b.json
+          cmp \
+            qualification/anchor-node-mp01/fault-worker-verification-a.json \
+            qualification/anchor-node-mp01/fault-worker-verification-b.json
 
       - name: Build and verify two source-pinned cold-successor packs
         run: |
