@@ -54,8 +54,10 @@ jobs:
         run: |
           node --check mating_surface/anchor_node/validate_mission_profile.mjs
           node --check mating_surface/anchor_node/vertical_slice.mjs
+          node --check mating_surface/anchor_node/lattice_membrane.mjs
           node --check mating_surface/anchor_node/conformance/mission_profile.test.mjs
           node --check mating_surface/anchor_node/conformance/vertical_slice.test.mjs
+          node --check mating_surface/anchor_node/conformance/lattice_membrane.test.mjs
 
       - name: Validate the frozen mission-profile contract
         run: |
@@ -93,6 +95,43 @@ jobs:
           cmp \
             qualification/anchor-node-mp01/detached-replay-a.json \
             qualification/anchor-node-mp01/detached-replay-b.json
+
+      - name: Project the optional Lattice membrane and prove removal continuity
+        run: |
+          node mating_surface/anchor_node/lattice_membrane.mjs project \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/lattice-envelope-a.json
+          node mating_surface/anchor_node/lattice_membrane.mjs project \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/lattice-envelope-b.json
+          cmp \
+            qualification/anchor-node-mp01/lattice-envelope-a.json \
+            qualification/anchor-node-mp01/lattice-envelope-b.json
+          node mating_surface/anchor_node/lattice_membrane.mjs verify-removal \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/lattice-envelope-a.json \
+            qualification/anchor-node-mp01/lattice-removal-a.json
+          node mating_surface/anchor_node/lattice_membrane.mjs verify-removal \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/lattice-envelope-b.json \
+            qualification/anchor-node-mp01/lattice-removal-b.json
+          cmp \
+            qualification/anchor-node-mp01/lattice-removal-a.json \
+            qualification/anchor-node-mp01/lattice-removal-b.json
+
+      - name: Preserve inbound Lattice-shaped state as an external candidate
+        run: |
+          node mating_surface/anchor_node/lattice_membrane.mjs reconcile \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            mating_surface/anchor_node/fixtures/mp01-lattice-inbound-candidate.json \
+            qualification/anchor-node-mp01/lattice-reconciliation-a.json
+          node mating_surface/anchor_node/lattice_membrane.mjs reconcile \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            mating_surface/anchor_node/fixtures/mp01-lattice-inbound-candidate.json \
+            qualification/anchor-node-mp01/lattice-reconciliation-b.json
+          cmp \
+            qualification/anchor-node-mp01/lattice-reconciliation-a.json \
+            qualification/anchor-node-mp01/lattice-reconciliation-b.json
 
       - name: Preserve qualification receipts
         uses: actions/upload-artifact@v4
