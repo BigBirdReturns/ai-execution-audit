@@ -1,0 +1,152 @@
+{
+  "schema": "mary-tier3-physical-flight-profile/1",
+  "profileId": "stc-mission-cartridge-01/mary-portable-command-intelligence-cell/tier3-packet/0.1",
+  "issue": 33,
+  "status": "candidate_design_only",
+  "authority": "none",
+  "graphEffect": "none",
+  "fieldEffect": "none",
+  "publicationEffect": "none",
+  "adoptionEffect": "none",
+  "sourceBase": {
+    "repository": "BigBirdReturns/ai-execution-audit",
+    "commit": "e20665e5f48bf02f046e19b2809af61af229afac"
+  },
+  "purpose": "Define a closed digest-only protocol by which a private physical MARY-cell flight can retain real host, accelerator, runtime, model, feed, telemetry, interruption, completion, restart, and cold-successor bodies in local Estate custody while publishing only exact content identities, evidence classes, denominators, terminal states, and explicit non-claims to the public audit repository.",
+  "classification": "invented_unclassified_protocol_fixture_only",
+  "systemRoles": {
+    "STC": "compile the smallest mission-closed cartridge from admitted knowledge, models or executables, adapters, authority law, tests, procedures, and failure fixtures",
+    "MARY": "verify and mount the cartridge, interrogate available machines, compose the lawful action surface, route work, enforce authority, observe postconditions, and journal the transaction",
+    "Grace": "retain human judgment and authorization; no model, scheduler, hardware device, external platform, or verifier may acquire this role"
+  },
+  "requiredPrivateRecordTypes": [
+    "stc-mission-cartridge-manifest/1",
+    "mary-cell-mount-receipt/1",
+    "estate-physical-seat-snapshot/1",
+    "estate-physical-seat-admission/1",
+    "estate-physical-route-selection/1",
+    "estate-physical-worker-lease/1",
+    "estate-physical-seat-loss-evidence/1",
+    "estate-physical-completion-candidate/1",
+    "estate-physical-completion-refusal/1",
+    "estate-physical-fabric-run/1",
+    "estate-physical-fabric-verification/1",
+    "mary-cell-restart-verification/1",
+    "mary-cell-cold-successor-verification/1"
+  ],
+  "requiredEvidenceClasses": [
+    "mission_cartridge",
+    "mary_mount",
+    "physical_seat_snapshot",
+    "physical_seat_admission",
+    "physical_route",
+    "physical_lease",
+    "physical_interruption",
+    "completion_candidates",
+    "completion_refusals",
+    "terminal_run",
+    "terminal_verification",
+    "restart_reconstruction",
+    "cold_successor_reconstruction"
+  ],
+  "publicContractObjects": [
+    "estate-private-evidence-envelope/1",
+    "estate-public-physical-flight-receipt/1",
+    "estate-public-physical-flight-verification/1",
+    "mary-tier3-public-pack-manifest/1"
+  ],
+  "publicEnvelopeEntryFields": [
+    "recordType",
+    "evidenceClass",
+    "sha256",
+    "bytes",
+    "claimBoundary"
+  ],
+  "privateBodyRequirements": [
+    "actual host and seat identities",
+    "local paths and endpoints",
+    "operating-system driver runtime adapter and supervisor observations",
+    "model or executable bytes and manifests",
+    "STC cartridge bytes and mounted component denominator",
+    "live invented local-feed bytes",
+    "named human authorization state",
+    "residency power thermal memory and process telemetry",
+    "primary-seat interruption evidence",
+    "every completion candidate and refusal",
+    "restart and cold-successor evidence",
+    "credential evidence including an explicit zero count"
+  ],
+  "publicReceiptRequirements": [
+    "exact public predecessor",
+    "private evidence envelope identity",
+    "private manifest digest byte count and record denominator",
+    "candidate refusal and acceptance counts",
+    "terminal restart successor and Lattice-removal status",
+    "canonical-state and custody status",
+    "dependency absence status",
+    "explicit physical operator field operational mission command and weapons non-claims"
+  ],
+  "forbiddenPublicMaterial": [
+    "private evidence body",
+    "private custody locator",
+    "real host identifier",
+    "real seat identifier",
+    "local path",
+    "runtime endpoint",
+    "credential value",
+    "model bytes",
+    "feed bytes",
+    "telemetry body",
+    "command transcript"
+  ],
+  "terminalFixtureContract": {
+    "candidateCount": 6,
+    "refusalCount": 5,
+    "acceptedCompletionCount": 1,
+    "terminalState": "completed_exactly_once",
+    "restartStatus": "pass_before_and_after_acceptance",
+    "coldSuccessorStatus": "pass_without_original_host_or_model",
+    "latticeRemovalStatus": "pass_membrane_only",
+    "canonicalStateUnchanged": true,
+    "jobCustodyPreserved": true,
+    "memoryAggregationUsed": false
+  },
+  "acceptance": {
+    "requires": [
+      "exact predecessor binding",
+      "complete private record and evidence-class denominators",
+      "content identity and byte count for every private body",
+      "zero private bodies or private locators in public output",
+      "deterministic public envelope receipt verification and pack reconstruction",
+      "explicit zero WAN cloud AWS Lattice external-service and credential dependencies",
+      "all physical representative-operator field operational-C2 mission command targeting engagement effector and weapons claims remain false"
+    ],
+    "refuseIf": [
+      "a private record type or evidence class is missing duplicated reordered or unknown",
+      "a private body digest or byte count differs",
+      "a public object contains a private marker body locator host path endpoint credential model feed telemetry or transcript",
+      "candidate refusal or acceptance denominators differ",
+      "canonical state or job custody is claimed lost while terminal success is claimed",
+      "memory aggregation WAN cloud AWS or Lattice becomes required",
+      "the protocol fixture claims a physical representative-operator field operational-C2 mission command targeting engagement effector or weapons qualification"
+    ]
+  },
+  "claimBoundary": {
+    "publicPrivatePacketProtocol": "candidate",
+    "physicalLaptopQualification": false,
+    "physicalRtx3090Qualification": false,
+    "physicalFallbackQualification": false,
+    "liveLocalFeedQualification": false,
+    "maryPhysicalMountQualification": false,
+    "stcMissionCartridgeQualification": false,
+    "restartQualification": false,
+    "coldSuccessorPhysicalQualification": false,
+    "latticeRemovalOnPhysicalCell": false,
+    "representativeOperatorQualification": false,
+    "fieldNetworkQualification": false,
+    "operationalC2Qualification": false,
+    "missionAuthority": false,
+    "commandAuthority": false,
+    "weaponsOrEffectorCapability": false
+  }
+}
