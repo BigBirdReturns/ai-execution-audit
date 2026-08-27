@@ -1,5 +1,4 @@
-# One-use exact transport repair and materialization carrier.
-name: One-use STC MARY offline carrier materialization
+name: One-use STC MARY offline carrier forensic pass
 
 on:
   push:
@@ -8,16 +7,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: stc-mary-offline-carrier-materialize-once
+  group: stc-mary-offline-carrier-forensic-once
   cancel-in-progress: false
 
 jobs:
-  materialize:
+  inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Check out exact carrier branch
@@ -26,154 +25,95 @@ jobs:
           ref: feature/stc-mary-offline-carrier-01
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Reconstruct, repair, and verify the exact product archive
+      - name: Inspect the damaged source-pinned archive transport
         run: |
           python - <<'PY'
           from pathlib import Path
           import base64
+          import difflib
           import hashlib
-          import shutil
-          import stat
+          import struct
           import zipfile
 
-          payload_root = Path('.offline-carrier-payload')
-          parts = sorted(payload_root.glob('part*.b64'))
-          expected_parts = [payload_root / f'part{index:02d}.b64' for index in range(1, 8)]
-          if parts != expected_parts:
-              raise SystemExit(f'payload denominator differs: {[str(path) for path in parts]}')
+          root = Path('.offline-carrier-payload')
+          paths = [root / f'part{index:02d}.b64' for index in range(1, 8)]
+          texts = [path.read_text(encoding='utf-8').strip() for path in paths]
+          bodies = [base64.b64decode(text, validate=True) for text in texts]
+          data = base64.b64decode(''.join(texts), validate=True)
 
-          texts = [path.read_text(encoding='utf-8').strip() for path in parts]
-          decoded = [base64.b64decode(text, validate=True) for text in texts]
-          print('base64 lengths:', [len(text) for text in texts])
-          print('decoded lengths:', [len(body) for body in decoded])
+          print('BASE64_LENGTHS', [len(text) for text in texts])
+          print('DECODED_LENGTHS', [len(body) for body in bodies])
+          print('TOTAL_BYTES', len(data))
+          print('TOTAL_SHA256', hashlib.sha256(data).hexdigest())
+          print('TEXT_ENDINGS', [repr(text[-24:]) for text in texts])
+          print('TEXT_BEGinnings', [repr(text[:24]) for text in texts])
 
-          expected_sha256 = '1daf6f01576034ecdd3a57c50c58998dcf3f45cb49eed8dd56c494a220541489'
-          expected_bytes = 29829
-          archive_bytes = base64.b64decode(''.join(texts), validate=True)
-          actual_sha256 = hashlib.sha256(archive_bytes).hexdigest()
+          boundaries = []
+          total = 0
+          for body in bodies:
+              total += len(body)
+              boundaries.append(total)
+          print('DECODED_BOUNDARIES', boundaries)
 
-          if actual_sha256 != expected_sha256 or len(archive_bytes) != expected_bytes:
-              # The transport write lost one aligned 4-character block at the
-              # end of part 02 and duplicated one aligned payload span into
-              # part 06. Recover only a source-pinned candidate whose complete
-              # bytes reproduce the predeclared archive identity.
-              if len(decoded[1]) != 4497 or len(decoded[5]) != 9063:
-                  raise SystemExit('transport shape differs from the observed aligned loss and duplication')
+          def all_positions(payload, signature):
+              out = []
+              start = 0
+              while True:
+                  at = payload.find(signature, start)
+                  if at < 0:
+                      return out
+                  out.append(at)
+                  start = at + 1
 
-              prefix = b''.join(decoded[:2])
-              fixed_tail = b''.join(decoded[2:5])
-              final_tail = decoded[6]
-              recovered = None
-              strategies = [
-                  ('retain_part06_prefix', decoded[5][:4500], decoded[5][4500:]),
-                  ('retain_part06_suffix', decoded[5][-4500:], decoded[5][:-4500]),
-              ]
-              for label, retained, discarded in strategies:
-                  suffix = fixed_tail + retained + final_tail
-                  if len(prefix) + 3 + len(suffix) != expected_bytes:
-                      continue
-                  for offset in range(len(discarded) - 2):
-                      candidate = prefix + discarded[offset:offset + 3] + suffix
-                      if hashlib.sha256(candidate).hexdigest() == expected_sha256:
-                          recovered = candidate
-                          print(f'recovered archive via {label}; missing-byte source offset {offset}')
-                          break
-                  if recovered is not None:
-                      break
-              if recovered is None:
-                  raise SystemExit(
-                      f'no source-pinned aligned transport repair reproduced {expected_sha256}; '
-                      f'observed={actual_sha256} bytes={len(archive_bytes)}'
-                  )
-              archive_bytes = recovered
+          local_positions = all_positions(data, b'PK\x03\x04')
+          central_positions = all_positions(data, b'PK\x01\x02')
+          eocd_positions = all_positions(data, b'PK\x05\x06')
+          print('LOCAL_SIGNATURES', local_positions)
+          print('CENTRAL_SIGNATURES', central_positions)
+          print('EOCD_SIGNATURES', eocd_positions)
 
-          if len(archive_bytes) != expected_bytes:
-              raise SystemExit(f'archive byte count differs after repair: {len(archive_bytes)}')
-          actual_sha256 = hashlib.sha256(archive_bytes).hexdigest()
-          if actual_sha256 != expected_sha256:
-              raise SystemExit(f'archive sha256 differs after repair: {actual_sha256}')
+          for at in local_positions:
+              try:
+                  values = struct.unpack_from('<IHHHHHIIIHH', data, at)
+                  _, needed, flags, method, mtime, mdate, crc, csize, usize, nlen, xlen = values
+                  name = data[at + 30:at + 30 + nlen].decode('utf-8', 'replace')
+                  print('LOCAL', at, name, 'flags', flags, 'method', method, 'crc', hex(crc), 'csize', csize, 'usize', usize, 'xlen', xlen)
+              except Exception as error:
+                  print('LOCAL_PARSE_ERROR', at, repr(error))
 
-          archive = Path('/tmp/stc-mary-offline-carrier-product.zip')
-          archive.write_bytes(archive_bytes)
-          expected = {
-              '.github/workflows/stc-mary-offline-carrier-01.yml',
-              'mating_surface/anchor_node/STC-MARY-OFFLINE-CARRIER-RUNBOOK.md',
-              'mating_surface/anchor_node/conformance/test_stc_mary_offline_carrier.py',
-              'mating_surface/anchor_node/stc-mary-offline-carrier-profile-01.json',
-              'mating_surface/anchor_node/stc-mary-offline-carrier.ps1',
-              'mating_surface/anchor_node/stc_mary_local/cli.py',
-              'mating_surface/anchor_node/stc_mary_local/plan.py',
-              'mating_surface/anchor_node/stc_mary_offline_carrier.py',
-          }
-          extract_root = Path('/tmp/stc-mary-offline-carrier-extract')
-          if extract_root.exists():
-              shutil.rmtree(extract_root)
-          extract_root.mkdir()
+          for at in central_positions:
+              try:
+                  values = struct.unpack_from('<IHHHHHHIIIHHHHHII', data, at)
+                  (_, made, needed, flags, method, mtime, mdate, crc, csize, usize,
+                   nlen, xlen, clen, disk, internal, external, offset) = values
+                  name = data[at + 46:at + 46 + nlen].decode('utf-8', 'replace')
+                  print('CENTRAL', at, name, 'offset', offset, 'flags', flags, 'method', method, 'crc', hex(crc), 'csize', csize, 'usize', usize)
+              except Exception as error:
+                  print('CENTRAL_PARSE_ERROR', at, repr(error))
 
-          with zipfile.ZipFile(archive) as bundle:
-              names = bundle.namelist()
-              if len(names) != len(set(names)) or set(names) != expected:
-                  raise SystemExit(f'archive member denominator differs: {names}')
-              for info in bundle.infolist():
-                  path = Path(info.filename)
-                  mode = info.external_attr >> 16
-                  if path.is_absolute() or '..' in path.parts or '\\' in info.filename:
-                      raise SystemExit(f'unsafe archive member: {info.filename}')
-                  if stat.S_ISLNK(mode):
-                      raise SystemExit(f'symlink archive member refused: {info.filename}')
-                  target = (extract_root / path).resolve()
-                  if extract_root.resolve() not in target.parents:
-                      raise SystemExit(f'archive member escapes root: {info.filename}')
-                  target.parent.mkdir(parents=True, exist_ok=True)
-                  target.write_bytes(bundle.read(info))
+          try:
+              archive = Path('/tmp/current.zip')
+              archive.write_bytes(data)
+              with zipfile.ZipFile(archive) as bundle:
+                  for info in bundle.infolist():
+                      print('ZIPINFO', info.filename, 'header_offset', info.header_offset, 'csize', info.compress_size, 'usize', info.file_size, 'crc', hex(info.CRC))
+          except Exception as error:
+              print('ZIPINFO_ERROR', repr(error))
 
-          for relative in sorted(expected):
-              source = extract_root / relative
-              destination = Path(relative)
-              destination.parent.mkdir(parents=True, exist_ok=True)
-              destination.write_bytes(source.read_bytes())
+          part6 = bodies[5]
+          other = b''.join(bodies[:5] + bodies[6:])
+          match = difflib.SequenceMatcher(None, part6, other, autojunk=False).find_longest_match(0, len(part6), 0, len(other))
+          print('PART6_LONGEST_MATCH_OTHER', match.a, match.b, match.size, hashlib.sha256(part6[match.a:match.a + match.size]).hexdigest())
+
+          left = part6[:4563]
+          right = part6[4500:]
+          self_match = difflib.SequenceMatcher(None, left, right, autojunk=False).find_longest_match(0, len(left), 0, len(right))
+          print('PART6_OVERLAP_MATCH', self_match.a, self_match.b, self_match.size, hashlib.sha256(left[self_match.a:self_match.a + self_match.size]).hexdigest())
+
+          for index, body in enumerate(bodies, start=1):
+              prefix = body[:32]
+              suffix = body[-32:]
+              print('PART6_FIND_PART', index, 'prefix', part6.find(prefix), 'suffix', part6.find(suffix))
+
+          raise SystemExit('FORENSIC_PASS_COMPLETE')
           PY
-
-      - name: Run the closed carrier and inherited local-toolchain suites
-        run: |
-          python -m py_compile \
-            mating_surface/anchor_node/stc_mary_offline_carrier.py \
-            mating_surface/anchor_node/stc_mary_local/plan.py \
-            mating_surface/anchor_node/stc_mary_local/cli.py \
-            mating_surface/anchor_node/conformance/test_stc_mary_offline_carrier.py
-          python mating_surface/anchor_node/stc_mary_offline_carrier.py validate-profile \
-            mating_surface/anchor_node/stc-mary-offline-carrier-profile-01.json
-          python -m unittest discover \
-            -s mating_surface/anchor_node/conformance \
-            -p 'test_stc_mary_offline_carrier.py' \
-            -v
-          python -m unittest discover \
-            -s mating_surface/anchor_node/conformance \
-            -p 'test_stc_mary_local_toolchain.py' \
-            -v
-
-      - name: Remove transport residue and publish only the qualified product
-        run: |
-          rm -rf .offline-carrier-payload
-          rm .github/workflows/stc-mary-offline-carrier-materialize-once.yml
-          git diff --check
-          git config user.name BigBirdReturns
-          git config user.email bigbirdreturns@proton.me
-          git add -A \
-            .offline-carrier-payload \
-            .github/workflows/stc-mary-offline-carrier-materialize-once.yml \
-            .github/workflows/stc-mary-offline-carrier-01.yml \
-            mating_surface/anchor_node/STC-MARY-OFFLINE-CARRIER-RUNBOOK.md \
-            mating_surface/anchor_node/conformance/test_stc_mary_offline_carrier.py \
-            mating_surface/anchor_node/stc-mary-offline-carrier-profile-01.json \
-            mating_surface/anchor_node/stc-mary-offline-carrier.ps1 \
-            mating_surface/anchor_node/stc_mary_local/cli.py \
-            mating_surface/anchor_node/stc_mary_local/plan.py \
-            mating_surface/anchor_node/stc_mary_offline_carrier.py
-          git commit -m "Build the STC MARY offline cell and successor carrier"
-          git push origin HEAD:feature/stc-mary-offline-carrier-01
