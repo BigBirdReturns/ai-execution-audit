@@ -1,0 +1,205 @@
+name: Spectra Anchor Node Estate Fabric Terminal 01
+
+on:
+  pull_request:
+    paths:
+      - "mating_surface/anchor_node/fabric_execution.mjs"
+      - "mating_surface/anchor_node/fabric_execution_support.mjs"
+      - "mating_surface/anchor_node/fabric_completion.mjs"
+      - "mating_surface/anchor_node/fabric_run.mjs"
+      - "mating_surface/anchor_node/fabric_execution_pack.mjs"
+      - "mating_surface/anchor_node/fabric_runtime.mjs"
+      - "mating_surface/anchor_node/vertical_slice.mjs"
+      - "mating_surface/anchor_node/fabric-profile-01.json"
+      - "mating_surface/anchor_node/fixtures/mp01-invented-seat-registry.json"
+      - "mating_surface/anchor_node/fixtures/mp01-observation-package.json"
+      - "mating_surface/anchor_node/conformance/fabric_execution*.test.mjs"
+      - ".github/workflows/spectra-anchor-node-fabric-terminal-01.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mating_surface/anchor_node/fabric_execution.mjs"
+      - "mating_surface/anchor_node/fabric_execution_support.mjs"
+      - "mating_surface/anchor_node/fabric_completion.mjs"
+      - "mating_surface/anchor_node/fabric_run.mjs"
+      - "mating_surface/anchor_node/fabric_execution_pack.mjs"
+      - "mating_surface/anchor_node/fabric_runtime.mjs"
+      - "mating_surface/anchor_node/vertical_slice.mjs"
+      - "mating_surface/anchor_node/fabric-profile-01.json"
+      - "mating_surface/anchor_node/fixtures/mp01-invented-seat-registry.json"
+      - "mating_surface/anchor_node/fixtures/mp01-observation-package.json"
+      - "mating_surface/anchor_node/conformance/fabric_execution*.test.mjs"
+      - ".github/workflows/spectra-anchor-node-fabric-terminal-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spectra-anchor-node-fabric-terminal-01-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-fabric-terminal-01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Refuse network, credential, and private-identifier surfaces
+        run: |
+          if grep -nE "node:(http|https|net|tls)|(^|[^A-Za-z])fetch[[:space:]]*\(" \
+            mating_surface/anchor_node/fabric_execution.mjs \
+            mating_surface/anchor_node/fabric_execution_support.mjs \
+            mating_surface/anchor_node/fabric_completion.mjs \
+            mating_surface/anchor_node/fabric_run.mjs \
+            mating_surface/anchor_node/fabric_execution_pack.mjs; then
+            echo "::error::Fabric terminal runtime contains a network surface"
+            exit 1
+          fi
+          if grep -R -nE "AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:[[:space:]]*Bearer" \
+            mating_surface/anchor_node/fabric_execution.mjs \
+            mating_surface/anchor_node/fabric_execution_support.mjs \
+            mating_surface/anchor_node/fabric_completion.mjs \
+            mating_surface/anchor_node/fabric_run.mjs \
+            mating_surface/anchor_node/fabric_execution_pack.mjs \
+            mating_surface/anchor_node/conformance/fabric_execution.test.mjs \
+            mating_surface/anchor_node/conformance/fabric_execution_pack.test.mjs; then
+            echo "::error::Fabric terminal surface contains credential material"
+            exit 1
+          fi
+          if grep -R -nE "OCTO-(W|L)[0-9]+|([A-Za-z]:\\\\)|/home/|ssh://|https?://" \
+            mating_surface/anchor_node/fabric_execution.mjs \
+            mating_surface/anchor_node/fabric_execution_support.mjs \
+            mating_surface/anchor_node/fabric_completion.mjs \
+            mating_surface/anchor_node/fabric_run.mjs \
+            mating_surface/anchor_node/fabric_execution_pack.mjs \
+            mating_surface/anchor_node/conformance/fabric_execution.test.mjs \
+            mating_surface/anchor_node/conformance/fabric_execution_pack.test.mjs; then
+            echo "::error::Fabric terminal public surface contains private or endpoint-shaped material"
+            exit 1
+          fi
+
+      - name: Check exact terminal-runtime syntax
+        run: |
+          node --check mating_surface/anchor_node/fabric_execution_support.mjs
+          node --check mating_surface/anchor_node/fabric_completion.mjs
+          node --check mating_surface/anchor_node/fabric_run.mjs
+          node --check mating_surface/anchor_node/fabric_execution.mjs
+          node --check mating_surface/anchor_node/fabric_execution_pack.mjs
+          node --check mating_surface/anchor_node/conformance/fabric_execution.test.mjs
+          node --check mating_surface/anchor_node/conformance/fabric_execution_pack.test.mjs
+
+      - name: Run the closed terminal and cold-successor adversarial suites
+        run: |
+          mkdir -p qualification/anchor-node-fabric-terminal-01
+          node --test \
+            mating_surface/anchor_node/conformance/fabric_execution.test.mjs \
+            mating_surface/anchor_node/conformance/fabric_execution_pack.test.mjs \
+            | tee qualification/anchor-node-fabric-terminal-01/test-output.txt
+
+      - name: Build the admitted MP01 and routing predecessors twice
+        run: |
+          node mating_surface/anchor_node/vertical_slice.mjs run \
+            mating_surface/anchor_node/fixtures/mp01-observation-package.json \
+            qualification/anchor-node-fabric-terminal-01/vertical-slice-a.json
+          node mating_surface/anchor_node/vertical_slice.mjs run \
+            mating_surface/anchor_node/fixtures/mp01-observation-package.json \
+            qualification/anchor-node-fabric-terminal-01/vertical-slice-b.json
+          cmp \
+            qualification/anchor-node-fabric-terminal-01/vertical-slice-a.json \
+            qualification/anchor-node-fabric-terminal-01/vertical-slice-b.json
+          node mating_surface/anchor_node/fabric_runtime.mjs run \
+            qualification/anchor-node-fabric-terminal-01/vertical-slice-a.json \
+            qualification/anchor-node-fabric-terminal-01/routing-slice-a.json
+          node mating_surface/anchor_node/fabric_runtime.mjs run \
+            qualification/anchor-node-fabric-terminal-01/vertical-slice-b.json \
+            qualification/anchor-node-fabric-terminal-01/routing-slice-b.json
+          cmp \
+            qualification/anchor-node-fabric-terminal-01/routing-slice-a.json \
+            qualification/anchor-node-fabric-terminal-01/routing-slice-b.json
+
+      - name: Run the terminal campaign twice and refuse drift
+        run: |
+          node mating_surface/anchor_node/fabric_execution.mjs run \
+            qualification/anchor-node-fabric-terminal-01/vertical-slice-a.json \
+            qualification/anchor-node-fabric-terminal-01/routing-slice-a.json \
+            qualification/anchor-node-fabric-terminal-01/fabric-run-a.json
+          node mating_surface/anchor_node/fabric_execution.mjs run \
+            qualification/anchor-node-fabric-terminal-01/vertical-slice-b.json \
+            qualification/anchor-node-fabric-terminal-01/routing-slice-b.json \
+            qualification/anchor-node-fabric-terminal-01/fabric-run-b.json
+          cmp \
+            qualification/anchor-node-fabric-terminal-01/fabric-run-a.json \
+            qualification/anchor-node-fabric-terminal-01/fabric-run-b.json
+
+      - name: Verify detached terminal replay twice
+        run: |
+          node mating_surface/anchor_node/fabric_execution.mjs verify \
+            qualification/anchor-node-fabric-terminal-01/vertical-slice-a.json \
+            qualification/anchor-node-fabric-terminal-01/routing-slice-a.json \
+            qualification/anchor-node-fabric-terminal-01/fabric-run-a.json \
+            qualification/anchor-node-fabric-terminal-01/terminal-verification-a.json
+          node mating_surface/anchor_node/fabric_execution.mjs verify \
+            qualification/anchor-node-fabric-terminal-01/vertical-slice-b.json \
+            qualification/anchor-node-fabric-terminal-01/routing-slice-b.json \
+            qualification/anchor-node-fabric-terminal-01/fabric-run-b.json \
+            qualification/anchor-node-fabric-terminal-01/terminal-verification-b.json
+          cmp \
+            qualification/anchor-node-fabric-terminal-01/terminal-verification-a.json \
+            qualification/anchor-node-fabric-terminal-01/terminal-verification-b.json
+
+      - name: Rebuild receipt-only projections twice
+        run: |
+          node mating_surface/anchor_node/fabric_execution.mjs project \
+            qualification/anchor-node-fabric-terminal-01/fabric-run-a.json \
+            qualification/anchor-node-fabric-terminal-01/projection-a.json \
+            qualification/anchor-node-fabric-terminal-01/review-a.html
+          node mating_surface/anchor_node/fabric_execution.mjs project \
+            qualification/anchor-node-fabric-terminal-01/fabric-run-b.json \
+            qualification/anchor-node-fabric-terminal-01/projection-b.json \
+            qualification/anchor-node-fabric-terminal-01/review-b.html
+          cmp \
+            qualification/anchor-node-fabric-terminal-01/projection-a.json \
+            qualification/anchor-node-fabric-terminal-01/projection-b.json
+          cmp \
+            qualification/anchor-node-fabric-terminal-01/review-a.html \
+            qualification/anchor-node-fabric-terminal-01/review-b.html
+
+      - name: Build and verify two source-pinned terminal cold-successor packs
+        run: |
+          node mating_surface/anchor_node/fabric_execution_pack.mjs build \
+            qualification/anchor-node-fabric-terminal-01/cold-successor-pack-a \
+            "${GITHUB_SHA}"
+          node mating_surface/anchor_node/fabric_execution_pack.mjs build \
+            qualification/anchor-node-fabric-terminal-01/cold-successor-pack-b \
+            "${GITHUB_SHA}"
+          diff -ru \
+            qualification/anchor-node-fabric-terminal-01/cold-successor-pack-a \
+            qualification/anchor-node-fabric-terminal-01/cold-successor-pack-b
+          node mating_surface/anchor_node/fabric_execution_pack.mjs verify \
+            qualification/anchor-node-fabric-terminal-01/cold-successor-pack-a \
+            qualification/anchor-node-fabric-terminal-01/cold-successor-verification-a.json
+          node mating_surface/anchor_node/fabric_execution_pack.mjs verify \
+            qualification/anchor-node-fabric-terminal-01/cold-successor-pack-b \
+            qualification/anchor-node-fabric-terminal-01/cold-successor-verification-b.json
+          cmp \
+            qualification/anchor-node-fabric-terminal-01/cold-successor-verification-a.json \
+            qualification/anchor-node-fabric-terminal-01/cold-successor-verification-b.json
+
+      - name: Preserve terminal qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spectra-anchor-node-fabric-terminal-01-${{ github.sha }}
+          path: qualification/anchor-node-fabric-terminal-01/
+          if-no-files-found: error
+          retention-days: 14
