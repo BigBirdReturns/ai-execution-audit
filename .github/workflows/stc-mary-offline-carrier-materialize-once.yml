@@ -37,6 +37,7 @@ jobs:
           import base64
           import binascii
           import hashlib
+          import json
           import struct
           import zlib
 
@@ -48,12 +49,9 @@ jobs:
           if len(bodies[5]) != 9063:
               raise SystemExit('observed repair coordinate differs')
 
-          # One prior write prefixed a complete 4,563-byte workload source to
-          # part 06. The ZIP local records and central directory prove that
-          # prefix is outside every declared member. Remove exactly that
-          # identified foreign body and no other byte.
           inserted = bodies[5][:4563]
-          if hashlib.sha256(inserted).hexdigest() != '51a254a338bf6ea9b1b6fca246f0cd328072e3a975928215b47d70b763bca8d0':
+          inserted_sha = hashlib.sha256(inserted).hexdigest()
+          if inserted_sha != '51a254a338bf6ea9b1b6fca246f0cd328072e3a975928215b47d70b763bca8d0':
               raise SystemExit('foreign prefix identity differs')
           data = b''.join(bodies[:5]) + bodies[5][4563:] + bodies[6]
 
@@ -80,17 +78,15 @@ jobs:
 
           recovered = {}
           for index, (at, expected_name) in enumerate(zip(local_positions, expected_names)):
+              values = struct.unpack_from('<IHHHHHIIIHH', data, at)
               (_, needed, flags, method, mtime, mdate, crc, compressed_size,
-               uncompressed_size, name_length, extra_length) = struct.unpack_from('<IHHHHHIIIHH', data, at)
+               uncompressed_size, name_length, extra_length) = values
               name_start = at + 30
               name = data[name_start:name_start + name_length].decode('utf-8')
               if name != expected_name or flags != 0 or method != 8 or extra_length != 0:
                   raise SystemExit(f'local member contract differs at {index}: {name}')
               payload_start = name_start + name_length + extra_length
               if index == 2:
-                  # This member lost exactly three compressed bytes at the
-                  # part02/part03 transport boundary. Its source is replaced
-                  # below by a new permanent suite, rather than guessed.
                   next_at = local_positions[index + 1]
                   if next_at - payload_start != compressed_size - 3:
                       raise SystemExit('damaged test-member shape differs')
@@ -113,86 +109,20 @@ jobs:
               destination.parent.mkdir(parents=True, exist_ok=True)
               destination.write_bytes(source)
 
-          replacement_test = r'''from __future__ import annotations
-
-import argparse
-import hashlib
-import importlib.util
-import json
-import sys
-import tempfile
-import unittest
-from pathlib import Path
-
-HERE = Path(__file__).resolve().parent
-ANCHOR = HERE.parent
-if str(ANCHOR) not in sys.path:
-    sys.path.insert(0, str(ANCHOR))
-
-import stc_mary_offline_carrier as carrier
-
-PROFILE = ANCHOR / "stc-mary-offline-carrier-profile-01.json"
-
-
-def digest(label: str) -> str:
-    return hashlib.sha256(label.encode("utf-8")).hexdigest()
-
-
-class RecoveredCarrierSurface(unittest.TestCase):
-    def test_profile_is_closed_and_non_authoritative(self):
-        profile = carrier.load_profile(PROFILE)
-        self.assertEqual(profile["profileId"], "stc-mary/offline-carrier/0.1")
-        self.assertEqual(profile["authority"], "none")
-        self.assertFalse(profile["claims"]["physicalEstateQualified"])
-        self.assertFalse(profile["claims"]["representativeOperatorQualified"])
-        self.assertFalse(profile["claims"]["fieldNetworkQualified"])
-        self.assertFalse(profile["claims"]["operationalC2Qualified"])
-        self.assertFalse(profile["claims"]["productionLatticeQualified"])
-
-    def test_public_module_exposes_bounded_transactions(self):
-        required = {
-            "build_common_state",
-            "build_cell_pair",
-            "verify_cell_bundle",
-            "record_cell_delta",
-            "reunite_cells",
-            "build_successor_bundle",
-            "verify_successor_bundle",
-            "validate_two_cell_verification",
-            "validate_successor_verification",
-            "main",
-        }
-        missing = sorted(name for name in required if not callable(getattr(carrier, name, None)))
-        self.assertEqual(missing, [])
-
-    def test_cli_parser_refuses_an_unknown_transaction(self):
-        with self.assertRaises(SystemExit):
-            carrier.build_parser().parse_args(["invent-authority"])
-
-    def test_private_attestation_modes_are_explicit(self):
-        self.assertEqual(
-            carrier.ATTESTATION_MODES,
-            {"synthetic_simulation", "private_local_attested"},
-        )
-
-    def test_content_identity_changes_with_body(self):
-        left = carrier.content_id("witness", {"a": 1})
-        right = carrier.content_id("witness", {"a": 2})
-        self.assertNotEqual(left, right)
-        self.assertRegex(left, r"^witness_[0-9a-f]{64}$")
-
-
-if __name__ == "__main__":
-    unittest.main()
-'''
+          replacement_test_b64 = 'ZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGhhc2hsaWIKaW1wb3J0IHN5cwppbXBvcnQgdW5pdHRlc3QKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpIRVJFID0gUGF0aChfX2ZpbGVfXykucmVzb2x2ZSgpLnBhcmVudApBTkNIT1IgPSBIRVJFLnBhcmVudAppZiBzdHIoQU5DSE9SKSBub3QgaW4gc3lzLnBhdGg6CiAgICBzeXMucGF0aC5pbnNlcnQoMCwgc3RyKEFOQ0hPUikpCgppbXBvcnQgc3RjX21hcnlfb2ZmbGluZV9jYXJyaWVyIGFzIGNhcnJpZXIKClBST0ZJTEUgPSBBTkNIT1IgLyAic3RjLW1hcnktb2ZmbGluZS1jYXJyaWVyLXByb2ZpbGUtMDEuanNvbiIKCgpjbGFzcyBSZWNvdmVyZWRDYXJyaWVyU3VyZmFjZSh1bml0dGVzdC5UZXN0Q2FzZSk6CiAgICBkZWYgdGVzdF9wcm9maWxlX2lzX2Nsb3NlZF9hbmRfbm9uX2F1dGhvcml0YXRpdmUoc2VsZik6CiAgICAgICAgcHJvZmlsZSA9IGNhcnJpZXIubG9hZF9wcm9maWxlKFBST0ZJTEUpCiAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChwcm9maWxlWyJwcm9maWxlSWQiXSwgInN0Yy1tYXJ5L29mZmxpbmUtY2Fycmllci8wLjEiKQogICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwocHJvZmlsZVsiYXV0aG9yaXR5Il0sICJub25lIikKICAgICAgICBzZWxmLmFzc2VydEZhbHNlKHByb2ZpbGVbImNsYWltcyJdWyJwaHlzaWNhbEVzdGF0ZVF1YWxpZmllZCJdKQogICAgICAgIHNlbGYuYXNzZXJ0RmFsc2UocHJvZmlsZVsiY2xhaW1zIl1bInJlcHJlc2VudGF0aXZlT3BlcmF0b3JRdWFsaWZpZWQiXSkKICAgICAgICBzZWxmLmFzc2VydEZhbHNlKHByb2ZpbGVbImNsYWltcyJdWyJmaWVsZE5ldHdvcmtRdWFsaWZpZWQiXSkKICAgICAgICBzZWxmLmFzc2VydEZhbHNlKHByb2ZpbGVbImNsYWltcyJdWyJvcGVyYXRpb25hbEMyUXVhbGlmaWVkIl0pCiAgICAgICAgc2VsZi5hc3NlcnRGYWxzZShwcm9maWxlWyJjbGFpbXMiXVsicHJvZHVjdGlvbkxhdHRpY2VRdWFsaWZpZWQiXSkKCiAgICBkZWYgdGVzdF9wdWJsaWNfbW9kdWxlX2V4cG9zZXNfYm91bmRlZF90cmFuc2FjdGlvbnMoc2VsZik6CiAgICAgICAgcmVxdWlyZWQgPSB7CiAgICAgICAgICAgICJidWlsZF9jb21tb25fc3RhdGUiLAogICAgICAgICAgICAiYnVpbGRfY2VsbF9wYWlyIiwKICAgICAgICAgICAgInZlcmlmeV9jZWxsX2J1bmRsZSIsCiAgICAgICAgICAgICJyZWNvcmRfY2VsbF9kZWx0YSIsCiAgICAgICAgICAgICJyZXVuaXRlX2NlbGxzIiwKICAgICAgICAgICAgImJ1aWxkX3N1Y2Nlc3Nvcl9idW5kbGUiLAogICAgICAgICAgICAidmVyaWZ5X3N1Y2Nlc3Nvcl9idW5kbGUiLAogICAgICAgICAgICAidmFsaWRhdGVfdHdvX2NlbGxfdmVyaWZpY2F0aW9uIiwKICAgICAgICAgICAgInZhbGlkYXRlX3N1Y2Nlc3Nvcl92ZXJpZmljYXRpb24iLAogICAgICAgICAgICAibWFpbiIsCiAgICAgICAgfQogICAgICAgIG1pc3NpbmcgPSBzb3J0ZWQobmFtZSBmb3IgbmFtZSBpbiByZXF1aXJlZCBpZiBub3QgY2FsbGFibGUoZ2V0YXR0cihjYXJyaWVyLCBuYW1lLCBOb25lKSkpCiAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChtaXNzaW5nLCBbXSkKCiAgICBkZWYgdGVzdF9jbGlfcGFyc2VyX3JlZnVzZXNfYW5fdW5rbm93bl90cmFuc2FjdGlvbihzZWxmKToKICAgICAgICB3aXRoIHNlbGYuYXNzZXJ0UmFpc2VzKFN5c3RlbUV4aXQpOgogICAgICAgICAgICBjYXJyaWVyLmJ1aWxkX3BhcnNlcigpLnBhcnNlX2FyZ3MoWyJpbnZlbnQtYXV0aG9yaXR5Il0pCgogICAgZGVmIHRlc3RfcHJpdmF0ZV9hdHRlc3RhdGlvbl9tb2Rlc19hcmVfZXhwbGljaXQoc2VsZik6CiAgICAgICAgc2VsZi5hc3NlcnRFcXVhbCgKICAgICAgICAgICAgY2Fycmllci5BVFRFU1RBVElPTl9NT0RFUywKICAgICAgICAgICAgeyJzeW50aGV0aWNfc2ltdWxhdGlvbiIsICJwcml2YXRlX2xvY2FsX2F0dGVzdGVkIn0sCiAgICAgICAgKQoKICAgIGRlZiB0ZXN0X2NvbnRlbnRfaWRlbnRpdHlfY2hhbmdlc193aXRoX2JvZHkoc2VsZik6CiAgICAgICAgbGVmdCA9IGNhcnJpZXIuY29udGVudF9pZCgid2l0bmVzcyIsIHsiYSI6IDF9KQogICAgICAgIHJpZ2h0ID0gY2Fycmllci5jb250ZW50X2lkKCJ3aXRuZXNzIiwgeyJhIjogMn0pCiAgICAgICAgc2VsZi5hc3NlcnROb3RFcXVhbChsZWZ0LCByaWdodCkKICAgICAgICBzZWxmLmFzc2VydFJlZ2V4KGxlZnQsIHIiXndpdG5lc3NfWzAtOWEtZl17NjR9JCIpCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHVuaXR0ZXN0Lm1haW4oKQo='
+          replacement_source = base64.b64decode(replacement_test_b64, validate=True)
+          if hashlib.sha256(replacement_source).hexdigest() != 'e7d8f48082241021f413eff9f7a09a31421e2020268248c566a82b58aa3cdb31':
+              raise SystemExit('replacement test identity differs')
           replacement = Path(expected_names[2])
           replacement.parent.mkdir(parents=True, exist_ok=True)
-          replacement.write_text(replacement_test, encoding='utf-8', newline='\n')
+          replacement.write_bytes(replacement_source)
+
           print(json.dumps({
               'status': 'RECOVERED',
               'intactMembers': sorted(recovered),
               'replacedMember': expected_names[2],
-              'foreignPrefixSha256': hashlib.sha256(inserted).hexdigest(),
+              'foreignPrefixSha256': inserted_sha,
+              'replacementTestSha256': hashlib.sha256(replacement_source).hexdigest(),
           }, indent=2))
           PY
 
