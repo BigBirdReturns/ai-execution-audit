@@ -1,0 +1,121 @@
+name: STC MARY Physical Flight Harness 01
+
+on:
+  pull_request:
+    paths:
+      - "mating_surface/anchor_node/stc-mary-physical-flight-profile-01.json"
+      - "mating_surface/anchor_node/fixtures/stc-mary-physical-flight-synthetic-01.json"
+      - "mating_surface/anchor_node/stc_mary_physical_flight.mjs"
+      - "mating_surface/anchor_node/conformance/stc_mary_physical_flight.test.mjs"
+      - ".github/workflows/stc-mary-physical-flight-01.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mating_surface/anchor_node/stc-mary-physical-flight-profile-01.json"
+      - "mating_surface/anchor_node/fixtures/stc-mary-physical-flight-synthetic-01.json"
+      - "mating_surface/anchor_node/stc_mary_physical_flight.mjs"
+      - "mating_surface/anchor_node/conformance/stc_mary_physical_flight.test.mjs"
+      - ".github/workflows/stc-mary-physical-flight-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stc-mary-physical-flight-01-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-stc-mary-physical-flight-01:
+    runs-on: windows-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Refuse network and credential surfaces
+        shell: pwsh
+        run: |
+          $runtime = "mating_surface/anchor_node/stc_mary_physical_flight.mjs"
+          $test = "mating_surface/anchor_node/conformance/stc_mary_physical_flight.test.mjs"
+          $publicJson = @(
+            "mating_surface/anchor_node/stc-mary-physical-flight-profile-01.json",
+            "mating_surface/anchor_node/fixtures/stc-mary-physical-flight-synthetic-01.json"
+          )
+          if (Select-String -Path $runtime -Pattern 'node:(http|https|net|tls)|(^|[^A-Za-z])fetch\s*\(') {
+            throw "Physical-flight runtime contains a network surface"
+          }
+          if (Select-String -Path @($runtime, $test) + $publicJson -Pattern 'AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer') {
+            throw "Physical-flight surface contains credential material"
+          }
+          if (Select-String -Path $publicJson -Pattern 'OCTO-(W|L)[0-9]+|[A-Za-z]:\\|/home/|ssh://|https?://') {
+            throw "Public profile or fixture contains private or endpoint-shaped material"
+          }
+
+      - name: Check exact harness syntax
+        shell: pwsh
+        run: |
+          node --check mating_surface/anchor_node/stc_mary_physical_flight.mjs
+          node --check mating_surface/anchor_node/conformance/stc_mary_physical_flight.test.mjs
+
+      - name: Run the closed 38-test adversarial suite
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force qualification/stc-mary-physical-flight-01 | Out-Null
+          node --test mating_surface/anchor_node/conformance/stc_mary_physical_flight.test.mjs 2>&1 |
+            Tee-Object qualification/stc-mary-physical-flight-01/test-output.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Simulate and verify twice without deterministic drift
+        shell: pwsh
+        run: |
+          node mating_surface/anchor_node/stc_mary_physical_flight.mjs simulate `
+            qualification/stc-mary-physical-flight-01/run-a.json `
+            qualification/stc-mary-physical-flight-01/verification-a.json `
+            qualification/stc-mary-physical-flight-01/review-a.html
+          node mating_surface/anchor_node/stc_mary_physical_flight.mjs simulate `
+            qualification/stc-mary-physical-flight-01/run-b.json `
+            qualification/stc-mary-physical-flight-01/verification-b.json `
+            qualification/stc-mary-physical-flight-01/review-b.html
+          foreach ($pair in @(
+            @("run-a.json", "run-b.json"),
+            @("verification-a.json", "verification-b.json"),
+            @("review-a.html", "review-b.html")
+          )) {
+            $left = Get-Content -Raw (Join-Path qualification/stc-mary-physical-flight-01 $pair[0])
+            $right = Get-Content -Raw (Join-Path qualification/stc-mary-physical-flight-01 $pair[1])
+            if ($left -cne $right) { throw "Deterministic drift: $($pair[0]) vs $($pair[1])" }
+          }
+          node mating_surface/anchor_node/stc_mary_physical_flight.mjs verify `
+            qualification/stc-mary-physical-flight-01/run-a.json `
+            qualification/stc-mary-physical-flight-01/detached-verification.json
+
+      - name: Prove the private template fails closed before local evidence exists
+        shell: pwsh
+        run: |
+          node mating_surface/anchor_node/stc_mary_physical_flight.mjs template-private `
+            qualification/stc-mary-physical-flight-01/private-flight-template.json
+          node mating_surface/anchor_node/stc_mary_physical_flight.mjs seal-private `
+            qualification/stc-mary-physical-flight-01/private-flight-template.json `
+            qualification/stc-mary-physical-flight-01/should-not-exist-run.json `
+            qualification/stc-mary-physical-flight-01/should-not-exist-disposition.json `
+            qualification/stc-mary-physical-flight-01/should-not-exist-verification.json `
+            qualification/stc-mary-physical-flight-01/should-not-exist-review.html
+          if ($LASTEXITCODE -eq 0) { throw "Incomplete private template unexpectedly sealed" }
+          $global:LASTEXITCODE = 0
+
+      - name: Preserve qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stc-mary-physical-flight-01-${{ github.sha }}
+          path: qualification/stc-mary-physical-flight-01/
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,167 @@
+{
+  "schema": "spectra-anchor-node-stc-mary-physical-flight-profile/1",
+  "profileId": "spectra-anchor-node/stc-mary-physical-flight/0.1",
+  "issues": [26, 29],
+  "status": "candidate_design_only",
+  "predecessor": {
+    "repository": "BigBirdReturns/ai-execution-audit",
+    "evidenceTier": "admitted_synthetic_terminal",
+    "requiredObjects": [
+      {
+        "schema": "spectra-anchor-node-estate-fabric-routing-slice/1",
+        "objectId": "estatefabricroutingslice1_ba4ecc2bd46517c234a08e77a945021d02d358e946c473cf4380ea2a2d66be5b"
+      },
+      {
+        "schema": "estate-fabric-run/1",
+        "objectId": "estatefabricrun1_32993e340165dc2f3a23d378dc2e442a08ac240e3b0efb3681f499c8b7124012"
+      },
+      {
+        "schema": "estate-completion-candidate/1",
+        "objectId": "estatecompletioncandidate1_2e7f671018d3bf0c7bb01810d75b461a6dc5870aa4001c78efd71494120324fe"
+      },
+      {
+        "schema": "estate-fabric-verification/1",
+        "objectId": "estatefabricterminalverification1_fb856a8b9b57e1e42c8c4bd1b465c8aeac21213675eb0d9f42b117b7da21dad2"
+      }
+    ]
+  },
+  "flightModes": [
+    "synthetic_simulation",
+    "private_physical_attested"
+  ],
+  "stageSequence": [
+    "VERIFY_INPUTS",
+    "MOUNT_PERSONAL_FLOOR",
+    "BIND_GRACE",
+    "RUN_PERSONAL_FLOOR_BASELINE",
+    "ATTACH_HALO3",
+    "RUN_HALO3_ACCELERATED",
+    "REMOVE_HALO3",
+    "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+    "REMOVE_LATTICE",
+    "VERIFY_LOCAL_CONTINUITY",
+    "PARTITION_TWO_CELLS",
+    "RESTORE_LINK_HOLD_CONFLICT",
+    "REPLACE_HEAD",
+    "REBUILD_PROJECTIONS",
+    "COLD_SUCCESSOR_VERIFY",
+    "SEAL_PRIVATE_EVIDENCE"
+  ],
+  "stagePolicy": {
+    "requiredTerminalStates": {
+      "VERIFY_INPUTS": "PASS",
+      "MOUNT_PERSONAL_FLOOR": "PASS",
+      "BIND_GRACE": "PASS",
+      "RUN_PERSONAL_FLOOR_BASELINE": "PASS",
+      "ATTACH_HALO3": "PASS",
+      "RUN_HALO3_ACCELERATED": "PASS",
+      "REMOVE_HALO3": "PASS",
+      "VERIFY_PERSONAL_FLOOR_CONTINUITY": "PASS",
+      "REMOVE_LATTICE": "PASS",
+      "VERIFY_LOCAL_CONTINUITY": "PASS",
+      "PARTITION_TWO_CELLS": "PASS",
+      "RESTORE_LINK_HOLD_CONFLICT": "HUMAN_REQUIRED",
+      "REPLACE_HEAD": "PASS",
+      "REBUILD_PROJECTIONS": "PASS",
+      "COLD_SUCCESSOR_VERIFY": "PASS",
+      "SEAL_PRIVATE_EVIDENCE": "PASS"
+    },
+    "prohibitedSuccessStates": [
+      "PENDING",
+      "INACCESSIBLE",
+      "UNKNOWN",
+      "UNVERIFIABLE",
+      "INVALID"
+    ],
+    "previousReceiptChainingRequired": true,
+    "completeDenominatorRequired": true,
+    "canonicalMissionStateMutationAllowed": false,
+    "unresolvedConflictMustRemainExplicit": true
+  },
+  "substrateRoles": {
+    "personalFloor": {
+      "role": "resident_mission_closed_floor",
+      "requiredForContinuity": true,
+      "mustSurviveHalo3Removal": true,
+      "mustSurviveLatticeRemoval": true
+    },
+    "halo3": {
+      "role": "optional_high_bandwidth_accelerator",
+      "requiredForContinuity": false,
+      "removalMayReducePerformanceOnly": true
+    },
+    "head": {
+      "role": "replaceable_carrier",
+      "replaceable": true,
+      "canonicalStateOwner": false
+    },
+    "modelOrExecutable": {
+      "role": "replaceable_execution_organ",
+      "replaceable": true,
+      "authoritySource": false
+    },
+    "lattice": {
+      "role": "optional_interoperability_membrane",
+      "requiredForLocalContinuity": false,
+      "canonicalStateOwner": false
+    }
+  },
+  "authorityPolicy": {
+    "namedHumanBind": "GRACE",
+    "humanBindRequired": true,
+    "modelAuthority": "none",
+    "hardwareAuthority": "none",
+    "schedulerAuthority": "none",
+    "verifierAuthority": "none",
+    "returningConflictDisposition": "human_required",
+    "automaticConflictMergeAllowed": false
+  },
+  "evidencePolicy": {
+    "publicRepositoryMayContainPrivateEvidenceBodies": false,
+    "publicDispositionDigestOnly": true,
+    "privateBodyPathsMayAppearInPublicDisposition": false,
+    "minimumEvidenceBodiesPerPhysicalStage": 1,
+    "contentAddressing": "sha256",
+    "syntheticModeCanClaimPhysicalFlight": false,
+    "privateAttestationCanClaimRepresentativeOperatorQualification": false,
+    "privateAttestationCanClaimFieldQualification": false
+  },
+  "acceptance": {
+    "requires": [
+      "the complete sixteen-stage denominator is present and ordered",
+      "each stage is content-addressed and chained to its predecessor",
+      "the personal floor completes a verified baseline before HALO3 attachment",
+      "HALO3 removal preserves the personal floor and canonical mission state",
+      "Lattice removal preserves local continuity and canonical mission state",
+      "partition creates two locally valid cells without widening authority",
+      "reconnection retains conflict as HUMAN_REQUIRED without automatic merge",
+      "HEAD replacement preserves the cartridge authority boundary and unresolved obligations",
+      "graph query cache and review projections rebuild from canonical receipts",
+      "a cold successor reconstructs the cartridge authority boundary evidence state and next safe action",
+      "public dispositions contain digests and claim boundaries but no private evidence bodies paths endpoints or credentials"
+    ],
+    "refuseIf": [
+      "a prohibited nonterminal or unverifiable state is counted as success",
+      "the stage denominator shrinks reorders or duplicates",
+      "HALO3 becomes necessary for the resident floor to continue",
+      "Lattice becomes owner of canonical local state",
+      "returning conflict silently overwrites either cell",
+      "replacement HEAD or model acquires authority",
+      "synthetic evidence is promoted into physical qualification",
+      "private paths hostnames endpoints credentials or evidence bodies enter a public disposition",
+      "mission command targeting engagement effector or weapons authority is claimed"
+    ]
+  },
+  "claimBoundary": {
+    "syntheticHarnessCandidate": true,
+    "privatePhysicalFlightExecuted": false,
+    "physicalEstateQualified": false,
+    "representativeOperatorQualified": false,
+    "fieldNetworkQualified": false,
+    "operationalC2Qualified": false,
+    "productionLatticeQualified": false,
+    "missionAuthorityGranted": false,
+    "commandAuthorityGranted": false,
+    "targetingEngagementEffectorOrWeaponsCapability": false
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "schema": "spectra-anchor-node-stc-mary-physical-flight-fixture/1",
+  "fixtureId": "SYN-STC-MARY-PHYSICAL-FLIGHT-01",
+  "classification": "invented_unclassified_synthetic_only",
+  "flightMode": "synthetic_simulation",
+  "profileId": "spectra-anchor-node/stc-mary-physical-flight/0.1",
+  "campaignLabel": "SYN-STC-MARY-FLIGHT-CAMPAIGN-01",
+  "sourceObjects": [
+    "estatefabricroutingslice1_ba4ecc2bd46517c234a08e77a945021d02d358e946c473cf4380ea2a2d66be5b",
+    "estatefabricrun1_32993e340165dc2f3a23d378dc2e442a08ac240e3b0efb3681f499c8b7124012",
+    "estatefabricterminalverification1_fb856a8b9b57e1e42c8c4bd1b465c8aeac21213675eb0d9f42b117b7da21dad2"
+  ],
+  "identities": {
+    "personalFloorSeatId": "SYN-SEAT-PERSONAL-FLOOR-A",
+    "halo3SeatId": "SYN-SEAT-HALO3-B",
+    "initialHeadId": "SYN-HEAD-ALPHA",
+    "successorHeadId": "SYN-HEAD-BRAVO",
+    "graceBindId": "SYN-GRACE-OPERATOR-01",
+    "latticeId": "SYN-LATTICE-MEMBRANE-01",
+    "cellIds": [
+      "SYN-CELL-LEFT-01",
+      "SYN-CELL-RIGHT-02"
+    ]
+  },
+  "digests": {
+    "missionCartridge": "0f012a9232ad7f451f97eb9e6e806d48642d75810e4b9e73574e279f44d34fc1",
+    "canonicalMissionState": "1a8ddfbc60d69d3131eb930d0cecd46bd1a624de89e7baa89c9d775459fbc534",
+    "localFeed": "2b47e648904b984822da6942cc37d44b774e773f46dd6b2fce34ac446888ad56",
+    "runtime": "3c16733c39b69e43ccf5fb293e7cf72a3e4727108a8fd258e1da07b2d408a76f",
+    "modelOrExecutable": "4d726738a51d23f395c0aec52c675a23f98565dbfa6cd828266b56ea5faf1a47",
+    "verifier": "5e38fed0d457d69c2c91ac1b034562c8a7734ef18b8880e7d14f43c82f853585",
+    "storageSubstrate": "6f3549562ec1bad32686f793a621a323264a9a70eca8ff1bd868b8d14e1d73d2",
+    "residencyEvidence": "70f6b4922491399fdab68fcab1b1dd6f5828b1c1a26e09ce6902b674c60f87db",
+    "powerEvidence": "81a095b7d12e2866ea4a19b8944f56f0ee24a6ab0b7f006cbec273ace073e4f4",
+    "latticeMembrane": "9220d0301e4a6bd4fd124df72b43fc1f542ed85f039f29dbf05c5884b243ad10",
+    "projectionTemplate": "a3f1ce524985c7b91da80a1f8e288fd4cc8129e34fbfe82580d23ea922e098e2"
+  },
+  "syntheticMetrics": {
+    "unit": "synthetic_work_units_per_step",
+    "personalFloorBaseline": 12,
+    "halo3Accelerated": 48,
+    "personalFloorAfterHalo3Removal": 12
+  },
+  "expectedConflict": {
+    "leftCellStateDigest": "b404d350e77be47bab33f508f65b8c98ddc22318f9accd5480f13bc5de49a3f3",
+    "rightCellStateDigest": "c515d2e4243a08fcf83a517eb6887d836083a06c03a2863f35f52ab3b4556ee4",
+    "automaticMergeAllowed": false,
+    "requiredDisposition": "human_required"
+  },
+  "externalServiceCalls": 0,
+  "operationalCredentials": 0,
+  "physicalEvidenceBodies": 0,
+  "authority": "none",
+  "claimBoundary": "Invented unclassified fixture for deterministic STC and MARY physical-flight harness simulation. It contains no real Estate host, device, endpoint, path, credential, telemetry, operator evidence, physical qualification, mission authority, command authority, targeting, engagement, effector, or weapons capability."
+}
