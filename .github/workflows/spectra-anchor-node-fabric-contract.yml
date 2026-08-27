@@ -1,0 +1,86 @@
+name: Spectra Anchor Node Estate Fabric Contract
+
+on:
+  pull_request:
+    paths:
+      - "mating_surface/anchor_node/fabric-profile-01.json"
+      - "mating_surface/anchor_node/validate_fabric_profile.mjs"
+      - "mating_surface/anchor_node/conformance/fabric_profile.test.mjs"
+      - ".github/workflows/spectra-anchor-node-fabric-contract.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mating_surface/anchor_node/fabric-profile-01.json"
+      - "mating_surface/anchor_node/validate_fabric_profile.mjs"
+      - "mating_surface/anchor_node/conformance/fabric_profile.test.mjs"
+      - ".github/workflows/spectra-anchor-node-fabric-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spectra-anchor-node-fabric-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-fabric-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Refuse network and credential surfaces
+        run: |
+          if grep -nE "node:(http|https|net|tls)|(^|[^A-Za-z])fetch[[:space:]]*\(" \
+            mating_surface/anchor_node/validate_fabric_profile.mjs; then
+            echo "::error::Fabric contract validator contains a network surface"
+            exit 1
+          fi
+          if grep -R -nE "AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:[[:space:]]*Bearer" \
+            mating_surface/anchor_node/fabric-profile-01.json \
+            mating_surface/anchor_node/validate_fabric_profile.mjs \
+            mating_surface/anchor_node/conformance/fabric_profile.test.mjs; then
+            echo "::error::Fabric contract surface contains credential material"
+            exit 1
+          fi
+
+      - name: Check exact contract syntax
+        run: |
+          node --check mating_surface/anchor_node/validate_fabric_profile.mjs
+          node --check mating_surface/anchor_node/conformance/fabric_profile.test.mjs
+
+      - name: Validate the fabric contract twice and refuse drift
+        run: |
+          mkdir -p qualification/anchor-node-fabric-contract
+          node mating_surface/anchor_node/validate_fabric_profile.mjs \
+            mating_surface/anchor_node/fabric-profile-01.json \
+            > qualification/anchor-node-fabric-contract/validation-a.json
+          node mating_surface/anchor_node/validate_fabric_profile.mjs \
+            mating_surface/anchor_node/fabric-profile-01.json \
+            > qualification/anchor-node-fabric-contract/validation-b.json
+          cmp \
+            qualification/anchor-node-fabric-contract/validation-a.json \
+            qualification/anchor-node-fabric-contract/validation-b.json
+
+      - name: Run the closed adversarial contract suite
+        run: |
+          node --test mating_surface/anchor_node/conformance/fabric_profile.test.mjs \
+            | tee qualification/anchor-node-fabric-contract/test-output.txt
+
+      - name: Preserve fabric-contract qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spectra-anchor-node-fabric-contract-${{ github.sha }}
+          path: qualification/anchor-node-fabric-contract/
+          if-no-files-found: error
+          retention-days: 14
