@@ -2,6 +2,7 @@ import { canonicalJson } from '../semantic/authority_sidecar.mjs';
 import {
   KEYS,
   MAX_CANDIDATES,
+  MAX_STEP,
   assertIdentity,
   digest,
   exactKeys,
