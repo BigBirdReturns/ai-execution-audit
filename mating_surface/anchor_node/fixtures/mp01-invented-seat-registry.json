@@ -1,0 +1,103 @@
+{
+  "schema": "spectra-anchor-node-invented-seat-registry/1",
+  "registryId": "SYN-ESTATE-REGISTRY-001",
+  "classification": "invented_unclassified_synthetic_only",
+  "capturedAtStep": 10,
+  "topologyPolicy": "independent_seats_no_memory_pooling",
+  "seats": [
+    {
+      "seatId": "SYN-SEAT-RESIDENT-A",
+      "role": "resident",
+      "state": "available",
+      "hostIdentityClass": "synthetic-mobile-host-class-a",
+      "acceleratorIdentityClass": "synthetic-accelerator-24g",
+      "acceleratorMemoryMiB": 24576,
+      "endpointIdentity": "SYN-ENDPOINT-LOCAL-A",
+      "runtimeVersion": "synthetic-local-executor/1.0.0",
+      "adapterVersion": "spectra-estate-fabric-adapter/0.1.0",
+      "supportedWorkloadClasses": [
+        "local_artifact_reconstruction"
+      ],
+      "modelOrExecutableDigests": [
+        "bd14617d51d579adff77b9d359ca8e32c48167420919b0d5df73672e1672ea53"
+      ],
+      "verifierIds": [
+        "SYN-VERIFIER-LOCAL-01"
+      ],
+      "residencyEvidence": {
+        "residencyClass": "resident",
+        "evidenceClass": "synthetic_registry_assertion",
+        "evidenceDigest": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "powerStateEvidence": {
+        "claim": "not_measured",
+        "evidenceClass": "none",
+        "evidenceDigest": null
+      },
+      "claimBoundary": "Invented public seat fixture only. It is not a real host, endpoint, accelerator, runtime, power observation, or physical Estate record."
+    },
+    {
+      "seatId": "SYN-SEAT-FALLBACK-B",
+      "role": "fallback",
+      "state": "available",
+      "hostIdentityClass": "synthetic-fixed-host-class-b",
+      "acceleratorIdentityClass": "synthetic-accelerator-24g",
+      "acceleratorMemoryMiB": 24576,
+      "endpointIdentity": "SYN-ENDPOINT-LOCAL-B",
+      "runtimeVersion": "synthetic-local-executor/1.0.0",
+      "adapterVersion": "spectra-estate-fabric-adapter/0.1.0",
+      "supportedWorkloadClasses": [
+        "local_artifact_reconstruction"
+      ],
+      "modelOrExecutableDigests": [
+        "bd14617d51d579adff77b9d359ca8e32c48167420919b0d5df73672e1672ea53"
+      ],
+      "verifierIds": [
+        "SYN-VERIFIER-LOCAL-01"
+      ],
+      "residencyEvidence": {
+        "residencyClass": "resident_fallback",
+        "evidenceClass": "synthetic_registry_assertion",
+        "evidenceDigest": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "powerStateEvidence": {
+        "claim": "not_measured",
+        "evidenceClass": "none",
+        "evidenceDigest": null
+      },
+      "claimBoundary": "Invented public seat fixture only. It is not a real host, endpoint, accelerator, runtime, power observation, or physical Estate record."
+    },
+    {
+      "seatId": "SYN-SEAT-OPTIONAL-C",
+      "role": "optional",
+      "state": "available",
+      "hostIdentityClass": "synthetic-burst-host-class-c",
+      "acceleratorIdentityClass": "synthetic-accelerator-12g",
+      "acceleratorMemoryMiB": 12288,
+      "endpointIdentity": "SYN-ENDPOINT-LOCAL-C",
+      "runtimeVersion": "synthetic-local-executor/1.0.0",
+      "adapterVersion": "spectra-estate-fabric-adapter/0.1.0",
+      "supportedWorkloadClasses": [
+        "local_artifact_reconstruction"
+      ],
+      "modelOrExecutableDigests": [
+        "bd14617d51d579adff77b9d359ca8e32c48167420919b0d5df73672e1672ea53"
+      ],
+      "verifierIds": [
+        "SYN-VERIFIER-LOCAL-01"
+      ],
+      "residencyEvidence": {
+        "residencyClass": "optional_burst",
+        "evidenceClass": "synthetic_registry_assertion",
+        "evidenceDigest": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "powerStateEvidence": {
+        "claim": "not_measured",
+        "evidenceClass": "none",
+        "evidenceDigest": null
+      },
+      "claimBoundary": "Invented public seat fixture only. It is not a real host, endpoint, accelerator, runtime, power observation, or physical Estate record."
+    }
+  ],
+  "claimBoundary": "This registry is invented, unclassified, and synthetic-only. It contains no real Estate topology, hostname, path, endpoint, credential, telemetry, or physical evidence body."
+}
