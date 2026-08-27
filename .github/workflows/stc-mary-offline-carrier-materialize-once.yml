@@ -1,4 +1,4 @@
-# One-use trigger refreshed after branch workflow admission.
+# One-use exact transport repair and materialization carrier.
 name: One-use STC MARY offline carrier materialization
 
 on:
@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Reconstruct and verify the exact product archive
+      - name: Reconstruct, repair, and verify the exact product archive
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -47,13 +47,56 @@ jobs:
           if parts != expected_parts:
               raise SystemExit(f'payload denominator differs: {[str(path) for path in parts]}')
 
-          encoded = ''.join(path.read_text(encoding='utf-8').strip() for path in parts)
-          archive_bytes = base64.b64decode(encoded, validate=True)
-          expected_sha256 = '454c91372dbe4a32bc6c4cae8622f63f96842885ccbef8952da90f5622ef4099'
+          texts = [path.read_text(encoding='utf-8').strip() for path in parts]
+          decoded = [base64.b64decode(text, validate=True) for text in texts]
+          print('base64 lengths:', [len(text) for text in texts])
+          print('decoded lengths:', [len(body) for body in decoded])
+
+          expected_sha256 = '1daf6f01576034ecdd3a57c50c58998dcf3f45cb49eed8dd56c494a220541489'
+          expected_bytes = 29829
+          archive_bytes = base64.b64decode(''.join(texts), validate=True)
+          actual_sha256 = hashlib.sha256(archive_bytes).hexdigest()
+
+          if actual_sha256 != expected_sha256 or len(archive_bytes) != expected_bytes:
+              # The transport write lost one aligned 4-character block at the
+              # end of part 02 and duplicated one aligned payload span into
+              # part 06. Recover only a source-pinned candidate whose complete
+              # bytes reproduce the predeclared archive identity.
+              if len(decoded[1]) != 4497 or len(decoded[5]) != 9063:
+                  raise SystemExit('transport shape differs from the observed aligned loss and duplication')
+
+              prefix = b''.join(decoded[:2])
+              fixed_tail = b''.join(decoded[2:5])
+              final_tail = decoded[6]
+              recovered = None
+              strategies = [
+                  ('retain_part06_prefix', decoded[5][:4500], decoded[5][4500:]),
+                  ('retain_part06_suffix', decoded[5][-4500:], decoded[5][:-4500]),
+              ]
+              for label, retained, discarded in strategies:
+                  suffix = fixed_tail + retained + final_tail
+                  if len(prefix) + 3 + len(suffix) != expected_bytes:
+                      continue
+                  for offset in range(len(discarded) - 2):
+                      candidate = prefix + discarded[offset:offset + 3] + suffix
+                      if hashlib.sha256(candidate).hexdigest() == expected_sha256:
+                          recovered = candidate
+                          print(f'recovered archive via {label}; missing-byte source offset {offset}')
+                          break
+                  if recovered is not None:
+                      break
+              if recovered is None:
+                  raise SystemExit(
+                      f'no source-pinned aligned transport repair reproduced {expected_sha256}; '
+                      f'observed={actual_sha256} bytes={len(archive_bytes)}'
+                  )
+              archive_bytes = recovered
+
+          if len(archive_bytes) != expected_bytes:
+              raise SystemExit(f'archive byte count differs after repair: {len(archive_bytes)}')
           actual_sha256 = hashlib.sha256(archive_bytes).hexdigest()
           if actual_sha256 != expected_sha256:
-              raise SystemExit(f'archive sha256 differs: {actual_sha256}')
-          print(f'archive byte count: {len(archive_bytes)}')
+              raise SystemExit(f'archive sha256 differs after repair: {actual_sha256}')
 
           archive = Path('/tmp/stc-mary-offline-carrier-product.zip')
           archive.write_bytes(archive_bytes)
@@ -114,7 +157,7 @@ jobs:
             -p 'test_stc_mary_local_toolchain.py' \
             -v
 
-      - name: Remove the transport and publish only the qualified product
+      - name: Remove transport residue and publish only the qualified product
         run: |
           rm -rf .offline-carrier-payload
           rm .github/workflows/stc-mary-offline-carrier-materialize-once.yml
