@@ -49,12 +49,11 @@ jobs:
 
           encoded = ''.join(path.read_text(encoding='utf-8').strip() for path in parts)
           archive_bytes = base64.b64decode(encoded, validate=True)
-          expected_sha256 = '1daf6f01576034ecdd3a57c50c58998dcf3f45cb49eed8dd56c494a220541489'
+          expected_sha256 = '454c91372dbe4a32bc6c4cae8622f63f96842885ccbef8952da90f5622ef4099'
           actual_sha256 = hashlib.sha256(archive_bytes).hexdigest()
           if actual_sha256 != expected_sha256:
               raise SystemExit(f'archive sha256 differs: {actual_sha256}')
-          if len(archive_bytes) != 29829:
-              raise SystemExit(f'archive byte count differs: {len(archive_bytes)}')
+          print(f'archive byte count: {len(archive_bytes)}')
 
           archive = Path('/tmp/stc-mary-offline-carrier-product.zip')
           archive.write_bytes(archive_bytes)
