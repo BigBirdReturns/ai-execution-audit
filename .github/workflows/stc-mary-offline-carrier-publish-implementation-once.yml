@@ -1,0 +1,110 @@
+name: One-use STC MARY offline carrier implementation publication
+
+on:
+  push:
+    branches:
+      - work/stc-mary-offline-carrier-reconstruct
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stc-mary-offline-carrier-publish-implementation-once
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out exact reconstruction branch
+        uses: actions/checkout@v6
+        with:
+          ref: work/stc-mary-offline-carrier-reconstruct
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Reconstruct the exact implementation and witness
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import hashlib
+          import zipfile
+
+          root = Path('.reconstruct-offline-carrier')
+          paths = [root / f'part{index:02d}.b64' for index in range(1, 10)]
+          lengths = [4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 2224]
+          digests = [
+              '9588000536aef313287439ca4ca5f3ec157383a906ba7a7599a47c1166d89f1e',
+              '292398e5fccdd9d13900ebd8accb74c267aff5a1176740a1c2f64694aebf0a3e',
+              '95ee9533f99789a1b5098f52b33e7e3ce23ae2c8ceff7b1b3338199b9a4de7d9',
+              'd8180df03917e59609e601590306efcc8fc10af0854da120ec4933ad924114af',
+              'ae47e94bab08624c9c0e2b49f0e5c787246e387a3971f4975ab230677680612b',
+              '1e8613f700b80d785055cad83af309057dfdb0b78f88fd5ff96e8aa18c4784f3',
+              '3b5fcc0199a212d532db9e026e560c26b443b1ad6c0542976549d0165ead1e6b',
+              'a12a292120faf4d0d5449c5788bebe44027f4e6d191661e282e459c6e648a634',
+              'b40da7dda0d53d1cdb515c89fc903b93ff833a75a576c41a71bfdcc1de77258b',
+          ]
+          texts = []
+          for path, length, digest in zip(paths, lengths, digests):
+              text = path.read_text(encoding='ascii')
+              if len(text) != length or hashlib.sha256(text.encode('ascii')).hexdigest() != digest:
+                  raise SystemExit(f'payload identity differs: {path}')
+              texts.append(text)
+          archive = base64.b64decode(''.join(texts), validate=True)
+          actual = hashlib.sha256(archive).hexdigest()
+          if len(archive) != 25668 or actual != '5daace404a9477b265170da3799836ba6f7e532f29c76ec966136c3f198c4315':
+              raise SystemExit(f'archive identity differs: {len(archive)} {actual}')
+
+          wanted = {
+              'mating_surface/anchor_node/conformance/test_stc_mary_offline_carrier.py',
+              'mating_surface/anchor_node/stc_mary_offline_carrier.py',
+          }
+          archive_path = Path('/tmp/stc-mary-offline-carrier-implementation.zip')
+          archive_path.write_bytes(archive)
+          with zipfile.ZipFile(archive_path) as bundle:
+              names = set(bundle.namelist())
+              if not wanted.issubset(names):
+                  raise SystemExit(f'implementation denominator differs: {sorted(names)}')
+              for relative in sorted(wanted):
+                  destination = Path(relative)
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  destination.write_bytes(bundle.read(relative))
+          PY
+
+      - name: Run the complete carrier and inherited toolchain suites
+        run: |
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_offline_carrier.py \
+            mating_surface/anchor_node/stc_mary_local/plan.py \
+            mating_surface/anchor_node/stc_mary_local/cli.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_offline_carrier.py
+          python mating_surface/anchor_node/stc_mary_offline_carrier.py validate-profile \
+            mating_surface/anchor_node/stc-mary-offline-carrier-profile-01.json
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_offline_carrier.py' \
+            -v
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_local_toolchain.py' \
+            -v
+          git diff --check
+
+      - name: Publish only implementation source and its permanent witness
+        run: |
+          git config user.name BigBirdReturns
+          git config user.email bigbirdreturns@proton.me
+          git add \
+            mating_surface/anchor_node/conformance/test_stc_mary_offline_carrier.py \
+            mating_surface/anchor_node/stc_mary_offline_carrier.py
+          git diff --cached --check
+          git commit -m "Reconstruct the STC MARY offline carrier implementation"
+          git push origin HEAD:work/stc-mary-offline-carrier-reconstruct
