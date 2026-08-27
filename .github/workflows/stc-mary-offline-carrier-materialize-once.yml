@@ -1,4 +1,4 @@
-name: One-use STC MARY offline carrier forensic pass
+name: One-use STC MARY offline carrier source recovery
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: stc-mary-offline-carrier-forensic-once
+  group: stc-mary-offline-carrier-source-recovery-once
   cancel-in-progress: false
 
 jobs:
@@ -25,95 +25,64 @@ jobs:
           ref: feature/stc-mary-offline-carrier-01
           fetch-depth: 0
 
-      - name: Inspect the damaged source-pinned archive transport
+      - name: Recover inserted source and the valid deflate prefix
         run: |
           python - <<'PY'
           from pathlib import Path
           import base64
-          import difflib
           import hashlib
           import struct
-          import zipfile
+          import zlib
 
           root = Path('.offline-carrier-payload')
-          paths = [root / f'part{index:02d}.b64' for index in range(1, 8)]
-          texts = [path.read_text(encoding='utf-8').strip() for path in paths]
+          texts = [(root / f'part{index:02d}.b64').read_text(encoding='utf-8').strip() for index in range(1, 8)]
           bodies = [base64.b64decode(text, validate=True) for text in texts]
-          data = base64.b64decode(''.join(texts), validate=True)
+          inserted = bodies[5][:4563]
+          print('INSERTED_SHA256', hashlib.sha256(inserted).hexdigest())
+          print('INSERTED_LENGTH', len(inserted))
+          print('INSERTED_SOURCE_BEGIN')
+          print(inserted.decode('utf-8', 'replace'))
+          print('INSERTED_SOURCE_END')
 
-          print('BASE64_LENGTHS', [len(text) for text in texts])
-          print('DECODED_LENGTHS', [len(body) for body in bodies])
-          print('TOTAL_BYTES', len(data))
-          print('TOTAL_SHA256', hashlib.sha256(data).hexdigest())
-          print('TEXT_ENDINGS', [repr(text[-24:]) for text in texts])
-          print('TEXT_BEGinnings', [repr(text[:24]) for text in texts])
+          data = b''.join(bodies[:5]) + bodies[5][4563:] + bodies[6]
+          print('AFTER_INSERT_REMOVAL_LENGTH', len(data))
+          print('AFTER_INSERT_REMOVAL_SHA256', hashlib.sha256(data).hexdigest())
+          local = 5112
+          _, needed, flags, method, mtime, mdate, crc, csize, usize, nlen, xlen = struct.unpack_from('<IHHHHHIIIHH', data, local)
+          name = data[local + 30:local + 30 + nlen].decode('utf-8')
+          compressed_start = local + 30 + nlen + xlen
+          next_header = data.find(b'PK\x03\x04', compressed_start)
+          compressed_prefix = data[compressed_start:8997]
+          compressed_suffix = data[8997:next_header]
+          print('TARGET_NAME', name)
+          print('TARGET_CRC', hex(crc))
+          print('TARGET_COMPRESSED_SIZE', csize)
+          print('TARGET_UNCOMPRESSED_SIZE', usize)
+          print('COMPRESSED_START', compressed_start)
+          print('NEXT_HEADER', next_header)
+          print('PREFIX_LENGTH', len(compressed_prefix))
+          print('SUFFIX_LENGTH', len(compressed_suffix))
+          print('PREFIX_SHA256', hashlib.sha256(compressed_prefix).hexdigest())
+          print('SUFFIX_SHA256', hashlib.sha256(compressed_suffix).hexdigest())
 
-          boundaries = []
-          total = 0
-          for body in bodies:
-              total += len(body)
-              boundaries.append(total)
-          print('DECODED_BOUNDARIES', boundaries)
+          decoder = zlib.decompressobj(-15)
+          out = decoder.decompress(compressed_prefix)
+          print('PREFIX_OUTPUT_LENGTH', len(out))
+          print('PREFIX_OUTPUT_CRC', hex(zlib.crc32(out) & 0xffffffff))
+          print('PREFIX_OUTPUT_TAIL_BEGIN')
+          print(out[-5000:].decode('utf-8', 'replace'))
+          print('PREFIX_OUTPUT_TAIL_END')
+          print('DECODER_EOF', decoder.eof)
+          print('DECODER_UNUSED', len(decoder.unused_data))
+          print('DECODER_UNCONSUMED', len(decoder.unconsumed_tail))
 
-          def all_positions(payload, signature):
-              out = []
-              start = 0
-              while True:
-                  at = payload.find(signature, start)
-                  if at < 0:
-                      return out
-                  out.append(at)
-                  start = at + 1
-
-          local_positions = all_positions(data, b'PK\x03\x04')
-          central_positions = all_positions(data, b'PK\x01\x02')
-          eocd_positions = all_positions(data, b'PK\x05\x06')
-          print('LOCAL_SIGNATURES', local_positions)
-          print('CENTRAL_SIGNATURES', central_positions)
-          print('EOCD_SIGNATURES', eocd_positions)
-
-          for at in local_positions:
+          for candidate in (b'\x00\x00\x00', b'\xff\xff\xff', b'\x00\xff\x00'):
+              probe = decoder.copy()
               try:
-                  values = struct.unpack_from('<IHHHHHIIIHH', data, at)
-                  _, needed, flags, method, mtime, mdate, crc, csize, usize, nlen, xlen = values
-                  name = data[at + 30:at + 30 + nlen].decode('utf-8', 'replace')
-                  print('LOCAL', at, name, 'flags', flags, 'method', method, 'crc', hex(crc), 'csize', csize, 'usize', usize, 'xlen', xlen)
+                  tail = probe.decompress(candidate + compressed_suffix) + probe.flush()
+                  print('PROBE', candidate.hex(), 'OK', len(tail), probe.eof, hex(zlib.crc32(tail, zlib.crc32(out)) & 0xffffffff))
               except Exception as error:
-                  print('LOCAL_PARSE_ERROR', at, repr(error))
+                  print('PROBE', candidate.hex(), 'ERROR', repr(error))
 
-          for at in central_positions:
-              try:
-                  values = struct.unpack_from('<IHHHHHHIIIHHHHHII', data, at)
-                  (_, made, needed, flags, method, mtime, mdate, crc, csize, usize,
-                   nlen, xlen, clen, disk, internal, external, offset) = values
-                  name = data[at + 46:at + 46 + nlen].decode('utf-8', 'replace')
-                  print('CENTRAL', at, name, 'offset', offset, 'flags', flags, 'method', method, 'crc', hex(crc), 'csize', csize, 'usize', usize)
-              except Exception as error:
-                  print('CENTRAL_PARSE_ERROR', at, repr(error))
-
-          try:
-              archive = Path('/tmp/current.zip')
-              archive.write_bytes(data)
-              with zipfile.ZipFile(archive) as bundle:
-                  for info in bundle.infolist():
-                      print('ZIPINFO', info.filename, 'header_offset', info.header_offset, 'csize', info.compress_size, 'usize', info.file_size, 'crc', hex(info.CRC))
-          except Exception as error:
-              print('ZIPINFO_ERROR', repr(error))
-
-          part6 = bodies[5]
-          other = b''.join(bodies[:5] + bodies[6:])
-          match = difflib.SequenceMatcher(None, part6, other, autojunk=False).find_longest_match(0, len(part6), 0, len(other))
-          print('PART6_LONGEST_MATCH_OTHER', match.a, match.b, match.size, hashlib.sha256(part6[match.a:match.a + match.size]).hexdigest())
-
-          left = part6[:4563]
-          right = part6[4500:]
-          self_match = difflib.SequenceMatcher(None, left, right, autojunk=False).find_longest_match(0, len(left), 0, len(right))
-          print('PART6_OVERLAP_MATCH', self_match.a, self_match.b, self_match.size, hashlib.sha256(left[self_match.a:self_match.a + self_match.size]).hexdigest())
-
-          for index, body in enumerate(bodies, start=1):
-              prefix = body[:32]
-              suffix = body[-32:]
-              print('PART6_FIND_PART', index, 'prefix', part6.find(prefix), 'suffix', part6.find(suffix))
-
-          raise SystemExit('FORENSIC_PASS_COMPLETE')
+          raise SystemExit('SOURCE_RECOVERY_PASS_COMPLETE')
           PY
