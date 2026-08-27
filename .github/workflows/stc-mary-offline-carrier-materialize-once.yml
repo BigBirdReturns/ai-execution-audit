@@ -1,3 +1,4 @@
+# One-use trigger refreshed after branch workflow admission.
 name: One-use STC MARY offline carrier materialization
 
 on:
