@@ -1,0 +1,51 @@
+{
+  "schema": "stc-mary-local-toolchain/1",
+  "profileId": "stc-mary/local-toolchain/0.1",
+  "status": "candidate_design_only",
+  "predecessorCommit": "66fa5a477752d07b0fff5ab4553e50505a42d2f7",
+  "privateOutputPatterns": [
+    "^stc-mary-local-prep-[a-z0-9][a-z0-9._-]*$",
+    "^stc-mary-local-feed-[a-z0-9][a-z0-9._-]*$",
+    "^stc-mary-local-plan-[a-z0-9][a-z0-9._-]*$"
+  ],
+  "commands": [
+    "doctor",
+    "generate-feed",
+    "run-workload",
+    "verify-workload",
+    "compare-workloads",
+    "compile-plan",
+    "validate-profile"
+  ],
+  "backends": [
+    "python",
+    "numpy",
+    "torch-cpu",
+    "torch-cuda"
+  ],
+  "localObservations": [
+    "exact Git checkout and clean-worktree state",
+    "Python Node PowerShell Git and NVIDIA runtime availability",
+    "Windows operating-system computer processor device volume network listener and power state",
+    "NVIDIA seat identity memory residency driver thermal and power observations",
+    "NumPy Torch CPU Torch CUDA and ONNX Runtime availability",
+    "declared cartridge model executable verifier feed storage and successor artifact identities",
+    "Lattice-shaped local process and service absence",
+    "resident-floor semantic output and throughput",
+    "HALO3 semantic output and throughput",
+    "post-HALO3 resident-floor semantic continuity",
+    "private evidence-root custody",
+    "two-cell and successor-HEAD wake conditions"
+  ],
+  "flightPlanGates": [
+    "admitted_checkout",
+    "personal_floor",
+    "halo3",
+    "post_halo3_continuity",
+    "lattice_absence",
+    "two_cell_partition",
+    "successor_head",
+    "private_evidence_root"
+  ],
+  "claimBoundary": "Provider-free local preparation toolchain for the admitted STC MARY private physical-flight packet. Hosted qualification can validate deterministic behavior and refusal semantics only. No output from this profile by itself establishes an actual physical flight, physical Estate qualification, representative-operator qualification, field networking, operational C2, production Lattice, mission authority, command authority, targeting, engagement, effector control, or weapons capability."
+}
