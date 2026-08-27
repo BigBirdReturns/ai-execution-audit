@@ -52,7 +52,7 @@ jobs:
           if 'validateObservation(' in text:
               raise SystemExit('old observation-validator name remains')
 
-          recursive_line = '  validatePublicPhysicalFlightDisposition(disposition);\n'
+          recursive_line = '  validatePublicPhysicalFlightDisposition(disposition, run);\n'
           if text.count(recursive_line) != 1:
               raise SystemExit(f'recursive builder-validation call count differs: {text.count(recursive_line)}')
           text = text.replace(recursive_line, '', 1)
