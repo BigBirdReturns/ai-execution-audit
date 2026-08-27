@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "mating_surface/anchor_node/fabric_execution.mjs"
+      - "mating_surface/anchor_node/fabric_*v1_1.mjs"
       - "mating_surface/anchor_node/fabric_execution_support.mjs"
       - "mating_surface/anchor_node/fabric_completion.mjs"
       - "mating_surface/anchor_node/fabric_run.mjs"
@@ -14,12 +15,14 @@ on:
       - "mating_surface/anchor_node/fixtures/mp01-invented-seat-registry.json"
       - "mating_surface/anchor_node/fixtures/mp01-observation-package.json"
       - "mating_surface/anchor_node/conformance/fabric_execution*.test.mjs"
+      - "mating_surface/anchor_node/conformance/fabric_terminal_hardening.test.mjs"
       - ".github/workflows/spectra-anchor-node-fabric-terminal-01.yml"
   push:
     branches:
       - main
     paths:
       - "mating_surface/anchor_node/fabric_execution.mjs"
+      - "mating_surface/anchor_node/fabric_*v1_1.mjs"
       - "mating_surface/anchor_node/fabric_execution_support.mjs"
       - "mating_surface/anchor_node/fabric_completion.mjs"
       - "mating_surface/anchor_node/fabric_run.mjs"
@@ -30,6 +33,7 @@ on:
       - "mating_surface/anchor_node/fixtures/mp01-invented-seat-registry.json"
       - "mating_surface/anchor_node/fixtures/mp01-observation-package.json"
       - "mating_surface/anchor_node/conformance/fabric_execution*.test.mjs"
+      - "mating_surface/anchor_node/conformance/fabric_terminal_hardening.test.mjs"
       - ".github/workflows/spectra-anchor-node-fabric-terminal-01.yml"
   workflow_dispatch:
 
@@ -57,34 +61,28 @@ jobs:
 
       - name: Refuse network, credential, and private-identifier surfaces
         run: |
-          if grep -nE "node:(http|https|net|tls)|(^|[^A-Za-z])fetch[[:space:]]*\(" \
-            mating_surface/anchor_node/fabric_execution.mjs \
-            mating_surface/anchor_node/fabric_execution_support.mjs \
-            mating_surface/anchor_node/fabric_completion.mjs \
-            mating_surface/anchor_node/fabric_run.mjs \
-            mating_surface/anchor_node/fabric_execution_pack.mjs; then
+          runtime_files=(
+            mating_surface/anchor_node/fabric_execution.mjs
+            mating_surface/anchor_node/fabric_execution_support.mjs
+            mating_surface/anchor_node/fabric_completion.mjs
+            mating_surface/anchor_node/fabric_run.mjs
+            mating_surface/anchor_node/fabric_execution_pack.mjs
+            mating_surface/anchor_node/fabric_*v1_1.mjs
+          )
+          test_files=(
+            mating_surface/anchor_node/conformance/fabric_execution.test.mjs
+            mating_surface/anchor_node/conformance/fabric_execution_pack.test.mjs
+            mating_surface/anchor_node/conformance/fabric_terminal_hardening.test.mjs
+          )
+          if grep -nE "node:(http|https|net|tls)|(^|[^A-Za-z])fetch[[:space:]]*\(" "${runtime_files[@]}"; then
             echo "::error::Fabric terminal runtime contains a network surface"
             exit 1
           fi
-          if grep -R -nE "AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:[[:space:]]*Bearer" \
-            mating_surface/anchor_node/fabric_execution.mjs \
-            mating_surface/anchor_node/fabric_execution_support.mjs \
-            mating_surface/anchor_node/fabric_completion.mjs \
-            mating_surface/anchor_node/fabric_run.mjs \
-            mating_surface/anchor_node/fabric_execution_pack.mjs \
-            mating_surface/anchor_node/conformance/fabric_execution.test.mjs \
-            mating_surface/anchor_node/conformance/fabric_execution_pack.test.mjs; then
+          if grep -nE "AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:[[:space:]]*Bearer" "${runtime_files[@]}" "${test_files[@]}"; then
             echo "::error::Fabric terminal surface contains credential material"
             exit 1
           fi
-          if grep -R -nE "OCTO-(W|L)[0-9]+|([A-Za-z]:\\\\)|/home/|ssh://|https?://" \
-            mating_surface/anchor_node/fabric_execution.mjs \
-            mating_surface/anchor_node/fabric_execution_support.mjs \
-            mating_surface/anchor_node/fabric_completion.mjs \
-            mating_surface/anchor_node/fabric_run.mjs \
-            mating_surface/anchor_node/fabric_execution_pack.mjs \
-            mating_surface/anchor_node/conformance/fabric_execution.test.mjs \
-            mating_surface/anchor_node/conformance/fabric_execution_pack.test.mjs; then
+          if grep -nE "OCTO-(W|L)[0-9]+|([A-Za-z]:\\\\)|/home/|ssh://|https?://" "${runtime_files[@]}" "${test_files[@]}"; then
             echo "::error::Fabric terminal public surface contains private or endpoint-shaped material"
             exit 1
           fi
@@ -96,8 +94,12 @@ jobs:
           node --check mating_surface/anchor_node/fabric_run.mjs
           node --check mating_surface/anchor_node/fabric_execution.mjs
           node --check mating_surface/anchor_node/fabric_execution_pack.mjs
+          for file in mating_surface/anchor_node/fabric_*v1_1.mjs; do
+            node --check "$file"
+          done
           node --check mating_surface/anchor_node/conformance/fabric_execution.test.mjs
           node --check mating_surface/anchor_node/conformance/fabric_execution_pack.test.mjs
+          node --check mating_surface/anchor_node/conformance/fabric_terminal_hardening.test.mjs
 
       - name: Run the closed terminal and cold-successor adversarial suites
         run: |
@@ -105,6 +107,7 @@ jobs:
           node --test \
             mating_surface/anchor_node/conformance/fabric_execution.test.mjs \
             mating_surface/anchor_node/conformance/fabric_execution_pack.test.mjs \
+            mating_surface/anchor_node/conformance/fabric_terminal_hardening.test.mjs \
             | tee qualification/anchor-node-fabric-terminal-01/test-output.txt
 
       - name: Build the admitted MP01 and routing predecessors twice
@@ -175,7 +178,7 @@ jobs:
             qualification/anchor-node-fabric-terminal-01/review-a.html \
             qualification/anchor-node-fabric-terminal-01/review-b.html
 
-      - name: Build and verify two source-pinned terminal cold-successor packs
+      - name: Build and verify two checkout-bound terminal cold-successor packs
         run: |
           node mating_surface/anchor_node/fabric_execution_pack.mjs build \
             qualification/anchor-node-fabric-terminal-01/cold-successor-pack-a \
