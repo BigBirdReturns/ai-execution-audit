@@ -36,6 +36,7 @@ jobs:
           from pathlib import Path
           import base64
           import binascii
+          import hashlib
           import json
           import struct
           import zlib
@@ -88,75 +89,16 @@ jobs:
               destination.write_bytes(source)
               recovered.append(name)
 
-          module = '''from __future__ import annotations
-
-import argparse
-import json
-from typing import Any, Sequence
-
-RECOVERY_REQUIRED = True
-ATTESTATION_MODES = {"synthetic_simulation", "private_local_attested"}
-
-
-class OfflineCarrierRecoveryHold(RuntimeError):
-    pass
-
-
-def validate_two_cell_verification(value: Any) -> Any:
-    raise OfflineCarrierRecoveryHold("offline carrier implementation remains reconstruction-required")
-
-
-def validate_successor_verification(value: Any) -> Any:
-    raise OfflineCarrierRecoveryHold("offline carrier implementation remains reconstruction-required")
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="STC MARY offline carrier reconstruction coordinate")
-    parser.add_argument("command", nargs="?", default="status")
-    return parser
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    print(json.dumps({"status": "HOLD", "command": args.command, "recoveryRequired": True, "authority": "none"}, indent=2))
-    return 2
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-'''
-          module_path = Path(names[7])
-          module_path.write_text(module, encoding='utf-8', newline='\n')
-
-          witness = '''from __future__ import annotations
-
-import sys
-import unittest
-from pathlib import Path
-
-ANCHOR = Path(__file__).resolve().parent.parent
-if str(ANCHOR) not in sys.path:
-    sys.path.insert(0, str(ANCHOR))
-
-import stc_mary_offline_carrier as carrier
-
-
-class RecoveryHoldWitness(unittest.TestCase):
-    def test_reconstruction_is_explicit_and_non_authoritative(self):
-        self.assertTrue(carrier.RECOVERY_REQUIRED)
-        self.assertEqual(carrier.ATTESTATION_MODES, {"synthetic_simulation", "private_local_attested"})
-        with self.assertRaises(carrier.OfflineCarrierRecoveryHold):
-            carrier.validate_two_cell_verification({})
-        with self.assertRaises(carrier.OfflineCarrierRecoveryHold):
-            carrier.validate_successor_verification({})
-
-
-if __name__ == "__main__":
-    unittest.main()
-'''
-          witness_path = Path(names[2])
-          witness_path.parent.mkdir(parents=True, exist_ok=True)
-          witness_path.write_text(witness, encoding='utf-8', newline='\n')
+          module_b64 = 'ZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGFyZ3BhcnNlCmltcG9ydCBqc29uCmZyb20gdHlwaW5nIGltcG9ydCBBbnksIFNlcXVlbmNlCgpSRUNPVkVSWV9SRVFVSVJFRCA9IFRydWUKQVRURVNUQVRJT05fTU9ERVMgPSB7InN5bnRoZXRpY19zaW11bGF0aW9uIiwgInByaXZhdGVfbG9jYWxfYXR0ZXN0ZWQifQoKCmNsYXNzIE9mZmxpbmVDYXJyaWVyUmVjb3ZlcnlIb2xkKFJ1bnRpbWVFcnJvcik6CiAgICBwYXNzCgoKZGVmIHZhbGlkYXRlX3R3b19jZWxsX3ZlcmlmaWNhdGlvbih2YWx1ZTogQW55KSAtPiBBbnk6CiAgICByYWlzZSBPZmZsaW5lQ2FycmllclJlY292ZXJ5SG9sZCgib2ZmbGluZSBjYXJyaWVyIGltcGxlbWVudGF0aW9uIHJlbWFpbnMgcmVjb25zdHJ1Y3Rpb24tcmVxdWlyZWQiKQoKCmRlZiB2YWxpZGF0ZV9zdWNjZXNzb3JfdmVyaWZpY2F0aW9uKHZhbHVlOiBBbnkpIC0+IEFueToKICAgIHJhaXNlIE9mZmxpbmVDYXJyaWVyUmVjb3ZlcnlIb2xkKCJvZmZsaW5lIGNhcnJpZXIgaW1wbGVtZW50YXRpb24gcmVtYWlucyByZWNvbnN0cnVjdGlvbi1yZXF1aXJlZCIpCgoKZGVmIGJ1aWxkX3BhcnNlcigpIC0+IGFyZ3BhcnNlLkFyZ3VtZW50UGFyc2VyOgogICAgcGFyc2VyID0gYXJncGFyc2UuQXJndW1lbnRQYXJzZXIoZGVzY3JpcHRpb249IlNUQyBNQVJZIG9mZmxpbmUgY2FycmllciByZWNvbnN0cnVjdGlvbiBjb29yZGluYXRlIikKICAgIHBhcnNlci5hZGRfYXJndW1lbnQoImNvbW1hbmQiLCBuYXJncz0iPyIsIGRlZmF1bHQ9InN0YXR1cyIpCiAgICByZXR1cm4gcGFyc2VyCgoKZGVmIG1haW4oYXJndjogU2VxdWVuY2Vbc3RyXSB8IE5vbmUgPSBOb25lKSAtPiBpbnQ6CiAgICBhcmdzID0gYnVpbGRfcGFyc2VyKCkucGFyc2VfYXJncyhhcmd2KQogICAgcHJpbnQoanNvbi5kdW1wcyh7InN0YXR1cyI6ICJIT0xEIiwgImNvbW1hbmQiOiBhcmdzLmNvbW1hbmQsICJyZWNvdmVyeVJlcXVpcmVkIjogVHJ1ZSwgImF1dGhvcml0eSI6ICJub25lIn0sIGluZGVudD0yKSkKICAgIHJldHVybiAyCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHJhaXNlIFN5c3RlbUV4aXQobWFpbigpKQo='
+          witness_b64 = 'ZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IHN5cwppbXBvcnQgdW5pdHRlc3QKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpBTkNIT1IgPSBQYXRoKF9fZmlsZV9fKS5yZXNvbHZlKCkucGFyZW50LnBhcmVudAppZiBzdHIoQU5DSE9SKSBub3QgaW4gc3lzLnBhdGg6CiAgICBzeXMucGF0aC5pbnNlcnQoMCwgc3RyKEFOQ0hPUikpCgppbXBvcnQgc3RjX21hcnlfb2ZmbGluZV9jYXJyaWVyIGFzIGNhcnJpZXIKCgpjbGFzcyBSZWNvdmVyeUhvbGRXaXRuZXNzKHVuaXR0ZXN0LlRlc3RDYXNlKToKICAgIGRlZiB0ZXN0X3JlY29uc3RydWN0aW9uX2lzX2V4cGxpY2l0X2FuZF9ub25fYXV0aG9yaXRhdGl2ZShzZWxmKToKICAgICAgICBzZWxmLmFzc2VydFRydWUoY2Fycmllci5SRUNPVkVSWV9SRVFVSVJFRCkKICAgICAgICBzZWxmLmFzc2VydEVxdWFsKGNhcnJpZXIuQVRURVNUQVRJT05fTU9ERVMsIHsic3ludGhldGljX3NpbXVsYXRpb24iLCAicHJpdmF0ZV9sb2NhbF9hdHRlc3RlZCJ9KQogICAgICAgIHdpdGggc2VsZi5hc3NlcnRSYWlzZXMoY2Fycmllci5PZmZsaW5lQ2FycmllclJlY292ZXJ5SG9sZCk6CiAgICAgICAgICAgIGNhcnJpZXIudmFsaWRhdGVfdHdvX2NlbxfdmVyaWZpY2F0aW9uKHt9KQogICAgICAgIHdpdGggc2VsZi5hc3NlcnRSYWlzZXMoY2Fycmllci5PZmZsaW5lQ2FycmllclJlY292ZXJ5SG9sZCk6CiAgICAgICAgICAgIGNhcnJpZXIudmFsaWRhdGVfc3VjY2Vzc29yX3ZlcmlmaWNhdGlvbih7fSkKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgdW5pdHRlc3QubWFpbigpCg=='
+          module = base64.b64decode(module_b64, validate=True)
+          witness = base64.b64decode(witness_b64, validate=True)
+          if hashlib.sha256(module).hexdigest() != '8d582c55829709c121ec6574b11349819cfc0a2d29ff37079883cdba005e3ef9':
+              raise SystemExit('module recovery seam identity differs')
+          if hashlib.sha256(witness).hexdigest() != '21a57dc31f754a29c0cf3f39b998e6d2ce46794528a8d848a9362331769ea4cc':
+              raise SystemExit('witness recovery seam identity differs')
+          Path(names[7]).write_bytes(module)
+          Path(names[2]).write_bytes(witness)
 
           print(json.dumps({
               'status': 'SOURCE_RECOVERED_FOR_RECONSTRUCTION',
