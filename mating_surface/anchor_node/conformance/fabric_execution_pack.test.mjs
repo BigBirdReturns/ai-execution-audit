@@ -1,21 +1,30 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   FabricExecutionPackError,
   buildFabricExecutionColdSuccessorPack,
+  preparePackOutputDirectory,
+  readCheckoutCommit,
   verifyFabricExecutionColdSuccessorPack,
+  verifySourceClosure,
 } from '../fabric_execution_pack.mjs';
 
-const SOURCE_COMMIT = '1'.repeat(40);
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPOSITORY_ROOT = resolve(HERE, '../../..');
+
+async function sourceCommit() {
+  return readCheckoutCommit();
+}
 
 async function tempPack() {
   const root = await mkdtemp(join(tmpdir(), 'mp01-fabric-terminal-pack-'));
-  const outDir = join(root, 'pack');
+  const outDir = join(root, 'cold-successor-pack-test');
   const manifest = await buildFabricExecutionColdSuccessorPack(outDir, {
-    sourceCommit: SOURCE_COMMIT,
+    sourceCommit: await sourceCommit(),
   });
   return { root, outDir, manifest };
 }
@@ -45,6 +54,8 @@ test('terminal cold-successor pack builds and verifies the complete fabric campa
     assert.equal(verification.candidateCount, 6);
     assert.equal(verification.refusalCount, 5);
     assert.equal(verification.sixQuestionStatus, 'complete_for_synthetic_terminal_qualification');
+    assert.equal(verification.checkoutCommitBound, true);
+    assert.equal(verification.sourceClosureVerified, true);
     assert.equal(verification.deterministicReconstruction, true);
     assert.equal(verification.authority, 'none');
   });
@@ -52,11 +63,13 @@ test('terminal cold-successor pack builds and verifies the complete fabric campa
 
 test('pack manifest binds the complete declared file denominator', async () => {
   await withPack(async ({ outDir, manifest }) => {
-    assert.equal(manifest.fileCount, 11);
-    assert.equal(manifest.files.length, 11);
+    assert.equal(manifest.fileCount, 13);
+    assert.equal(manifest.files.length, 13);
     assert.deepEqual(
       manifest.files.map((row) => row.path),
       [
+        'PACK-ROOT.json',
+        'source-closure.json',
         'fabric-profile.json',
         'invented-seat-registry.json',
         'synthetic-observations.json',
@@ -70,6 +83,7 @@ test('pack manifest binds the complete declared file denominator', async () => {
         'six-question-answer.json',
       ],
     );
+    assert.match(manifest.sourceClosureId, /^estatefabricterminalsourceclosure1_[0-9a-f]{64}$/);
     await verifyFabricExecutionColdSuccessorPack(outDir);
   });
 });
@@ -92,16 +106,17 @@ test('six-question answer covers run, seat, qualification, proof, refusals, and 
   });
 });
 
-test('repeated source-pinned pack builds are byte-identical', async () => {
+test('repeated checkout-bound pack builds are byte-identical', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mp01-fabric-terminal-pack-repeat-'));
   try {
-    const firstDir = join(root, 'a');
-    const secondDir = join(root, 'b');
+    const firstDir = join(root, 'cold-successor-pack-a');
+    const secondDir = join(root, 'cold-successor-pack-b');
+    const commit = await sourceCommit();
     const first = await buildFabricExecutionColdSuccessorPack(firstDir, {
-      sourceCommit: SOURCE_COMMIT,
+      sourceCommit: commit,
     });
     const second = await buildFabricExecutionColdSuccessorPack(secondDir, {
-      sourceCommit: SOURCE_COMMIT,
+      sourceCommit: commit,
     });
     assert.deepEqual(first, second);
     for (const row of first.files) {
@@ -115,6 +130,20 @@ test('repeated source-pinned pack builds are byte-identical', async () => {
       await readFile(join(firstDir, 'manifest.json')),
       await readFile(join(secondDir, 'manifest.json')),
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('pack directory can be rebuilt only after its exact generator marker is verified', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mp01-fabric-terminal-pack-rebuild-'));
+  try {
+    const outDir = join(root, 'cold-successor-pack-rebuild');
+    const commit = await sourceCommit();
+    const first = await buildFabricExecutionColdSuccessorPack(outDir, { sourceCommit: commit });
+    const second = await buildFabricExecutionColdSuccessorPack(outDir, { sourceCommit: commit });
+    assert.deepEqual(first, second);
+    await verifyFabricExecutionColdSuccessorPack(outDir);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -167,10 +196,87 @@ test('source commit must be an exact full hash', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mp01-fabric-terminal-pack-source-'));
   try {
     await assertRejectCode(
-      buildFabricExecutionColdSuccessorPack(join(root, 'pack'), {
+      buildFabricExecutionColdSuccessorPack(join(root, 'cold-successor-pack-invalid'), {
         sourceCommit: 'abc123',
       }),
       'SOURCE_COMMIT_INVALID',
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('syntactically valid but false source commit is refused', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mp01-fabric-terminal-pack-source-mismatch-'));
+  try {
+    const actual = await sourceCommit();
+    const falseCommit = actual === '0'.repeat(40) ? '1'.repeat(40) : '0'.repeat(40);
+    await assertRejectCode(
+      buildFabricExecutionColdSuccessorPack(join(root, 'cold-successor-pack-mismatch'), {
+        sourceCommit: falseCommit,
+      }),
+      'SOURCE_COMMIT_MISMATCH',
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('source closure binds every declared generator and input byte', async () => {
+  await withPack(async ({ outDir, manifest }) => {
+    const closure = JSON.parse(await readFile(join(outDir, 'source-closure.json'), 'utf8'));
+    assert.equal(closure.sourceCommit, await sourceCommit());
+    assert.equal(closure.sourceClosureId, manifest.sourceClosureId);
+    assert.equal(closure.fileCount, closure.files.length);
+    assert.equal(closure.files.length >= 15, true);
+    await verifySourceClosure(closure);
+    closure.files[0].sha256 = '0'.repeat(64);
+    await assertRejectCode(verifySourceClosure(closure), 'SOURCE_CLOSURE_MISMATCH');
+  });
+});
+
+test('recursive deletion targets are refused before output preparation', async () => {
+  const commit = await sourceCommit();
+  for (const dangerous of [
+    REPOSITORY_ROOT,
+    process.cwd(),
+    resolve(HERE, '..'),
+    resolve(HERE, '../fixtures'),
+  ]) {
+    await assertRejectCode(
+      buildFabricExecutionColdSuccessorPack(dangerous, { sourceCommit: commit }),
+      'OUTPUT_DIRECTORY_UNSAFE',
+    );
+  }
+});
+
+test('non-empty unmarked output directory is refused without deletion', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mp01-fabric-terminal-pack-unmarked-'));
+  try {
+    const outDir = join(root, 'cold-successor-pack-unmarked');
+    await mkdir(outDir);
+    const witness = join(outDir, 'do-not-delete.txt');
+    await writeFile(witness, 'preserve me', 'utf8');
+    await assertRejectCode(
+      preparePackOutputDirectory(outDir),
+      'OUTPUT_DIRECTORY_NOT_DEDICATED',
+    );
+    assert.equal(await readFile(witness, 'utf8'), 'preserve me');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('safe pack basename and pre-existing parent are mandatory', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mp01-fabric-terminal-pack-shape-'));
+  try {
+    await assertRejectCode(
+      preparePackOutputDirectory(join(root, 'pack')),
+      'OUTPUT_DIRECTORY_UNSAFE',
+    );
+    await assertRejectCode(
+      preparePackOutputDirectory(join(root, 'missing-parent', 'cold-successor-pack-x')),
+      'OUTPUT_DIRECTORY_UNSAFE',
     );
   } finally {
     await rm(root, { recursive: true, force: true });
