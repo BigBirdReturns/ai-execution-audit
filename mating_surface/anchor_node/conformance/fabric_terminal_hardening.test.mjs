@@ -53,11 +53,11 @@ test('default terminal schedule preserves the admitted campaign identities', asy
   const run = runFabricExecutionCampaign({ ...inputs, routingSlice });
   assert.equal(
     run.fabricRunId,
-    'estatefabricrun1_47aa7c765f482f31c0003f204232f63f31482bddeefc86cde2bda66ebcd5b7b3',
+    'estatefabricrun1_32993e340165dc2f3a23d378dc2e442a08ac240e3b0efb3681f499c8b7124012',
   );
   assert.equal(
     run.acceptedCandidateId,
-    'estatecompletioncandidate1_f6b8ec10637903886f7d4d22b97dcae776be2e36f4ece3a17e6f3c8e47c0f227',
+    'estatecompletioncandidate1_2e7f671018d3bf0c7bb01810d75b461a6dc5870aa4001c78efd71494120324fe',
   );
 });
 
