@@ -1,0 +1,113 @@
+{
+  "schema": "stc-mary-private-flight-packet-profile/1",
+  "profileId": "stc-mary/private-flight-packet/0.1",
+  "physicalFlightProfileId": "spectra-anchor-node/stc-mary-physical-flight/0.1",
+  "status": "candidate_design_only",
+  "packetDirectoryPattern": "^stc-mary-private-flight-[a-z0-9][a-z0-9._-]*$",
+  "sealedDirectoryPattern": "^stc-mary-private-flight-sealed-[a-z0-9][a-z0-9._-]*$",
+  "repositoryOutputAllowed": false,
+  "networkRequired": false,
+  "externalServiceCalls": 0,
+  "operationalCredentials": 0,
+  "stageSequence": [
+    "VERIFY_INPUTS",
+    "MOUNT_PERSONAL_FLOOR",
+    "BIND_GRACE",
+    "RUN_PERSONAL_FLOOR_BASELINE",
+    "ATTACH_HALO3",
+    "RUN_HALO3_ACCELERATED",
+    "REMOVE_HALO3",
+    "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+    "REMOVE_LATTICE",
+    "VERIFY_LOCAL_CONTINUITY",
+    "PARTITION_TWO_CELLS",
+    "RESTORE_LINK_HOLD_CONFLICT",
+    "REPLACE_HEAD",
+    "REBUILD_PROJECTIONS",
+    "COLD_SUCCESSOR_VERIFY",
+    "SEAL_PRIVATE_EVIDENCE"
+  ],
+  "stages": {
+    "VERIFY_INPUTS": {
+      "operatorAction": "Verify the admitted cartridge, runtime, model or executable, verifier, local feed, storage substrate, residency evidence, power evidence, and exact source-object digests before any execution.",
+      "requiredEvidence": ["input inventory receipt", "source digest receipt"],
+      "controlQuestion": "Do the local inputs match the exact cartridge and source identities declared for this flight?"
+    },
+    "MOUNT_PERSONAL_FLOOR": {
+      "operatorAction": "Mount the resident personal-floor execution seat without HALO3 and confirm that the mission can close on this floor alone.",
+      "requiredEvidence": ["resident seat inventory", "mount and storage receipt"],
+      "controlQuestion": "Can the personal floor hold the mission without any optional accelerator or external membrane?"
+    },
+    "BIND_GRACE": {
+      "operatorAction": "Bind the named human operator GRACE and record that hardware, model, scheduler, and verifier remain non-authoritative.",
+      "requiredEvidence": ["operator statement", "authority-boundary receipt"],
+      "controlQuestion": "Is the human bind explicit, current, and distinct from every machine identity?"
+    },
+    "RUN_PERSONAL_FLOOR_BASELINE": {
+      "operatorAction": "Run the exact mission workload on the personal floor, retain stdout, stderr, timing, output bytes, and independent verifier result.",
+      "requiredEvidence": ["baseline command receipt", "baseline output", "verifier receipt"],
+      "controlQuestion": "Did the resident floor produce the accepted output before HALO3 was attached?"
+    },
+    "ATTACH_HALO3": {
+      "operatorAction": "Attach HALO3 as an optional accelerator and capture the before and after device, runtime, residency, and power evidence.",
+      "requiredEvidence": ["device attachment receipt", "runtime enumeration", "power and residency receipt"],
+      "controlQuestion": "Was HALO3 added as optional capacity without changing canonical state or authority?"
+    },
+    "RUN_HALO3_ACCELERATED": {
+      "operatorAction": "Run the same mission workload through HALO3, preserve the same output predicate, and record comparable throughput units.",
+      "requiredEvidence": ["accelerated command receipt", "accelerated output", "verifier receipt", "performance comparison"],
+      "controlQuestion": "Did HALO3 accelerate the same accepted output rather than substitute a different mission result?"
+    },
+    "REMOVE_HALO3": {
+      "operatorAction": "Remove or make HALO3 inaccessible and capture explicit removal evidence without declaring the resident floor failed.",
+      "requiredEvidence": ["device removal receipt", "post-removal runtime enumeration"],
+      "controlQuestion": "Is HALO3 demonstrably absent or inaccessible while the personal floor remains intact?"
+    },
+    "VERIFY_PERSONAL_FLOOR_CONTINUITY": {
+      "operatorAction": "Re-run the accepted workload on the personal floor after HALO3 removal and compare its output digest to the baseline.",
+      "requiredEvidence": ["post-removal command receipt", "post-removal output", "digest comparison"],
+      "controlQuestion": "Does removal reduce optional capacity only, with the resident floor still producing the accepted output?"
+    },
+    "REMOVE_LATTICE": {
+      "operatorAction": "Remove the optional Lattice-shaped interoperability membrane and capture the closure of that external path.",
+      "requiredEvidence": ["membrane removal receipt", "local route inventory"],
+      "controlQuestion": "Is the external membrane absent without deleting or owning canonical local state?"
+    },
+    "VERIFY_LOCAL_CONTINUITY": {
+      "operatorAction": "Recover and inspect canonical local state with Lattice absent, retaining the reconstruction and local-access receipts.",
+      "requiredEvidence": ["canonical-state recovery receipt", "local access receipt"],
+      "controlQuestion": "Can the local cell reconstruct its state and obligations without Lattice?"
+    },
+    "PARTITION_TWO_CELLS": {
+      "operatorAction": "Create two locally valid cells under a denied link, record each cell identity and state digest, and prove that neither cell widened authority.",
+      "requiredEvidence": ["partition receipt", "left-cell state receipt", "right-cell state receipt"],
+      "controlQuestion": "Are both cells locally valid, independently bounded, and unable to manufacture broader authority?"
+    },
+    "RESTORE_LINK_HOLD_CONFLICT": {
+      "operatorAction": "Restore the link, detect the divergent state, prohibit automatic overwrite, and retain one HUMAN_REQUIRED reconciliation obligation.",
+      "requiredEvidence": ["link restoration receipt", "conflict comparison", "human-required obligation receipt"],
+      "controlQuestion": "Did reconnection preserve both divergent states and defer disposition to the named human authority?"
+    },
+    "REPLACE_HEAD": {
+      "operatorAction": "Replace the original HEAD carrier, reconstruct state by digest on the successor, and prove that no authority transferred from the old hardware.",
+      "requiredEvidence": ["old HEAD receipt", "successor HEAD receipt", "state-copy verification"],
+      "controlQuestion": "Did the successor recover the cartridge and state while remaining a replaceable carrier rather than an authority source?"
+    },
+    "REBUILD_PROJECTIONS": {
+      "operatorAction": "Destroy and rebuild graph, query, cache, and review projections from canonical receipts only.",
+      "requiredEvidence": ["projection deletion receipt", "projection rebuild receipt", "projection digest root"],
+      "controlQuestion": "Can every destructible projection be reconstructed without becoming canonical state?"
+    },
+    "COLD_SUCCESSOR_VERIFY": {
+      "operatorAction": "Start from the cold successor and verify recovery of the cartridge, authority boundary, evidence state, unresolved obligations, and next safe action.",
+      "requiredEvidence": ["cold-start receipt", "successor verification", "obligation recovery receipt"],
+      "controlQuestion": "Can a successor continue safely without relying on the previous operator's memory?"
+    },
+    "SEAL_PRIVATE_EVIDENCE": {
+      "operatorAction": "Hash every local evidence body, emit digest-only descriptors, seal the private run, and generate a body-free public disposition.",
+      "requiredEvidence": ["evidence manifest", "sealed run", "body-free public disposition"],
+      "controlQuestion": "Are all private bodies still local while the public disposition contains only content identities, counts, and claim boundaries?"
+    }
+  },
+  "claimBoundary": "Local packet contract for a private STC and MARY physical-flight self-attestation. It creates no physical result by itself and grants no physical Estate, representative-operator, field-network, operational-C2, production-Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority."
+}

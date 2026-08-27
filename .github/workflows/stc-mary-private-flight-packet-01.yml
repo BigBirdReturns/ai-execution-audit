@@ -1,0 +1,111 @@
+name: STC MARY Private Flight Packet 01
+
+on:
+  pull_request:
+    paths:
+      - "mating_surface/anchor_node/stc-mary-private-flight-packet-profile-01.json"
+      - "mating_surface/anchor_node/stc_mary_private_flight_packet.mjs"
+      - "mating_surface/anchor_node/conformance/stc_mary_private_flight_packet.test.mjs"
+      - "mating_surface/anchor_node/stc-mary-physical-flight-profile-01.json"
+      - "mating_surface/anchor_node/stc_mary_physical_flight.mjs"
+      - ".github/workflows/stc-mary-private-flight-packet-01.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mating_surface/anchor_node/stc-mary-private-flight-packet-profile-01.json"
+      - "mating_surface/anchor_node/stc_mary_private_flight_packet.mjs"
+      - "mating_surface/anchor_node/conformance/stc_mary_private_flight_packet.test.mjs"
+      - "mating_surface/anchor_node/stc-mary-physical-flight-profile-01.json"
+      - "mating_surface/anchor_node/stc_mary_physical_flight.mjs"
+      - ".github/workflows/stc-mary-private-flight-packet-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stc-mary-private-flight-packet-01-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-private-flight-packet-01:
+    runs-on: windows-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Refuse network and credential surfaces
+        shell: pwsh
+        run: |
+          $files = @(
+            "mating_surface/anchor_node/stc-mary-private-flight-packet-profile-01.json",
+            "mating_surface/anchor_node/stc_mary_private_flight_packet.mjs",
+            "mating_surface/anchor_node/conformance/stc_mary_private_flight_packet.test.mjs"
+          )
+          if (Select-String -Path "mating_surface/anchor_node/stc_mary_private_flight_packet.mjs" -Pattern 'node:(http|https|net|tls)|(^|[^A-Za-z])fetch\s*\(') {
+            throw "Private-flight packet runtime contains a network surface"
+          }
+          if (Select-String -Path $files -Pattern 'AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer') {
+            throw "Private-flight packet surface contains credential material"
+          }
+
+      - name: Check exact packet syntax
+        shell: pwsh
+        run: |
+          node --check mating_surface/anchor_node/stc_mary_private_flight_packet.mjs
+          node --check mating_surface/anchor_node/conformance/stc_mary_private_flight_packet.test.mjs
+
+      - name: Run the closed packet adversarial suite
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force qualification/stc-mary-private-flight-packet-01 | Out-Null
+          node --test mating_surface/anchor_node/conformance/stc_mary_private_flight_packet.test.mjs 2>&1 |
+            Tee-Object qualification/stc-mary-private-flight-packet-01/test-output.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Prove the CLI creates only an outside-repository local packet
+        shell: pwsh
+        run: |
+          $packet = Join-Path $env:RUNNER_TEMP "stc-mary-private-flight-ci"
+          node mating_surface/anchor_node/stc_mary_private_flight_packet.mjs init `
+            $packet `
+            "PRIVATE-FLIGHT-CI-01" |
+            Tee-Object qualification/stc-mary-private-flight-packet-01/init-receipt.json
+          node mating_surface/anchor_node/stc_mary_private_flight_packet.mjs status `
+            $packet |
+            Tee-Object qualification/stc-mary-private-flight-packet-01/status-receipt.json
+          $state = Get-Content -Raw (Join-Path $packet "packet-state.json") | ConvertFrom-Json
+          if ($state.stageDenominator.Count -ne 16) { throw "Packet stage denominator differs" }
+          if ($state.nextStage -ne "VERIFY_INPUTS") { throw "Packet next stage differs" }
+          if ($state.sealed -ne $false) { throw "Fresh packet is already sealed" }
+
+      - name: Prove repository-local private output fails closed
+        shell: pwsh
+        run: |
+          $previousPreference = $ErrorActionPreference
+          $ErrorActionPreference = 'Continue'
+          node mating_surface/anchor_node/stc_mary_private_flight_packet.mjs init `
+            "stc-mary-private-flight-unsafe" `
+            "PRIVATE-FLIGHT-CI-UNSAFE"
+          $unsafeExit = $LASTEXITCODE
+          $ErrorActionPreference = $previousPreference
+          if ($unsafeExit -eq 0) { throw "Repository-local private packet unexpectedly initialized" }
+          if (Test-Path "stc-mary-private-flight-unsafe") { throw "Unsafe packet path was created" }
+          $global:LASTEXITCODE = 0
+
+      - name: Preserve packet qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stc-mary-private-flight-packet-01-${{ github.sha }}
+          path: qualification/stc-mary-private-flight-packet-01/
+          if-no-files-found: error
+          retention-days: 14
