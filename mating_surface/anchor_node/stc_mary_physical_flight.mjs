@@ -681,7 +681,7 @@ function createSyntheticEvidence(stage, observation) {
   });
 }
 
-function validateObservation(stage, observation) {
+export function validatePhysicalFlightObservation(stage, observation) {
   requireCondition(isRecord(observation), 'PHYSICAL_FLIGHT_OBSERVATION_INVALID', `${stage} observation must be an object`);
   switch (stage) {
     case 'VERIFY_INPUTS':
@@ -797,7 +797,7 @@ function createStageReceipt({
   assertSha256(canonicalMissionStateIdBefore, 'PHYSICAL_FLIGHT_STAGE_INVALID', 'canonical state before');
   assertSha256(canonicalMissionStateIdAfter, 'PHYSICAL_FLIGHT_STAGE_INVALID', 'canonical state after');
   requireCondition(canonicalMissionStateIdBefore === canonicalMissionStateIdAfter, 'PHYSICAL_FLIGHT_STAGE_STATE_MUTATION', 'stage mutates canonical mission state');
-  validateObservation(stage, observation);
+  validatePhysicalFlightObservation(stage, observation);
   requireCondition(Array.isArray(evidence) && evidence.length > 0 && evidence.length <= MAX_EVIDENCE_PER_STAGE, 'PHYSICAL_FLIGHT_STAGE_EVIDENCE_INVALID', 'stage evidence denominator differs');
   for (const row of evidence) validatePhysicalFlightEvidenceDescriptor(row, { stage, flightMode: seed.flightMode });
   uniqueStrings(unresolvedObligationIds, 'PHYSICAL_FLIGHT_STAGE_INVALID', 'unresolved obligations', true);
@@ -832,7 +832,7 @@ export function validatePhysicalFlightStageReceipt(receipt, { seed, sequence, pr
   assertSha256(receipt.canonicalMissionStateIdBefore, 'PHYSICAL_FLIGHT_STAGE_INVALID', 'canonical state before');
   assertSha256(receipt.canonicalMissionStateIdAfter, 'PHYSICAL_FLIGHT_STAGE_INVALID', 'canonical state after');
   requireCondition(receipt.canonicalMissionStateIdBefore === receipt.canonicalMissionStateIdAfter, 'PHYSICAL_FLIGHT_STAGE_STATE_MUTATION', 'stage mutates canonical mission state');
-  validateObservation(receipt.stage, receipt.observation);
+  validatePhysicalFlightObservation(receipt.stage, receipt.observation);
   requireCondition(Array.isArray(receipt.evidence) && receipt.evidence.length > 0 && receipt.evidence.length <= MAX_EVIDENCE_PER_STAGE, 'PHYSICAL_FLIGHT_STAGE_EVIDENCE_INVALID', 'stage evidence denominator differs');
   for (const row of receipt.evidence) validatePhysicalFlightEvidenceDescriptor(row, { stage: receipt.stage, flightMode: seed?.flightMode });
   uniqueStrings(receipt.unresolvedObligationIds, 'PHYSICAL_FLIGHT_STAGE_INVALID', 'unresolved obligations', true);
@@ -1301,7 +1301,7 @@ export function validatePrivatePhysicalFlightRequest(request, profile) {
     assertSha256(row.canonicalMissionStateIdBefore, 'PRIVATE_PHYSICAL_FLIGHT_REQUEST_INVALID', 'canonical state before');
     assertSha256(row.canonicalMissionStateIdAfter, 'PRIVATE_PHYSICAL_FLIGHT_REQUEST_INVALID', 'canonical state after');
     requireCondition(row.canonicalMissionStateIdBefore === request.canonicalMissionStateDigest && row.canonicalMissionStateIdAfter === request.canonicalMissionStateDigest, 'PRIVATE_PHYSICAL_FLIGHT_REQUEST_STATE_MUTATION', 'stage attestation changes canonical mission state');
-    validateObservation(row.stage, row.observation);
+    validatePhysicalFlightObservation(row.stage, row.observation);
     requireCondition(Array.isArray(row.evidenceBodies) && row.evidenceBodies.length >= profile.evidencePolicy.minimumEvidenceBodiesPerPhysicalStage && row.evidenceBodies.length <= MAX_EVIDENCE_PER_STAGE, 'PRIVATE_PHYSICAL_FLIGHT_REQUEST_EVIDENCE_INVALID', 'stage evidence-body denominator differs');
     for (const evidenceBody of row.evidenceBodies) {
       exactKeys(evidenceBody, KEYS.evidenceBody, 'PRIVATE_PHYSICAL_FLIGHT_REQUEST_EVIDENCE_INVALID', 'evidence body reference');
@@ -1437,7 +1437,6 @@ export function buildPublicPhysicalFlightDisposition(run) {
     claimBoundary: 'Body-free public disposition for one STC and MARY physical-flight receipt chain. It exposes content identities and counts only, and grants no independent physical qualification, representative-operator qualification, field networking, operational C2, production Lattice, mission authority, command authority, targeting, engagement, effector, or weapons capability.',
   };
   const disposition = { ...body, dispositionId: digest('stcmarypublicphysicalflightdisposition1', body) };
-  validatePublicPhysicalFlightDisposition(disposition, run);
   return disposition;
 }
 
