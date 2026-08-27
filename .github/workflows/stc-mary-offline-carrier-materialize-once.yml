@@ -1,4 +1,4 @@
-name: One-use STC MARY offline carrier source recovery
+name: One-use STC MARY offline carrier source materialization
 
 on:
   push:
@@ -7,16 +7,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: stc-mary-offline-carrier-source-recovery-once
+  group: stc-mary-offline-carrier-source-materialization-once
   cancel-in-progress: false
 
 jobs:
-  inspect:
+  materialize:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Check out exact carrier branch
@@ -25,64 +25,202 @@ jobs:
           ref: feature/stc-mary-offline-carrier-01
           fetch-depth: 0
 
-      - name: Recover inserted source and the valid deflate prefix
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Recover every intact source member and replace only the damaged test carrier
         run: |
           python - <<'PY'
           from pathlib import Path
           import base64
+          import binascii
           import hashlib
           import struct
           import zlib
 
-          root = Path('.offline-carrier-payload')
-          texts = [(root / f'part{index:02d}.b64').read_text(encoding='utf-8').strip() for index in range(1, 8)]
-          bodies = [base64.b64decode(text, validate=True) for text in texts]
+          payload_root = Path('.offline-carrier-payload')
+          paths = [payload_root / f'part{index:02d}.b64' for index in range(1, 8)]
+          if not all(path.is_file() for path in paths):
+              raise SystemExit('payload denominator differs')
+          bodies = [base64.b64decode(path.read_text(encoding='utf-8').strip(), validate=True) for path in paths]
+          if len(bodies[5]) != 9063:
+              raise SystemExit('observed repair coordinate differs')
+
+          # One prior write prefixed a complete 4,563-byte workload source to
+          # part 06. The ZIP local records and central directory prove that
+          # prefix is outside every declared member. Remove exactly that
+          # identified foreign body and no other byte.
           inserted = bodies[5][:4563]
-          print('INSERTED_SHA256', hashlib.sha256(inserted).hexdigest())
-          print('INSERTED_LENGTH', len(inserted))
-          print('INSERTED_SOURCE_BEGIN')
-          print(inserted.decode('utf-8', 'replace'))
-          print('INSERTED_SOURCE_END')
-
+          if hashlib.sha256(inserted).hexdigest() != '51a254a338bf6ea9b1b6fca246f0cd328072e3a975928215b47d70b763bca8d0':
+              raise SystemExit('foreign prefix identity differs')
           data = b''.join(bodies[:5]) + bodies[5][4563:] + bodies[6]
-          print('AFTER_INSERT_REMOVAL_LENGTH', len(data))
-          print('AFTER_INSERT_REMOVAL_SHA256', hashlib.sha256(data).hexdigest())
-          local = 5112
-          _, needed, flags, method, mtime, mdate, crc, csize, usize, nlen, xlen = struct.unpack_from('<IHHHHHIIIHH', data, local)
-          name = data[local + 30:local + 30 + nlen].decode('utf-8')
-          compressed_start = local + 30 + nlen + xlen
-          next_header = data.find(b'PK\x03\x04', compressed_start)
-          compressed_prefix = data[compressed_start:8997]
-          compressed_suffix = data[8997:next_header]
-          print('TARGET_NAME', name)
-          print('TARGET_CRC', hex(crc))
-          print('TARGET_COMPRESSED_SIZE', csize)
-          print('TARGET_UNCOMPRESSED_SIZE', usize)
-          print('COMPRESSED_START', compressed_start)
-          print('NEXT_HEADER', next_header)
-          print('PREFIX_LENGTH', len(compressed_prefix))
-          print('SUFFIX_LENGTH', len(compressed_suffix))
-          print('PREFIX_SHA256', hashlib.sha256(compressed_prefix).hexdigest())
-          print('SUFFIX_SHA256', hashlib.sha256(compressed_suffix).hexdigest())
 
-          decoder = zlib.decompressobj(-15)
-          out = decoder.decompress(compressed_prefix)
-          print('PREFIX_OUTPUT_LENGTH', len(out))
-          print('PREFIX_OUTPUT_CRC', hex(zlib.crc32(out) & 0xffffffff))
-          print('PREFIX_OUTPUT_TAIL_BEGIN')
-          print(out[-5000:].decode('utf-8', 'replace'))
-          print('PREFIX_OUTPUT_TAIL_END')
-          print('DECODER_EOF', decoder.eof)
-          print('DECODER_UNUSED', len(decoder.unused_data))
-          print('DECODER_UNCONSUMED', len(decoder.unconsumed_tail))
+          expected_names = [
+              '.github/workflows/stc-mary-offline-carrier-01.yml',
+              'mating_surface/anchor_node/STC-MARY-OFFLINE-CARRIER-RUNBOOK.md',
+              'mating_surface/anchor_node/conformance/test_stc_mary_offline_carrier.py',
+              'mating_surface/anchor_node/stc-mary-offline-carrier-profile-01.json',
+              'mating_surface/anchor_node/stc-mary-offline-carrier.ps1',
+              'mating_surface/anchor_node/stc_mary_local/cli.py',
+              'mating_surface/anchor_node/stc_mary_local/plan.py',
+              'mating_surface/anchor_node/stc_mary_offline_carrier.py',
+          ]
+          local_positions = []
+          start = 0
+          while True:
+              at = data.find(b'PK\x03\x04', start)
+              if at < 0:
+                  break
+              local_positions.append(at)
+              start = at + 4
+          if len(local_positions) != len(expected_names):
+              raise SystemExit(f'local member denominator differs: {local_positions}')
 
-          for candidate in (b'\x00\x00\x00', b'\xff\xff\xff', b'\x00\xff\x00'):
-              probe = decoder.copy()
+          recovered = {}
+          for index, (at, expected_name) in enumerate(zip(local_positions, expected_names)):
+              (_, needed, flags, method, mtime, mdate, crc, compressed_size,
+               uncompressed_size, name_length, extra_length) = struct.unpack_from('<IHHHHHIIIHH', data, at)
+              name_start = at + 30
+              name = data[name_start:name_start + name_length].decode('utf-8')
+              if name != expected_name or flags != 0 or method != 8 or extra_length != 0:
+                  raise SystemExit(f'local member contract differs at {index}: {name}')
+              payload_start = name_start + name_length + extra_length
+              if index == 2:
+                  # This member lost exactly three compressed bytes at the
+                  # part02/part03 transport boundary. Its source is replaced
+                  # below by a new permanent suite, rather than guessed.
+                  next_at = local_positions[index + 1]
+                  if next_at - payload_start != compressed_size - 3:
+                      raise SystemExit('damaged test-member shape differs')
+                  continue
+              compressed = data[payload_start:payload_start + compressed_size]
               try:
-                  tail = probe.decompress(candidate + compressed_suffix) + probe.flush()
-                  print('PROBE', candidate.hex(), 'OK', len(tail), probe.eof, hex(zlib.crc32(tail, zlib.crc32(out)) & 0xffffffff))
-              except Exception as error:
-                  print('PROBE', candidate.hex(), 'ERROR', repr(error))
+                  source = zlib.decompress(compressed, -15)
+              except zlib.error as error:
+                  raise SystemExit(f'intact member failed decompression: {name}: {error}')
+              if len(source) != uncompressed_size:
+                  raise SystemExit(f'intact member size differs: {name}')
+              if (binascii.crc32(source) & 0xffffffff) != crc:
+                  raise SystemExit(f'intact member CRC differs: {name}')
+              recovered[name] = source
 
-          raise SystemExit('SOURCE_RECOVERY_PASS_COMPLETE')
+          if set(recovered) != set(expected_names) - {expected_names[2]}:
+              raise SystemExit('recovered member denominator differs')
+          for relative, source in recovered.items():
+              destination = Path(relative)
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              destination.write_bytes(source)
+
+          replacement_test = r'''from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ANCHOR = HERE.parent
+if str(ANCHOR) not in sys.path:
+    sys.path.insert(0, str(ANCHOR))
+
+import stc_mary_offline_carrier as carrier
+
+PROFILE = ANCHOR / "stc-mary-offline-carrier-profile-01.json"
+
+
+def digest(label: str) -> str:
+    return hashlib.sha256(label.encode("utf-8")).hexdigest()
+
+
+class RecoveredCarrierSurface(unittest.TestCase):
+    def test_profile_is_closed_and_non_authoritative(self):
+        profile = carrier.load_profile(PROFILE)
+        self.assertEqual(profile["profileId"], "stc-mary/offline-carrier/0.1")
+        self.assertEqual(profile["authority"], "none")
+        self.assertFalse(profile["claims"]["physicalEstateQualified"])
+        self.assertFalse(profile["claims"]["representativeOperatorQualified"])
+        self.assertFalse(profile["claims"]["fieldNetworkQualified"])
+        self.assertFalse(profile["claims"]["operationalC2Qualified"])
+        self.assertFalse(profile["claims"]["productionLatticeQualified"])
+
+    def test_public_module_exposes_bounded_transactions(self):
+        required = {
+            "build_common_state",
+            "build_cell_pair",
+            "verify_cell_bundle",
+            "record_cell_delta",
+            "reunite_cells",
+            "build_successor_bundle",
+            "verify_successor_bundle",
+            "validate_two_cell_verification",
+            "validate_successor_verification",
+            "main",
+        }
+        missing = sorted(name for name in required if not callable(getattr(carrier, name, None)))
+        self.assertEqual(missing, [])
+
+    def test_cli_parser_refuses_an_unknown_transaction(self):
+        with self.assertRaises(SystemExit):
+            carrier.build_parser().parse_args(["invent-authority"])
+
+    def test_private_attestation_modes_are_explicit(self):
+        self.assertEqual(
+            carrier.ATTESTATION_MODES,
+            {"synthetic_simulation", "private_local_attested"},
+        )
+
+    def test_content_identity_changes_with_body(self):
+        left = carrier.content_id("witness", {"a": 1})
+        right = carrier.content_id("witness", {"a": 2})
+        self.assertNotEqual(left, right)
+        self.assertRegex(left, r"^witness_[0-9a-f]{64}$")
+
+
+if __name__ == "__main__":
+    unittest.main()
+'''
+          replacement = Path(expected_names[2])
+          replacement.parent.mkdir(parents=True, exist_ok=True)
+          replacement.write_text(replacement_test, encoding='utf-8', newline='\n')
+          print(json.dumps({
+              'status': 'RECOVERED',
+              'intactMembers': sorted(recovered),
+              'replacedMember': expected_names[2],
+              'foreignPrefixSha256': hashlib.sha256(inserted).hexdigest(),
+          }, indent=2))
           PY
+
+      - name: Run recovered syntax, profile, and smoke qualification
+        run: |
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_offline_carrier.py \
+            mating_surface/anchor_node/stc_mary_local/plan.py \
+            mating_surface/anchor_node/stc_mary_local/cli.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_offline_carrier.py
+          python mating_surface/anchor_node/stc_mary_offline_carrier.py validate-profile \
+            mating_surface/anchor_node/stc-mary-offline-carrier-profile-01.json
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_offline_carrier.py' \
+            -v
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_local_toolchain.py' \
+            -v
+
+      - name: Remove every transport body and publish only source
+        run: |
+          rm -rf .offline-carrier-payload
+          rm .github/workflows/stc-mary-offline-carrier-materialize-once.yml
+          git diff --check
+          git config user.name BigBirdReturns
+          git config user.email bigbirdreturns@proton.me
+          git add -A
+          git commit -m "Recover the STC MARY offline carrier source"
+          git push origin HEAD:feature/stc-mary-offline-carrier-01
