@@ -4,6 +4,10 @@ import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from stc_mary_offline_carrier import (
+    validate_successor_verification,
+    validate_two_cell_verification,
+)
 from .common import (
     STAGES,
     TOOLCHAIN_PROFILE_ID,
@@ -38,6 +42,11 @@ def _list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else [value]
 
 
+def _private_identity(prefix: str, identifier: str) -> str:
+    assert_content_id(identifier, "PLAN_OFFLINE_RECEIPT_INVALID", prefix)
+    return f"{prefix}_{identifier.rsplit('_', 1)[-1][:24]}"
+
+
 def compile_plan(args: Any) -> dict[str, Any]:
     readiness = read_json(Path(args.readiness))
     stable_keys(readiness, [
@@ -47,12 +56,18 @@ def compile_plan(args: Any) -> dict[str, Any]:
     assert_content_id(readiness["readinessId"], "READINESS_PRIVATE_INVALID", "readiness ID")
     baseline = read_json(Path(args.baseline))
     validate_workload_result(baseline)
-    accelerated = load_optional_json(args.accelerated)
-    continuity = load_optional_json(args.continuity)
+    accelerated = load_optional_json(getattr(args, "accelerated", None))
+    continuity = load_optional_json(getattr(args, "continuity", None))
+    cell_verification = load_optional_json(getattr(args, "cell_verification", None))
+    successor_verification = load_optional_json(getattr(args, "successor_verification", None))
     if accelerated:
         validate_workload_result(accelerated)
     if continuity:
         validate_workload_result(continuity)
+    if cell_verification:
+        validate_two_cell_verification(cell_verification)
+    if successor_verification:
+        validate_successor_verification(successor_verification)
     feed_manifest = read_json(Path(args.feed) / "feed-manifest.json")
     validate_feed_manifest(feed_manifest, Path(args.feed).resolve())
     output = validate_new_private_root(Path(args.out), repository_root=Path(args.repository))
@@ -109,8 +124,20 @@ def compile_plan(args: Any) -> dict[str, Any]:
         [readiness["readinessId"]],
         None if lattice_absent else "complete the Windows process and service probe with the optional Lattice-shaped surface absent",
     ))
-    gates.append(gate("two_cell_partition", "HOLD", [], "bind a second independently executable cell and create two offline state bundles from one common state"))
-    gates.append(gate("successor_head", "HOLD", [], "bind and verify a second host or successor medium that can run the cold-successor verifier without repository history"))
+    two_cell_ready = bool(cell_verification and cell_verification["mode"] == "private_local_attested")
+    gates.append(gate(
+        "two_cell_partition",
+        "READY" if two_cell_ready else "HOLD",
+        [cell_verification["verificationId"]] if cell_verification else [],
+        None if two_cell_ready else "verify two divergent offline cells on distinct actual host classes and retain a HUMAN_REQUIRED reunion receipt",
+    ))
+    successor_ready = bool(successor_verification and successor_verification["mode"] == "private_local_attested")
+    gates.append(gate(
+        "successor_head",
+        "READY" if successor_ready else "HOLD",
+        [successor_verification["verificationId"]] if successor_verification else [],
+        None if successor_ready else "verify the cold-successor bundle on a distinct actual host class without repository history",
+    ))
     gates.append(gate("private_evidence_root", "READY", [readiness["readinessId"]]))
 
     source_digests = [
@@ -139,11 +166,11 @@ def compile_plan(args: Any) -> dict[str, Any]:
             "personalFloor": "private_resident_cpu_execution_seat",
             "halo3": "private_optional_24gib_cuda_accelerator",
             "initialHead": "private_initial_windows_head",
-            "successorHead": "REPLACE_WITH_PRIVATE_SUCCESSOR_HEAD",
+            "successorHead": _private_identity("private_verified_successor_head", successor_verification["successorId"]) if successor_ready else "REPLACE_WITH_PRIVATE_SUCCESSOR_HEAD",
             "graceBind": "named_human_operator_grace",
             "lattice": "private_optional_interoperability_membrane",
-            "leftCell": "REPLACE_WITH_PRIVATE_LEFT_CELL",
-            "rightCell": "REPLACE_WITH_PRIVATE_RIGHT_CELL",
+            "leftCell": _private_identity("private_verified_left_cell", cell_verification["leftCellId"]) if two_cell_ready else "REPLACE_WITH_PRIVATE_LEFT_CELL",
+            "rightCell": _private_identity("private_verified_right_cell", cell_verification["rightCellId"]) if two_cell_ready else "REPLACE_WITH_PRIVATE_RIGHT_CELL",
         },
         "canonicalMissionStateDigest": canonical_state_digest,
         "authority": "none",
@@ -177,6 +204,8 @@ def compile_plan(args: Any) -> dict[str, Any]:
         "baselineResultId": baseline["resultId"],
         "acceleratedResultId": accelerated["resultId"] if accelerated else None,
         "continuityResultId": continuity["resultId"] if continuity else None,
+        "twoCellVerificationId": cell_verification["verificationId"] if cell_verification else None,
+        "successorVerificationId": successor_verification["verificationId"] if successor_verification else None,
         "gates": gates,
         "stagePlan": stages,
         "readyGateCount": sum(1 for row in gates if row["status"] == "READY"),
@@ -223,7 +252,7 @@ $Runner = Join-Path $Repo 'mating_surface\\anchor_node\\stc-mary-private-flight.
 & $Runner status $Packet
 ```
 
-The two-cell and successor-HEAD gates remain separate physical transactions. No hold may be edited into READY without a new evidence receipt.
+The two-cell and successor-HEAD gates become READY only from private local attestations on distinct host classes. Synthetic carrier receipts remain qualification evidence and cannot advance the physical plan.
 """
     (output / "NEXT-ACTIONS.md").write_text(next_actions, encoding="utf-8", newline="\n")
     return {"status": "PASS", "output": str(output), "planId": plan["planId"], "readyGates": plan["readyGateCount"], "holdGates": plan["holdGateCount"]}

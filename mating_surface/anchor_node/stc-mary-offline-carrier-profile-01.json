@@ -1,0 +1,24 @@
+{
+  "schema": "stc-mary-offline-carrier-profile/1",
+  "profileId": "stc-mary/offline-cell-successor-carrier/0.1",
+  "status": "candidate_design_only",
+  "predecessorCommit": "c7f95de862e47307e6f6a0f07fcd7aa456e9a88f",
+  "commands": [
+    "template-inputs",
+    "build-cell-pair",
+    "verify-cell",
+    "reconcile-cells",
+    "build-successor",
+    "verify-successor",
+    "validate-profile"
+  ],
+  "bundleTypes": [
+    "cell",
+    "successor"
+  ],
+  "modes": [
+    "synthetic_simulation",
+    "private_local_attested"
+  ],
+  "claimBoundary": "Provider-free offline two-cell and cold-successor carrier for the admitted STC MARY local execution toolchain. Hosted qualification validates deterministic fixtures, standalone verification, tamper refusal, divergent-state retention, human-required reunion, and cold-successor reconstruction only. It does not establish an actual second host, physical partition, physical reunion, successor recovery, physical Estate qualification, representative-operator qualification, field networking, operational C2, production Lattice, mission authority, command authority, targeting, engagement, effector control, or weapons capability."
+}

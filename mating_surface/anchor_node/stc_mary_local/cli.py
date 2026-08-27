@@ -58,6 +58,8 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument("--baseline", required=True)
     plan.add_argument("--accelerated")
     plan.add_argument("--continuity")
+    plan.add_argument("--cell-verification")
+    plan.add_argument("--successor-verification")
     plan.add_argument("--campaign-label", required=True)
     plan.add_argument("--required-commit", required=True)
     plan.add_argument("--out", required=True)
