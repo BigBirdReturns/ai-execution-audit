@@ -1,0 +1,168 @@
+{
+  "schema": "spectra-anchor-node-estate-fabric-profile/1",
+  "profileId": "spectra-anchor-node/estate-fabric/0.1",
+  "issue": 29,
+  "status": "candidate_design_only",
+  "authority": "none",
+  "missionStateEffect": "none",
+  "fieldEffect": "none",
+  "publicationEffect": "none",
+  "adoptionEffect": "none",
+  "predecessors": {
+    "missionProfile": {
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "commit": "f70645a70f40ad0cbe6bad1e4e665116ad4230b1",
+      "profileId": "spectra-anchor-node/disconnected-multisensor-coordination/0.1",
+      "admission": "admitted_main"
+    },
+    "estateAuthority": {
+      "sourceClass": "private_authority_coordinate",
+      "commit": "819e17d6a49b38855fb417dabcbe900b62798747",
+      "evidenceBodies": "private_digest_reference_only"
+    }
+  },
+  "purpose": "Qualify a bounded adapter that converts an exact Estate seat-registry snapshot into one seat-specific, independently verifiable execution route while preserving MP01 canonical mission state, authority boundaries, rejected-candidate custody, deterministic replay, and private physical-evidence separation.",
+  "publicFixturePolicy": {
+    "identityClass": "invented_unclassified_synthetic_only",
+    "privateEvidenceBodiesAllowed": false,
+    "privateHostnamesAllowed": false,
+    "privatePathsAllowed": false,
+    "operationalCredentialsRequired": false,
+    "physicalEvidenceReference": "digest_evidence_class_and_claim_boundary_only"
+  },
+  "contractObjects": [
+    "estate-seat-snapshot/1",
+    "estate-seat-admission/1",
+    "estate-route-selection/1",
+    "estate-worker-lease/1",
+    "estate-completion-candidate/1",
+    "estate-completion-refusal/1",
+    "estate-fabric-run/1",
+    "estate-fabric-verification/1"
+  ],
+  "seatSemantics": {
+    "addressability": "independent_execution_boundary",
+    "memoryAggregation": "forbidden_across_independent_seats",
+    "splitModelException": "separately_qualified_route_only",
+    "topologyRole": "observation_not_constitution",
+    "gpuPresenceImpliesAdmission": false,
+    "optionalSeatRequiredForResidentContinuity": false
+  },
+  "routeBinding": [
+    "seat_identity",
+    "seat_snapshot_digest",
+    "host_identity_class",
+    "accelerator_identity_class",
+    "endpoint_identity",
+    "runtime_version",
+    "adapter_version",
+    "model_or_executable_digest",
+    "invocation_contract",
+    "context_and_kv_contract",
+    "workload_class",
+    "acceptance_predicate",
+    "residency_evidence",
+    "power_state_evidence_when_claimed",
+    "independent_verifier_identity",
+    "output_digest",
+    "terminal_receipt"
+  ],
+  "firstVerticalSlice": {
+    "sequence": [
+      "admitted_mp01_local_artifact_job",
+      "exact_estate_seat_snapshot",
+      "seat_admission",
+      "qualified_route_selection",
+      "finite_worker_lease",
+      "bounded_execution_candidate",
+      "independent_output_verification",
+      "exactly_one_terminal_completion_receipt",
+      "detached_replay"
+    ],
+    "executionEffect": "local_artifact_only",
+    "missionStateMutation": false,
+    "externalServices": 0,
+    "operationalCredentials": 0
+  },
+  "hostileQualification": [
+    "refuse_seat_absent_from_exact_snapshot",
+    "refuse_unqualified_accelerator_or_runtime_class",
+    "refuse_independent_seat_memory_pooling",
+    "refuse_endpoint_model_template_context_or_verifier_drift",
+    "expire_worker_lease_and_refuse_late_completion",
+    "make_primary_seat_inaccessible",
+    "reassign_under_new_lease_generation",
+    "refuse_stale_primary_completion",
+    "accept_exactly_one_verified_fallback_completion",
+    "refuse_duplicate_terminal_completion",
+    "refuse_wrong_or_unverifiable_output",
+    "preserve_job_custody_and_canonical_mp01_state",
+    "remove_optional_seat_without_resident_floor_disruption",
+    "destroy_and_rebuild_route_query_and_ui_projections",
+    "extend_source_pinned_cold_successor_pack"
+  ],
+  "evidenceTiers": [
+    {
+      "tier": 1,
+      "name": "contract",
+      "status": "candidate",
+      "scope": "schemas_validators_synthetic_fixtures_and_deterministic_replay"
+    },
+    {
+      "tier": 2,
+      "name": "ci_synthetic",
+      "status": "not_yet_run",
+      "scope": "complete_hostile_campaign_on_invented_seats"
+    },
+    {
+      "tier": 3,
+      "name": "physical_host",
+      "status": "not_admitted",
+      "scope": "private_digest_referenced_seat_and_telemetry_flights"
+    },
+    {
+      "tier": 4,
+      "name": "representative_operator",
+      "status": "not_authorized",
+      "scope": "separately_authorized_human_operation_against_physical_fabric"
+    }
+  ],
+  "acceptance": {
+    "requires": [
+      "exact predecessor commits are bound",
+      "public fixtures contain no private evidence bodies hosts paths endpoints or credentials",
+      "every route is seat-specific and independently verifiable",
+      "independent-seat memory is never pooled for fit",
+      "stale inaccessible duplicate wrong-output and unverifiable completions cannot create success",
+      "exactly one terminal completion is accepted",
+      "canonical MP01 mission state remains unchanged by routing and worker recovery",
+      "detached replay reproduces admission routing lease refusal verification and completion",
+      "cold successor answers what ran where it ran why the seat qualified what proved completion what was refused and what remains unresolved",
+      "hardware runtime model scheduler and Estate records remain non-authoritative"
+    ],
+    "refuseIf": [
+      "observed topology is treated as permanent law",
+      "private Estate evidence bodies enter the public repository",
+      "GPU presence is treated as seat admission",
+      "independent accelerator memory is summed into one fit value",
+      "scheduler model runtime or verifier grants mission authority",
+      "automatic execution success becomes evaluator acceptance",
+      "lease or lock is released without evidence",
+      "rejected candidate denominator is lost",
+      "optional burst seat becomes necessary for resident continuity",
+      "physical representative-operator field-network operational-C2 targeting engagement effector weapons or production-Lattice qualification is claimed"
+    ]
+  },
+  "claimBoundary": {
+    "missionProfilePredecessorAdmitted": true,
+    "fabricContractCandidate": true,
+    "syntheticFabricQualified": false,
+    "physicalEstateQualified": false,
+    "representativeOperatorQualified": false,
+    "missionAuthorityFromHardware": false,
+    "commandAuthorityGranted": false,
+    "operationalC2Claim": false,
+    "fieldNetworkClaim": false,
+    "weaponsOrEffectorCapability": false
+  }
+}
