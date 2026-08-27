@@ -196,7 +196,7 @@ export function createSeatSnapshot(registry) {
     memoryAccounting: 'per_seat_only',
     aggregateFitAllowed: false,
     seatCount: registry.seats.length,
-    seats: registry.seats.map(structuredClone).sort((a, b) => a.seatId.localeCompare(b.seatId)),
+    seats: registry.seats.map((seat) => structuredClone(seat)).sort((a, b) => a.seatId.localeCompare(b.seatId)),
     authority: false,
     claimBoundary: 'Content-addressed snapshot of an invented public seat registry. It is not a physical inventory, pooled-memory surface, scheduler grant, or mission authority source.',
   };
