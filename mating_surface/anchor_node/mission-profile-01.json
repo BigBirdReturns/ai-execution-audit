@@ -1,0 +1,190 @@
+{
+  "schema": "spectra-anchor-node-mission-profile/1",
+  "profileId": "spectra-anchor-node/disconnected-multisensor-coordination/0.1",
+  "issue": 26,
+  "status": "candidate_design_only",
+  "authority": "none",
+  "graphEffect": "none",
+  "fieldEffect": "none",
+  "publicationEffect": "none",
+  "adoptionEffect": "none",
+  "sourceBase": {
+    "repository": "BigBirdReturns/ai-execution-audit",
+    "commit": "699017462401c2569287803741044f291480f191"
+  },
+  "purpose": "Qualify one self-contained, air-gapped mission-continuity node that maintains canonical local mission state, uses local models only for bounded proposals, preserves explicit authority through denied communications, survives bounded worker and interface failures, emits independently replayable receipts, and treats any Lattice integration as an optional membrane rather than the canonical substrate.",
+  "missionProfile": {
+    "name": "Disconnected Multi-Sensor Coordination",
+    "classification": "invented_unclassified_synthetic_only",
+    "operatingLoop": [
+      "INGEST",
+      "NORMALIZE",
+      "CORRELATE",
+      "UNDERSTAND",
+      "PLAN",
+      "AUTHORIZE",
+      "REHEARSE_OR_EXECUTE_ONE_NON_KINETIC_LOCAL_TASK",
+      "RECEIPT",
+      "REPLAY",
+      "RECONCILE"
+    ],
+    "scenario": "Asynchronous synthetic airspace-monitoring and logistics observations, duplicate and delayed reports, one bounded non-kinetic task, headquarters partition, local authority lease, compute-worker loss, interface drift, conflicting returning authority, after-action export, projection destruction and rebuild, and cold-successor replay."
+  },
+  "canonicalObjects": [
+    "source_observation",
+    "entity_state",
+    "relationship_state",
+    "uncertainty_state",
+    "model_proposal",
+    "authority_state",
+    "policy_decision",
+    "task_request",
+    "execution_state",
+    "verification_state",
+    "reconciliation_obligation",
+    "receipt"
+  ],
+  "claimKinds": [
+    "observation",
+    "inference",
+    "decision",
+    "grant",
+    "execution",
+    "result",
+    "verification",
+    "obligation"
+  ],
+  "invariants": [
+    "local canonical mission state is independent of Lattice, AWS, model provider, UI, graph projection, query engine, and builder",
+    "claim kinds do not cross-convert",
+    "models may propose and explain but may not grant authority, accept evidence, or self-promote output",
+    "lost communications do not imply unlimited local authority",
+    "returning authority does not silently overwrite local state",
+    "automatic pass does not create evaluator acceptance",
+    "failed or inaccessible workers cannot manufacture success or release locks without evidence",
+    "graph, SQL, cache, index, and UI surfaces remain destructible projections",
+    "interface drift refuses rather than improvises",
+    "real mode never falls back to or mixes synthetic custody",
+    "cold successor must answer what exists, what proves it, who may act, what remains unresolved, and what is safe next"
+  ],
+  "existingPrimitiveMap": [
+    {
+      "id": "message-authority-runtime",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "commit": "36b50c7b0a1a6043502291e0a1a5ddb18b9d1cf7",
+      "role": "denied-communications authority, offline lease, partition, replay, and reconciliation runtime",
+      "admission": "existing_repository_evidence"
+    },
+    {
+      "id": "evaluator-disposition",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "commit": "7e31be460d1346d5c74730d5acfee00361e9bd4f",
+      "role": "separate automatic evidence from evaluator accept, reject, and defer disposition",
+      "admission": "existing_repository_evidence"
+    },
+    {
+      "id": "c2sim-semantic-rehearsal",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "commit": "4bedf63cfcc6d09e3d0a950f0039ff89507a7b32",
+      "role": "schema-valid synthetic initialization, order, report, replay, and reconciliation evidence",
+      "admission": "existing_repository_evidence"
+    },
+    {
+      "id": "transport-fault-machine",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "commit": "b40a8794504b6a3c919d7be136ba425e36e57ba1",
+      "role": "deterministic delay, duplication, partition, and packet-custody fault lane",
+      "admission": "existing_repository_evidence"
+    },
+    {
+      "id": "operator-console",
+      "repository": "BigBirdReturns/axm-console",
+      "commit": "893731334572ab7654f26fea14b5afb09794ae33",
+      "role": "verified-only queue, plain-language custody receipt, and human-attributed review",
+      "admission": "cross_repository_candidate_dependency"
+    }
+  ],
+  "optionalLatticeMembrane": {
+    "status": "contract_simulator_only",
+    "canonicalStateOwner": false,
+    "primitives": [
+      "entity",
+      "task",
+      "object"
+    ],
+    "requiredBehavior": [
+      "publish only selected bounded local state",
+      "consume remote state without silent authority promotion",
+      "preserve exact external identifiers as external identifiers",
+      "continue local mission state when adapter is absent or disconnected",
+      "reconcile bounded deltas explicitly when connectivity returns"
+    ],
+    "operationalCredentialsRequired": false
+  },
+  "firstVerticalSlice": {
+    "sequence": [
+      "synthetic_observation",
+      "local_entity_state",
+      "local_model_proposal",
+      "authority_decision",
+      "one_non_kinetic_task_receipt",
+      "detached_replay"
+    ],
+    "externalServices": 0,
+    "operationalCredentials": 0,
+    "targetHardwareQualification": false,
+    "fieldAuthority": false
+  },
+  "hostileQualification": [
+    "start_without_WAN_or_Lattice",
+    "ingest_synthetic_multisensor_and_logistics_feeds",
+    "preserve_typed_uncertainty",
+    "propose_one_bounded_non_kinetic_task",
+    "partition_headquarters_communications",
+    "exercise_local_authority_lease_limits",
+    "inject_duplicate_and_delayed_messages",
+    "kill_one_admitted_compute_worker_and_recover_without_false_completion",
+    "trigger_interface_drift_refusal",
+    "restore_conflicting_returning_authority_and_require_reconciliation",
+    "export_complete_after_action_package",
+    "destroy_and_rebuild_graph_query_and_cache_projections",
+    "complete_cold_successor_five_question_test",
+    "exercise_and_remove_optional_Lattice_contract_simulator"
+  ],
+  "acceptance": {
+    "requires": [
+      "zero external-service dependency in core path",
+      "zero operational credentials committed or required",
+      "exact synthetic-only custody",
+      "canonical mission state survives removal of model, UI, graph, query engine, and optional Lattice membrane",
+      "every hostile scenario reaches an explicit terminal state",
+      "automatic failure or unauthorized request cannot become accepted",
+      "detached replay reproduces material state transitions",
+      "cold successor completes five-question recovery test",
+      "all artifacts reconstruct deterministically from exact accepted source",
+      "all excluded operational claims remain false"
+    ],
+    "refuseIf": [
+      "synthetic and real custody are mixed",
+      "model output is serialized as authority",
+      "automatic pass is serialized as evaluator acceptance",
+      "projection state becomes canonical state",
+      "lost communications silently widen authority",
+      "returning authority silently overwrites local state",
+      "failed worker emits success",
+      "interface drift triggers exploratory action",
+      "Lattice adapter becomes required for local continuity",
+      "operational C2, targeting, engagement, effector, weapons, field-readiness, or representative-operator claims are generated"
+    ]
+  },
+  "claimBoundary": {
+    "operationalC2Profile": false,
+    "fieldNetworkQualification": false,
+    "representativeOperatorReadiness": false,
+    "targetHardwareRuggedization": false,
+    "LatticeProductionIntegration": false,
+    "weaponsOrEffectorCapability": false,
+    "commandAuthorityGranted": false,
+    "syntheticMissionContinuitySubstrate": "candidate"
+  }
+}

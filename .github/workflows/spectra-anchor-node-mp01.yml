@@ -1,0 +1,225 @@
+name: Spectra Anchor Node Mission Profile 01
+
+on:
+  pull_request:
+    paths:
+      - "mating_surface/anchor_node/**"
+      - "mating_surface/semantic/authority_sidecar.mjs"
+      - "mating_surface/test_hosts/core/**"
+      - ".github/workflows/spectra-anchor-node-mp01.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mating_surface/anchor_node/**"
+      - "mating_surface/semantic/authority_sidecar.mjs"
+      - "mating_surface/test_hosts/core/**"
+      - ".github/workflows/spectra-anchor-node-mp01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spectra-anchor-node-mp01-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-mp01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Refuse network and credential surfaces in the candidate runtime
+        run: |
+          if grep -R -nE "node:(http|https|net|tls)|(^|[^A-Za-z])fetch[[:space:]]*\(" \
+            mating_surface/anchor_node --include='*.mjs'; then
+            echo "::error::Mission Profile 01 core path contains a network surface"
+            exit 1
+          fi
+          if grep -R -nE "AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:[[:space:]]*Bearer" \
+            mating_surface/anchor_node; then
+            echo "::error::Mission Profile 01 contains credential material"
+            exit 1
+          fi
+
+      - name: Check source syntax
+        run: |
+          node --check mating_surface/anchor_node/validate_mission_profile.mjs
+          node --check mating_surface/anchor_node/vertical_slice.mjs
+          node --check mating_surface/anchor_node/lattice_membrane.mjs
+          node --check mating_surface/anchor_node/fault_worker_campaign.mjs
+          node --check mating_surface/anchor_node/hostile_recovery_campaign.mjs
+          node --check mating_surface/anchor_node/cold_successor_pack.mjs
+          for test_file in mating_surface/anchor_node/conformance/*.test.mjs; do
+            node --check "$test_file"
+          done
+
+      - name: Validate the frozen mission-profile contract
+        run: |
+          mkdir -p qualification/anchor-node-mp01
+          node mating_surface/anchor_node/validate_mission_profile.mjs \
+            mating_surface/anchor_node/mission-profile-01.json \
+            > qualification/anchor-node-mp01/mission-profile-validation.json
+
+      - name: Run authority regression and Anchor Node adversarial suite
+        run: |
+          node --test \
+            mating_surface/semantic/conformance/authority_sidecar.test.mjs \
+            mating_surface/anchor_node/conformance/*.test.mjs
+
+      - name: Build the vertical slice twice and refuse deterministic drift
+        run: |
+          node mating_surface/anchor_node/vertical_slice.mjs run \
+            mating_surface/anchor_node/fixtures/mp01-observation-package.json \
+            qualification/anchor-node-mp01/vertical-slice-a.json
+          node mating_surface/anchor_node/vertical_slice.mjs run \
+            mating_surface/anchor_node/fixtures/mp01-observation-package.json \
+            qualification/anchor-node-mp01/vertical-slice-b.json
+          cmp \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/vertical-slice-b.json
+
+      - name: Verify detached replay in separate processes
+        run: |
+          node mating_surface/anchor_node/vertical_slice.mjs verify \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/detached-replay-a.json
+          node mating_surface/anchor_node/vertical_slice.mjs verify \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/detached-replay-b.json
+          cmp \
+            qualification/anchor-node-mp01/detached-replay-a.json \
+            qualification/anchor-node-mp01/detached-replay-b.json
+
+      - name: Project the optional Lattice membrane and prove removal continuity
+        run: |
+          node mating_surface/anchor_node/lattice_membrane.mjs project \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/lattice-envelope-a.json
+          node mating_surface/anchor_node/lattice_membrane.mjs project \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/lattice-envelope-b.json
+          cmp \
+            qualification/anchor-node-mp01/lattice-envelope-a.json \
+            qualification/anchor-node-mp01/lattice-envelope-b.json
+          node mating_surface/anchor_node/lattice_membrane.mjs verify-removal \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/lattice-envelope-a.json \
+            qualification/anchor-node-mp01/lattice-removal-a.json
+          node mating_surface/anchor_node/lattice_membrane.mjs verify-removal \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/lattice-envelope-b.json \
+            qualification/anchor-node-mp01/lattice-removal-b.json
+          cmp \
+            qualification/anchor-node-mp01/lattice-removal-a.json \
+            qualification/anchor-node-mp01/lattice-removal-b.json
+
+      - name: Preserve inbound Lattice-shaped state as an external candidate
+        run: |
+          node mating_surface/anchor_node/lattice_membrane.mjs reconcile \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            mating_surface/anchor_node/fixtures/mp01-lattice-inbound-candidate.json \
+            qualification/anchor-node-mp01/lattice-reconciliation-a.json
+          node mating_surface/anchor_node/lattice_membrane.mjs reconcile \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            mating_surface/anchor_node/fixtures/mp01-lattice-inbound-candidate.json \
+            qualification/anchor-node-mp01/lattice-reconciliation-b.json
+          cmp \
+            qualification/anchor-node-mp01/lattice-reconciliation-a.json \
+            qualification/anchor-node-mp01/lattice-reconciliation-b.json
+
+      - name: Exercise transport faults and synthetic worker-loss recovery
+        run: |
+          node mating_surface/anchor_node/fault_worker_campaign.mjs run \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-a.json
+          node mating_surface/anchor_node/fault_worker_campaign.mjs run \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-b.json
+          cmp \
+            qualification/anchor-node-mp01/fault-worker-campaign-a.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-b.json
+          node mating_surface/anchor_node/fault_worker_campaign.mjs verify \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-a.json \
+            qualification/anchor-node-mp01/fault-worker-verification-a.json
+          node mating_surface/anchor_node/fault_worker_campaign.mjs verify \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-b.json \
+            qualification/anchor-node-mp01/fault-worker-verification-b.json
+          cmp \
+            qualification/anchor-node-mp01/fault-worker-verification-a.json \
+            qualification/anchor-node-mp01/fault-worker-verification-b.json
+
+      - name: Exercise hostile recovery and receipt-only after-action reconstruction
+        run: |
+          node mating_surface/anchor_node/hostile_recovery_campaign.mjs run \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-a.json \
+            qualification/anchor-node-mp01/hostile-recovery-a.json \
+            qualification/anchor-node-mp01/after-action-a.html
+          node mating_surface/anchor_node/hostile_recovery_campaign.mjs run \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-b.json \
+            qualification/anchor-node-mp01/hostile-recovery-b.json \
+            qualification/anchor-node-mp01/after-action-b.html
+          cmp \
+            qualification/anchor-node-mp01/hostile-recovery-a.json \
+            qualification/anchor-node-mp01/hostile-recovery-b.json
+          cmp \
+            qualification/anchor-node-mp01/after-action-a.html \
+            qualification/anchor-node-mp01/after-action-b.html
+          node mating_surface/anchor_node/hostile_recovery_campaign.mjs verify \
+            qualification/anchor-node-mp01/vertical-slice-a.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-a.json \
+            qualification/anchor-node-mp01/hostile-recovery-a.json \
+            qualification/anchor-node-mp01/after-action-a.html \
+            qualification/anchor-node-mp01/hostile-recovery-verification-a.json
+          node mating_surface/anchor_node/hostile_recovery_campaign.mjs verify \
+            qualification/anchor-node-mp01/vertical-slice-b.json \
+            qualification/anchor-node-mp01/fault-worker-campaign-b.json \
+            qualification/anchor-node-mp01/hostile-recovery-b.json \
+            qualification/anchor-node-mp01/after-action-b.html \
+            qualification/anchor-node-mp01/hostile-recovery-verification-b.json
+          cmp \
+            qualification/anchor-node-mp01/hostile-recovery-verification-a.json \
+            qualification/anchor-node-mp01/hostile-recovery-verification-b.json
+
+      - name: Build and verify two source-pinned cold-successor packs
+        run: |
+          node mating_surface/anchor_node/cold_successor_pack.mjs build \
+            qualification/anchor-node-mp01/cold-successor-pack-a \
+            "${GITHUB_SHA}"
+          node mating_surface/anchor_node/cold_successor_pack.mjs build \
+            qualification/anchor-node-mp01/cold-successor-pack-b \
+            "${GITHUB_SHA}"
+          diff -ru \
+            qualification/anchor-node-mp01/cold-successor-pack-a \
+            qualification/anchor-node-mp01/cold-successor-pack-b
+          node mating_surface/anchor_node/cold_successor_pack.mjs verify \
+            qualification/anchor-node-mp01/cold-successor-pack-a \
+            qualification/anchor-node-mp01/cold-successor-verification-a.json
+          node mating_surface/anchor_node/cold_successor_pack.mjs verify \
+            qualification/anchor-node-mp01/cold-successor-pack-b \
+            qualification/anchor-node-mp01/cold-successor-verification-b.json
+          cmp \
+            qualification/anchor-node-mp01/cold-successor-verification-a.json \
+            qualification/anchor-node-mp01/cold-successor-verification-b.json
+
+      - name: Preserve qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spectra-anchor-node-mp01-${{ github.sha }}
+          path: qualification/anchor-node-mp01/
+          if-no-files-found: error
+          retention-days: 14
