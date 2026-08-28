@@ -57,7 +57,7 @@ jobs:
               ["git", "show", f"{source_commit}:{workflow_path}"],
               text=True,
           )
-          expected_raw_sha256 = "32f7ea47d814b5755595142384d4a8f2915fc32b01bea3ab8db49c988ab33f6c"
+          expected_raw_sha256 = "ba3009f979e901cdb84045cb0678619e48dac364dd9f94b5e6b80924234faed7"
           observed_raw_sha256 = hashlib.sha256(raw.encode("utf-8")).hexdigest()
           if observed_raw_sha256 != expected_raw_sha256:
               raise SystemExit(
