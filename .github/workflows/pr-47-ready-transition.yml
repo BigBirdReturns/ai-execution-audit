@@ -1,0 +1,54 @@
+name: Transition qualified PR 47 to ready
+
+on:
+  push:
+    branches:
+      - ops/pr-47-ready-transition-20260828
+    paths:
+      - ".github/workflows/pr-47-ready-transition.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  mark-ready:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Preserve the qualified head while changing draft metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: BigBirdReturns/ai-execution-audit
+          PR_NUMBER: "47"
+          EXPECTED_HEAD: e185b3de109b0fb9be1dddcc33c3d410b8f1fc46
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BEFORE_HEAD="$(gh pr view "$PR_NUMBER" --repo "$REPOSITORY" --json headRefOid --jq .headRefOid)"
+          BEFORE_DRAFT="$(gh pr view "$PR_NUMBER" --repo "$REPOSITORY" --json isDraft --jq .isDraft)"
+          if [ "$BEFORE_HEAD" != "$EXPECTED_HEAD" ]; then
+            echo "PR head moved before ready transition: expected=$EXPECTED_HEAD observed=$BEFORE_HEAD" >&2
+            exit 1
+          fi
+          if [ "$BEFORE_DRAFT" != "true" ]; then
+            echo "PR is not in the expected draft state: observed=$BEFORE_DRAFT" >&2
+            exit 1
+          fi
+
+          gh pr ready "$PR_NUMBER" --repo "$REPOSITORY"
+
+          AFTER_HEAD="$(gh pr view "$PR_NUMBER" --repo "$REPOSITORY" --json headRefOid --jq .headRefOid)"
+          AFTER_DRAFT="$(gh pr view "$PR_NUMBER" --repo "$REPOSITORY" --json isDraft --jq .isDraft)"
+          if [ "$AFTER_HEAD" != "$EXPECTED_HEAD" ]; then
+            echo "PR head moved during ready transition: expected=$EXPECTED_HEAD observed=$AFTER_HEAD" >&2
+            exit 1
+          fi
+          if [ "$AFTER_DRAFT" != "false" ]; then
+            echo "PR remained draft after transition: observed=$AFTER_DRAFT" >&2
+            exit 1
+          fi
+
+          printf '{"schema":"axm-head/pr-ready-transition@1","status":"PASS","pr":47,"head":"%s","draftBefore":true,"draftAfter":false}\n' "$AFTER_HEAD"
