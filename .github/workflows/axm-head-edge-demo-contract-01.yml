@@ -121,6 +121,14 @@ jobs:
                   for line in lines[1:]
               )
               tests = tests[:start] + repaired_block + tests[next_method:]
+
+          stale_expectation = '        self.assertEqual(verdict["code"], "CARTRIDGE_RECONSTRUCTION_MISMATCH")\n'
+          precise_expectation = '        self.assertEqual(verdict["code"], "CARTRIDGE_CLAIM_BOUNDARY_INVALID")\n'
+          if tests.count(stale_expectation) != 1:
+              raise SystemExit(
+                  f"stale cartridge-claim expectation denominator differs: {tests.count(stale_expectation)}"
+              )
+          tests = tests.replace(stale_expectation, precise_expectation, 1)
           tests_path.write_text(tests, encoding="utf-8", newline="\n")
           subprocess.run(["python", "-m", "py_compile", str(tests_path)], check=True)
           PY
