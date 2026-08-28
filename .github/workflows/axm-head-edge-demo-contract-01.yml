@@ -77,20 +77,6 @@ jobs:
                   f"final-custody carrier markers differ: start={raw.count(start_marker)} end={raw.count(end_marker)}"
               )
           script = textwrap.dedent(raw.split(start_marker, 1)[1].split(end_marker, 1)[0])
-          if script.count("import re\n") != 1:
-              raise SystemExit("repair-script import anchor differs")
-          generated_helper = (
-              "import re\n\n\n"
-              "def normalize_generated(value: str) -> str:\n"
-              "    lines = value.splitlines(keepends=True)\n"
-              "    if not lines:\n"
-              "        return value\n"
-              "    return lines[0] + \"\".join(\n"
-              "        line[10:] if line.startswith(\"          \") else line\n"
-              "        for line in lines[1:]\n"
-              "    )\n"
-          )
-          script = script.replace("import re\n", generated_helper, 1)
 
           generated = re.compile(
               r"(?P<prefix>\b\w+\s*(?:=|\+=)\s*)'''(?P<body>.*?)'''\.replace\(\"          \", \"\"\)",
@@ -99,9 +85,9 @@ jobs:
           script, transformed = generated.subn(
               lambda match: (
                   match.group("prefix")
-                  + "normalize_generated('''"
+                  + "'''"
                   + match.group("body")
-                  + "''')"
+                  + "'''"
               ),
               script,
           )
