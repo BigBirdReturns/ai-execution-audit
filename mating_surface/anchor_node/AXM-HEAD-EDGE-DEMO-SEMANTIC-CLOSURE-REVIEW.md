@@ -102,3 +102,8 @@ The final admission head and merge ref are recorded in the pull-request admissio
     standards-first witnesses                  10 / 10 PASS
     failures                                   0
     skips                                      0
+
+
+## Late custody closure
+
+Independent admission review found two further defects after the first semantic-closure campaign. The declared cartridge digest did not derive from the immutable law it purported to name, and either verifier entrypoint could write its `--out` receipt into the volume after a passing measurement. The successor derives the digest from canonical cartridge law in both builder and detached verifier, validates the actual cartridge before reconstruction, and refuses any verdict destination that resolves into or aliases the measured volume. The thirty-eight-method denominator contains direct builder drift, stale-digest and rederived-digest cartridge-law forgeries, bootstrapped output overlap, and direct-verifier output overlap. No refusal writes through the rejected path.

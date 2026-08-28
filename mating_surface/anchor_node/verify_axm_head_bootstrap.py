@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 VERDICT_SCHEMA = "axm-head/mission-volume-verdict@1"
-EXPECTED_VERIFIER_SHA256 = "ef68da907bd5c196a3a10c2874dae20c42cdb547ba14030a968e99d866ee3542"
+EXPECTED_VERIFIER_SHA256 = "8ca6d225fc162e78fb1af41c9cd89c188491a08fe71a69b58c6c12cd9acf4e44"
 
 
 def pretty_json_bytes(value: Any) -> bytes:
@@ -23,6 +23,23 @@ def sha256_file(path: Path) -> str:
             h.update(chunk)
     return h.hexdigest()
 
+
+
+def output_path_overlaps_volume(volume: Path, out: Path) -> bool:
+    root = volume.expanduser().resolve(strict=False)
+    candidate = out.expanduser().resolve(strict=False)
+    if candidate == root or root in candidate.parents:
+        return True
+    if out.exists() and root.is_dir():
+        for member in root.rglob("*"):
+            if not member.is_file():
+                continue
+            try:
+                if out.samefile(member):
+                    return True
+            except OSError:
+                continue
+    return False
 
 def emit(value: dict[str, Any], out: Path | None) -> int:
     data = pretty_json_bytes(value)
@@ -38,6 +55,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("volume", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
+    if args.out is not None and output_path_overlaps_volume(args.volume, args.out):
+        return emit(
+            {
+                "schema": VERDICT_SCHEMA,
+                "status": "REFUSED",
+                "code": "OUTPUT_INSIDE_VOLUME",
+                "message": "verdict output must remain outside the verified volume",
+                "bootstrapAuthenticated": False,
+            },
+            None,
+        )
     verifier = args.volume / "RECOVERY" / "verify_volume.py"
     try:
         if not args.volume.is_dir():

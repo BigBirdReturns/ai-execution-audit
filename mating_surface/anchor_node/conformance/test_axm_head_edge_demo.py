@@ -84,6 +84,21 @@ class AxmHeadEdgeDemoTests(unittest.TestCase):
         self.assertEqual(mod.sha256_bytes(mod.canonical_json_bytes(self.profile)), mod.PROFILE_CANONICAL_SHA256)
         self.assertEqual(len(self.profile["objectSchemas"]), 10)
 
+    def test_cartridge_digest_is_derived_from_canonical_mission_law(self) -> None:
+        for case in self.catalog["cases"]:
+            self.assertEqual(case["mission"]["cartridgeSha256"], mod.cartridge_law_sha256(case["mission"]))
+        attacks = (
+            ("invariant", lambda mission: mission["invariantRefs"].append("invariant:forged@1")),
+            ("actor", lambda mission: mission["humanAuthority"].update({"actorId": "autonomous-system"})),
+        )
+        for label, mutate in attacks:
+            with self.subTest(label=label):
+                case = self.case(mod.CASE_IDS[0])
+                mutate(case["mission"])
+                with self.assertRaises(mod.DemoError) as context:
+                    mod.decide_case(case, self.profile)
+                self.assertEqual(context.exception.code, "CARTRIDGE_LAW_DIGEST_INVALID")
+
     def test_each_supplier_coordinate_mutation_is_refused_by_builder(self) -> None:
         for name in ("auditRuntime", "physicalFlightFloor", "maryMetabolism"):
             with self.subTest(name=name):
@@ -295,6 +310,40 @@ class AxmHeadEdgeDemoTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(verdict["code"], "MANIFEST_CLAIM_BOUNDARY_INVALID")
 
+    def test_resigned_cartridge_law_forgery_is_refused(self) -> None:
+        attacks = (
+            ("invariant", lambda cartridge: cartridge["invariantRefs"].append("invariant:forged@1")),
+            ("actor", lambda cartridge: cartridge["humanAuthority"].update({"actorId": "autonomous-system"})),
+        )
+        for index, (label, mutate) in enumerate(attacks):
+            for mode in ("stale-declared-digest", "rederived-forged-digest"):
+                with self.subTest(label=label, mode=mode):
+                    volume = self.build(mod.CASE_IDS[0], f"cartridge-law-{index}-{mode}")
+                    path = volume / "CARTRIDGE/mission.json"
+                    cartridge = json.loads(path.read_text(encoding="utf-8"))
+                    mutate(cartridge)
+                    manifest_mutations = None
+                    expected_code = "CARTRIDGE_LAW_DIGEST_INVALID"
+                    if mode == "rederived-forged-digest":
+                        cartridge["cartridgeSha256"] = mod.cartridge_law_sha256(cartridge)
+                        manifest = json.loads((volume / "MANIFEST.json").read_text(encoding="utf-8"))
+                        binding = dict(manifest["cartridgeBinding"])
+                        binding["declaredCartridgeSha256"] = cartridge["cartridgeSha256"]
+                        manifest_mutations = {"cartridgeBinding": binding}
+                        expected_code = "CARTRIDGE_RECONSTRUCTION_MISMATCH"
+                    path.write_bytes(mod.pretty_json_bytes(cartridge))
+                    self.rewrite_manifest(
+                        volume,
+                        relatives=["CARTRIDGE/mission.json"],
+                        mutations=manifest_mutations,
+                    )
+                    code, verdict, _, _ = self.bootstrap(
+                        volume,
+                        self.root / f"cartridge-law-foreign-{index}-{mode}",
+                    )
+                    self.assertEqual(code, 2)
+                    self.assertEqual(verdict["code"], expected_code)
+
     def test_cartridge_claim_boundary_forgery_is_refused_after_resigning(self) -> None:
         volume = self.build(mod.CASE_IDS[0])
         path = volume / "CARTRIDGE/mission.json"
@@ -304,7 +353,7 @@ class AxmHeadEdgeDemoTests(unittest.TestCase):
         self.rewrite_manifest(volume, relatives=["CARTRIDGE/mission.json"])
         code, verdict, _, _ = self.bootstrap(volume)
         self.assertEqual(code, 2)
-        self.assertEqual(verdict["code"], "CARTRIDGE_RECONSTRUCTION_MISMATCH")
+        self.assertEqual(verdict["code"], "CARTRIDGE_CLAIM_BOUNDARY_INVALID")
 
     def test_malicious_verifier_substitution_is_refused_before_execution(self) -> None:
         volume = self.build(mod.CASE_IDS[0])
@@ -404,6 +453,52 @@ class AxmHeadEdgeDemoTests(unittest.TestCase):
         self.assertEqual(public["claimBoundary"], mod.PUBLIC_CLAIM_BOUNDARY)
         self.assertEqual(public["systemAuthority"], "none")
         self.assertFalse(public["physicalFlightCompleted"])
+
+    def test_verdict_output_inside_volume_is_refused_without_mutation(self) -> None:
+        for index, entrypoint in enumerate(("bootstrap", "direct")):
+            with self.subTest(entrypoint=entrypoint):
+                volume = self.build(mod.CASE_IDS[0], f"output-volume-{index}")
+                before = {
+                    path.relative_to(volume).as_posix(): path.read_bytes()
+                    for path in volume.rglob("*")
+                    if path.is_file()
+                }
+                out = volume / "PUBLIC" / f"{entrypoint}-verdict.json"
+                if entrypoint == "bootstrap":
+                    code, verdict, _, stderr = self.bootstrap(
+                        volume,
+                        self.root / f"output-foreign-{index}",
+                        out,
+                    )
+                else:
+                    foreign = self.root / f"output-foreign-{index}"
+                    foreign.mkdir()
+                    result = subprocess.run(
+                        [
+                            sys.executable,
+                            str(volume / "RECOVERY" / "verify_volume.py"),
+                            str(volume),
+                            "--out",
+                            str(out),
+                        ],
+                        cwd=foreign,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=False,
+                    )
+                    code = result.returncode
+                    verdict = json.loads(result.stdout.decode("utf-8"))
+                    stderr = result.stderr
+                self.assertEqual(code, 2)
+                self.assertEqual(stderr, b"")
+                self.assertEqual(verdict["code"], "OUTPUT_INSIDE_VOLUME")
+                self.assertFalse(out.exists())
+                after = {
+                    path.relative_to(volume).as_posix(): path.read_bytes()
+                    for path in volume.rglob("*")
+                    if path.is_file()
+                }
+                self.assertEqual(after, before)
 
     def test_bootstrap_verdict_file_is_canonical_lf_utf8(self) -> None:
         volume = self.build(mod.CASE_IDS[0])

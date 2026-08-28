@@ -43,7 +43,7 @@ OBJECT_SCHEMAS = (
     VOLUME_SCHEMA,
 )
 PROFILE_CANONICAL_SHA256 = "c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078"
-FIXTURE_CATALOG_CANONICAL_SHA256 = "47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f"
+FIXTURE_CATALOG_CANONICAL_SHA256 = "82e4bf7e8d18fae61a1e17d1cf758d46004d08dd4b877f933be5c96663b67291"
 PUBLIC_CLAIM_BOUNDARY = (
     "Provider-free synthetic contract joining one MARY-style work unit, observed foreign equipment, "
     "independently evaluated compute routes, immutable cartridge identity, mutable save custody, "
@@ -159,6 +159,23 @@ def content_id(prefix: str, body: dict[str, Any]) -> str:
     return f"{prefix}_{sha256_bytes(canonical_json_bytes(body))}"
 
 
+
+def cartridge_law_body(mission: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": CARTRIDGE_SCHEMA,
+        "profileId": PROFILE_ID,
+        "missionId": mission["missionId"],
+        "cartridgeId": mission["cartridgeId"],
+        "invariantRefs": mission["invariantRefs"],
+        "humanAuthority": mission["humanAuthority"],
+        "systemAuthority": "none",
+        "claimBoundary": CARTRIDGE_CLAIM_BOUNDARY,
+    }
+
+
+def cartridge_law_sha256(mission: dict[str, Any]) -> str:
+    return sha256_bytes(canonical_json_bytes(cartridge_law_body(mission)))
+
 def read_json(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -212,6 +229,28 @@ def clean_relative_path(value: str) -> str:
         fail("RELATIVE_PATH_INVALID", f"invalid path {value!r}")
     return value
 
+
+
+def output_path_overlaps_volume(volume: Path, out: Path) -> bool:
+    root = volume.expanduser().resolve(strict=False)
+    candidate = out.expanduser().resolve(strict=False)
+    if candidate == root or root in candidate.parents:
+        return True
+    if out.exists() and root.is_dir():
+        for member in root.rglob("*"):
+            if not member.is_file():
+                continue
+            try:
+                if out.samefile(member):
+                    return True
+            except OSError:
+                continue
+    return False
+
+
+def require_output_outside_volume(volume: Path, out: Path) -> None:
+    if output_path_overlaps_volume(volume, out):
+        fail("OUTPUT_INSIDE_VOLUME", "verdict output must remain outside the verified volume")
 
 def validate_profile(profile: dict[str, Any]) -> None:
     exact(
@@ -292,8 +331,50 @@ def validate_mission(value: Any, label: str) -> dict[str, Any]:
     string(authority["actorId"], f"{label}.humanAuthority.actorId", ID_RE)
     boolean(authority["required"], f"{label}.humanAuthority.required")
     string(authority["actionClass"], f"{label}.humanAuthority.actionClass", ID_RE)
+    if value["cartridgeSha256"] != cartridge_law_sha256(value):
+        fail("CARTRIDGE_LAW_DIGEST_INVALID", f"{label}.cartridgeSha256 does not bind the canonical cartridge law")
     return value
 
+
+
+def validate_cartridge(value: Any, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        fail("CARTRIDGE_INVALID", f"{label} must be an object")
+    exact(
+        value,
+        {
+            "schema",
+            "profileId",
+            "missionId",
+            "cartridgeId",
+            "cartridgeSha256",
+            "invariantRefs",
+            "humanAuthority",
+            "systemAuthority",
+            "claimBoundary",
+        },
+        label,
+    )
+    if value["schema"] != CARTRIDGE_SCHEMA or value["profileId"] != PROFILE_ID:
+        fail("CARTRIDGE_IDENTITY_INVALID", f"{label} schema or profileId differs")
+    string(value["missionId"], f"{label}.missionId", ID_RE)
+    string(value["cartridgeId"], f"{label}.cartridgeId", ID_RE)
+    string(value["cartridgeSha256"], f"{label}.cartridgeSha256", HEX64)
+    string_list(value["invariantRefs"], f"{label}.invariantRefs", True)
+    authority = value["humanAuthority"]
+    if not isinstance(authority, dict):
+        fail("HUMAN_AUTHORITY_INVALID", f"{label}.humanAuthority must be an object")
+    exact(authority, {"actorId", "required", "actionClass"}, f"{label}.humanAuthority")
+    string(authority["actorId"], f"{label}.humanAuthority.actorId", ID_RE)
+    boolean(authority["required"], f"{label}.humanAuthority.required")
+    string(authority["actionClass"], f"{label}.humanAuthority.actionClass", ID_RE)
+    if value["systemAuthority"] != "none":
+        fail("CARTRIDGE_AUTHORITY_INVALID", f"{label} may not claim system authority")
+    if value["claimBoundary"] != CARTRIDGE_CLAIM_BOUNDARY:
+        fail("CARTRIDGE_CLAIM_BOUNDARY_INVALID", f"{label} claim boundary differs")
+    if value["cartridgeSha256"] != cartridge_law_sha256(value):
+        fail("CARTRIDGE_LAW_DIGEST_INVALID", f"{label}.cartridgeSha256 does not bind the canonical cartridge law")
+    return value
 
 def validate_task(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
@@ -565,15 +646,8 @@ def decide_case(case: dict[str, Any]) -> dict[str, Any]:
 def make_cartridge(case: dict[str, Any]) -> dict[str, Any]:
     mission = case["mission"]
     return {
-        "schema": CARTRIDGE_SCHEMA,
-        "profileId": PROFILE_ID,
-        "missionId": mission["missionId"],
-        "cartridgeId": mission["cartridgeId"],
+        **cartridge_law_body(mission),
         "cartridgeSha256": mission["cartridgeSha256"],
-        "invariantRefs": mission["invariantRefs"],
-        "humanAuthority": mission["humanAuthority"],
-        "systemAuthority": "none",
-        "claimBoundary": CARTRIDGE_CLAIM_BOUNDARY,
     }
 
 
@@ -808,6 +882,7 @@ def verify_objects(root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     public = make_public(case, decision)
 
     actual_cartridge = read_json(root / "CARTRIDGE/mission.json")
+    validate_cartridge(actual_cartridge, "cartridge")
     actual_work_unit = read_json(root / "CARTRIDGE/work-unit.json")
     actual_save = read_json(root / "SAVE/state.json")
     actual_equipment = read_json(root / "ROUTES/equipment-observation.json")
@@ -924,20 +999,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("volume", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
+    safe_out = args.out
     try:
+        if safe_out is not None:
+            require_output_outside_volume(args.volume, safe_out)
         verdict = verify_volume(args.volume)
         data = pretty_json_bytes(verdict)
-        if args.out:
-            args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_bytes(data)
+        if safe_out is not None:
+            safe_out.parent.mkdir(parents=True, exist_ok=True)
+            safe_out.write_bytes(data)
         sys.stdout.buffer.write(data)
         return 0
     except VerifyError as exc:
+        if exc.code == "OUTPUT_INSIDE_VOLUME":
+            safe_out = None
         verdict = {"schema": VERDICT_SCHEMA, "status": "REFUSED", "code": exc.code, "message": str(exc)}
         data = pretty_json_bytes(verdict)
-        if args.out:
-            args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_bytes(data)
+        if safe_out is not None:
+            safe_out.parent.mkdir(parents=True, exist_ok=True)
+            safe_out.write_bytes(data)
         sys.stdout.buffer.write(data)
         return 2
 

@@ -21,7 +21,7 @@
       "expectedTerminal": "QUALIFIED_ASSEMBLY",
       "mission": {
         "cartridgeId": "cartridge:mp01@fixture",
-        "cartridgeSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "cartridgeSha256": "782de1f2066d2bf4a290c8ac1ce3c5a0c0d6b5754c7ce0e041572d9d90b1ee64",
         "humanAuthority": {
           "actionClass": "compute-only",
           "actorId": "grace",
@@ -132,7 +132,7 @@
       "expectedTerminal": "QUALIFICATION_PLAN",
       "mission": {
         "cartridgeId": "cartridge:mp01@fixture",
-        "cartridgeSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "cartridgeSha256": "782de1f2066d2bf4a290c8ac1ce3c5a0c0d6b5754c7ce0e041572d9d90b1ee64",
         "humanAuthority": {
           "actionClass": "compute-only",
           "actorId": "grace",
@@ -243,7 +243,7 @@
       "expectedTerminal": "HOLD",
       "mission": {
         "cartridgeId": "cartridge:mp01@fixture",
-        "cartridgeSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "cartridgeSha256": "210d7c1f88a9f774b9013988e8654c88bf937a752f7e80fbd4dbe9f1be6ab9e6",
         "humanAuthority": {
           "actionClass": "physical-mutation",
           "actorId": "grace",
@@ -354,7 +354,7 @@
       "expectedTerminal": "QUALIFICATION_PLAN",
       "mission": {
         "cartridgeId": "cartridge:mp01@fixture",
-        "cartridgeSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "cartridgeSha256": "782de1f2066d2bf4a290c8ac1ce3c5a0c0d6b5754c7ce0e041572d9d90b1ee64",
         "humanAuthority": {
           "actionClass": "compute-only",
           "actorId": "grace",

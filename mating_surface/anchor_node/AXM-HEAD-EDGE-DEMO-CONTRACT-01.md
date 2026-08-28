@@ -38,13 +38,13 @@ profile canonical SHA-256
 c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078
 
 fixture catalog canonical SHA-256
-47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f
+82e4bf7e8d18fae61a1e17d1cf758d46004d08dd4b877f933be5c96663b67291
 
 embedded standalone verifier SHA-256
-ef68da907bd5c196a3a10c2874dae20c42cdb547ba14030a968e99d866ee3542
+8ca6d225fc162e78fb1af41c9cd89c188491a08fe71a69b58c6c12cd9acf4e44
 
 external bootstrap SHA-256
-15be7b7e2c0885bc9efe515ef6c6152e38d22688144f1a62a73c63b7cd994165
+885a2de66ac339d410bfebed97967fd863e3b7ad77ff3f0e9823ce6c94497d76
 ```
 
 The profile freezes the exact four-case catalog denominator. The volume carries canonical copies of the governing profile and complete fixture catalog. The standalone verifier independently reconstructs both canonical identities and refuses a rewritten profile, an expanded catalog, a reordered case denominator, or an altered selected fixture even when every affected file digest and `volumeId` has been recomputed.
@@ -156,6 +156,8 @@ nextSafeAction
 
 A caller may change an answer, rewrite every affected file digest, and recompute the volume identity. Verification still refuses because the answer no longer follows from the admitted cartridge, save, equipment, route, decision, obligation, and human-authority state.
 
+The declared `cartridgeSha256` is the SHA-256 of the canonical immutable law body: schema, profile, mission and cartridge identities, invariant references, named-human authority, system non-authority, and cartridge claim boundary. Mutable save state is excluded. The builder and detached verifier independently recompute this digest. A changed invariant or acting-human rule with a stale declared digest refuses even after the volume file rows and `volumeId` are re-signed. If a forger also derives a new digest and rewrites the manifest binding, reconstruction against the admitted catalog law still refuses.
+
 The exact public claim boundary and the distinct cartridge claim boundary are frozen constants. A same-ID profile or fully re-signed volume cannot publish a stronger narrative claim while retaining a passing verdict.
 
 ## Commands
@@ -192,7 +194,7 @@ python mating_surface/anchor_node/axm_head_edge_demo.py ...
 python mating_surface/anchor_node/verify_axm_head_bootstrap.py VOLUME
 ```
 
-A build target must not already exist. The bootstrap and embedded verifier use only standard-library Python. They may run from a foreign working directory and import no repository module.
+A build target must not already exist. Both verifier entrypoints refuse `--out` when the destination is inside the volume, resolves through a symlink into the volume, or aliases an authoritative volume file. The refusal is emitted only to stdout, so verification cannot mutate the object it just measured. The bootstrap and embedded verifier use only standard-library Python. They may run from a foreign working directory and import no repository module.
 
 ## Closed fixture and hostile campaign
 
@@ -205,7 +207,7 @@ hold-undeclared-mutation-interface
 qualification-plan-no-memory-pooling
 ```
 
-The thirty-five-witness conformance suite covers the exact source-coordinate join, canonical profile and fixture identities, exact four-case denominator, all three terminal classes, optional-organ removal, stale observations, unknown fields, deterministic volume construction, LF and CRLF source equivalence, external bootstrap verification, truthful direct-verifier non-authentication, complete twelve-file custody, cache non-authority, unmanifested-file refusal, cartridge tamper, semantic save mismatch, decision reconstruction, public privacy, and foreign-directory execution.
+The thirty-eight-witness conformance suite covers the exact source-coordinate join, canonical profile and fixture identities, exact four-case denominator, all three terminal classes, optional-organ removal, stale observations, unknown fields, deterministic volume construction, LF and CRLF source equivalence, external bootstrap verification, truthful direct-verifier non-authentication, complete twelve-file custody, cache non-authority, unmanifested-file refusal, cartridge tamper, semantic save mismatch, decision reconstruction, public privacy, and foreign-directory execution.
 
 The hostile re-signing campaign additionally rewrites and re-signs:
 
@@ -220,6 +222,8 @@ whatRemainsUnresolved
 nextSafeAction
 public and manifest claim text
 cartridge claim text
+cartridge invariant and named-human law
+verdict output path overlapping the measured volume
 route denominator and decision chain
 embedded verifier bytes
 ```
@@ -241,10 +245,10 @@ decision
 axmheaddecision1_110c1f67f8b24f7ae816571fd116ead6533fd33695e79107dfcb011ec4e7fe2b
 
 volume
-axmheadvolume1_0c1149cac06338274e608cdf39013941ec00e45c0cf25b712e2600b0b9bf555d
+axmheadvolume1_485650caef636e563d575b987108a86e20dc209b49042ced64c1880b128f9608
 
 manifest SHA-256
-2281eaca3be7108fe419b036c1063162474872efdb5992518aec55fcbe24894b
+8ff47fd36b1af9d3a0d7d6cc693d846648bfd814120e05635aa163d7fa77de09
 
 public projection SHA-256
 c0c3f6b8969034bdc87845c692964df9d34680da7168a1aaad258167fe0f286f

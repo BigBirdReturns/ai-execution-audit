@@ -42,8 +42,8 @@ OBJECT_SCHEMAS = (
     VOLUME_SCHEMA,
 )
 PROFILE_CANONICAL_SHA256 = "c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078"
-FIXTURE_CATALOG_CANONICAL_SHA256 = "47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f"
-STANDALONE_VERIFIER_SHA256 = "ef68da907bd5c196a3a10c2874dae20c42cdb547ba14030a968e99d866ee3542"
+FIXTURE_CATALOG_CANONICAL_SHA256 = "82e4bf7e8d18fae61a1e17d1cf758d46004d08dd4b877f933be5c96663b67291"
+STANDALONE_VERIFIER_SHA256 = "8ca6d225fc162e78fb1af41c9cd89c188491a08fe71a69b58c6c12cd9acf4e44"
 PUBLIC_CLAIM_BOUNDARY = (
     "Provider-free synthetic contract joining one MARY-style work unit, observed foreign equipment, "
     "independently evaluated compute routes, immutable cartridge identity, mutable save custody, "
@@ -127,6 +127,23 @@ def sha256_bytes(data: bytes) -> str:
 def content_id(prefix: str, body: dict[str, Any]) -> str:
     return f"{prefix}_{sha256_bytes(canonical_json_bytes(body))}"
 
+
+
+def cartridge_law_body(mission: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": CARTRIDGE_SCHEMA,
+        "profileId": PROFILE_ID,
+        "missionId": mission["missionId"],
+        "cartridgeId": mission["cartridgeId"],
+        "invariantRefs": mission["invariantRefs"],
+        "humanAuthority": mission["humanAuthority"],
+        "systemAuthority": "none",
+        "claimBoundary": CARTRIDGE_CLAIM_BOUNDARY,
+    }
+
+
+def cartridge_law_sha256(mission: dict[str, Any]) -> str:
+    return sha256_bytes(canonical_json_bytes(cartridge_law_body(mission)))
 
 def read_json(path: Path) -> dict[str, Any]:
     try:
@@ -240,6 +257,8 @@ def validate_mission(value: Any, label: str) -> dict[str, Any]:
     require_string(authority["actorId"], f"{label}.humanAuthority.actorId", pattern=ID_RE)
     require_bool(authority["required"], f"{label}.humanAuthority.required")
     require_string(authority["actionClass"], f"{label}.humanAuthority.actionClass", pattern=ID_RE)
+    if value["cartridgeSha256"] != cartridge_law_sha256(value):
+        fail("CARTRIDGE_LAW_DIGEST_INVALID", f"{label}.cartridgeSha256 does not bind the canonical cartridge law")
     return value
 
 
@@ -616,15 +635,8 @@ def build_volume(
     equipment = make_equipment_observation(case["equipment"], profile)
     denominator = make_route_denominator(case, profile)
     cartridge = {
-        "schema": CARTRIDGE_SCHEMA,
-        "profileId": profile["profileId"],
-        "missionId": mission["missionId"],
-        "cartridgeId": mission["cartridgeId"],
+        **cartridge_law_body(mission),
         "cartridgeSha256": mission["cartridgeSha256"],
-        "invariantRefs": mission["invariantRefs"],
-        "humanAuthority": mission["humanAuthority"],
-        "systemAuthority": "none",
-        "claimBoundary": CARTRIDGE_CLAIM_BOUNDARY,
     }
     save = {
         "schema": SAVE_SCHEMA,
