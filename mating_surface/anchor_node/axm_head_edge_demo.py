@@ -23,6 +23,22 @@ PUBLIC_STATUS_SCHEMA = "axm-head/public-status@1"
 VOLUME_SCHEMA = "axm-head/mission-volume@1"
 TERMINALS = ("QUALIFIED_ASSEMBLY", "QUALIFICATION_PLAN", "HOLD")
 PERMITTED_AUTHORITY = ("read-only", "compute-only")
+PROFILE_CLAIM_BOUNDARY = "Provider-free synthetic contract joining one MARY-style work unit, observed foreign equipment, independently evaluated compute routes, immutable cartridge identity, mutable save custody, non-authoritative cache, and cold-successor recovery on a removable mission volume. This profile executes no physical task and establishes no physical Estate, representative operator, field network, operational C2, production Lattice, targeting, engagement, effector, or weapons qualification or authority."
+CARTRIDGE_CLAIM_BOUNDARY = "Immutable mission law, invariants, and human-authority boundary only; no execution authority."
+EXPECTED_PROFILE_CANONICAL_SHA256 = "b995e5a1480af74e5d082ba6dbdd2bb86d7b3489a8d233135c29b297638b6259"
+EXPECTED_FIXTURE_CATALOG_CANONICAL_SHA256 = "47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f"
+EXPECTED_CASE_IDS = (
+    "qualified-gpu-with-resident-fallback",
+    "qualification-plan-missing-adapter",
+    "hold-undeclared-mutation-interface",
+    "qualification-plan-no-memory-pooling",
+)
+EXPECTED_SOURCE_COORDINATES = {
+    "auditRuntime": {"repository": "BigBirdReturns/ai-execution-audit", "commit": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2", "tree": "3f708c52782784e687cf1f0b68fd7d37a507ef4c", "status": "admitted"},
+    "physicalFlightFloor": {"repository": "BigBirdReturns/ai-execution-audit", "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f", "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126", "status": "admitted_not_executed"},
+    "maryMetabolism": {"repository": "BigBirdReturns/mary-portable", "commit": "9151e0b8de973faede371c816db2602c47b854bd", "tree": "4a43991b0178919ebfaedae120d7cd96b20091de", "status": "qualified_draft_not_admitted"},
+}
+EXPECTED_VERIFIER_SHA256 = "ac067758c8dad71adea349d9058fb4eb4fe7a4e6e84025e76718dc825963a06f"
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 SHA256_REF = re.compile(r"^sha256:[0-9a-f]{64}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._:/@-]{2,127}$")
@@ -133,6 +149,8 @@ def validate_source_coordinates(value: Any) -> dict[str, Any]:
         if re.fullmatch(r"[0-9a-f]{40}", commit) is None or re.fullmatch(r"[0-9a-f]{40}", tree) is None:
             fail("SOURCE_HASH_INVALID", f"sourceCoordinates.{name} requires full Git commit and tree SHA")
         require_string(row["status"], f"sourceCoordinates.{name}.status", pattern=ID_RE)
+    if value != EXPECTED_SOURCE_COORDINATES:
+        fail("SOURCE_COORDINATES_INVALID", "sourceCoordinates differ from the exact closed-profile supplier object")
     return value
 
 
@@ -202,7 +220,10 @@ def validate_profile(path: Path) -> dict[str, Any]:
     require_exact_keys(layout, set(expected_layout), "volumeLayout")
     if layout != expected_layout:
         fail("VOLUME_LAYOUT_INVALID", "volumeLayout differs from the closed removable-volume layout")
-    require_string(profile["claimBoundary"], "claimBoundary")
+    if profile["claimBoundary"] != PROFILE_CLAIM_BOUNDARY:
+        fail("CLAIM_BOUNDARY_INVALID", "claimBoundary differs from the exact public/profile non-claim")
+    if sha256_bytes(canonical_json_bytes(profile)) != EXPECTED_PROFILE_CANONICAL_SHA256:
+        fail("PROFILE_PROVENANCE_INVALID", "profile canonical digest differs from the closed profile")
     return profile
 
 
@@ -392,6 +413,10 @@ def validate_fixture_catalog(path: Path, profile: dict[str, Any]) -> dict[str, A
         case_ids.append(case["caseId"])
     if len(set(case_ids)) != len(case_ids):
         fail("DUPLICATE_CASE_ID", "fixture catalog contains duplicate caseId")
+    if tuple(case_ids) != EXPECTED_CASE_IDS:
+        fail("CASE_DENOMINATOR_INVALID", "fixture catalog must contain the exact closed ordered four-case denominator")
+    if sha256_bytes(canonical_json_bytes(catalog)) != EXPECTED_FIXTURE_CATALOG_CANONICAL_SHA256:
+        fail("FIXTURE_PROVENANCE_INVALID", "fixture catalog canonical digest differs from the closed catalog")
     return catalog
 
 
@@ -543,6 +568,42 @@ def clean_relative_path(value: str) -> str:
     return value
 
 
+def trusted_verifier_path() -> Path:
+    return Path(__file__).with_name("verify_axm_head_volume.py").resolve()
+
+
+def assert_trusted_verifier(path: Path) -> bytes:
+    try:
+        data = path.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    except (OSError, UnicodeError) as exc:
+        fail("VERIFIER_READ_FAILED", str(exc))
+    if sha256_bytes(data) != EXPECTED_VERIFIER_SHA256:
+        fail("VERIFIER_IDENTITY_INVALID", "verifier bytes differ from the independently frozen digest")
+    return data
+
+
+def derive_cold_successor_answers(
+    *,
+    cartridge: dict[str, Any],
+    save: dict[str, Any],
+    equipment: dict[str, Any],
+    denominator: dict[str, Any],
+    decision: dict[str, Any],
+    ledger: dict[str, Any],
+) -> dict[str, Any]:
+    if ledger["decisionId"] != decision["decisionId"] or ledger["terminal"] != decision["terminal"]:
+        fail("LEDGER_DECISION_BINDING_INVALID", "ledger does not establish the reconstructed decision state")
+    authority = cartridge["humanAuthority"]
+    return {
+        "whatMission": cartridge["missionId"],
+        "currentState": f"frontier {save['frontier']} terminal {decision['terminal']}",
+        "whoMayAct": authority["actorId"] if authority["required"] else "no named human required",
+        "whatProvesIt": [equipment["evidenceRef"], *[route["evidenceRef"] for route in denominator["routes"]]],
+        "whatRemainsUnresolved": save["unresolvedObligations"],
+        "nextSafeAction": save["nextSafeAction"],
+    }
+
+
 def build_volume(
     *,
     profile_path: Path,
@@ -551,6 +612,8 @@ def build_volume(
     out: Path,
     verifier_source_path: Path,
 ) -> dict[str, Any]:
+    if verifier_source_path.resolve() != trusted_verifier_path():
+        fail("VERIFIER_PATH_INVALID", "closed profile permits only the admitted sibling verifier path")
     profile = validate_profile(profile_path)
     catalog = validate_fixture_catalog(catalog_path, profile)
     case = find_case(catalog, case_id)
@@ -576,7 +639,7 @@ def build_volume(
         "invariantRefs": mission["invariantRefs"],
         "humanAuthority": mission["humanAuthority"],
         "systemAuthority": "none",
-        "claimBoundary": "Immutable mission law, invariants, and human-authority boundary only; no execution authority.",
+        "claimBoundary": CARTRIDGE_CLAIM_BOUNDARY,
     }
     save = {
         "schema": SAVE_SCHEMA,
@@ -621,14 +684,14 @@ def build_volume(
             "stateSha256": mission["save"]["stateSha256"],
             "decisionId": decision["decisionId"],
         },
-        "answers": {
-            "whatMission": mission["missionId"],
-            "currentState": f"frontier {mission['save']['frontier']} terminal {decision['terminal']}",
-            "whoMayAct": mission["humanAuthority"]["actorId"] if mission["humanAuthority"]["required"] else "no named human required",
-            "whatProvesIt": [equipment["evidenceRef"], *[route["evidenceRef"] for route in denominator["routes"]]],
-            "whatRemainsUnresolved": mission["save"]["unresolvedObligations"],
-            "nextSafeAction": mission["save"]["nextSafeAction"],
-        },
+        "answers": derive_cold_successor_answers(
+            cartridge=cartridge,
+            save=save,
+            equipment=equipment,
+            denominator=denominator,
+            decision=decision,
+            ledger=ledger_event,
+        ),
         "dependenciesAbsent": ["WAN", "AWS", "Lattice", "remote_model_provider", "original_host", "repository_history"],
         "systemAuthority": "none",
     }
@@ -652,7 +715,7 @@ def build_volume(
         "claimBoundary": profile["claimBoundary"],
     }
 
-    verifier_bytes = verifier_source_path.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    verifier_bytes = assert_trusted_verifier(verifier_source_path)
     payloads: dict[str, bytes] = {
         "CARTRIDGE/mission.json": pretty_json_bytes(cartridge),
         "CARTRIDGE/work-unit.json": pretty_json_bytes(work_unit),
@@ -691,8 +754,11 @@ def build_volume(
         "terminal": decision["terminal"],
         "sourceCoordinates": profile["sourceCoordinates"],
         "supplierBindings": profile["supplierBindings"],
-        "profileCanonicalSha256": sha256_bytes(canonical_json_bytes(profile)),
-        "fixtureCatalogCanonicalSha256": sha256_bytes(canonical_json_bytes(catalog)),
+        "profileCanonicalSha256": EXPECTED_PROFILE_CANONICAL_SHA256,
+        "fixtureCatalogCanonicalSha256": EXPECTED_FIXTURE_CATALOG_CANONICAL_SHA256,
+        "fixtureCatalogSchema": CATALOG_SCHEMA,
+        "qualifiedCaseIds": list(EXPECTED_CASE_IDS),
+        "verifierSha256": EXPECTED_VERIFIER_SHA256,
         "layout": profile["volumeLayout"],
         "cartridgeBinding": {
             "missionId": mission["missionId"],
@@ -759,7 +825,9 @@ def main(argv: list[str] | None = None) -> int:
     p_build.add_argument("fixtures", type=Path)
     p_build.add_argument("case_id")
     p_build.add_argument("--out", required=True, type=Path)
-    p_build.add_argument("--verifier", type=Path, default=Path(__file__).with_name("verify_axm_head_volume.py"))
+
+    p_verifier = sub.add_parser("verify-verifier")
+    p_verifier.add_argument("verifier", nargs="?", type=Path, default=Path(__file__).with_name("verify_axm_head_volume.py"))
 
     args = parser.parse_args(argv)
     try:
@@ -785,9 +853,12 @@ def main(argv: list[str] | None = None) -> int:
                     catalog_path=args.fixtures,
                     case_id=args.case_id,
                     out=args.out,
-                    verifier_source_path=args.verifier,
+                    verifier_source_path=Path(__file__).with_name("verify_axm_head_volume.py"),
                 )
             )
+        elif args.command == "verify-verifier":
+            data = assert_trusted_verifier(args.verifier)
+            print_json({"status": "PASS", "verifierSha256": sha256_bytes(data)})
         return 0
     except DemoError as exc:
         print_json({"status": "REFUSED", "code": exc.code, "message": str(exc)})

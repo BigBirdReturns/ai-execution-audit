@@ -21,6 +21,17 @@ PUBLIC_STATUS_SCHEMA = "axm-head/public-status@1"
 VOLUME_SCHEMA = "axm-head/mission-volume@1"
 TERMINALS = ("QUALIFIED_ASSEMBLY", "QUALIFICATION_PLAN", "HOLD")
 PERMITTED_AUTHORITY = ("read-only", "compute-only")
+PROFILE_CLAIM_BOUNDARY = "Provider-free synthetic contract joining one MARY-style work unit, observed foreign equipment, independently evaluated compute routes, immutable cartridge identity, mutable save custody, non-authoritative cache, and cold-successor recovery on a removable mission volume. This profile executes no physical task and establishes no physical Estate, representative operator, field network, operational C2, production Lattice, targeting, engagement, effector, or weapons qualification or authority."
+CARTRIDGE_CLAIM_BOUNDARY = "Immutable mission law, invariants, and human-authority boundary only; no execution authority."
+EXPECTED_PROFILE_CANONICAL_SHA256 = "b995e5a1480af74e5d082ba6dbdd2bb86d7b3489a8d233135c29b297638b6259"
+EXPECTED_FIXTURE_CATALOG_CANONICAL_SHA256 = "47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f"
+FIXTURE_CATALOG_SCHEMA = "axm-head-edge-demo-fixture-catalog/1"
+EXPECTED_CASE_IDS = [
+    "qualified-gpu-with-resident-fallback",
+    "qualification-plan-missing-adapter",
+    "hold-undeclared-mutation-interface",
+    "qualification-plan-no-memory-pooling",
+]
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 SHA256_REF = re.compile(r"^sha256:[0-9a-f]{64}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._:/@-]{2,127}$")
@@ -387,6 +398,9 @@ def verify_manifest(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
             "supplierBindings",
             "profileCanonicalSha256",
             "fixtureCatalogCanonicalSha256",
+            "fixtureCatalogSchema",
+            "qualifiedCaseIds",
+            "verifierSha256",
             "layout",
             "cartridgeBinding",
             "workUnitBinding",
@@ -405,19 +419,29 @@ def verify_manifest(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     if manifest["schema"] != VOLUME_SCHEMA or manifest["profileId"] != PROFILE_ID:
         fail("MANIFEST_IDENTITY_INVALID", "manifest schema or profileId differs")
     string(manifest["caseId"], "manifest.caseId", ID_RE)
+    if manifest["caseId"] not in EXPECTED_CASE_IDS:
+        fail("CASE_DENOMINATOR_INVALID", "manifest case is outside the closed four-case denominator")
     if manifest["terminal"] not in TERMINALS:
         fail("TERMINAL_INVALID", "manifest terminal is outside closed denominator")
     if manifest["sourceCoordinates"] != SOURCE_COORDINATES:
         fail("SOURCE_COORDINATES_INVALID", "manifest source coordinates differ from verifier")
     if manifest["supplierBindings"] != SUPPLIER_BINDINGS:
         fail("SUPPLIER_BINDINGS_INVALID", "manifest supplier bindings differ from verifier")
-    string(manifest["profileCanonicalSha256"], "manifest.profileCanonicalSha256", HEX64)
-    string(manifest["fixtureCatalogCanonicalSha256"], "manifest.fixtureCatalogCanonicalSha256", HEX64)
+    if manifest["profileCanonicalSha256"] != EXPECTED_PROFILE_CANONICAL_SHA256:
+        fail("PROFILE_PROVENANCE_INVALID", "manifest profile canonical digest differs")
+    if manifest["fixtureCatalogCanonicalSha256"] != EXPECTED_FIXTURE_CATALOG_CANONICAL_SHA256:
+        fail("FIXTURE_PROVENANCE_INVALID", "manifest fixture catalog canonical digest differs")
+    if manifest["fixtureCatalogSchema"] != FIXTURE_CATALOG_SCHEMA:
+        fail("FIXTURE_PROVENANCE_INVALID", "manifest fixture catalog schema differs")
+    if manifest["qualifiedCaseIds"] != EXPECTED_CASE_IDS:
+        fail("CASE_DENOMINATOR_INVALID", "manifest qualified case denominator differs")
+    string(manifest["verifierSha256"], "manifest.verifierSha256", HEX64)
     if manifest["layout"] != LAYOUT:
         fail("VOLUME_LAYOUT_INVALID", "manifest layout differs")
     if manifest["systemAuthority"] != "none" or boolean(manifest["executionOccurred"], "manifest.executionOccurred"):
         fail("MANIFEST_AUTHORITY_INVALID", "manifest may not claim execution or authority")
-    string(manifest["claimBoundary"], "manifest.claimBoundary")
+    if manifest["claimBoundary"] != PROFILE_CLAIM_BOUNDARY:
+        fail("CLAIM_BOUNDARY_INVALID", "manifest claim boundary differs from the admitted public/profile non-claim")
     if manifest["cachePolicy"] != {"authoritative": False, "includedInVolumeId": False, "allowedPrefix": "CACHE/"}:
         fail("CACHE_POLICY_INVALID", "cache policy differs")
 
@@ -453,6 +477,9 @@ def verify_manifest(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     roles = {row["path"]: row["role"] for row in rows}
     if roles != REQUIRED_FILES:
         fail("MANIFEST_FILE_DENOMINATOR_INVALID", "manifest file denominator or roles differ")
+    verifier_row = next(row for row in rows if row["path"] == "RECOVERY/verify_volume.py")
+    if manifest["verifierSha256"] != verifier_row["sha256"]:
+        fail("VERIFIER_IDENTITY_INVALID", "manifest verifier digest differs from the manifested verifier bytes")
 
     body = dict(manifest)
     declared_volume_id = string(body.pop("volumeId"), "manifest.volumeId")
@@ -499,7 +526,8 @@ def verify_objects(root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     human_authority = validate_human_authority(cartridge["humanAuthority"], "cartridge.humanAuthority")
     if cartridge["systemAuthority"] != "none":
         fail("CARTRIDGE_AUTHORITY_INVALID", "cartridge systemAuthority must be none")
-    string(cartridge["claimBoundary"], "cartridge.claimBoundary")
+    if cartridge["claimBoundary"] != CARTRIDGE_CLAIM_BOUNDARY:
+        fail("CARTRIDGE_CLAIM_BOUNDARY_INVALID", "cartridge claim boundary differs from the exact mission boundary")
 
     work_unit = read_json(root / "CARTRIDGE/work-unit.json")
     exact(
@@ -684,6 +712,17 @@ def verify_objects(root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     string_list(answers["whatProvesIt"], "answers.whatProvesIt")
     string_list(answers["whatRemainsUnresolved"], "answers.whatRemainsUnresolved")
     string(answers["nextSafeAction"], "answers.nextSafeAction")
+    expected_answers = {
+        "whatMission": cartridge["missionId"],
+        "currentState": f"frontier {save['frontier']} terminal {decision['terminal']}",
+        "whoMayAct": human_authority["actorId"] if human_authority["required"] else "no named human required",
+        "whatProvesIt": [equipment["evidenceRef"], *[route["evidenceRef"] for route in denominator["routes"]]],
+        "whatRemainsUnresolved": save["unresolvedObligations"],
+        "nextSafeAction": save["nextSafeAction"],
+    }
+    if answers != expected_answers:
+        differing = sorted(key for key in expected_answers if answers.get(key) != expected_answers[key])
+        fail("RECOVERY_ANSWERS_MISMATCH", f"cold-successor answers differ from authoritative volume state: {differing}")
     expected_absent = ["WAN", "AWS", "Lattice", "remote_model_provider", "original_host", "repository_history"]
     if recovery["dependenciesAbsent"] != expected_absent:
         fail("RECOVERY_DEPENDENCIES_INVALID", "dependenciesAbsent differs")
@@ -698,6 +737,10 @@ def verify_objects(root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
         fail("PUBLIC_STATUS_INVALID", "public status identity invalid")
     if public["systemAuthority"] != "none" or boolean(public["executionOccurred"], "public.executionOccurred"):
         fail("PUBLIC_AUTHORITY_INVALID", "public status may not claim authority or execution")
+    if public["claimBoundary"] != PROFILE_CLAIM_BOUNDARY:
+        fail("CLAIM_BOUNDARY_INVALID", "public claim boundary differs from the admitted non-claim")
+    if manifest["claimBoundary"] != public["claimBoundary"]:
+        fail("CLAIM_BOUNDARY_BINDING_INVALID", "manifest and public claim boundaries differ")
     for field in ("physicalFlightCompleted", "physicalEstateQualified", "representativeOperatorQualified", "fieldNetworkQualified", "operationalC2Qualified", "productionLatticeQualified"):
         if boolean(public[field], f"public.{field}"):
             fail("PUBLIC_CLAIM_PROMOTION", f"public.{field} must remain false")

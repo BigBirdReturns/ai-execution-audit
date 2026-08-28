@@ -110,6 +110,21 @@ PUBLIC/
 
 The standalone verifier does not trust the stored decision. It validates the complete work unit, equipment observation, and route denominator, reevaluates every route independently, reconstructs the expected terminal and selected route, and requires byte-for-byte equality with the stored decision. A forger who changes the candidate denominator and correctly recomputes every affected digest still fails when the stored decision no longer follows from the supplied task and routes.
 
+The verifier also derives all six cold-successor answers from the cartridge,
+save, equipment observation, complete route denominator, reconstructed decision,
+ledger, human-authority state, and unresolved obligations. Stored recovery
+answers are assertions until they exactly match that derived object.
+
+For profile axm-head/edge-demo/0.1, supplier coordinates, the public/profile
+claim boundary, the distinct cartridge mission boundary, canonical profile and
+fixture-catalog digests, catalog schema, and the ordered four-case denominator
+are exact constants. Shape-valid substitutes refuse. The builder admits only
+its sibling standalone verifier at the independently frozen SHA-256 recorded in
+the reviewed builder. A foreign operator authenticates copied verifier bytes
+without executing them with the verify-verifier command before invoking them.
+The volume manifest repeats the digest for binding and drift detection; it does
+not create trust in the verifier that checks the manifest.
+
 `CACHE/` is excluded from the volume identity and may be deleted, replaced, or regenerated. Unmanifested files anywhere else fail verification. A cache mutation cannot change the cartridge, save, decision, or volume identity.
 
 ## Commands
@@ -146,6 +161,10 @@ python mating_surface/anchor_node/axm_head_edge_demo.py ...
 ```
 
 A build target must not already exist. The standalone verifier can be copied with the volume and run from a foreign working directory. It imports no repository module.
+
+build-volume has no verifier override for this closed profile. Alternate
+verifier paths, one-byte mutations, valid alternate programs, and always-PASS
+substitutions refuse before substituted code is executed.
 
 ## Fixed fixture campaign
 

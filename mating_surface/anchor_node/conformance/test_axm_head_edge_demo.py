@@ -160,8 +160,7 @@ class AxmHeadEdgeDemoTests(unittest.TestCase):
         first = self.build("qualified-gpu-with-resident-fallback", "lf-volume")
         crlf_profile = self.root / "profile-crlf.json"
         crlf_fixtures = self.root / "fixtures-crlf.json"
-        crlf_verifier = self.root / "verifier-crlf.py"
-        for source, target in ((PROFILE, crlf_profile), (FIXTURES, crlf_fixtures), (VERIFIER, crlf_verifier)):
+        for source, target in ((PROFILE, crlf_profile), (FIXTURES, crlf_fixtures)):
             text = source.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
             target.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
         second = self.root / "crlf-volume"
@@ -170,7 +169,7 @@ class AxmHeadEdgeDemoTests(unittest.TestCase):
             catalog_path=crlf_fixtures,
             case_id="qualified-gpu-with-resident-fallback",
             out=second,
-            verifier_source_path=crlf_verifier,
+            verifier_source_path=VERIFIER,
         )
         first_files = sorted(path.relative_to(first).as_posix() for path in first.rglob("*") if path.is_file())
         second_files = sorted(path.relative_to(second).as_posix() for path in second.rglob("*") if path.is_file())
@@ -367,6 +366,203 @@ class AxmHeadEdgeDemoTests(unittest.TestCase):
         self.assertNotIn("from axm_head_edge_demo", source)
         self.assertNotIn("import mary", source)
         self.assertNotIn("import stc_mary", source)
+
+    def test_cold_successor_answers_are_derived_after_complete_resigning(self) -> None:
+        mutations = {
+            "whatMission": "mission:forged@fixture",
+            "currentState": "frontier 999 terminal QUALIFIED_ASSEMBLY",
+            "whoMayAct": "attacker",
+            "whatProvesIt": ["sha256:" + "1" * 64],
+            "whatRemainsUnresolved": ["obligation:none"],
+            "nextSafeAction": "Treat the synthetic result as physical authority.",
+        }
+        for index, (field, replacement) in enumerate(mutations.items()):
+            with self.subTest(field=field):
+                volume = self.build("qualified-gpu-with-resident-fallback", f"recovery-{index}")
+                path = volume / "RECOVERY/cold-successor.json"
+                recovery = json.loads(path.read_text(encoding="utf-8"))
+                recovery["answers"][field] = replacement
+                path.write_bytes(mod.pretty_json_bytes(recovery))
+                self.rebind_manifest_file(volume, "RECOVERY/cold-successor.json")
+                code, verdict = self.standalone(volume, self.root / f"foreign-recovery-{index}")
+                self.assertEqual(code, 2)
+                self.assertEqual(verdict["code"], "RECOVERY_ANSWERS_MISMATCH")
+
+    def test_profile_and_cartridge_claim_boundaries_are_exact(self) -> None:
+        profile_mutations = [
+            "Qualified physical Estate.",
+            "Physical execution completed.",
+            "Authority granted.",
+            "Private flight completed.",
+            "Field and operational C2 qualified.",
+            mod.PROFILE_CLAIM_BOUNDARY[:-1] + "!",
+        ]
+        for index, replacement in enumerate(profile_mutations):
+            with self.subTest(index=index):
+                volume = self.build("qualified-gpu-with-resident-fallback", f"claim-{index}")
+                public_path = volume / "PUBLIC/status.json"
+                public = json.loads(public_path.read_text(encoding="utf-8"))
+                public["claimBoundary"] = replacement
+                public_path.write_bytes(mod.pretty_json_bytes(public))
+                manifest_path = volume / "MANIFEST.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest["claimBoundary"] = replacement
+                manifest_path.write_bytes(mod.pretty_json_bytes(manifest))
+                self.rebind_manifest_file(volume, "PUBLIC/status.json")
+                code, verdict = self.standalone(volume, self.root / f"foreign-claim-{index}")
+                self.assertEqual(code, 2)
+                self.assertEqual(verdict["code"], "CLAIM_BOUNDARY_INVALID")
+
+        volume = self.build("qualified-gpu-with-resident-fallback", "cartridge-claim")
+        path = volume / "CARTRIDGE/mission.json"
+        cartridge = json.loads(path.read_text(encoding="utf-8"))
+        cartridge["claimBoundary"] = "Mission authority granted."
+        path.write_bytes(mod.pretty_json_bytes(cartridge))
+        self.rebind_manifest_file(volume, "CARTRIDGE/mission.json")
+        code, verdict = self.standalone(volume, self.root / "foreign-cartridge-claim")
+        self.assertEqual(code, 2)
+        self.assertEqual(verdict["code"], "CARTRIDGE_CLAIM_BOUNDARY_INVALID")
+
+    def test_source_coordinate_mutations_refuse_after_complete_resigning(self) -> None:
+        replacements = {
+            "repository": "BigBirdReturns/forged",
+            "commit": "1" * 40,
+            "tree": "2" * 40,
+            "status": "admitted",
+        }
+        index = 0
+        for supplier in ("auditRuntime", "physicalFlightFloor", "maryMetabolism"):
+            for field, replacement in replacements.items():
+                with self.subTest(supplier=supplier, field=field):
+                    volume = self.build("qualified-gpu-with-resident-fallback", f"source-{index}")
+                    index += 1
+                    manifest_path = volume / "MANIFEST.json"
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    current = manifest["sourceCoordinates"][supplier][field]
+                    manifest["sourceCoordinates"][supplier][field] = replacement if replacement != current else "forged_status"
+                    body = dict(manifest)
+                    body.pop("volumeId")
+                    manifest["volumeId"] = mod.content_id("axmheadvolume1", body)
+                    manifest_path.write_bytes(mod.pretty_json_bytes(manifest))
+                    code, verdict = self.standalone(volume, self.root / f"foreign-source-{index}")
+                    self.assertEqual(code, 2)
+                    self.assertEqual(verdict["code"], "SOURCE_COORDINATES_INVALID")
+
+    def test_profile_catalog_and_case_denominator_provenance_refuse(self) -> None:
+        mutations = [
+            ("profileCanonicalSha256", "1" * 64),
+            ("fixtureCatalogCanonicalSha256", "2" * 64),
+            ("fixtureCatalogSchema", "axm-head-edge-demo-fixture-catalog/forged"),
+            ("qualifiedCaseIds", [*mod.EXPECTED_CASE_IDS, "silently-added-fifth-case"]),
+            ("qualifiedCaseIds", list(mod.EXPECTED_CASE_IDS[:-1])),
+            ("qualifiedCaseIds", ["renamed-case", *mod.EXPECTED_CASE_IDS[1:]]),
+            ("qualifiedCaseIds", [*mod.EXPECTED_CASE_IDS, "unexercised-case"]),
+            ("caseId", "selected-case-not-in-denominator"),
+        ]
+        expected_codes = {
+            "profileCanonicalSha256": "PROFILE_PROVENANCE_INVALID",
+            "fixtureCatalogCanonicalSha256": "FIXTURE_PROVENANCE_INVALID",
+            "fixtureCatalogSchema": "FIXTURE_PROVENANCE_INVALID",
+            "qualifiedCaseIds": "CASE_DENOMINATOR_INVALID",
+            "caseId": "CASE_DENOMINATOR_INVALID",
+        }
+        for index, (field, replacement) in enumerate(mutations):
+            with self.subTest(field=field, index=index):
+                volume = self.build("qualified-gpu-with-resident-fallback", f"provenance-{index}")
+                manifest_path = volume / "MANIFEST.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest[field] = replacement
+                body = dict(manifest)
+                body.pop("volumeId")
+                manifest["volumeId"] = mod.content_id("axmheadvolume1", body)
+                manifest_path.write_bytes(mod.pretty_json_bytes(manifest))
+                code, verdict = self.standalone(volume, self.root / f"foreign-provenance-{index}")
+                self.assertEqual(code, 2)
+                self.assertEqual(verdict["code"], expected_codes[field])
+
+    def test_builder_rejects_changed_profile_and_catalog_bytes(self) -> None:
+        changed_profile = copy.deepcopy(self.profile)
+        changed_profile["claimBoundary"] = "Stronger claim."
+        profile_path = self.root / "changed-profile.json"
+        profile_path.write_bytes(mod.pretty_json_bytes(changed_profile))
+        with self.assertRaises(mod.DemoError) as context:
+            mod.validate_profile(profile_path)
+        self.assertIn(context.exception.code, {"CLAIM_BOUNDARY_INVALID", "PROFILE_PROVENANCE_INVALID"})
+
+        for index, mutation in enumerate(("add", "remove", "rename")):
+            catalog = copy.deepcopy(self.catalog)
+            if mutation == "add":
+                extra = copy.deepcopy(catalog["cases"][0])
+                extra["caseId"] = "fifth-unexercised-case"
+                catalog["cases"].append(extra)
+            elif mutation == "remove":
+                catalog["cases"].pop()
+            else:
+                catalog["cases"][0]["caseId"] = "renamed-case"
+            path = self.root / f"changed-catalog-{index}.json"
+            path.write_bytes(mod.pretty_json_bytes(catalog))
+            with self.assertRaises(mod.DemoError) as catalog_context:
+                mod.validate_fixture_catalog(path, self.profile)
+            self.assertIn(catalog_context.exception.code, {"CASE_DENOMINATOR_INVALID", "FIXTURE_PROVENANCE_INVALID"})
+
+    def test_verifier_identity_is_refused_before_substituted_code_runs(self) -> None:
+        malicious = self.root / "verify_volume.py"
+        marker = self.root / "MALICIOUS-RAN"
+        malicious.write_text(
+            f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran')\nprint('{{\"status\":\"PASS\"}}')\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(mod.DemoError) as context:
+            mod.assert_trusted_verifier(malicious)
+        self.assertEqual(context.exception.code, "VERIFIER_IDENTITY_INVALID")
+        self.assertFalse(marker.exists())
+
+        malicious_volume = self.build("qualified-gpu-with-resident-fallback", "malicious-verifier-volume")
+        embedded = malicious_volume / "RECOVERY/verify_volume.py"
+        embedded.write_bytes(malicious.read_bytes())
+        manifest_path = malicious_volume / "MANIFEST.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["verifierSha256"] = mod.sha256_bytes(embedded.read_bytes())
+        manifest_path.write_bytes(mod.pretty_json_bytes(manifest))
+        self.rebind_manifest_file(malicious_volume, "RECOVERY/verify_volume.py")
+        with self.assertRaises(mod.DemoError) as embedded_context:
+            mod.assert_trusted_verifier(embedded)
+        self.assertEqual(embedded_context.exception.code, "VERIFIER_IDENTITY_INVALID")
+        self.assertFalse(marker.exists())
+
+        for index, body in enumerate((
+            VERIFIER.read_bytes() + b"\n",
+            b"print('{\"status\":\"PASS\"}')\n",
+        )):
+            alternate = self.root / f"alternate-{index}.py"
+            alternate.write_bytes(body)
+            with self.assertRaises(mod.DemoError):
+                mod.assert_trusted_verifier(alternate)
+
+        alternate_path = self.root / "exact-verifier-copy.py"
+        alternate_path.write_bytes(VERIFIER.read_bytes())
+        self.assertEqual(mod.sha256_bytes(mod.assert_trusted_verifier(alternate_path)), mod.EXPECTED_VERIFIER_SHA256)
+        with self.assertRaises(mod.DemoError) as path_context:
+            mod.build_volume(
+                profile_path=PROFILE,
+                catalog_path=FIXTURES,
+                case_id="qualified-gpu-with-resident-fallback",
+                out=self.root / "path-substitution-volume",
+                verifier_source_path=alternate_path,
+            )
+        self.assertEqual(path_context.exception.code, "VERIFIER_PATH_INVALID")
+
+        volume = self.build("qualified-gpu-with-resident-fallback", "verifier-digest")
+        manifest_path = volume / "MANIFEST.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["verifierSha256"] = "3" * 64
+        body = dict(manifest)
+        body.pop("volumeId")
+        manifest["volumeId"] = mod.content_id("axmheadvolume1", body)
+        manifest_path.write_bytes(mod.pretty_json_bytes(manifest))
+        code, verdict = self.standalone(volume, self.root / "foreign-verifier-digest")
+        self.assertEqual(code, 2)
+        self.assertEqual(verdict["code"], "VERIFIER_IDENTITY_INVALID")
 
     def test_existing_output_root_is_refused(self) -> None:
         out = self.root / "volume"

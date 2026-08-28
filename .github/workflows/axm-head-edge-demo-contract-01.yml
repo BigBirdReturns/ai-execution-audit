@@ -8,6 +8,7 @@ on:
       - "mating_surface/anchor_node/verify_axm_head_volume.py"
       - "mating_surface/anchor_node/axm-head-edge-demo.ps1"
       - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md"
+      - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-SEMANTIC-CLOSURE-REVIEW.md"
       - "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
       - "mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py"
       - ".github/workflows/axm-head-edge-demo-contract-01.yml"
@@ -20,6 +21,7 @@ on:
       - "mating_surface/anchor_node/verify_axm_head_volume.py"
       - "mating_surface/anchor_node/axm-head-edge-demo.ps1"
       - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md"
+      - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-SEMANTIC-CLOSURE-REVIEW.md"
       - "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
       - "mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py"
       - ".github/workflows/axm-head-edge-demo-contract-01.yml"
@@ -116,6 +118,7 @@ jobs:
             FOREIGN="$RUNNER_TEMP/foreign-$CASE"
             mkdir -p "$FOREIGN"
             python "$TOOL" build-volume "$PROFILE" "$FIXTURES" "$CASE" --out "$VOLUME"
+            python "$TOOL" verify-verifier "$VOLUME/RECOVERY/verify_volume.py"
             (
               cd "$FOREIGN"
               python "$VOLUME/RECOVERY/verify_volume.py" "$VOLUME" \
@@ -158,6 +161,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           & $Tool build-volume $Profile $Fixtures qualified-gpu-with-resident-fallback --out $Volume
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          & $Tool verify-verifier (Join-Path $Volume 'RECOVERY\verify_volume.py')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           python (Join-Path $Volume 'RECOVERY\verify_volume.py') $Volume
