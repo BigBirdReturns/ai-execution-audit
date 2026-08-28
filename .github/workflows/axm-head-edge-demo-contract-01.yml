@@ -32,57 +32,51 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Recover and execute the authenticated structural repair
+      - name: Execute authenticated semantic-dedent repair carrier
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           import hashlib
-          import re
           import subprocess
           import textwrap
 
-          source_commit = "ce428cd0634ff344cd2eeb4fed475850d4d3037b"
+          source_commit = "b269c51894af12758695d693d5778ac0288e63bd"
           workflow_path = ".github/workflows/axm-head-edge-demo-contract-01.yml"
+          expected_blob = "6b140b579831c4ea512dc22a630b6bd8ec0b8ace"
+          observed_blob = subprocess.check_output(
+              ["git", "rev-parse", f"{source_commit}:{workflow_path}"],
+              text=True,
+          ).strip()
+          if observed_blob != expected_blob:
+              raise SystemExit(
+                  f"repair carrier Git object differs: expected={expected_blob} observed={observed_blob}"
+              )
+
           raw = subprocess.check_output(
               ["git", "show", f"{source_commit}:{workflow_path}"],
               text=True,
           )
-          expected_sha256 = "beed52f9551ddfbc019945c5f0c8f7bd2535e875ef8a27e39cf39ebce0d8405b"
-          observed_sha256 = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-          if observed_sha256 != expected_sha256:
+          expected_raw_sha256 = "32f7ea47d814b5755595142384d4a8f2915fc32b01bea3ab8db49c988ab33f6c"
+          observed_raw_sha256 = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+          if observed_raw_sha256 != expected_raw_sha256:
               raise SystemExit(
-                  f"repair workflow identity differs: expected={expected_sha256} observed={observed_sha256}"
+                  f"repair carrier raw digest differs: expected={expected_raw_sha256} observed={observed_raw_sha256}"
               )
 
           start_marker = "          python - <<'PY'\n"
           end_marker = "          PY\n\n      - name: Qualify repaired source and hostile witnesses"
           if raw.count(start_marker) != 1 or raw.count(end_marker) != 1:
-              raise SystemExit("repair-script carrier markers differ")
-          carried = raw.split(start_marker, 1)[1].split(end_marker, 1)[0]
-          script = textwrap.dedent(carried)
-          if script.count("import re\n") != 1:
-              raise SystemExit("repair-script import anchor differs")
-          script = script.replace("import re\n", "import re\nimport textwrap\n", 1)
+              raise SystemExit("semantic-dedent carrier markers differ")
+          carried = textwrap.dedent(raw.split(start_marker, 1)[1].split(end_marker, 1)[0])
+          wrong = 'expected_sha256 = "beed52f9551ddfbc019945c5f0c8f7bd2535e875ef8a27e39cf39ebce0d8405b"'
+          right = 'expected_sha256 = "32f7ea47d814b5755595142384d4a8f2915fc32b01bea3ab8db49c988ab33f6c"'
+          if carried.count(wrong) != 1:
+              raise SystemExit("semantic-dedent digest correction anchor differs")
+          carried = carried.replace(wrong, right, 1)
 
-          generated = re.compile(
-              r"(?P<prefix>\b\w+\s*(?:=|\+=)\s*)'''(?P<body>.*?)'''\.replace\(\"          \", \"\"\)",
-              re.DOTALL,
-          )
-          script, transformed = generated.subn(
-              lambda match: (
-                  match.group("prefix")
-                  + "textwrap.dedent('''"
-                  + match.group("body")
-                  + "''')"
-              ),
-              script,
-          )
-          if transformed != 9:
-              raise SystemExit(f"generated-block denominator differs: {transformed}")
-
-          repair = Path("/tmp/axm-head-final-custody-repair.py")
-          repair.write_text(script, encoding="utf-8", newline="\n")
+          repair = Path("/tmp/axm-head-semantic-dedent-carrier.py")
+          repair.write_text(carried, encoding="utf-8", newline="\n")
           subprocess.run(["python", "-m", "py_compile", str(repair)], check=True)
           subprocess.run(["python", str(repair)], check=True)
           PY
