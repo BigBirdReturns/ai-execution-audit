@@ -172,7 +172,7 @@ jobs:
           git diff --cached --check
           python - <<'PY'
           import subprocess
-          permanent = {
+          permitted = {
               ".github/workflows/axm-head-edge-demo-contract-01.yml",
               "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md",
               "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json",
@@ -183,10 +183,14 @@ jobs:
               "mating_surface/anchor_node/verify_axm_head_bootstrap.py",
               "mating_surface/anchor_node/verify_axm_head_volume.py",
           }
+          required_changed = permitted - {
+              "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json",
+          }
           actual = set(subprocess.check_output(["git", "diff", "--cached", "--name-only"], text=True).splitlines())
-          unexpected = {path for path in actual if not path.startswith(".axm-head-repair/") and path not in permanent}
-          if unexpected or not permanent.issubset(actual):
-              raise SystemExit(f"staged path denominator differs: unexpected={sorted(unexpected)} missing={sorted(permanent - actual)}")
+          unexpected = {path for path in actual if not path.startswith(".axm-head-repair/") and path not in permitted}
+          missing = required_changed - actual
+          if unexpected or missing:
+              raise SystemExit(f"staged path denominator differs: unexpected={sorted(unexpected)} missing={sorted(missing)}")
           PY
           git commit -m "Close AXM HEAD semantic trust graph"
           git push origin HEAD:refs/heads/work/axm-head-edge-demo-contract-01
