@@ -1,0 +1,176 @@
+{
+  "schema": "stc-mary-flight-conductor-profile/1",
+  "profileId": "stc-mary/private-flight-conductor/0.1",
+  "status": "candidate_design_only",
+  "repository": "BigBirdReturns/ai-execution-audit",
+  "requiredCommit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+  "requiredTree": "2a6a155e9615eb847781f87566bac32d4c9dc126",
+  "queueIssue": 37,
+  "workItemIssue": 44,
+  "workspaceDirectoryPattern": "^stc-mary-flight-conductor-[a-z0-9][a-z0-9._-]*$",
+  "repositoryOutputAllowed": false,
+  "networkRequired": false,
+  "externalServiceCalls": 0,
+  "operationalCredentials": 0,
+  "artifactLabels": [
+    "cartridge",
+    "model",
+    "verifier",
+    "storage"
+  ],
+  "selectedCudaIndexRange": [
+    0,
+    31
+  ],
+  "feed": {
+    "records": 262144,
+    "features": 32,
+    "classes": 8,
+    "seed": 20260827
+  },
+  "phaseSequence": [
+    "admitted_checkout",
+    "artifact_coordinates",
+    "readiness",
+    "feed",
+    "personal_floor",
+    "halo3",
+    "post_halo3_continuity",
+    "two_cell_partition",
+    "successor_head",
+    "flight_plan",
+    "private_packet",
+    "sealed_flight"
+  ],
+  "phases": {
+    "admitted_checkout": {
+      "receiptClasses": [
+        "conductor_source_receipt"
+      ],
+      "operatorAction": "Hold the campaign on the exact detached admitted checkout and preserve a clean working tree.",
+      "nextSafeAction": "Restore and verify the exact detached admitted checkout before producing any campaign receipt.",
+      "wakeCondition": "The repository resolves to the required full commit and tree, is detached, and has no tracked or untracked change.",
+      "repairAction": "Quarantine the workstation until the repository is restored to the exact admitted detached checkout and every local change is removed or moved elsewhere.",
+      "controlQuestion": "Is this the exact admitted source tree, detached from every moving branch and unchanged since admission?"
+    },
+    "artifact_coordinates": {
+      "receiptClasses": [
+        "conductor_artifact_coordinate"
+      ],
+      "operatorAction": "Maintain the four declared private artifact coordinates as distinct, existing, non-symlink sources outside the workstation output roots.",
+      "nextSafeAction": "Restore the declared cartridge, model or executable, independent verifier, and storage substrate at their immutable campaign coordinates.",
+      "wakeCondition": "All four required artifact labels resolve to distinct existing regular files or directories without path overlap.",
+      "repairAction": "Refuse the changed coordinate set and initialize a new campaign root rather than editing the admitted campaign configuration.",
+      "controlQuestion": "Do the four declared coordinates still identify the exact private inputs this campaign is allowed to hash and use?"
+    },
+    "readiness": {
+      "receiptClasses": [
+        "stc-mary-local-readiness-private/1"
+      ],
+      "operatorAction": "Run the admitted readiness census against the exact checkout and declared artifacts.",
+      "nextSafeAction": "Run the admitted local-toolchain doctor transaction into the generated preparation root.",
+      "wakeCondition": "A content-valid readiness-private receipt binds the exact commit, clean detached checkout, selected CUDA index, and all four declared artifact coordinates.",
+      "repairAction": "Remove the invalid preparation root from campaign consideration, preserve it for diagnosis, and rerun doctor into a new campaign root if the receipt cannot be reproduced exactly.",
+      "controlQuestion": "Did the readiness receipt observe this exact source checkout and every declared private artifact without widening authority?"
+    },
+    "feed": {
+      "receiptClasses": [
+        "stc-mary-invented-aperture-feed/1"
+      ],
+      "operatorAction": "Generate the admitted deterministic invented feed at the frozen dimensions and seed.",
+      "nextSafeAction": "Run generate-feed for 262144 records, 32 features, 8 classes, and seed 20260827 into the generated feed root.",
+      "wakeCondition": "The admitted feed validator accepts the manifest, binary denominator, header, dimensions, seed, and feature digest.",
+      "repairAction": "Refuse the altered or unrelated feed root and regenerate the feed at the frozen dimensions and seed.",
+      "controlQuestion": "Does the feed close its exact byte and record denominator while remaining invented, local, and non-authoritative?"
+    },
+    "personal_floor": {
+      "receiptClasses": [
+        "stc-mary-aperture-workload-result/1",
+        "stc-mary-aperture-workload-verification/1"
+      ],
+      "operatorAction": "Run and independently verify the accepted workload on the resident CPU floor before HALO3 is attached.",
+      "nextSafeAction": "Run the Python resident-floor workload and its independent stdlib verification against the admitted feed.",
+      "wakeCondition": "A valid resident-CPU result and PASS verification bind the exact admitted feed and one accepted semantic output.",
+      "repairAction": "Refuse the altered, unrelated, shortened, or non-resident result pair and repeat the resident-floor transaction.",
+      "controlQuestion": "Did the resident floor produce and independently verify the accepted output without optional accelerator capacity?"
+    },
+    "halo3": {
+      "receiptClasses": [
+        "stc-mary-aperture-workload-result/1",
+        "stc-mary-aperture-workload-verification/1"
+      ],
+      "operatorAction": "Run and independently verify the same feed through the selected torch-cuda device.",
+      "nextSafeAction": "Run the torch-cuda workload on the selected device index and independently verify its output.",
+      "wakeCondition": "A valid torch-cuda result on the selected device preserves the baseline semantic and classification identities and exceeds baseline throughput.",
+      "repairAction": "Refuse the non-matching, non-accelerating, wrong-device, synthetic, or unrelated result and rerun the HALO3 audition.",
+      "controlQuestion": "Did HALO3 accelerate the same accepted result on the selected seat without becoming necessary or authoritative?"
+    },
+    "post_halo3_continuity": {
+      "receiptClasses": [
+        "stc-mary-aperture-workload-result/1",
+        "stc-mary-aperture-workload-verification/1",
+        "stc-mary-aperture-workload-comparison/1"
+      ],
+      "operatorAction": "Apply the declared reversible HALO3 interruption, rerun the resident floor, independently verify it, and compare all three results.",
+      "nextSafeAction": "Perform the declared reversible interruption and complete the post-removal resident run, verification, and three-way comparison.",
+      "wakeCondition": "The continuity result reproduces the baseline identities and the comparison proves one accepted output, measured HALO3 acceleration, and resident continuity.",
+      "repairAction": "Refuse the mismatched or incomplete continuity chain and repeat the reversible interruption and post-removal proof.",
+      "controlQuestion": "After HALO3 became unavailable, did the resident floor reproduce the accepted output with no loss of canonical state or authority?"
+    },
+    "two_cell_partition": {
+      "receiptClasses": [
+        "stc-mary-offline-two-cell-verification/1"
+      ],
+      "operatorAction": "Build two complete offline cells, verify them on distinct actual host classes, and reunite them without selecting a winner.",
+      "nextSafeAction": "Execute the admitted two-cell build, distinct-host private attestations, and HUMAN_REQUIRED reunion transaction.",
+      "wakeCondition": "A valid private_local_attested two-cell verification preserves both divergent branches, distinct host classes, automaticMergeAllowed false, and one unresolved obligation.",
+      "repairAction": "Hold synthetic evidence and refuse altered or collapsed reunion evidence; repeat the physical two-cell transaction without selecting either branch.",
+      "controlQuestion": "Did the physical partition and reunion preserve both independently verified branches and leave disposition with the named human?"
+    },
+    "successor_head": {
+      "receiptClasses": [
+        "stc-mary-offline-successor-verification/1"
+      ],
+      "operatorAction": "Build the complete successor bundle and verify it on a replacement HEAD class without repository history or the original host.",
+      "nextSafeAction": "Execute the admitted cold-successor build and private_local_attested verification on a distinct replacement HEAD class.",
+      "wakeCondition": "A valid private_local_attested successor verification closes the complete denominator, six-question reconstruction, obligation preservation, and absent-dependency set.",
+      "repairAction": "Hold synthetic evidence and refuse altered, same-host, incomplete, or dependency-widening successor evidence; repeat the cold-successor transaction.",
+      "controlQuestion": "Can the replacement HEAD reconstruct the cartridge, state, authority boundary, evidence, obligations, and next safe action without the original host or repository history?"
+    },
+    "flight_plan": {
+      "receiptClasses": [
+        "stc-mary-local-flight-plan/1",
+        "stc-mary-private-flight-packet-config/1"
+      ],
+      "operatorAction": "Compile the admitted flight plan from the exact private receipts and bind the generated packet configuration.",
+      "nextSafeAction": "Run compile-plan with the readiness, feed, three workload results, private two-cell verification, and private successor verification.",
+      "wakeCondition": "The content-valid plan binds this campaign and exact commit, all eight gates are READY, and the generated packet configuration contains no placeholder.",
+      "repairAction": "Refuse an altered or unrelated plan; when a valid plan remains held, satisfy its first exact gate wake condition and compile a new plan root.",
+      "controlQuestion": "Do all eight admitted gates close from exact campaign receipts without converting synthetic or absent evidence into readiness?"
+    },
+    "private_packet": {
+      "receiptClasses": [
+        "stc-mary-private-flight-packet-status/1",
+        "stc-mary-private-flight-packet-state/1"
+      ],
+      "operatorAction": "Initialize, configure, and record all sixteen admitted packet stages in order with named-human confirmation and local evidence.",
+      "nextSafeAction": "Use the rendered packet handoff, then perform and record only the packet runtime’s next admitted stage.",
+      "wakeCondition": "The admitted packet validator accepts the campaign binding and all sixteen stages are recorded sequentially with nextStage null.",
+      "repairAction": "Refuse altered packet state or out-of-order evidence; return to the admitted packet runtime and reproduce the next valid state without editing recorded receipts.",
+      "controlQuestion": "Has the named human completed only the next admitted stage, supplied local evidence, and preserved every terminal and authority boundary?"
+    },
+    "sealed_flight": {
+      "receiptClasses": [
+        "stc-mary-private-flight-sealed-verification/1",
+        "stc-mary-physical-flight-public-disposition/1"
+      ],
+      "operatorAction": "Seal the complete private packet, independently verify the sealed denominator, and retain only the body-free disposition for public review.",
+      "nextSafeAction": "Run the admitted seal and detached verify-sealed transactions, then generate the conductor public projection.",
+      "wakeCondition": "The admitted sealed-package verifier returns PASS and the public disposition remains body-free with every stronger qualification and authority field false or none.",
+      "repairAction": "Refuse the drifted, incomplete, or claim-widening sealed package and return to the private packet without publishing any disposition.",
+      "controlQuestion": "Does the sealed package prove one completed private self-attestation while keeping every private body local and every stronger qualification ungranted?"
+    }
+  },
+  "authority": "none",
+  "claimBoundary": "Source-pinned private-flight orchestration contract. It derives progress only from admitted receipts, performs no physical action, creates no evidence body, and grants no hardware, model, verifier, scheduler, transport, physical-Estate, representative-operator, field-network, operational-C2, production-Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority."
+}
