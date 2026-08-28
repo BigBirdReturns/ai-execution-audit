@@ -32,567 +32,65 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Bind cartridge law and protect verdict output custody
+      - name: Recover and execute the authenticated structural repair
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           import hashlib
-          import json
           import re
+          import subprocess
+          import textwrap
 
-          root = Path("mating_surface/anchor_node")
-          builder_path = root / "axm_head_edge_demo.py"
-          verifier_path = root / "verify_axm_head_volume.py"
-          bootstrap_path = root / "verify_axm_head_bootstrap.py"
-          tests_path = root / "conformance" / "test_axm_head_edge_demo.py"
-          fixtures_path = root / "fixtures" / "axm-head-edge-demo-cases-01.json"
-          contract_path = root / "AXM-HEAD-EDGE-DEMO-CONTRACT-01.md"
-          review_path = root / "AXM-HEAD-EDGE-DEMO-SEMANTIC-CLOSURE-REVIEW.md"
-
-          expected_source_sha256 = {
-              builder_path: "adbe5f465621013d4d0a7eb2c46f78a96b1bc0c108098097341cf064c21afe0a",
-              verifier_path: "ef68da907bd5c196a3a10c2874dae20c42cdb547ba14030a968e99d866ee3542",
-              bootstrap_path: "15be7b7e2c0885bc9efe515ef6c6152e38d22688144f1a62a73c63b7cd994165",
-              tests_path: "88033019fdffeb7fcd22f88dc46409be49b427f5790b5c05c7d26fe966ced45d",
-              fixtures_path: "a212676c2d54e62d32472de6b26a337d7ba584320eca8bdafa79914608148ace",
-              contract_path: "6701402fc69bed3f00ced1c2104964d55f54e6f7365662161c2324b84e84008d",
-          }
-          for path, expected in expected_source_sha256.items():
-              observed = hashlib.sha256(path.read_bytes()).hexdigest()
-              if observed != expected:
-                  raise SystemExit(
-                      f"predecessor source identity differs: {path} expected={expected} observed={observed}"
-                  )
-
-          def canonical_json_bytes(value):
-              return (
-                  json.dumps(
-                      value,
-                      sort_keys=True,
-                      separators=(",", ":"),
-                      ensure_ascii=False,
-                      allow_nan=False,
-                  )
-                  + "\n"
-              ).encode("utf-8")
-
-          def pretty_json_bytes(value):
-              return (
-                  json.dumps(
-                      value,
-                      sort_keys=True,
-                      indent=2,
-                      ensure_ascii=False,
-                      allow_nan=False,
-                  )
-                  + "\n"
-              ).encode("utf-8")
-
-          def replace_once(path: Path, old: str, new: str, label: str) -> None:
-              text = path.read_text(encoding="utf-8")
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"{label}: expected one literal anchor in {path}, found {count}")
-              path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
-
-          def insert_before(path: Path, marker: str, block: str, label: str) -> None:
-              text = path.read_text(encoding="utf-8")
-              count = text.count(marker)
-              if count != 1:
-                  raise SystemExit(f"{label}: expected one insertion marker in {path}, found {count}")
-              path.write_text(text.replace(marker, block + marker), encoding="utf-8", newline="\n")
-
-          def regex_once(path: Path, pattern: str, replacement: str, label: str) -> None:
-              text = path.read_text(encoding="utf-8")
-              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.DOTALL)
-              if count != 1:
-                  raise SystemExit(f"{label}: expected one structural match in {path}, found {count}")
-              path.write_text(updated, encoding="utf-8", newline="\n")
-
-          cartridge_helpers = '''
-
-          def cartridge_law_body(mission: dict[str, Any]) -> dict[str, Any]:
-              return {
-                  "schema": CARTRIDGE_SCHEMA,
-                  "profileId": PROFILE_ID,
-                  "missionId": mission["missionId"],
-                  "cartridgeId": mission["cartridgeId"],
-                  "invariantRefs": mission["invariantRefs"],
-                  "humanAuthority": mission["humanAuthority"],
-                  "systemAuthority": "none",
-                  "claimBoundary": CARTRIDGE_CLAIM_BOUNDARY,
-              }
-
-
-          def cartridge_law_sha256(mission: dict[str, Any]) -> str:
-              return sha256_bytes(canonical_json_bytes(cartridge_law_body(mission)))
-          '''.replace("          ", "")
-          insert_before(
-              builder_path,
-              "\ndef read_json(path: Path) -> dict[str, Any]:\n",
-              cartridge_helpers,
-              "builder cartridge-law helpers",
+          source_commit = "ce428cd0634ff344cd2eeb4fed475850d4d3037b"
+          workflow_path = ".github/workflows/axm-head-edge-demo-contract-01.yml"
+          raw = subprocess.check_output(
+              ["git", "show", f"{source_commit}:{workflow_path}"],
+              text=True,
           )
-          insert_before(
-              verifier_path,
-              "\ndef read_json(path: Path) -> dict[str, Any]:\n",
-              cartridge_helpers,
-              "verifier cartridge-law helpers",
-          )
-
-          replace_once(
-              builder_path,
-              '    require_string(authority["actionClass"], f"{label}.humanAuthority.actionClass", pattern=ID_RE)\n    return value\n',
-              '    require_string(authority["actionClass"], f"{label}.humanAuthority.actionClass", pattern=ID_RE)\n'
-              '    if value["cartridgeSha256"] != cartridge_law_sha256(value):\n'
-              '        fail("CARTRIDGE_LAW_DIGEST_INVALID", f"{label}.cartridgeSha256 does not bind the canonical cartridge law")\n'
-              '    return value\n',
-              "builder mission-law validation",
-          )
-          replace_once(
-              verifier_path,
-              '    string(authority["actionClass"], f"{label}.humanAuthority.actionClass", ID_RE)\n    return value\n\n\ndef validate_task',
-              '    string(authority["actionClass"], f"{label}.humanAuthority.actionClass", ID_RE)\n'
-              '    if value["cartridgeSha256"] != cartridge_law_sha256(value):\n'
-              '        fail("CARTRIDGE_LAW_DIGEST_INVALID", f"{label}.cartridgeSha256 does not bind the canonical cartridge law")\n'
-              '    return value\n\n\ndef validate_task',
-              "verifier catalog mission-law validation",
-          )
-
-          validate_cartridge = '''
-
-          def validate_cartridge(value: Any, label: str) -> dict[str, Any]:
-              if not isinstance(value, dict):
-                  fail("CARTRIDGE_INVALID", f"{label} must be an object")
-              exact(
-                  value,
-                  {
-                      "schema",
-                      "profileId",
-                      "missionId",
-                      "cartridgeId",
-                      "cartridgeSha256",
-                      "invariantRefs",
-                      "humanAuthority",
-                      "systemAuthority",
-                      "claimBoundary",
-                  },
-                  label,
-              )
-              if value["schema"] != CARTRIDGE_SCHEMA or value["profileId"] != PROFILE_ID:
-                  fail("CARTRIDGE_IDENTITY_INVALID", f"{label} schema or profileId differs")
-              string(value["missionId"], f"{label}.missionId", ID_RE)
-              string(value["cartridgeId"], f"{label}.cartridgeId", ID_RE)
-              string(value["cartridgeSha256"], f"{label}.cartridgeSha256", HEX64)
-              string_list(value["invariantRefs"], f"{label}.invariantRefs", True)
-              authority = value["humanAuthority"]
-              if not isinstance(authority, dict):
-                  fail("HUMAN_AUTHORITY_INVALID", f"{label}.humanAuthority must be an object")
-              exact(authority, {"actorId", "required", "actionClass"}, f"{label}.humanAuthority")
-              string(authority["actorId"], f"{label}.humanAuthority.actorId", ID_RE)
-              boolean(authority["required"], f"{label}.humanAuthority.required")
-              string(authority["actionClass"], f"{label}.humanAuthority.actionClass", ID_RE)
-              if value["systemAuthority"] != "none":
-                  fail("CARTRIDGE_AUTHORITY_INVALID", f"{label} may not claim system authority")
-              if value["claimBoundary"] != CARTRIDGE_CLAIM_BOUNDARY:
-                  fail("CARTRIDGE_CLAIM_BOUNDARY_INVALID", f"{label} claim boundary differs")
-              if value["cartridgeSha256"] != cartridge_law_sha256(value):
-                  fail("CARTRIDGE_LAW_DIGEST_INVALID", f"{label}.cartridgeSha256 does not bind the canonical cartridge law")
-              return value
-          '''.replace("          ", "")
-          insert_before(
-              verifier_path,
-              "\ndef validate_task(value: Any, label: str) -> dict[str, Any]:\n",
-              validate_cartridge,
-              "actual cartridge validator",
-          )
-
-          regex_once(
-              builder_path,
-              r'    cartridge = \{\n.*?\n    \}\n    save = \{',
-              '    cartridge = {\n'
-              '        **cartridge_law_body(mission),\n'
-              '        "cartridgeSha256": mission["cartridgeSha256"],\n'
-              '    }\n'
-              '    save = {',
-              "builder cartridge construction",
-          )
-          regex_once(
-              verifier_path,
-              r'def make_cartridge\(case: dict\[str, Any\]\) -> dict\[str, Any\]:\n.*?\n\ndef make_save',
-              'def make_cartridge(case: dict[str, Any]) -> dict[str, Any]:\n'
-              '    mission = case["mission"]\n'
-              '    return {\n'
-              '        **cartridge_law_body(mission),\n'
-              '        "cartridgeSha256": mission["cartridgeSha256"],\n'
-              '    }\n\n\n'
-              'def make_save',
-              "verifier cartridge reconstruction",
-          )
-          replace_once(
-              verifier_path,
-              '    actual_cartridge = read_json(root / "CARTRIDGE/mission.json")\n'
-              '    actual_work_unit = read_json(root / "CARTRIDGE/work-unit.json")\n',
-              '    actual_cartridge = read_json(root / "CARTRIDGE/mission.json")\n'
-              '    validate_cartridge(actual_cartridge, "cartridge")\n'
-              '    actual_work_unit = read_json(root / "CARTRIDGE/work-unit.json")\n',
-              "actual cartridge pre-reconstruction validation",
-          )
-
-          output_helpers = '''
-
-          def output_path_overlaps_volume(volume: Path, out: Path) -> bool:
-              root = volume.expanduser().resolve(strict=False)
-              candidate = out.expanduser().resolve(strict=False)
-              if candidate == root or root in candidate.parents:
-                  return True
-              if out.exists() and root.is_dir():
-                  for member in root.rglob("*"):
-                      if not member.is_file():
-                          continue
-                      try:
-                          if out.samefile(member):
-                              return True
-                      except OSError:
-                          continue
-              return False
-
-
-          def require_output_outside_volume(volume: Path, out: Path) -> None:
-              if output_path_overlaps_volume(volume, out):
-                  fail("OUTPUT_INSIDE_VOLUME", "verdict output must remain outside the verified volume")
-          '''.replace("          ", "")
-          insert_before(
-              verifier_path,
-              "\ndef validate_profile(profile: dict[str, Any]) -> None:\n",
-              output_helpers,
-              "embedded verifier output guard",
-          )
-          embedded_main = '''def main(argv: list[str] | None = None) -> int:
-              parser = argparse.ArgumentParser(description="Standalone verifier for AXM HEAD removable mission volumes")
-              parser.add_argument("volume", type=Path)
-              parser.add_argument("--out", type=Path)
-              args = parser.parse_args(argv)
-              safe_out = args.out
-              try:
-                  if safe_out is not None:
-                      require_output_outside_volume(args.volume, safe_out)
-                  verdict = verify_volume(args.volume)
-                  data = pretty_json_bytes(verdict)
-                  if safe_out is not None:
-                      safe_out.parent.mkdir(parents=True, exist_ok=True)
-                      safe_out.write_bytes(data)
-                  sys.stdout.buffer.write(data)
-                  return 0
-              except VerifyError as exc:
-                  if exc.code == "OUTPUT_INSIDE_VOLUME":
-                      safe_out = None
-                  verdict = {"schema": VERDICT_SCHEMA, "status": "REFUSED", "code": exc.code, "message": str(exc)}
-                  data = pretty_json_bytes(verdict)
-                  if safe_out is not None:
-                      safe_out.parent.mkdir(parents=True, exist_ok=True)
-                      safe_out.write_bytes(data)
-                  sys.stdout.buffer.write(data)
-                  return 2
-
-
-          if __name__ == "__main__":
-              raise SystemExit(main())
-          '''.replace("          ", "")
-          regex_once(
-              verifier_path,
-              r'def main\(argv: list\[str\] \| None = None\) -> int:\n.*?\n\nif __name__ == "__main__":\n    raise SystemExit\(main\(\)\)\n?',
-              embedded_main,
-              "embedded verifier main",
-          )
-
-          bootstrap_output_helpers = '''
-
-          def output_path_overlaps_volume(volume: Path, out: Path) -> bool:
-              root = volume.expanduser().resolve(strict=False)
-              candidate = out.expanduser().resolve(strict=False)
-              if candidate == root or root in candidate.parents:
-                  return True
-              if out.exists() and root.is_dir():
-                  for member in root.rglob("*"):
-                      if not member.is_file():
-                          continue
-                      try:
-                          if out.samefile(member):
-                              return True
-                      except OSError:
-                          continue
-              return False
-          '''.replace("          ", "")
-          insert_before(
-              bootstrap_path,
-              "\ndef emit(value: dict[str, Any], out: Path | None) -> int:\n",
-              bootstrap_output_helpers,
-              "bootstrap output guard",
-          )
-          replace_once(
-              bootstrap_path,
-              '    args = parser.parse_args(argv)\n'
-              '    verifier = args.volume / "RECOVERY" / "verify_volume.py"\n',
-              '    args = parser.parse_args(argv)\n'
-              '    if args.out is not None and output_path_overlaps_volume(args.volume, args.out):\n'
-              '        return emit(\n'
-              '            {\n'
-              '                "schema": VERDICT_SCHEMA,\n'
-              '                "status": "REFUSED",\n'
-              '                "code": "OUTPUT_INSIDE_VOLUME",\n'
-              '                "message": "verdict output must remain outside the verified volume",\n'
-              '                "bootstrapAuthenticated": False,\n'
-              '            },\n'
-              '            None,\n'
-              '        )\n'
-              '    verifier = args.volume / "RECOVERY" / "verify_volume.py"\n',
-              "bootstrap pre-execution output refusal",
-          )
-
-          catalog = json.loads(fixtures_path.read_text(encoding="utf-8"))
-          for case in catalog["cases"]:
-              mission = case["mission"]
-              law = {
-                  "schema": "axm-head/cartridge@1",
-                  "profileId": "axm-head/edge-demo/0.1",
-                  "missionId": mission["missionId"],
-                  "cartridgeId": mission["cartridgeId"],
-                  "invariantRefs": mission["invariantRefs"],
-                  "humanAuthority": mission["humanAuthority"],
-                  "systemAuthority": "none",
-                  "claimBoundary": "Immutable mission law, invariants, and human-authority boundary only; no execution authority.",
-              }
-              mission["cartridgeSha256"] = hashlib.sha256(canonical_json_bytes(law)).hexdigest()
-          fixtures_path.write_bytes(pretty_json_bytes(catalog))
-          catalog_digest = hashlib.sha256(canonical_json_bytes(catalog)).hexdigest()
-
-          for path in (builder_path, verifier_path):
-              replace_once(
-                  path,
-                  'FIXTURE_CATALOG_CANONICAL_SHA256 = "47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f"',
-                  f'FIXTURE_CATALOG_CANONICAL_SHA256 = "{catalog_digest}"',
-                  f"{path.name} fixture catalog trust root",
+          expected_sha256 = "beed52f9551ddfbc019945c5f0c8f7bd2535e875ef8a27e39cf39ebce0d8405b"
+          observed_sha256 = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+          if observed_sha256 != expected_sha256:
+              raise SystemExit(
+                  f"repair workflow identity differs: expected={expected_sha256} observed={observed_sha256}"
               )
 
-          builder_law_test = '''    def test_cartridge_digest_is_derived_from_canonical_mission_law(self) -> None:
-              for case in self.catalog["cases"]:
-                  self.assertEqual(case["mission"]["cartridgeSha256"], mod.cartridge_law_sha256(case["mission"]))
-              attacks = (
-                  ("invariant", lambda mission: mission["invariantRefs"].append("invariant:forged@1")),
-                  ("actor", lambda mission: mission["humanAuthority"].update({"actorId": "autonomous-system"})),
-              )
-              for label, mutate in attacks:
-                  with self.subTest(label=label):
-                      case = self.case(mod.CASE_IDS[0])
-                      mutate(case["mission"])
-                      with self.assertRaises(mod.DemoError) as context:
-                          mod.decide_case(case, self.profile)
-                      self.assertEqual(context.exception.code, "CARTRIDGE_LAW_DIGEST_INVALID")
+          start_marker = "          python - <<'PY'\n"
+          end_marker = "          PY\n\n      - name: Qualify repaired source and hostile witnesses"
+          if raw.count(start_marker) != 1 or raw.count(end_marker) != 1:
+              raise SystemExit("repair-script carrier markers differ")
+          carried = raw.split(start_marker, 1)[1].split(end_marker, 1)[0]
+          script = textwrap.dedent(carried)
+          if script.count("import re\n") != 1:
+              raise SystemExit("repair-script import anchor differs")
+          script = script.replace("import re\n", "import re\nimport textwrap\n", 1)
 
-          '''.replace("          ", "")
-          insert_before(
-              tests_path,
-              "    def test_each_supplier_coordinate_mutation_is_refused_by_builder(self) -> None:\n",
-              builder_law_test,
-              "builder cartridge-law witness",
+          generated = re.compile(
+              r"(?P<prefix>\b\w+\s*(?:=|\+=)\s*)'''(?P<body>.*?)'''\.replace\(\"          \", \"\"\)",
+              re.DOTALL,
           )
-
-          resigned_law_test = '''    def test_resigned_cartridge_law_forgery_is_refused(self) -> None:
-              attacks = (
-                  ("invariant", lambda cartridge: cartridge["invariantRefs"].append("invariant:forged@1")),
-                  ("actor", lambda cartridge: cartridge["humanAuthority"].update({"actorId": "autonomous-system"})),
-              )
-              for index, (label, mutate) in enumerate(attacks):
-                  for mode in ("stale-declared-digest", "rederived-forged-digest"):
-                      with self.subTest(label=label, mode=mode):
-                          volume = self.build(mod.CASE_IDS[0], f"cartridge-law-{index}-{mode}")
-                          path = volume / "CARTRIDGE/mission.json"
-                          cartridge = json.loads(path.read_text(encoding="utf-8"))
-                          mutate(cartridge)
-                          manifest_mutations = None
-                          expected_code = "CARTRIDGE_LAW_DIGEST_INVALID"
-                          if mode == "rederived-forged-digest":
-                              cartridge["cartridgeSha256"] = mod.cartridge_law_sha256(cartridge)
-                              manifest = json.loads((volume / "MANIFEST.json").read_text(encoding="utf-8"))
-                              binding = dict(manifest["cartridgeBinding"])
-                              binding["declaredCartridgeSha256"] = cartridge["cartridgeSha256"]
-                              manifest_mutations = {"cartridgeBinding": binding}
-                              expected_code = "CARTRIDGE_RECONSTRUCTION_MISMATCH"
-                          path.write_bytes(mod.pretty_json_bytes(cartridge))
-                          self.rewrite_manifest(
-                              volume,
-                              relatives=["CARTRIDGE/mission.json"],
-                              mutations=manifest_mutations,
-                          )
-                          code, verdict, _, _ = self.bootstrap(
-                              volume,
-                              self.root / f"cartridge-law-foreign-{index}-{mode}",
-                          )
-                          self.assertEqual(code, 2)
-                          self.assertEqual(verdict["code"], expected_code)
-
-          '''.replace("          ", "")
-          insert_before(
-              tests_path,
-              "    def test_cartridge_claim_boundary_forgery_is_refused_after_resigning(self) -> None:\n",
-              resigned_law_test,
-              "re-signed cartridge-law witness",
+          script, transformed = generated.subn(
+              lambda match: (
+                  match.group("prefix")
+                  + "textwrap.dedent('''"
+                  + match.group("body")
+                  + "''')"
+              ),
+              script,
           )
+          if transformed != 9:
+              raise SystemExit(f"generated-block denominator differs: {transformed}")
 
-          output_overlap_test = '''    def test_verdict_output_inside_volume_is_refused_without_mutation(self) -> None:
-              for index, entrypoint in enumerate(("bootstrap", "direct")):
-                  with self.subTest(entrypoint=entrypoint):
-                      volume = self.build(mod.CASE_IDS[0], f"output-volume-{index}")
-                      before = {
-                          path.relative_to(volume).as_posix(): path.read_bytes()
-                          for path in volume.rglob("*")
-                          if path.is_file()
-                      }
-                      out = volume / "PUBLIC" / f"{entrypoint}-verdict.json"
-                      if entrypoint == "bootstrap":
-                          code, verdict, _, stderr = self.bootstrap(
-                              volume,
-                              self.root / f"output-foreign-{index}",
-                              out,
-                          )
-                      else:
-                          foreign = self.root / f"output-foreign-{index}"
-                          foreign.mkdir()
-                          result = subprocess.run(
-                              [
-                                  sys.executable,
-                                  str(volume / "RECOVERY" / "verify_volume.py"),
-                                  str(volume),
-                                  "--out",
-                                  str(out),
-                              ],
-                              cwd=foreign,
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE,
-                              check=False,
-                          )
-                          code = result.returncode
-                          verdict = json.loads(result.stdout.decode("utf-8"))
-                          stderr = result.stderr
-                      self.assertEqual(code, 2)
-                      self.assertEqual(stderr, b"")
-                      self.assertEqual(verdict["code"], "OUTPUT_INSIDE_VOLUME")
-                      self.assertFalse(out.exists())
-                      after = {
-                          path.relative_to(volume).as_posix(): path.read_bytes()
-                          for path in volume.rglob("*")
-                          if path.is_file()
-                      }
-                      self.assertEqual(after, before)
-
-          '''.replace("          ", "")
-          insert_before(
-              tests_path,
-              "    def test_bootstrap_verdict_file_is_canonical_lf_utf8(self) -> None:\n",
-              output_overlap_test,
-              "verdict output-custody witness",
-          )
-          focused_count = len(re.findall(r"^    def test_", tests_path.read_text(encoding="utf-8"), flags=re.MULTILINE))
-          if focused_count != 38:
-              raise SystemExit(f"focused test denominator differs after repair: {focused_count}")
-
-          verifier_sha256 = hashlib.sha256(verifier_path.read_bytes()).hexdigest()
-          replace_once(
-              builder_path,
-              'STANDALONE_VERIFIER_SHA256 = "ef68da907bd5c196a3a10c2874dae20c42cdb547ba14030a968e99d866ee3542"',
-              f'STANDALONE_VERIFIER_SHA256 = "{verifier_sha256}"',
-              "builder verifier trust root",
-          )
-          replace_once(
-              bootstrap_path,
-              'EXPECTED_VERIFIER_SHA256 = "ef68da907bd5c196a3a10c2874dae20c42cdb547ba14030a968e99d866ee3542"',
-              f'EXPECTED_VERIFIER_SHA256 = "{verifier_sha256}"',
-              "bootstrap verifier trust root",
-          )
-          bootstrap_sha256 = hashlib.sha256(bootstrap_path.read_bytes()).hexdigest()
-
-          contract = contract_path.read_text(encoding="utf-8")
-          contract_replacements = {
-              "fixture catalog canonical SHA-256\n47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f":
-                  f"fixture catalog canonical SHA-256\n{catalog_digest}",
-              "embedded standalone verifier SHA-256\nef68da907bd5c196a3a10c2874dae20c42cdb547ba14030a968e99d866ee3542":
-                  f"embedded standalone verifier SHA-256\n{verifier_sha256}",
-              "external bootstrap SHA-256\n15be7b7e2c0885bc9efe515ef6c6152e38d22688144f1a62a73c63b7cd994165":
-                  f"external bootstrap SHA-256\n{bootstrap_sha256}",
-              "The thirty-five-witness conformance suite":
-                  "The thirty-eight-witness conformance suite",
-          }
-          for old, new in contract_replacements.items():
-              if contract.count(old) != 1:
-                  raise SystemExit(f"contract admission anchor differs: {old[:80]!r}")
-              contract = contract.replace(old, new)
-          law_paragraph_anchor = "The exact public claim boundary and the distinct cartridge claim boundary are frozen constants."
-          law_paragraph = (
-              "The declared `cartridgeSha256` is the SHA-256 of the canonical immutable law body: schema, profile, "
-              "mission and cartridge identities, invariant references, named-human authority, system non-authority, "
-              "and cartridge claim boundary. Mutable save state is excluded. The builder and detached verifier "
-              "independently recompute this digest. A changed invariant or acting-human rule with a stale declared "
-              "digest refuses even after the volume file rows and `volumeId` are re-signed. If a forger also derives "
-              "a new digest and rewrites the manifest binding, reconstruction against the admitted catalog law still refuses.\n\n"
-              + law_paragraph_anchor
-          )
-          if contract.count(law_paragraph_anchor) != 1:
-              raise SystemExit("contract cartridge-law paragraph anchor differs")
-          contract = contract.replace(law_paragraph_anchor, law_paragraph)
-          output_paragraph_anchor = "A build target must not already exist. The bootstrap and embedded verifier use only standard-library Python."
-          output_paragraph = (
-              "A build target must not already exist. Both verifier entrypoints refuse `--out` when the destination "
-              "is inside the volume, resolves through a symlink into the volume, or aliases an authoritative volume "
-              "file. The refusal is emitted only to stdout, so verification cannot mutate the object it just measured. "
-              "The bootstrap and embedded verifier use only standard-library Python."
-          )
-          if contract.count(output_paragraph_anchor) != 1:
-              raise SystemExit("contract output-custody paragraph anchor differs")
-          contract = contract.replace(output_paragraph_anchor, output_paragraph)
-          hostile_anchor = "cartridge claim text\nroute denominator and decision chain"
-          hostile_replacement = (
-              "cartridge claim text\n"
-              "cartridge invariant and named-human law\n"
-              "verdict output path overlapping the measured volume\n"
-              "route denominator and decision chain"
-          )
-          if contract.count(hostile_anchor) != 1:
-              raise SystemExit("contract hostile-denominator anchor differs")
-          contract = contract.replace(hostile_anchor, hostile_replacement)
-          contract_path.write_text(contract, encoding="utf-8", newline="\n")
-
-          review = review_path.read_text(encoding="utf-8")
-          if "## Late custody closure" in review:
-              raise SystemExit("late custody closure already present")
-          review += '''
-
-          ## Late custody closure
-
-          Independent admission review found two further defects after the first semantic-closure campaign. The declared cartridge digest did not derive from the immutable law it purported to name, and either verifier entrypoint could write its `--out` receipt into the volume after a passing measurement. The successor derives the digest from canonical cartridge law in both builder and detached verifier, validates the actual cartridge before reconstruction, and refuses any verdict destination that resolves into or aliases the measured volume. The thirty-eight-method denominator contains direct builder drift, stale-digest and rederived-digest cartridge-law forgeries, bootstrapped output overlap, and direct-verifier output overlap. No refusal writes through the rejected path.
-          '''.replace("          ", "")
-          review_path.write_text(review.rstrip() + "\n", encoding="utf-8", newline="\n")
-
-          receipt = {
-              "schema": "axm-head-final-custody-repair/1",
-              "fixtureCatalogCanonicalSha256": catalog_digest,
-              "standaloneVerifierSha256": verifier_sha256,
-              "bootstrapSha256": bootstrap_sha256,
-              "focusedTestCount": focused_count,
-              "claimBoundary": "synthetic_contract_only",
-              "executionOccurred": False,
-              "authority": "none",
-          }
-          receipt_path = Path("qualification/axm-head-final-custody/repair-receipt.json")
-          receipt_path.parent.mkdir(parents=True, exist_ok=True)
-          receipt_path.write_bytes(pretty_json_bytes(receipt))
-          print(json.dumps(receipt, sort_keys=True))
+          repair = Path("/tmp/axm-head-final-custody-repair.py")
+          repair.write_text(script, encoding="utf-8", newline="\n")
+          subprocess.run(["python", "-m", "py_compile", str(repair)], check=True)
+          subprocess.run(["python", str(repair)], check=True)
           PY
 
       - name: Qualify repaired source and hostile witnesses
         shell: bash
         run: |
+          mkdir -p qualification/axm-head-final-custody
           python -m py_compile \
             mating_surface/anchor_node/axm_head_edge_demo.py \
             mating_surface/anchor_node/verify_axm_head_bootstrap.py \
