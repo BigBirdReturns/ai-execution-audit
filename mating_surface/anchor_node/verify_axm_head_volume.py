@@ -8,7 +8,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+PROFILE_SCHEMA = "axm-head-edge-demo-profile/1"
 PROFILE_ID = "axm-head/edge-demo/0.1"
+CATALOG_SCHEMA = "axm-head-edge-demo-fixture-catalog/1"
 EQUIPMENT_SCHEMA = "axm-head/equipment-observation@1"
 WORK_UNIT_BINDING_SCHEMA = "axm-head/work-unit-binding@1"
 DECISION_SCHEMA = "axm-head/equipment-intake-decision@1"
@@ -19,22 +21,44 @@ LEDGER_SCHEMA = "axm-head/ledger-event@1"
 COLD_SUCCESSOR_SCHEMA = "axm-head/cold-successor@1"
 PUBLIC_STATUS_SCHEMA = "axm-head/public-status@1"
 VOLUME_SCHEMA = "axm-head/mission-volume@1"
+VERDICT_SCHEMA = "axm-head/mission-volume-verdict@1"
 TERMINALS = ("QUALIFIED_ASSEMBLY", "QUALIFICATION_PLAN", "HOLD")
 PERMITTED_AUTHORITY = ("read-only", "compute-only")
-PROFILE_CLAIM_BOUNDARY = "Provider-free synthetic contract joining one MARY-style work unit, observed foreign equipment, independently evaluated compute routes, immutable cartridge identity, mutable save custody, non-authoritative cache, and cold-successor recovery on a removable mission volume. This profile executes no physical task and establishes no physical Estate, representative operator, field network, operational C2, production Lattice, targeting, engagement, effector, or weapons qualification or authority."
-CARTRIDGE_CLAIM_BOUNDARY = "Immutable mission law, invariants, and human-authority boundary only; no execution authority."
-EXPECTED_PROFILE_CANONICAL_SHA256 = "b995e5a1480af74e5d082ba6dbdd2bb86d7b3489a8d233135c29b297638b6259"
-EXPECTED_FIXTURE_CATALOG_CANONICAL_SHA256 = "47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f"
-FIXTURE_CATALOG_SCHEMA = "axm-head-edge-demo-fixture-catalog/1"
-EXPECTED_CASE_IDS = [
+CASE_IDS = (
     "qualified-gpu-with-resident-fallback",
     "qualification-plan-missing-adapter",
     "hold-undeclared-mutation-interface",
     "qualification-plan-no-memory-pooling",
-]
-HEX64 = re.compile(r"^[0-9a-f]{64}$")
-SHA256_REF = re.compile(r"^sha256:[0-9a-f]{64}$")
-ID_RE = re.compile(r"^[a-z0-9][a-z0-9._:/@-]{2,127}$")
+)
+OBJECT_SCHEMAS = (
+    EQUIPMENT_SCHEMA,
+    WORK_UNIT_BINDING_SCHEMA,
+    DECISION_SCHEMA,
+    ROUTE_DENOMINATOR_SCHEMA,
+    CARTRIDGE_SCHEMA,
+    SAVE_SCHEMA,
+    LEDGER_SCHEMA,
+    COLD_SUCCESSOR_SCHEMA,
+    PUBLIC_STATUS_SCHEMA,
+    VOLUME_SCHEMA,
+)
+PROFILE_CANONICAL_SHA256 = "c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078"
+FIXTURE_CATALOG_CANONICAL_SHA256 = "47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f"
+PUBLIC_CLAIM_BOUNDARY = (
+    "Provider-free synthetic contract joining one MARY-style work unit, observed foreign equipment, "
+    "independently evaluated compute routes, immutable cartridge identity, mutable save custody, "
+    "non-authoritative cache, and cold-successor recovery on a removable mission volume. This profile "
+    "executes no physical task and establishes no physical Estate, representative operator, field network, "
+    "operational C2, production Lattice, targeting, engagement, effector, or weapons qualification or authority."
+)
+CARTRIDGE_CLAIM_BOUNDARY = "Immutable mission law, invariants, and human-authority boundary only; no execution authority."
+VERDICT_CLAIM_BOUNDARY = (
+    "This verdict proves synthetic mission-volume integrity, exact admitted profile and fixture provenance, "
+    "complete task and route custody, independently reconstructed successor answers, and internal binding only. "
+    "It proves no physical equipment, field operation, representative operator, operational C2, production "
+    "Lattice, targeting, engagement, effector, or weapons capability."
+)
+DEPENDENCIES_ABSENT = ("WAN", "AWS", "Lattice", "remote_model_provider", "original_host", "repository_history")
 SOURCE_COORDINATES = {
     "auditRuntime": {
         "repository": "BigBirdReturns/ai-execution-audit",
@@ -80,9 +104,14 @@ REQUIRED_FILES = {
     "ROUTES/candidate-routes.json": "route-denominator",
     "ROUTES/intake-decision.json": "intake-decision",
     "RECOVERY/cold-successor.json": "cold-successor",
-    "PUBLIC/status.json": "public-projection",
+    "RECOVERY/profile.json": "governing-profile",
+    "RECOVERY/fixture-catalog.json": "fixture-catalog",
     "RECOVERY/verify_volume.py": "standalone-verifier",
+    "PUBLIC/status.json": "public-projection",
 }
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
+SHA256_REF = re.compile(r"^sha256:[0-9a-f]{64}$")
+ID_RE = re.compile(r"^[a-z0-9][a-z0-9._:/@-]{2,127}$")
 
 
 class VerifyError(RuntimeError):
@@ -103,8 +132,12 @@ def canonical_json_bytes(value: Any) -> bytes:
     return (text + "\n").encode("utf-8")
 
 
-def pretty_json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+def pretty_json_bytes(value: Any) -> bytes:
+    try:
+        text = json.dumps(value, sort_keys=True, indent=2, ensure_ascii=False, allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        fail("NON_CANONICAL_JSON", str(exc))
+    return (text + "\n").encode("utf-8")
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -180,19 +213,91 @@ def clean_relative_path(value: str) -> str:
     return value
 
 
-def validate_human_authority(value: Any, label: str) -> dict[str, Any]:
+def validate_profile(profile: dict[str, Any]) -> None:
+    exact(
+        profile,
+        {
+            "schema",
+            "profileId",
+            "status",
+            "sourceCoordinates",
+            "supplierBindings",
+            "objectSchemas",
+            "terminalStates",
+            "permittedAuthorityClasses",
+            "volumeLayout",
+            "fixtureCaseIds",
+            "claimBoundary",
+        },
+        "profile",
+    )
+    if profile["schema"] != PROFILE_SCHEMA or profile["profileId"] != PROFILE_ID:
+        fail("PROFILE_IDENTITY_INVALID", "embedded profile schema or profileId differs")
+    if profile["status"] != "candidate_contract_only":
+        fail("PROFILE_STATUS_INVALID", "embedded profile status differs")
+    if profile["sourceCoordinates"] != SOURCE_COORDINATES:
+        fail("PROFILE_SOURCE_COORDINATES_INVALID", "embedded profile source coordinates differ")
+    if profile["supplierBindings"] != SUPPLIER_BINDINGS:
+        fail("PROFILE_SUPPLIER_BINDINGS_INVALID", "embedded profile supplier bindings differ")
+    if profile["objectSchemas"] != list(OBJECT_SCHEMAS):
+        fail("PROFILE_OBJECT_DENOMINATOR_INVALID", "embedded profile object denominator differs")
+    if profile["terminalStates"] != list(TERMINALS):
+        fail("PROFILE_TERMINAL_DENOMINATOR_INVALID", "embedded profile terminal denominator differs")
+    if profile["permittedAuthorityClasses"] != list(PERMITTED_AUTHORITY):
+        fail("PROFILE_AUTHORITY_DENOMINATOR_INVALID", "embedded profile authority denominator differs")
+    if profile["volumeLayout"] != LAYOUT:
+        fail("PROFILE_LAYOUT_INVALID", "embedded profile layout differs")
+    if profile["fixtureCaseIds"] != list(CASE_IDS):
+        fail("PROFILE_CASE_DENOMINATOR_INVALID", "embedded profile case denominator differs")
+    if profile["claimBoundary"] != PUBLIC_CLAIM_BOUNDARY:
+        fail("PROFILE_CLAIM_BOUNDARY_INVALID", "embedded profile claim boundary differs")
+    if sha256_bytes(canonical_json_bytes(profile)) != PROFILE_CANONICAL_SHA256:
+        fail("PROFILE_CANONICAL_DIGEST_INVALID", "embedded profile canonical digest differs from the admitted profile")
+
+
+def validate_catalog(catalog: dict[str, Any]) -> None:
+    exact(catalog, {"schema", "profileId", "cases"}, "fixtureCatalog")
+    if catalog["schema"] != CATALOG_SCHEMA or catalog["profileId"] != PROFILE_ID:
+        fail("CATALOG_IDENTITY_INVALID", "embedded fixture catalog identity differs")
+    cases = catalog["cases"]
+    if not isinstance(cases, list):
+        fail("CATALOG_CASES_INVALID", "embedded fixture catalog cases must be a list")
+    case_ids = [case.get("caseId") if isinstance(case, dict) else None for case in cases]
+    if case_ids != list(CASE_IDS):
+        fail("CATALOG_CASE_DENOMINATOR_INVALID", "embedded fixture catalog case denominator differs")
+    if sha256_bytes(canonical_json_bytes(catalog)) != FIXTURE_CATALOG_CANONICAL_SHA256:
+        fail("CATALOG_CANONICAL_DIGEST_INVALID", "embedded fixture catalog canonical digest differs from the admitted catalog")
+
+
+def validate_mission(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
-        fail("HUMAN_AUTHORITY_INVALID", f"{label} must be object")
-    exact(value, {"actorId", "required", "actionClass"}, label)
-    string(value["actorId"], f"{label}.actorId", ID_RE)
-    boolean(value["required"], f"{label}.required")
-    string(value["actionClass"], f"{label}.actionClass", ID_RE)
+        fail("MISSION_INVALID", f"{label} must be an object")
+    exact(value, {"missionId", "cartridgeId", "cartridgeSha256", "invariantRefs", "save", "humanAuthority"}, label)
+    string(value["missionId"], f"{label}.missionId", ID_RE)
+    string(value["cartridgeId"], f"{label}.cartridgeId", ID_RE)
+    string(value["cartridgeSha256"], f"{label}.cartridgeSha256", HEX64)
+    string_list(value["invariantRefs"], f"{label}.invariantRefs", True)
+    save = value["save"]
+    if not isinstance(save, dict):
+        fail("MISSION_SAVE_INVALID", f"{label}.save must be an object")
+    exact(save, {"frontier", "stateSha256", "unresolvedObligations", "nextSafeAction"}, f"{label}.save")
+    integer(save["frontier"], f"{label}.save.frontier")
+    string(save["stateSha256"], f"{label}.save.stateSha256", HEX64)
+    string_list(save["unresolvedObligations"], f"{label}.save.unresolvedObligations")
+    string(save["nextSafeAction"], f"{label}.save.nextSafeAction")
+    authority = value["humanAuthority"]
+    if not isinstance(authority, dict):
+        fail("HUMAN_AUTHORITY_INVALID", f"{label}.humanAuthority must be an object")
+    exact(authority, {"actorId", "required", "actionClass"}, f"{label}.humanAuthority")
+    string(authority["actorId"], f"{label}.humanAuthority.actorId", ID_RE)
+    boolean(authority["required"], f"{label}.humanAuthority.required")
+    string(authority["actionClass"], f"{label}.humanAuthority.actionClass", ID_RE)
     return value
 
 
 def validate_task(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
-        fail("TASK_INVALID", f"{label} must be object")
+        fail("TASK_INVALID", f"{label} must be an object")
     exact(
         value,
         {
@@ -221,7 +326,24 @@ def validate_task(value: Any, label: str) -> dict[str, Any]:
     return value
 
 
-def validate_equipment_fields(value: dict[str, Any], label: str) -> None:
+def validate_equipment(value: Any, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        fail("EQUIPMENT_INVALID", f"{label} must be an object")
+    exact(
+        value,
+        {
+            "equipmentId",
+            "supplierSchema",
+            "estatePhaseRef",
+            "estatePhaseSha256",
+            "interface",
+            "observedAtUnixNs",
+            "freshUntilUnixNs",
+            "observationTimeUnixNs",
+            "evidenceRef",
+        },
+        label,
+    )
     string(value["equipmentId"], f"{label}.equipmentId", ID_RE)
     if value["supplierSchema"] != SUPPLIER_BINDINGS["maryEstatePhaseSchema"]:
         fail("ESTATE_PHASE_SCHEMA_INVALID", f"{label}.supplierSchema differs")
@@ -229,7 +351,7 @@ def validate_equipment_fields(value: dict[str, Any], label: str) -> None:
     string(value["estatePhaseSha256"], f"{label}.estatePhaseSha256", HEX64)
     interface = value["interface"]
     if not isinstance(interface, dict):
-        fail("INTERFACE_INVALID", f"{label}.interface must be object")
+        fail("INTERFACE_INVALID", f"{label}.interface must be an object")
     exact(interface, {"declared", "readOnly", "adapterRef", "adapterAvailable"}, f"{label}.interface")
     boolean(interface["declared"], f"{label}.interface.declared")
     boolean(interface["readOnly"], f"{label}.interface.readOnly")
@@ -238,16 +360,15 @@ def validate_equipment_fields(value: dict[str, Any], label: str) -> None:
     observed = integer(value["observedAtUnixNs"], f"{label}.observedAtUnixNs", 1)
     fresh = integer(value["freshUntilUnixNs"], f"{label}.freshUntilUnixNs", 1)
     now = integer(value["observationTimeUnixNs"], f"{label}.observationTimeUnixNs", 1)
-    if fresh < observed:
-        fail("FRESHNESS_INTERVAL_INVALID", f"{label}.freshUntilUnixNs precedes observedAtUnixNs")
-    if now < observed:
-        fail("OBSERVATION_CLOCK_INVALID", f"{label}.observationTimeUnixNs precedes observedAtUnixNs")
+    if fresh < observed or now < observed:
+        fail("EQUIPMENT_TIME_INVALID", f"{label} observation time interval is invalid")
     string(value["evidenceRef"], f"{label}.evidenceRef", SHA256_REF)
+    return value
 
 
 def validate_route(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
-        fail("ROUTE_INVALID", f"{label} must be object")
+        fail("ROUTE_INVALID", f"{label} must be an object")
     exact(
         value,
         {
@@ -294,6 +415,30 @@ def validate_route(value: Any, label: str) -> dict[str, Any]:
     return value
 
 
+def validate_case(case: Any, label: str) -> dict[str, Any]:
+    if not isinstance(case, dict):
+        fail("CASE_INVALID", f"{label} must be an object")
+    exact(case, {"caseId", "expectedTerminal", "mission", "task", "equipment", "routes"}, label)
+    string(case["caseId"], f"{label}.caseId", ID_RE)
+    if case["expectedTerminal"] not in TERMINALS:
+        fail("EXPECTED_TERMINAL_INVALID", f"{label}.expectedTerminal differs")
+    mission = validate_mission(case["mission"], f"{label}.mission")
+    task = validate_task(case["task"], f"{label}.task")
+    validate_equipment(case["equipment"], f"{label}.equipment")
+    routes = case["routes"]
+    if not isinstance(routes, list) or not routes:
+        fail("ROUTE_DENOMINATOR_INVALID", f"{label}.routes must be non-empty")
+    ids: list[str] = []
+    for index, route in enumerate(routes):
+        validate_route(route, f"{label}.routes[{index}]")
+        ids.append(route["routeId"])
+    if len(ids) != len(set(ids)):
+        fail("DUPLICATE_ROUTE_ID", f"{label}.routes contains duplicates")
+    if mission["humanAuthority"]["actionClass"] != task["authorityClass"]:
+        fail("AUTHORITY_BINDING_INVALID", f"{label} mission and task authority differ")
+    return case
+
+
 def route_evaluation(route: dict[str, Any], task: dict[str, Any]) -> dict[str, Any]:
     exclusions: list[str] = []
     if not route["available"]:
@@ -311,15 +456,49 @@ def route_evaluation(route: dict[str, Any], task: dict[str, Any]) -> dict[str, A
     return {"routeId": route["routeId"], "eligible": not exclusions, "exclusions": exclusions}
 
 
-def recompute_decision(
-    *,
-    case_id: str,
-    work_unit: dict[str, Any],
-    equipment: dict[str, Any],
-    denominator: dict[str, Any],
-) -> dict[str, Any]:
-    task = work_unit["task"]
+def make_work_unit_binding(task: dict[str, Any]) -> dict[str, Any]:
+    body = {
+        "schema": WORK_UNIT_BINDING_SCHEMA,
+        "profileId": PROFILE_ID,
+        "workUnitRef": task["workUnitRef"],
+        "workUnitSha256": task["workUnitSha256"],
+        "supplierSchema": task["supplierSchema"],
+        "task": task,
+    }
+    return {**body, "workUnitBindingId": content_id("axmheadworkunit1", body)}
+
+
+def make_equipment_observation(equipment: dict[str, Any]) -> dict[str, Any]:
+    body = {"schema": EQUIPMENT_SCHEMA, "profileId": PROFILE_ID, **equipment}
+    return {**body, "observationId": content_id("axmheadobservation1", body)}
+
+
+def make_route_denominator(case: dict[str, Any]) -> dict[str, Any]:
+    routes = sorted(case["routes"], key=lambda row: row["routeId"])
+    body = {
+        "schema": ROUTE_DENOMINATOR_SCHEMA,
+        "profileId": PROFILE_ID,
+        "caseId": case["caseId"],
+        "supplierSchema": SUPPLIER_BINDINGS["maryRouteDescriptorSchema"],
+        "fabricSchemas": {
+            "seatSnapshot": SUPPLIER_BINDINGS["estateSeatSnapshotSchema"],
+            "routeSelection": SUPPLIER_BINDINGS["estateRouteSelectionSchema"],
+            "workerLease": SUPPLIER_BINDINGS["estateWorkerLeaseSchema"],
+        },
+        "routeCount": len(routes),
+        "routes": routes,
+    }
+    return {**body, "routeDenominatorId": content_id("axmheadroutes1", body)}
+
+
+def decide_case(case: dict[str, Any]) -> dict[str, Any]:
+    validate_case(case, "case")
+    task = case["task"]
+    equipment = case["equipment"]
     interface = equipment["interface"]
+    work_unit = make_work_unit_binding(task)
+    observation = make_equipment_observation(equipment)
+    denominator = make_route_denominator(case)
     reason_codes: list[str] = []
     missing: list[str] = []
     hard_hold = False
@@ -335,7 +514,6 @@ def recompute_decision(
     if equipment["observationTimeUnixNs"] > equipment["freshUntilUnixNs"]:
         hard_hold = True
         reason_codes.append("EQUIPMENT_OBSERVATION_STALE")
-
     evaluations = [route_evaluation(route, task) for route in denominator["routes"]]
     eligible_ids = [row["routeId"] for row in evaluations if row["eligible"]]
     selected_route_id: str | None = None
@@ -355,21 +533,20 @@ def recompute_decision(
         reason_codes.append("ASSEMBLY_QUALIFIED")
         eligible_routes = [route for route in denominator["routes"] if route["routeId"] in eligible_ids]
         selected_route_id = min(eligible_routes, key=lambda row: (row["preferenceRank"], row["routeId"]))["routeId"]
-
     selected_route = next((route for route in denominator["routes"] if route["routeId"] == selected_route_id), None)
-    route_by_id = {route["routeId"]: route for route in denominator["routes"]}
-    resident_floor_available = any(row["eligible"] and route_by_id[row["routeId"]]["residentFloor"] for row in evaluations)
+    by_id = {route["routeId"]: route for route in denominator["routes"]}
+    resident_floor_available = any(row["eligible"] and by_id[row["routeId"]]["residentFloor"] for row in evaluations)
     body: dict[str, Any] = {
         "schema": DECISION_SCHEMA,
         "profileId": PROFILE_ID,
-        "caseId": case_id,
-        "workUnitRef": work_unit["workUnitRef"],
-        "workUnitSha256": work_unit["workUnitSha256"],
+        "caseId": case["caseId"],
+        "workUnitRef": task["workUnitRef"],
+        "workUnitSha256": task["workUnitSha256"],
         "workUnitBindingId": work_unit["workUnitBindingId"],
         "equipmentId": equipment["equipmentId"],
         "estatePhaseRef": equipment["estatePhaseRef"],
         "estatePhaseSha256": equipment["estatePhaseSha256"],
-        "equipmentObservationId": equipment["observationId"],
+        "equipmentObservationId": observation["observationId"],
         "routeDenominatorId": denominator["routeDenominatorId"],
         "terminal": terminal,
         "reasonCodes": sorted(reason_codes),
@@ -385,6 +562,120 @@ def recompute_decision(
     return {**body, "decisionId": content_id("axmheaddecision1", body)}
 
 
+def make_cartridge(case: dict[str, Any]) -> dict[str, Any]:
+    mission = case["mission"]
+    return {
+        "schema": CARTRIDGE_SCHEMA,
+        "profileId": PROFILE_ID,
+        "missionId": mission["missionId"],
+        "cartridgeId": mission["cartridgeId"],
+        "cartridgeSha256": mission["cartridgeSha256"],
+        "invariantRefs": mission["invariantRefs"],
+        "humanAuthority": mission["humanAuthority"],
+        "systemAuthority": "none",
+        "claimBoundary": CARTRIDGE_CLAIM_BOUNDARY,
+    }
+
+
+def make_save(case: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
+    mission = case["mission"]
+    task = case["task"]
+    return {
+        "schema": SAVE_SCHEMA,
+        "profileId": PROFILE_ID,
+        "missionId": mission["missionId"],
+        "cartridgeId": mission["cartridgeId"],
+        "workUnitRef": task["workUnitRef"],
+        "workUnitSha256": task["workUnitSha256"],
+        "frontier": mission["save"]["frontier"],
+        "stateSha256": mission["save"]["stateSha256"],
+        "unresolvedObligations": mission["save"]["unresolvedObligations"],
+        "nextSafeAction": mission["save"]["nextSafeAction"],
+        "lastDecisionId": decision["decisionId"],
+        "terminal": decision["terminal"],
+    }
+
+
+def make_ledger(case: dict[str, Any], denominator: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
+    body = {
+        "schema": LEDGER_SCHEMA,
+        "sequence": 1,
+        "caseId": case["caseId"],
+        "missionId": case["mission"]["missionId"],
+        "cartridgeId": case["mission"]["cartridgeId"],
+        "workUnitRef": case["task"]["workUnitRef"],
+        "equipmentId": case["equipment"]["equipmentId"],
+        "routeDenominatorId": denominator["routeDenominatorId"],
+        "decisionId": decision["decisionId"],
+        "terminal": decision["terminal"],
+        "executionOccurred": False,
+        "systemAuthority": "none",
+    }
+    return {**body, "eventId": content_id("axmheadledger1", body)}
+
+
+def make_recovery(case: dict[str, Any], equipment: dict[str, Any], denominator: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
+    mission = case["mission"]
+    authority = mission["humanAuthority"]
+    answers = {
+        "whatMission": mission["missionId"],
+        "currentState": f"frontier {mission['save']['frontier']} terminal {decision['terminal']}",
+        "whoMayAct": authority["actorId"] if authority["required"] else "no named human required",
+        "whatProvesIt": [equipment["evidenceRef"], *[route["evidenceRef"] for route in denominator["routes"]]],
+        "whatRemainsUnresolved": mission["save"]["unresolvedObligations"],
+        "nextSafeAction": mission["save"]["nextSafeAction"],
+    }
+    return {
+        "schema": COLD_SUCCESSOR_SCHEMA,
+        "profileId": PROFILE_ID,
+        "bindings": {
+            "missionId": mission["missionId"],
+            "cartridgeId": mission["cartridgeId"],
+            "workUnitRef": case["task"]["workUnitRef"],
+            "workUnitSha256": case["task"]["workUnitSha256"],
+            "equipmentId": case["equipment"]["equipmentId"],
+            "estatePhaseRef": case["equipment"]["estatePhaseRef"],
+            "routeDenominatorId": denominator["routeDenominatorId"],
+            "stateSha256": mission["save"]["stateSha256"],
+            "decisionId": decision["decisionId"],
+        },
+        "answers": answers,
+        "dependenciesAbsent": list(DEPENDENCIES_ABSENT),
+        "systemAuthority": "none",
+    }
+
+
+def make_public(case: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": PUBLIC_STATUS_SCHEMA,
+        "profileId": PROFILE_ID,
+        "caseId": case["caseId"],
+        "terminal": decision["terminal"],
+        "qualifiedAssembly": decision["terminal"] == "QUALIFIED_ASSEMBLY",
+        "qualificationPlan": decision["terminal"] == "QUALIFICATION_PLAN",
+        "hold": decision["terminal"] == "HOLD",
+        "executionOccurred": False,
+        "privateEvidenceBodies": 0,
+        "physicalFlightCompleted": False,
+        "physicalEstateQualified": False,
+        "representativeOperatorQualified": False,
+        "fieldNetworkQualified": False,
+        "operationalC2Qualified": False,
+        "productionLatticeQualified": False,
+        "systemAuthority": "none",
+        "claimBoundary": PUBLIC_CLAIM_BOUNDARY,
+    }
+
+
+def object_diff(actual: dict[str, Any], expected: dict[str, Any]) -> list[str]:
+    return sorted(key for key in set(actual) | set(expected) if actual.get(key) != expected.get(key))
+
+
+def require_equal(actual: dict[str, Any], expected: dict[str, Any], code: str, label: str) -> None:
+    if actual != expected:
+        fail(code, f"{label} differs from independently reconstructed object: {object_diff(actual, expected)}")
+
+
 def verify_manifest(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     manifest = read_json(root / "MANIFEST.json")
     exact(
@@ -398,9 +689,9 @@ def verify_manifest(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
             "supplierBindings",
             "profileCanonicalSha256",
             "fixtureCatalogCanonicalSha256",
-            "fixtureCatalogSchema",
-            "qualifiedCaseIds",
-            "verifierSha256",
+            "standaloneVerifierSha256",
+            "bootstrapRequired",
+            "fixtureCaseIds",
             "layout",
             "cartridgeBinding",
             "workUnitBinding",
@@ -418,72 +709,49 @@ def verify_manifest(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     )
     if manifest["schema"] != VOLUME_SCHEMA or manifest["profileId"] != PROFILE_ID:
         fail("MANIFEST_IDENTITY_INVALID", "manifest schema or profileId differs")
-    string(manifest["caseId"], "manifest.caseId", ID_RE)
-    if manifest["caseId"] not in EXPECTED_CASE_IDS:
-        fail("CASE_DENOMINATOR_INVALID", "manifest case is outside the closed four-case denominator")
-    if manifest["terminal"] not in TERMINALS:
-        fail("TERMINAL_INVALID", "manifest terminal is outside closed denominator")
-    if manifest["sourceCoordinates"] != SOURCE_COORDINATES:
-        fail("SOURCE_COORDINATES_INVALID", "manifest source coordinates differ from verifier")
-    if manifest["supplierBindings"] != SUPPLIER_BINDINGS:
-        fail("SUPPLIER_BINDINGS_INVALID", "manifest supplier bindings differ from verifier")
-    if manifest["profileCanonicalSha256"] != EXPECTED_PROFILE_CANONICAL_SHA256:
-        fail("PROFILE_PROVENANCE_INVALID", "manifest profile canonical digest differs")
-    if manifest["fixtureCatalogCanonicalSha256"] != EXPECTED_FIXTURE_CATALOG_CANONICAL_SHA256:
-        fail("FIXTURE_PROVENANCE_INVALID", "manifest fixture catalog canonical digest differs")
-    if manifest["fixtureCatalogSchema"] != FIXTURE_CATALOG_SCHEMA:
-        fail("FIXTURE_PROVENANCE_INVALID", "manifest fixture catalog schema differs")
-    if manifest["qualifiedCaseIds"] != EXPECTED_CASE_IDS:
-        fail("CASE_DENOMINATOR_INVALID", "manifest qualified case denominator differs")
-    string(manifest["verifierSha256"], "manifest.verifierSha256", HEX64)
+    if manifest["caseId"] not in CASE_IDS or manifest["terminal"] not in TERMINALS:
+        fail("MANIFEST_CASE_OR_TERMINAL_INVALID", "manifest case or terminal differs")
+    if manifest["sourceCoordinates"] != SOURCE_COORDINATES or manifest["supplierBindings"] != SUPPLIER_BINDINGS:
+        fail("MANIFEST_SOURCE_BINDING_INVALID", "manifest source or supplier bindings differ")
+    if manifest["profileCanonicalSha256"] != PROFILE_CANONICAL_SHA256:
+        fail("MANIFEST_PROFILE_DIGEST_INVALID", "manifest profile digest differs")
+    if manifest["fixtureCatalogCanonicalSha256"] != FIXTURE_CATALOG_CANONICAL_SHA256:
+        fail("MANIFEST_CATALOG_DIGEST_INVALID", "manifest fixture catalog digest differs")
+    string(manifest["standaloneVerifierSha256"], "manifest.standaloneVerifierSha256", HEX64)
+    if boolean(manifest["bootstrapRequired"], "manifest.bootstrapRequired") is not True:
+        fail("BOOTSTRAP_POLICY_INVALID", "manifest must require external bootstrap authentication")
+    if manifest["fixtureCaseIds"] != list(CASE_IDS):
+        fail("MANIFEST_CASE_DENOMINATOR_INVALID", "manifest fixture case denominator differs")
     if manifest["layout"] != LAYOUT:
-        fail("VOLUME_LAYOUT_INVALID", "manifest layout differs")
+        fail("MANIFEST_LAYOUT_INVALID", "manifest layout differs")
+    if manifest["cachePolicy"] != {"authoritative": False, "includedInVolumeId": False, "allowedPrefix": "CACHE/"}:
+        fail("CACHE_POLICY_INVALID", "manifest cache policy differs")
     if manifest["systemAuthority"] != "none" or boolean(manifest["executionOccurred"], "manifest.executionOccurred"):
         fail("MANIFEST_AUTHORITY_INVALID", "manifest may not claim execution or authority")
-    if manifest["claimBoundary"] != PROFILE_CLAIM_BOUNDARY:
-        fail("CLAIM_BOUNDARY_INVALID", "manifest claim boundary differs from the admitted public/profile non-claim")
-    if manifest["cachePolicy"] != {"authoritative": False, "includedInVolumeId": False, "allowedPrefix": "CACHE/"}:
-        fail("CACHE_POLICY_INVALID", "cache policy differs")
-
-    for key, expected in (
-        ("cartridgeBinding", {"missionId", "cartridgeId", "declaredCartridgeSha256"}),
-        ("workUnitBinding", {"workUnitRef", "workUnitSha256", "supplierSchema", "workUnitBindingId"}),
-        ("saveBinding", {"cartridgeId", "workUnitRef", "frontier", "stateSha256"}),
-        ("equipmentBinding", {"equipmentId", "estatePhaseRef", "estatePhaseSha256", "observationId"}),
-        ("routeDenominator", {"routeDenominatorId", "routeCount", "routeIds", "supplierSchema"}),
-    ):
-        value = manifest[key]
-        if not isinstance(value, dict):
-            fail("MANIFEST_BINDING_INVALID", f"manifest.{key} must be object")
-        exact(value, expected, f"manifest.{key}")
-
+    if manifest["claimBoundary"] != PUBLIC_CLAIM_BOUNDARY:
+        fail("MANIFEST_CLAIM_BOUNDARY_INVALID", "manifest claim boundary differs")
     rows = manifest["files"]
     if not isinstance(rows, list):
-        fail("MANIFEST_FILES_INVALID", "manifest.files must be list")
+        fail("MANIFEST_FILES_INVALID", "manifest.files must be a list")
     seen: list[str] = []
     for index, row in enumerate(rows):
         if not isinstance(row, dict):
-            fail("MANIFEST_FILE_INVALID", f"manifest.files[{index}] must be object")
+            fail("MANIFEST_FILE_INVALID", f"manifest.files[{index}] must be an object")
         exact(row, {"path", "role", "bytes", "sha256"}, f"manifest.files[{index}]")
         relative = clean_relative_path(string(row["path"], f"manifest.files[{index}].path"))
         string(row["role"], f"manifest.files[{index}].role", ID_RE)
         integer(row["bytes"], f"manifest.files[{index}].bytes")
         string(row["sha256"], f"manifest.files[{index}].sha256", HEX64)
         if relative.startswith("CACHE/"):
-            fail("CACHE_MANIFESTED", "cache files must not enter the authoritative manifest")
+            fail("CACHE_MANIFESTED", "cache files may not enter the authoritative manifest")
         seen.append(relative)
     if seen != sorted(seen) or len(seen) != len(set(seen)):
         fail("MANIFEST_FILE_DENOMINATOR_INVALID", "manifest paths must be unique and sorted")
-    roles = {row["path"]: row["role"] for row in rows}
-    if roles != REQUIRED_FILES:
+    if {row["path"]: row["role"] for row in rows} != REQUIRED_FILES:
         fail("MANIFEST_FILE_DENOMINATOR_INVALID", "manifest file denominator or roles differ")
-    verifier_row = next(row for row in rows if row["path"] == "RECOVERY/verify_volume.py")
-    if manifest["verifierSha256"] != verifier_row["sha256"]:
-        fail("VERIFIER_IDENTITY_INVALID", "manifest verifier digest differs from the manifested verifier bytes")
-
     body = dict(manifest)
-    declared_volume_id = string(body.pop("volumeId"), "manifest.volumeId")
-    if declared_volume_id != content_id("axmheadvolume1", body):
+    declared = string(body.pop("volumeId"), "manifest.volumeId")
+    if declared != content_id("axmheadvolume1", body):
         fail("VOLUME_ID_INVALID", "manifest volumeId invalid")
     return manifest, rows
 
@@ -492,15 +760,15 @@ def verify_files(root: Path, rows: list[dict[str, Any]]) -> None:
     for path in root.rglob("*"):
         if path.is_symlink():
             fail("SYMLINK_REFUSED", f"symlink is not permitted: {path.relative_to(root).as_posix()}")
-    row_by_path = {row["path"]: row for row in rows}
-    for relative, row in row_by_path.items():
+    by_path = {row["path"]: row for row in rows}
+    for relative, row in by_path.items():
         path = root.joinpath(*relative.split("/"))
         if not path.is_file():
             fail("MANIFESTED_FILE_MISSING", relative)
         data = path.read_bytes()
         if len(data) != row["bytes"] or sha256_bytes(data) != row["sha256"]:
             fail("FILE_DIGEST_MISMATCH", relative)
-    allowed = set(row_by_path) | {"MANIFEST.json"}
+    allowed = set(by_path) | {"MANIFEST.json"}
     for path in root.rglob("*"):
         if not path.is_file():
             continue
@@ -511,317 +779,111 @@ def verify_files(root: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def verify_objects(root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
-    cartridge = read_json(root / "CARTRIDGE/mission.json")
-    exact(
-        cartridge,
-        {"schema", "profileId", "missionId", "cartridgeId", "cartridgeSha256", "invariantRefs", "humanAuthority", "systemAuthority", "claimBoundary"},
-        "cartridge",
-    )
-    if cartridge["schema"] != CARTRIDGE_SCHEMA or cartridge["profileId"] != PROFILE_ID:
-        fail("CARTRIDGE_IDENTITY_INVALID", "cartridge schema or profileId differs")
-    string(cartridge["missionId"], "cartridge.missionId", ID_RE)
-    string(cartridge["cartridgeId"], "cartridge.cartridgeId", ID_RE)
-    string(cartridge["cartridgeSha256"], "cartridge.cartridgeSha256", HEX64)
-    string_list(cartridge["invariantRefs"], "cartridge.invariantRefs", True)
-    human_authority = validate_human_authority(cartridge["humanAuthority"], "cartridge.humanAuthority")
-    if cartridge["systemAuthority"] != "none":
-        fail("CARTRIDGE_AUTHORITY_INVALID", "cartridge systemAuthority must be none")
-    if cartridge["claimBoundary"] != CARTRIDGE_CLAIM_BOUNDARY:
-        fail("CARTRIDGE_CLAIM_BOUNDARY_INVALID", "cartridge claim boundary differs from the exact mission boundary")
+    profile = read_json(root / "RECOVERY/profile.json")
+    catalog = read_json(root / "RECOVERY/fixture-catalog.json")
+    validate_profile(profile)
+    validate_catalog(catalog)
+    if manifest["profileCanonicalSha256"] != sha256_bytes(canonical_json_bytes(profile)):
+        fail("PROFILE_MANIFEST_BINDING_INVALID", "manifest profile digest differs from embedded profile")
+    if manifest["fixtureCatalogCanonicalSha256"] != sha256_bytes(canonical_json_bytes(catalog)):
+        fail("CATALOG_MANIFEST_BINDING_INVALID", "manifest catalog digest differs from embedded catalog")
+    verifier_sha = sha256_file(root / "RECOVERY/verify_volume.py")
+    if manifest["standaloneVerifierSha256"] != verifier_sha:
+        fail("VERIFIER_MANIFEST_BINDING_INVALID", "manifest verifier digest differs from embedded verifier")
 
-    work_unit = read_json(root / "CARTRIDGE/work-unit.json")
-    exact(
-        work_unit,
-        {"schema", "profileId", "workUnitRef", "workUnitSha256", "supplierSchema", "task", "workUnitBindingId"},
-        "workUnit",
-    )
-    if work_unit["schema"] != WORK_UNIT_BINDING_SCHEMA or work_unit["profileId"] != PROFILE_ID:
-        fail("WORK_UNIT_BINDING_INVALID", "work unit binding identity differs")
-    task = validate_task(work_unit["task"], "workUnit.task")
-    if work_unit["workUnitRef"] != task["workUnitRef"] or work_unit["workUnitSha256"] != task["workUnitSha256"] or work_unit["supplierSchema"] != task["supplierSchema"]:
-        fail("WORK_UNIT_BINDING_INVALID", "work unit wrapper differs from task")
-    work_unit_body = dict(work_unit)
-    declared_work_unit_id = string(work_unit_body.pop("workUnitBindingId"), "workUnit.workUnitBindingId")
-    if declared_work_unit_id != content_id("axmheadworkunit1", work_unit_body):
-        fail("WORK_UNIT_BINDING_ID_INVALID", "work unit binding id invalid")
-    if human_authority["actionClass"] != task["authorityClass"]:
-        fail("AUTHORITY_BINDING_INVALID", "cartridge human authority and work unit authority differ")
+    case = next((row for row in catalog["cases"] if row["caseId"] == manifest["caseId"]), None)
+    if case is None:
+        fail("CASE_NOT_FOUND", "manifest case is absent from the admitted fixture catalog")
+    validate_case(case, "selectedCase")
+    work_unit = make_work_unit_binding(case["task"])
+    equipment = make_equipment_observation(case["equipment"])
+    denominator = make_route_denominator(case)
+    decision = decide_case(case)
+    if decision["terminal"] != case["expectedTerminal"]:
+        fail("EXPECTED_TERMINAL_MISMATCH", "selected case terminal differs from the admitted catalog")
+    cartridge = make_cartridge(case)
+    save = make_save(case, decision)
+    ledger = make_ledger(case, denominator, decision)
+    recovery = make_recovery(case, equipment, denominator, decision)
+    public = make_public(case, decision)
 
-    save = read_json(root / "SAVE/state.json")
-    exact(
-        save,
-        {"schema", "profileId", "missionId", "cartridgeId", "workUnitRef", "workUnitSha256", "frontier", "stateSha256", "unresolvedObligations", "nextSafeAction", "lastDecisionId", "terminal"},
-        "save",
-    )
-    if save["schema"] != SAVE_SCHEMA or save["profileId"] != PROFILE_ID:
-        fail("SAVE_IDENTITY_INVALID", "save identity differs")
-    string(save["missionId"], "save.missionId", ID_RE)
-    string(save["cartridgeId"], "save.cartridgeId", ID_RE)
-    string(save["workUnitRef"], "save.workUnitRef", ID_RE)
-    string(save["workUnitSha256"], "save.workUnitSha256", HEX64)
-    integer(save["frontier"], "save.frontier")
-    string(save["stateSha256"], "save.stateSha256", HEX64)
-    string_list(save["unresolvedObligations"], "save.unresolvedObligations")
-    string(save["nextSafeAction"], "save.nextSafeAction")
-    string(save["lastDecisionId"], "save.lastDecisionId")
-    if save["terminal"] not in TERMINALS:
-        fail("SAVE_TERMINAL_INVALID", "save terminal invalid")
-
-    equipment = read_json(root / "ROUTES/equipment-observation.json")
-    exact(
-        equipment,
-        {"schema", "profileId", "equipmentId", "supplierSchema", "estatePhaseRef", "estatePhaseSha256", "interface", "observedAtUnixNs", "freshUntilUnixNs", "observationTimeUnixNs", "evidenceRef", "observationId"},
-        "equipment",
-    )
-    if equipment["schema"] != EQUIPMENT_SCHEMA or equipment["profileId"] != PROFILE_ID:
-        fail("EQUIPMENT_IDENTITY_INVALID", "equipment observation identity differs")
-    validate_equipment_fields(equipment, "equipment")
-    equipment_body = dict(equipment)
-    declared_observation_id = string(equipment_body.pop("observationId"), "equipment.observationId")
-    if declared_observation_id != content_id("axmheadobservation1", equipment_body):
-        fail("EQUIPMENT_OBSERVATION_ID_INVALID", "equipment observation id invalid")
-
-    denominator = read_json(root / "ROUTES/candidate-routes.json")
-    exact(
-        denominator,
-        {"schema", "profileId", "caseId", "supplierSchema", "fabricSchemas", "routeCount", "routes", "routeDenominatorId"},
-        "routeDenominator",
-    )
-    if denominator["schema"] != ROUTE_DENOMINATOR_SCHEMA or denominator["profileId"] != PROFILE_ID:
-        fail("ROUTE_DENOMINATOR_IDENTITY_INVALID", "route denominator identity differs")
-    string(denominator["caseId"], "routeDenominator.caseId", ID_RE)
-    if denominator["supplierSchema"] != SUPPLIER_BINDINGS["maryRouteDescriptorSchema"]:
-        fail("ROUTE_SCHEMA_INVALID", "route denominator supplier schema differs")
-    expected_fabric = {
-        "seatSnapshot": SUPPLIER_BINDINGS["estateSeatSnapshotSchema"],
-        "routeSelection": SUPPLIER_BINDINGS["estateRouteSelectionSchema"],
-        "workerLease": SUPPLIER_BINDINGS["estateWorkerLeaseSchema"],
-    }
-    if denominator["fabricSchemas"] != expected_fabric:
-        fail("FABRIC_SCHEMA_BINDING_INVALID", "route denominator fabric schemas differ")
-    routes = denominator["routes"]
-    if not isinstance(routes, list) or not routes:
-        fail("ROUTE_DENOMINATOR_INVALID", "route denominator routes must be non-empty")
-    route_ids: list[str] = []
-    for index, route in enumerate(routes):
-        validate_route(route, f"routeDenominator.routes[{index}]")
-        route_ids.append(route["routeId"])
-    if route_ids != sorted(route_ids) or len(route_ids) != len(set(route_ids)):
-        fail("ROUTE_DENOMINATOR_INVALID", "routes must be unique and sorted")
-    if integer(denominator["routeCount"], "routeDenominator.routeCount", 1) != len(routes):
-        fail("ROUTE_COUNT_INVALID", "routeCount differs")
-    denominator_body = dict(denominator)
-    declared_denominator_id = string(denominator_body.pop("routeDenominatorId"), "routeDenominator.routeDenominatorId")
-    if declared_denominator_id != content_id("axmheadroutes1", denominator_body):
-        fail("ROUTE_DENOMINATOR_ID_INVALID", "route denominator id invalid")
-
-    decision = read_json(root / "ROUTES/intake-decision.json")
-    exact(
-        decision,
-        {
-            "schema",
-            "profileId",
-            "caseId",
-            "workUnitRef",
-            "workUnitSha256",
-            "workUnitBindingId",
-            "equipmentId",
-            "estatePhaseRef",
-            "estatePhaseSha256",
-            "equipmentObservationId",
-            "routeDenominatorId",
-            "terminal",
-            "reasonCodes",
-            "missingProperties",
-            "routeEvaluations",
-            "eligibleRouteIds",
-            "selectedRouteId",
-            "residentFloorAvailable",
-            "optionalOrganSelected",
-            "systemAuthority",
-            "executionOccurred",
-            "decisionId",
-        },
-        "decision",
-    )
-    if decision["schema"] != DECISION_SCHEMA or decision["profileId"] != PROFILE_ID:
-        fail("DECISION_IDENTITY_INVALID", "decision identity differs")
-    if decision["terminal"] not in TERMINALS:
-        fail("DECISION_TERMINAL_INVALID", "decision terminal invalid")
-    if decision["systemAuthority"] != "none" or boolean(decision["executionOccurred"], "decision.executionOccurred"):
-        fail("DECISION_AUTHORITY_INVALID", "decision may not claim execution or authority")
-    decision_body = dict(decision)
-    declared_decision_id = string(decision_body.pop("decisionId"), "decision.decisionId")
-    if declared_decision_id != content_id("axmheaddecision1", decision_body):
-        fail("DECISION_ID_INVALID", "decisionId invalid")
-    expected_decision = recompute_decision(
-        case_id=denominator["caseId"],
-        work_unit=work_unit,
-        equipment=equipment,
-        denominator=denominator,
-    )
-    if decision != expected_decision:
-        differing = sorted(key for key in set(decision) | set(expected_decision) if decision.get(key) != expected_decision.get(key))
-        fail("DECISION_RECOMPUTATION_MISMATCH", f"decision differs from independently recomputed result: {differing}")
-
+    actual_cartridge = read_json(root / "CARTRIDGE/mission.json")
+    actual_work_unit = read_json(root / "CARTRIDGE/work-unit.json")
+    actual_save = read_json(root / "SAVE/state.json")
+    actual_equipment = read_json(root / "ROUTES/equipment-observation.json")
+    actual_denominator = read_json(root / "ROUTES/candidate-routes.json")
+    actual_decision = read_json(root / "ROUTES/intake-decision.json")
+    actual_recovery = read_json(root / "RECOVERY/cold-successor.json")
+    actual_public = read_json(root / "PUBLIC/status.json")
     try:
-        ledger_lines = (root / "SAVE/ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        lines = (root / "SAVE/ledger.jsonl").read_text(encoding="utf-8").splitlines()
     except (OSError, UnicodeError) as exc:
         fail("LEDGER_READ_FAILED", str(exc))
-    if len(ledger_lines) != 1:
+    if len(lines) != 1:
         fail("LEDGER_DENOMINATOR_INVALID", "fixture ledger must contain exactly one event")
     try:
-        ledger = json.loads(ledger_lines[0])
+        actual_ledger = json.loads(lines[0])
     except json.JSONDecodeError as exc:
         fail("LEDGER_JSON_INVALID", str(exc))
-    if not isinstance(ledger, dict):
-        fail("LEDGER_EVENT_INVALID", "ledger event must be object")
-    exact(
-        ledger,
-        {"schema", "sequence", "caseId", "missionId", "cartridgeId", "workUnitRef", "equipmentId", "routeDenominatorId", "decisionId", "terminal", "executionOccurred", "systemAuthority", "eventId"},
-        "ledger",
-    )
-    if ledger["schema"] != LEDGER_SCHEMA or integer(ledger["sequence"], "ledger.sequence", 1) != 1:
-        fail("LEDGER_EVENT_INVALID", "ledger identity invalid")
-    if boolean(ledger["executionOccurred"], "ledger.executionOccurred") or ledger["systemAuthority"] != "none":
-        fail("LEDGER_AUTHORITY_INVALID", "ledger may not claim execution or authority")
-    ledger_body = dict(ledger)
-    declared_event_id = string(ledger_body.pop("eventId"), "ledger.eventId")
-    if declared_event_id != content_id("axmheadledger1", ledger_body):
-        fail("LEDGER_EVENT_ID_INVALID", "ledger eventId invalid")
+    if not isinstance(actual_ledger, dict):
+        fail("LEDGER_EVENT_INVALID", "ledger event must be an object")
 
-    recovery = read_json(root / "RECOVERY/cold-successor.json")
-    exact(recovery, {"schema", "profileId", "bindings", "answers", "dependenciesAbsent", "systemAuthority"}, "recovery")
-    if recovery["schema"] != COLD_SUCCESSOR_SCHEMA or recovery["profileId"] != PROFILE_ID or recovery["systemAuthority"] != "none":
-        fail("RECOVERY_INVALID", "recovery identity or authority invalid")
-    bindings = recovery["bindings"]
-    if not isinstance(bindings, dict):
-        fail("RECOVERY_BINDING_INVALID", "recovery bindings must be object")
-    exact(
-        bindings,
-        {"missionId", "cartridgeId", "workUnitRef", "workUnitSha256", "equipmentId", "estatePhaseRef", "routeDenominatorId", "stateSha256", "decisionId"},
-        "recovery.bindings",
-    )
-    answers = recovery["answers"]
-    if not isinstance(answers, dict):
-        fail("RECOVERY_ANSWERS_INVALID", "recovery answers must be object")
-    exact(answers, {"whatMission", "currentState", "whoMayAct", "whatProvesIt", "whatRemainsUnresolved", "nextSafeAction"}, "recovery.answers")
-    string(answers["whatMission"], "answers.whatMission")
-    string(answers["currentState"], "answers.currentState")
-    string(answers["whoMayAct"], "answers.whoMayAct")
-    string_list(answers["whatProvesIt"], "answers.whatProvesIt")
-    string_list(answers["whatRemainsUnresolved"], "answers.whatRemainsUnresolved")
-    string(answers["nextSafeAction"], "answers.nextSafeAction")
-    expected_answers = {
-        "whatMission": cartridge["missionId"],
-        "currentState": f"frontier {save['frontier']} terminal {decision['terminal']}",
-        "whoMayAct": human_authority["actorId"] if human_authority["required"] else "no named human required",
-        "whatProvesIt": [equipment["evidenceRef"], *[route["evidenceRef"] for route in denominator["routes"]]],
-        "whatRemainsUnresolved": save["unresolvedObligations"],
-        "nextSafeAction": save["nextSafeAction"],
-    }
-    if answers != expected_answers:
-        differing = sorted(key for key in expected_answers if answers.get(key) != expected_answers[key])
-        fail("RECOVERY_ANSWERS_MISMATCH", f"cold-successor answers differ from authoritative volume state: {differing}")
-    expected_absent = ["WAN", "AWS", "Lattice", "remote_model_provider", "original_host", "repository_history"]
-    if recovery["dependenciesAbsent"] != expected_absent:
-        fail("RECOVERY_DEPENDENCIES_INVALID", "dependenciesAbsent differs")
-
-    public = read_json(root / "PUBLIC/status.json")
-    exact(
-        public,
-        {"schema", "profileId", "caseId", "terminal", "qualifiedAssembly", "qualificationPlan", "hold", "executionOccurred", "privateEvidenceBodies", "physicalFlightCompleted", "physicalEstateQualified", "representativeOperatorQualified", "fieldNetworkQualified", "operationalC2Qualified", "productionLatticeQualified", "systemAuthority", "claimBoundary"},
-        "public",
-    )
-    if public["schema"] != PUBLIC_STATUS_SCHEMA or public["profileId"] != PROFILE_ID:
-        fail("PUBLIC_STATUS_INVALID", "public status identity invalid")
-    if public["systemAuthority"] != "none" or boolean(public["executionOccurred"], "public.executionOccurred"):
-        fail("PUBLIC_AUTHORITY_INVALID", "public status may not claim authority or execution")
-    if public["claimBoundary"] != PROFILE_CLAIM_BOUNDARY:
-        fail("CLAIM_BOUNDARY_INVALID", "public claim boundary differs from the admitted non-claim")
-    if manifest["claimBoundary"] != public["claimBoundary"]:
-        fail("CLAIM_BOUNDARY_BINDING_INVALID", "manifest and public claim boundaries differ")
-    for field in ("physicalFlightCompleted", "physicalEstateQualified", "representativeOperatorQualified", "fieldNetworkQualified", "operationalC2Qualified", "productionLatticeQualified"):
-        if boolean(public[field], f"public.{field}"):
-            fail("PUBLIC_CLAIM_PROMOTION", f"public.{field} must remain false")
-    if integer(public["privateEvidenceBodies"], "public.privateEvidenceBodies") != 0:
-        fail("PRIVATE_BODY_COUNT_INVALID", "synthetic volume must expose zero private evidence bodies")
-    expected_flags = {
-        "qualifiedAssembly": public["terminal"] == "QUALIFIED_ASSEMBLY",
-        "qualificationPlan": public["terminal"] == "QUALIFICATION_PLAN",
-        "hold": public["terminal"] == "HOLD",
-    }
-    for field, expected in expected_flags.items():
-        if boolean(public[field], f"public.{field}") != expected:
-            fail("PUBLIC_TERMINAL_FLAGS_INVALID", field)
-    encoded_public = json.dumps(public, sort_keys=True)
-    forbidden = [r"[A-Za-z]:\\", r"/home/", r"/Users/", r"OCTO-(?:W|L)[0-9]+", r"Authorization:\s*Bearer"]
-    for pattern in forbidden:
-        if re.search(pattern, encoded_public, re.I):
-            fail("PUBLIC_PRIVATE_MATERIAL", f"public projection matched {pattern}")
-
-    if manifest["caseId"] != denominator["caseId"] or manifest["caseId"] != decision["caseId"] or manifest["caseId"] != public["caseId"] or manifest["caseId"] != ledger["caseId"]:
-        fail("CASE_BINDING_INVALID", "case identity differs across volume")
-    if manifest["terminal"] != decision["terminal"] or manifest["terminal"] != save["terminal"] or manifest["terminal"] != public["terminal"] or manifest["terminal"] != ledger["terminal"]:
-        fail("TERMINAL_BINDING_INVALID", "terminal differs across volume")
-    if cartridge["missionId"] != save["missionId"] or cartridge["missionId"] != ledger["missionId"] or cartridge["missionId"] != recovery["bindings"]["missionId"]:
-        fail("MISSION_BINDING_INVALID", "mission identity differs")
-    if cartridge["cartridgeId"] != save["cartridgeId"] or cartridge["cartridgeId"] != ledger["cartridgeId"] or cartridge["cartridgeId"] != recovery["bindings"]["cartridgeId"]:
-        fail("CARTRIDGE_SAVE_BINDING_INVALID", "cartridge identity differs")
-    if work_unit["workUnitRef"] != save["workUnitRef"] or work_unit["workUnitRef"] != ledger["workUnitRef"] or work_unit["workUnitRef"] != recovery["bindings"]["workUnitRef"]:
-        fail("WORK_UNIT_BINDING_INVALID", "work unit reference differs")
-    if work_unit["workUnitSha256"] != save["workUnitSha256"] or work_unit["workUnitSha256"] != recovery["bindings"]["workUnitSha256"]:
-        fail("WORK_UNIT_BINDING_INVALID", "work unit digest differs")
-    if equipment["equipmentId"] != ledger["equipmentId"] or equipment["equipmentId"] != recovery["bindings"]["equipmentId"]:
-        fail("EQUIPMENT_BINDING_INVALID", "equipment identity differs")
-    if equipment["estatePhaseRef"] != recovery["bindings"]["estatePhaseRef"]:
-        fail("ESTATE_PHASE_BINDING_INVALID", "estate phase reference differs")
-    if denominator["routeDenominatorId"] != ledger["routeDenominatorId"] or denominator["routeDenominatorId"] != recovery["bindings"]["routeDenominatorId"]:
-        fail("ROUTE_DENOMINATOR_BINDING_INVALID", "route denominator differs")
-    if decision["decisionId"] != save["lastDecisionId"] or decision["decisionId"] != ledger["decisionId"] or decision["decisionId"] != recovery["bindings"]["decisionId"]:
-        fail("DECISION_BINDING_INVALID", "decision identity differs")
-    if save["stateSha256"] != recovery["bindings"]["stateSha256"]:
-        fail("STATE_BINDING_INVALID", "state digest differs")
+    require_equal(actual_cartridge, cartridge, "CARTRIDGE_RECONSTRUCTION_MISMATCH", "cartridge")
+    require_equal(actual_work_unit, work_unit, "WORK_UNIT_RECONSTRUCTION_MISMATCH", "work unit")
+    require_equal(actual_save, save, "SAVE_RECONSTRUCTION_MISMATCH", "save")
+    require_equal(actual_equipment, equipment, "EQUIPMENT_RECONSTRUCTION_MISMATCH", "equipment observation")
+    require_equal(actual_denominator, denominator, "ROUTE_DENOMINATOR_RECONSTRUCTION_MISMATCH", "route denominator")
+    require_equal(actual_decision, decision, "DECISION_RECOMPUTATION_MISMATCH", "intake decision")
+    require_equal(actual_ledger, ledger, "LEDGER_RECONSTRUCTION_MISMATCH", "ledger event")
+    require_equal(actual_recovery, recovery, "RECOVERY_RECONSTRUCTION_MISMATCH", "cold-successor answers")
+    require_equal(actual_public, public, "PUBLIC_RECONSTRUCTION_MISMATCH", "public projection")
 
     expected_cartridge_binding = {
         "missionId": cartridge["missionId"],
         "cartridgeId": cartridge["cartridgeId"],
         "declaredCartridgeSha256": cartridge["cartridgeSha256"],
     }
-    if manifest["cartridgeBinding"] != expected_cartridge_binding:
-        fail("MANIFEST_CARTRIDGE_BINDING_INVALID", "manifest cartridgeBinding differs")
     expected_work_unit_binding = {
         "workUnitRef": work_unit["workUnitRef"],
         "workUnitSha256": work_unit["workUnitSha256"],
         "supplierSchema": work_unit["supplierSchema"],
         "workUnitBindingId": work_unit["workUnitBindingId"],
     }
-    if manifest["workUnitBinding"] != expected_work_unit_binding:
-        fail("MANIFEST_WORK_UNIT_BINDING_INVALID", "manifest workUnitBinding differs")
     expected_save_binding = {
         "cartridgeId": save["cartridgeId"],
         "workUnitRef": save["workUnitRef"],
         "frontier": save["frontier"],
         "stateSha256": save["stateSha256"],
     }
-    if manifest["saveBinding"] != expected_save_binding:
-        fail("MANIFEST_SAVE_BINDING_INVALID", "manifest saveBinding differs")
     expected_equipment_binding = {
         "equipmentId": equipment["equipmentId"],
         "estatePhaseRef": equipment["estatePhaseRef"],
         "estatePhaseSha256": equipment["estatePhaseSha256"],
         "observationId": equipment["observationId"],
     }
-    if manifest["equipmentBinding"] != expected_equipment_binding:
-        fail("MANIFEST_EQUIPMENT_BINDING_INVALID", "manifest equipmentBinding differs")
     expected_route_binding = {
         "routeDenominatorId": denominator["routeDenominatorId"],
         "routeCount": denominator["routeCount"],
         "routeIds": [route["routeId"] for route in denominator["routes"]],
         "supplierSchema": denominator["supplierSchema"],
     }
-    if manifest["routeDenominator"] != expected_route_binding:
-        fail("MANIFEST_ROUTE_DENOMINATOR_INVALID", "manifest routeDenominator differs")
+    expected_bindings = {
+        "cartridgeBinding": expected_cartridge_binding,
+        "workUnitBinding": expected_work_unit_binding,
+        "saveBinding": expected_save_binding,
+        "equipmentBinding": expected_equipment_binding,
+        "routeDenominator": expected_route_binding,
+    }
+    for key, expected in expected_bindings.items():
+        if manifest[key] != expected:
+            fail("MANIFEST_OBJECT_BINDING_INVALID", f"manifest.{key} differs from reconstructed object")
+    if manifest["terminal"] != decision["terminal"]:
+        fail("TERMINAL_BINDING_INVALID", "manifest terminal differs from reconstructed decision")
+
+    encoded_public = json.dumps(actual_public, sort_keys=True)
+    for pattern in (r"[A-Za-z]:\\", r"/home/", r"/Users/", r"OCTO-(?:W|L)[0-9]+", r"Authorization:\s*Bearer"):
+        if re.search(pattern, encoded_public, re.I):
+            fail("PUBLIC_PRIVATE_MATERIAL", f"public projection matched {pattern}")
 
     return {
         "terminal": manifest["terminal"],
@@ -830,6 +892,10 @@ def verify_objects(root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
         "workUnitRef": work_unit["workUnitRef"],
         "routeCount": denominator["routeCount"],
         "decisionId": decision["decisionId"],
+        "profileCanonicalSha256": PROFILE_CANONICAL_SHA256,
+        "fixtureCatalogCanonicalSha256": FIXTURE_CATALOG_CANONICAL_SHA256,
+        "standaloneVerifierSha256": verifier_sha,
+        "successorAnswersReconstructed": True,
         "cacheNonAuthoritative": True,
         "executionOccurred": False,
         "systemAuthority": "none",
@@ -843,12 +909,13 @@ def verify_volume(root: Path) -> dict[str, Any]:
     verify_files(root, rows)
     result = verify_objects(root, manifest)
     return {
-        "schema": "axm-head/mission-volume-verdict@1",
+        "schema": VERDICT_SCHEMA,
         "status": "PASS",
         **result,
         "manifestSha256": sha256_file(root / "MANIFEST.json"),
         "fileCount": len(rows),
-        "claimBoundary": "This verdict proves synthetic mission-volume integrity, complete task and route custody, independent decision reconstruction, and internal binding only. It proves no physical equipment, field operation, representative operator, operational C2, production Lattice, targeting, engagement, effector, or weapons capability.",
+        "bootstrapAuthenticated": False,
+        "claimBoundary": VERDICT_CLAIM_BOUNDARY,
     }
 
 
@@ -859,19 +926,19 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         verdict = verify_volume(args.volume)
-        text = pretty_json(verdict)
+        data = pretty_json_bytes(verdict)
         if args.out:
             args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_bytes(text.encode("utf-8"))
-        sys.stdout.buffer.write(text.encode("utf-8"))
+            args.out.write_bytes(data)
+        sys.stdout.buffer.write(data)
         return 0
     except VerifyError as exc:
-        verdict = {"schema": "axm-head/mission-volume-verdict@1", "status": "REFUSED", "code": exc.code, "message": str(exc)}
-        text = pretty_json(verdict)
+        verdict = {"schema": VERDICT_SCHEMA, "status": "REFUSED", "code": exc.code, "message": str(exc)}
+        data = pretty_json_bytes(verdict)
         if args.out:
             args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_bytes(text.encode("utf-8"))
-        sys.stdout.buffer.write(text.encode("utf-8"))
+            args.out.write_bytes(data)
+        sys.stdout.buffer.write(data)
         return 2
 
 

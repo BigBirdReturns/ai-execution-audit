@@ -2,17 +2,9 @@
 
 ## Object
 
-This increment defines the first executable contract for an **AXM HEAD Compute Fabric Edge Demonstrator**. It joins three previously separate objects without making any of them a hidden runtime dependency:
+This increment defines the first executable **AXM HEAD Compute Fabric Edge Demonstrator** contract. It joins one MARY-style bounded work unit, one observed foreign-equipment candidate, one independently evaluated Estate route denominator, and one removable cartridge and save volume without making MARY, the Estate, a sibling checkout, a provider, or a network service a runtime dependency.
 
-```text
-MARY-style bounded work and route semantics
-+
-admitted Estate fabric and recovery semantics
-+
-removable cartridge and save custody
-```
-
-The laptop and attached RTX 3090 are reference embodiments. They are not mission identity, constitutional state, or a required production topology. The durable object is the mission volume: immutable cartridge law, mutable save custody, observed route evidence, a non-authoritative cache, cold-successor reconstruction, and a standalone verifier.
+The laptop and attached RTX 3090 are reference embodiments. They are neither mission identity nor constitutional topology. The durable object is the removable volume: immutable cartridge law, mutable save custody, complete route evidence, a non-authoritative cache, cold-successor reconstruction, and a standalone verifier whose identity must be authenticated before execution.
 
 ## Exact supplier coordinates
 
@@ -35,11 +27,33 @@ tree   4a43991b0178919ebfaedae120d7cd96b20091de
 admitted to mary-portable main: false
 ```
 
-The supplier coordinates are evidence and design inputs. The profile also freezes the exact MARY work-unit, route-descriptor, and estate-phase schemas together with the admitted Estate seat-snapshot, route-selection, and worker-lease schemas. This implementation imports no MARY package, Estate checkout, sibling repository, network service, model provider, or external Python dependency.
+The builder and standalone verifier both require these exact coordinates. A structurally valid same-ID profile with any altered repository, commit, tree, or status is refused before volume construction.
+
+## Frozen source trust graph
+
+Version 0.1 closes four independent identities:
+
+```text
+profile canonical SHA-256
+c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078
+
+fixture catalog canonical SHA-256
+47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f
+
+embedded standalone verifier SHA-256
+ef68da907bd5c196a3a10c2874dae20c42cdb547ba14030a968e99d866ee3542
+
+external bootstrap SHA-256
+15be7b7e2c0885bc9efe515ef6c6152e38d22688144f1a62a73c63b7cd994165
+```
+
+The profile freezes the exact four-case catalog denominator. The volume carries canonical copies of the governing profile and complete fixture catalog. The standalone verifier independently reconstructs both canonical identities and refuses a rewritten profile, an expanded catalog, a reordered case denominator, or an altered selected fixture even when every affected file digest and `volumeId` has been recomputed.
+
+The embedded verifier is not permitted to authenticate itself. Direct execution truthfully records `bootstrapAuthenticated: false`. An operator must invoke the external `verify_axm_head_bootstrap.py` from the exact reviewed source coordinate or another independently authenticated copy. The bootstrap hashes `RECOVERY/verify_volume.py` before execution and refuses substitution without running the untrusted bytes. A successful bootstrapped verdict records `bootstrapAuthenticated: true` and the exact admitted verifier digest.
 
 ## Intake transaction
 
-The intake mechanism receives a bounded task, a current equipment observation, and a complete set of independently described routes. It evaluates every route separately against the task's capabilities, privacy lane, validator, memory, wall-time budget, and present availability. It retains every route and every exclusion reason before choosing one route.
+The intake mechanism receives a bounded task, a current equipment observation, and the complete set of independently described routes. It evaluates every route separately against required capabilities, privacy lane, validator, memory, wall-time budget, availability, interface declaration, observation freshness, and permitted authority class. It retains every route and every exclusion reason before choosing one route.
 
 The transaction has exactly three terminals:
 
@@ -57,20 +71,21 @@ HOLD
   observation is stale, or the requested authority class is withheld.
 ```
 
-No terminal represents execution. The demonstrator does not invoke equipment, mutate a device, run a model, or promote a task into an occurrence. It proves only the intake, route-evaluation, portable-custody, and verification membrane.
+No terminal represents execution. The demonstrator does not invoke equipment, mutate a device, run a model, or promote a task into an occurrence.
 
 ## Route and fabric law
 
-A route is an independently sufficient execution boundary. The evaluator never sums memory across routes. Two 8 GB routes do not satisfy a 12 GB requirement. An RTX 3090 route may be preferred because it is faster or richer, while the resident CPU route remains separately eligible and available as the personal floor.
+A route is an independently sufficient execution boundary. Memory is never summed across independent routes. Two 8 GB routes do not satisfy a 12 GB requirement. An RTX 3090 route may be preferred while the resident CPU remains independently eligible as the personal floor.
 
-The fixed qualified fixture proves:
+The qualified fixture proves:
 
 ```text
 optional RTX 3090 route selected
 resident CPU floor independently eligible
-RTX 3090 route removed
-same mission and save remain unchanged
-resident CPU route becomes selected
+optional route removed
+same mission identity retained
+same save identity retained
+resident CPU route selected
 ```
 
 The route is therefore a replaceable organ. It is not the mission.
@@ -100,21 +115,48 @@ CACHE/
 
 RECOVERY/
   cold-successor.json
+  profile.json
+  fixture-catalog.json
   verify_volume.py
 
 PUBLIC/
   status.json
 ```
 
-`CARTRIDGE/mission.json` carries immutable mission identity, invariant references, and the named-human authority boundary. `CARTRIDGE/work-unit.json` carries the complete bounded task and binds it to the exact qualified-draft MARY work-unit schema and supplier digest. `SAVE/state.json` binds the current frontier and unresolved obligations to the exact cartridge and work unit. `SAVE/ledger.jsonl` preserves the intake decision as an append-only event. `ROUTES/equipment-observation.json` binds the equipment observation to the MARY estate-phase schema. `ROUTES/candidate-routes.json` preserves every candidate route, its MARY route identity, its Estate seat coordinate, and the complete route denominator. `ROUTES/intake-decision.json` binds those objects and records the terminal. `RECOVERY/` answers the cold-successor questions and carries a standard-library verifier. `PUBLIC/status.json` exposes only synthetic terminal state and explicit non-claims.
+The authoritative denominator contains twelve files. `CACHE/` is excluded from the volume identity and may be deleted, replaced, or regenerated. An unmanifested file anywhere else fails verification.
 
-The standalone verifier does not trust the stored decision. It validates the complete work unit, equipment observation, and route denominator, reevaluates every route independently, reconstructs the expected terminal and selected route, and requires byte-for-byte equality with the stored decision. A forger who changes the candidate denominator and correctly recomputes every affected digest still fails when the stored decision no longer follows from the supplied task and routes.
+The manifest freezes the supplier coordinates, source-schema bindings, profile identity, fixture-catalog identity, verifier identity, four-case denominator, cache policy, cartridge binding, work-unit binding, save binding, equipment binding, complete route denominator, every authoritative file digest, and the exact public non-claim text. `bootstrapRequired` must remain true.
 
-The verifier also derives all six cold-successor answers from the cartridge, save, equipment observation, complete route denominator, reconstructed decision, ledger, human-authority state, and unresolved obligations. Stored recovery answers are assertions until they exactly match that derived object.
+## Independent semantic reconstruction
 
-For profile `axm-head/edge-demo/0.1`, supplier coordinates, the public/profile claim boundary, the distinct cartridge mission boundary, canonical profile and fixture-catalog digests, catalog schema, and the ordered four-case denominator are exact constants. Shape-valid substitutes refuse. The builder admits only its sibling standalone verifier at the independently frozen SHA-256 recorded in the reviewed builder. A foreign operator authenticates copied verifier bytes without executing them with the `verify-verifier` command before invoking them. The volume manifest repeats the digest for binding and drift detection; it does not create trust in the verifier that checks the manifest.
+The verifier does not trust consequential claims merely because they are content-addressed. It loads the admitted profile and full catalog from the volume, selects the exact declared case, and reconstructs:
 
-`CACHE/` is excluded from the volume identity and may be deleted, replaced, or regenerated. Unmanifested files anywhere else fail verification. A cache mutation cannot change the cartridge, save, decision, or volume identity.
+```text
+cartridge
+work-unit binding
+save state
+observed equipment object
+complete route denominator
+intake decision
+ledger event
+cold-successor record
+public projection
+```
+
+The cold-successor answers are derived rather than accepted:
+
+```text
+whatMission
+currentState
+whoMayAct
+whatProvesIt
+whatRemainsUnresolved
+nextSafeAction
+```
+
+A caller may change an answer, rewrite every affected file digest, and recompute the volume identity. Verification still refuses because the answer no longer follows from the admitted cartridge, save, equipment, route, decision, obligation, and human-authority state.
+
+The exact public claim boundary and the distinct cartridge claim boundary are frozen constants. A same-ID profile or fully re-signed volume cannot publish a stronger narrative claim while retaining a passing verdict.
 
 ## Commands
 
@@ -124,6 +166,7 @@ From the repository root:
 $Tool = 'mating_surface\anchor_node\axm-head-edge-demo.ps1'
 $Profile = 'mating_surface\anchor_node\axm-head-edge-demo-profile-01.json'
 $Fixtures = 'mating_surface\anchor_node\fixtures\axm-head-edge-demo-cases-01.json'
+$Volume = Join-Path $env:TEMP 'axm-head-qualified-volume'
 
 & $Tool validate-profile $Profile
 & $Tool validate-fixtures $Profile $Fixtures
@@ -137,28 +180,23 @@ $Fixtures = 'mating_surface\anchor_node\fixtures\axm-head-edge-demo-cases-01.jso
   $Profile `
   $Fixtures `
   qualified-gpu-with-resident-fallback `
-  --out $env:TEMP\axm-head-qualified-volume
+  --out $Volume
 
-& $Tool verify-verifier `
-  $env:TEMP\axm-head-qualified-volume\RECOVERY\verify_volume.py
-
-python $env:TEMP\axm-head-qualified-volume\RECOVERY\verify_volume.py `
-  $env:TEMP\axm-head-qualified-volume
+& $Tool verify-volume $Volume
 ```
 
-The Python entrypoint is equivalent:
+The Python entrypoints are equivalent:
 
 ```text
 python mating_surface/anchor_node/axm_head_edge_demo.py ...
+python mating_surface/anchor_node/verify_axm_head_bootstrap.py VOLUME
 ```
 
-A build target must not already exist. The standalone verifier can be copied with the volume and run from a foreign working directory. It imports no repository module.
+A build target must not already exist. The bootstrap and embedded verifier use only standard-library Python. They may run from a foreign working directory and import no repository module.
 
-`build-volume` has no verifier override for this closed profile. Alternate verifier paths, one-byte mutations, valid alternate programs, and always-PASS substitutions refuse before substituted code is executed.
+## Closed fixture and hostile campaign
 
-## Fixed fixture campaign
-
-The committed catalog exercises four cases:
+The admitted catalog contains exactly these four cases in this order:
 
 ```text
 qualified-gpu-with-resident-fallback
@@ -167,20 +205,74 @@ hold-undeclared-mutation-interface
 qualification-plan-no-memory-pooling
 ```
 
-The thirty-method conformance suite additionally covers the exact supplier-schema join, complete work-unit and route-denominator custody, optional-organ removal, stale observations, unknown fields, deterministic volume construction, LF/CRLF source equivalence, cache non-authority, unmanifested-file refusal, cartridge tamper, semantic cartridge/save mismatch after byte-level re-signing, decision self-identity recomputation, independent decision reconstruction after a fully re-signed route-denominator change, public privacy, foreign-directory standalone verification, exact claim boundaries, derived cold-successor answers, exact supplier coordinates, frozen profile and catalog provenance, the ordered case denominator, and non-executing verifier authentication. The semantic-closure methods exercise forty-three re-signed forgery variants.
+The thirty-five-witness conformance suite covers the exact source-coordinate join, canonical profile and fixture identities, exact four-case denominator, all three terminal classes, optional-organ removal, stale observations, unknown fields, deterministic volume construction, LF and CRLF source equivalence, external bootstrap verification, truthful direct-verifier non-authentication, complete twelve-file custody, cache non-authority, unmanifested-file refusal, cartridge tamper, semantic save mismatch, decision reconstruction, public privacy, and foreign-directory execution.
+
+The hostile re-signing campaign additionally rewrites and re-signs:
+
+```text
+profile provenance
+expanded fixture catalog
+whatMission
+currentState
+whoMayAct
+whatProvesIt
+whatRemainsUnresolved
+nextSafeAction
+public and manifest claim text
+cartridge claim text
+route denominator and decision chain
+embedded verifier bytes
+```
+
+Every forged transaction must refuse after all affected file sizes, file digests, object identities, and `volumeId` values have been recomputed. The malicious-verifier witness also proves that substituted code is refused before it executes.
+
+## Qualified reference identity
+
+For the admitted qualified fixture under these source bytes:
+
+```text
+case
+qualified-gpu-with-resident-fallback
+
+terminal
+QUALIFIED_ASSEMBLY
+
+decision
+axmheaddecision1_110c1f67f8b24f7ae816571fd116ead6533fd33695e79107dfcb011ec4e7fe2b
+
+volume
+axmheadvolume1_0c1149cac06338274e608cdf39013941ec00e45c0cf25b712e2600b0b9bf555d
+
+manifest SHA-256
+2281eaca3be7108fe419b036c1063162474872efdb5992518aec55fcbe24894b
+
+public projection SHA-256
+c0c3f6b8969034bdc87845c692964df9d34680da7168a1aaad258167fe0f286f
+
+authoritative files
+12
+
+execution occurred
+false
+
+authority
+none
+```
+
+These identities are synthetic contract receipts. They are not physical-equipment or operator qualification.
 
 ## Relationship to physical flight 01
 
-This increment does not replace issue #37. It gives the future physical campaign a concrete removable-volume object and equipment-intake denominator. The physical flight must still establish the real laptop resident floor, the real attached 3090 route, measured acceleration, post-removal continuity, two actual host classes, cold succession, private evidence sealing, and a body-free public disposition.
+This increment does not replace issue #37. It gives the future physical campaign a concrete removable-volume object, exact equipment-intake denominator, and externally authenticated recovery surface. The physical flight must still establish the real resident floor, real attached accelerator route, measured acceleration, post-removal continuity, two actual host classes, cold succession, private evidence sealing, and a body-free public disposition.
 
-The next physical join should replace the invented equipment observation and route evidence with private `private_local_attested` receipts while retaining the exact public schemas and non-claim boundary defined here.
+A later physical join must replace invented equipment and route evidence with private `private_local_attested` receipts while retaining the exact public schemas and non-claim boundaries defined here. Citation alone transfers neither authority nor evidence tier.
 
 ## Claim boundary
 
-This candidate proves a provider-free synthetic intake contract, exact MARY and Estate supplier-schema binding, complete task and route-denominator custody, independently reconstructed per-route evaluation, deterministic terminal classification, immutable cartridge and mutable save binding, non-authoritative cache semantics, portable cold-successor state, and standalone verification.
+This candidate proves a provider-free synthetic intake contract, exact MARY and Estate supplier-schema binding, closed source and fixture provenance, complete task and route-denominator custody, independently reconstructed route and successor semantics, deterministic terminal classification, immutable cartridge and mutable save binding, non-authoritative cache semantics, portable cold-successor state, and externally bootstrapped standalone verification.
 
 It does not prove that arbitrary equipment can be understood automatically, that an adapter is safe, that a task was executed, that a model output is correct, that the laptop or RTX 3090 is physically qualified, that the private flight completed, or that representative operator, field network, operational C2, production Lattice, targeting, engagement, effector, or weapons qualification or authority exists.
 
 ## Control question
 
-Can a bounded task and an observed equipment candidate produce a qualified assembly, exact qualification plan, or truthful hold while the mission cartridge, save frontier, unresolved obligations, human authority boundary, and cold-successor answer remain independent of the selected route, optional accelerator, host-specific cache, original host, and repository history?
+Can a foreign successor authenticate the verifier before execution and independently derive the mission, present state, acting human, proof set, unresolved obligations, safe next action, governing public claim boundary, source profile, and complete fixture denominator without accepting any of those consequential answers from mutable bytes inside the volume itself?
