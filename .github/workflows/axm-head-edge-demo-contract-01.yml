@@ -64,10 +64,17 @@ jobs:
                   f"repair carrier raw digest differs: expected={expected_raw_sha256} observed={observed_raw_sha256}"
               )
 
-          start_marker = "          python - <<'PY'\n"
+          start_marker = (
+              "      - name: Recover and execute the authenticated structural repair\n"
+              "        shell: bash\n"
+              "        run: |\n"
+              "          python - <<'PY'\n"
+          )
           end_marker = "          PY\n\n      - name: Qualify repaired source and hostile witnesses"
           if raw.count(start_marker) != 1 or raw.count(end_marker) != 1:
-              raise SystemExit("semantic-dedent carrier markers differ")
+              raise SystemExit(
+                  f"semantic-dedent carrier markers differ: start={raw.count(start_marker)} end={raw.count(end_marker)}"
+              )
           carried = textwrap.dedent(raw.split(start_marker, 1)[1].split(end_marker, 1)[0])
           wrong = 'expected_sha256 = "beed52f9551ddfbc019945c5f0c8f7bd2535e875ef8a27e39cf39ebce0d8405b"'
           right = 'expected_sha256 = "32f7ea47d814b5755595142384d4a8f2915fc32b01bea3ab8db49c988ab33f6c"'
