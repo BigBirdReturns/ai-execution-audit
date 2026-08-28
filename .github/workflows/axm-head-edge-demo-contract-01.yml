@@ -98,6 +98,31 @@ jobs:
           repair.write_text(script, encoding="utf-8", newline="\n")
           subprocess.run(["python", "-m", "py_compile", str(repair)], check=True)
           subprocess.run(["python", str(repair)], check=True)
+
+          tests_path = Path("mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py")
+          tests = tests_path.read_text(encoding="utf-8")
+          method_names = (
+              "test_cartridge_digest_is_derived_from_canonical_mission_law",
+              "test_resigned_cartridge_law_forgery_is_refused",
+              "test_verdict_output_inside_volume_is_refused_without_mutation",
+          )
+          for method_name in method_names:
+              marker = f"    def {method_name}(self) -> None:\n"
+              if tests.count(marker) != 1:
+                  raise SystemExit(f"inserted test marker differs: {method_name}")
+              start = tests.index(marker)
+              next_method = tests.find("\n    def test_", start + len(marker))
+              if next_method < 0:
+                  raise SystemExit(f"inserted test successor missing: {method_name}")
+              block = tests[start:next_method]
+              lines = block.splitlines(keepends=True)
+              repaired_block = lines[0] + "".join(
+                  ("    " + line) if line.strip() else line
+                  for line in lines[1:]
+              )
+              tests = tests[:start] + repaired_block + tests[next_method:]
+          tests_path.write_text(tests, encoding="utf-8", newline="\n")
+          subprocess.run(["python", "-m", "py_compile", str(tests_path)], check=True)
           PY
 
       - name: Qualify repaired source and hostile witnesses
