@@ -1,206 +1,265 @@
-name: Materialize AXM HEAD semantic repair
+name: AXM HEAD Edge Demo Contract 01
 
 on:
+  pull_request:
+    paths:
+      - "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json"
+      - "mating_surface/anchor_node/axm_head_edge_demo.py"
+      - "mating_surface/anchor_node/verify_axm_head_volume.py"
+      - "mating_surface/anchor_node/verify_axm_head_bootstrap.py"
+      - "mating_surface/anchor_node/axm-head-edge-demo.ps1"
+      - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md"
+      - "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
+      - "mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py"
+      - ".github/workflows/axm-head-edge-demo-contract-01.yml"
   push:
     branches:
-      - work/axm-head-edge-demo-contract-01
+      - main
     paths:
-      - ".axm-head-repair/**"
+      - "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json"
+      - "mating_surface/anchor_node/axm_head_edge_demo.py"
+      - "mating_surface/anchor_node/verify_axm_head_volume.py"
+      - "mating_surface/anchor_node/verify_axm_head_bootstrap.py"
+      - "mating_surface/anchor_node/axm-head-edge-demo.ps1"
+      - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md"
+      - "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
+      - "mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py"
       - ".github/workflows/axm-head-edge-demo-contract-01.yml"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: materialize-axm-head-semantic-repair
-  cancel-in-progress: false
+  group: axm-head-edge-demo-contract-01-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  materialize:
-    runs-on: ubuntu-latest
+  qualify-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
 
     steps:
-      - name: Check out the repair branch
+      - name: Check out exact candidate
         uses: actions/checkout@v6
-        with:
-          ref: work/axm-head-edge-demo-contract-01
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      - name: Authenticate and materialize the bounded source payload
+      - name: Refuse hidden network, credential, and private-host surfaces
         shell: bash
         run: |
           python - <<'PY'
-          from pathlib import Path, PurePosixPath
-          import base64
-          import hashlib
-          import io
-          import json
-          import tarfile
+          from pathlib import Path
+          import re
 
-          expected_payload_sha256 = "b3d5e2039b92d36536e31721698dae738682b4aa939d5a65cfab6f1ef7a4bc69"
-          expected_files = {
-              "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md": {"bytes": 12007, "sha256": "6701402fc69bed3f00ced1c2104964d55f54e6f7365662161c2324b84e84008d"},
-              "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json": {"bytes": 2713, "sha256": "60cdb57ac4a0dccf7fc93f277b090d2417a745346073d672229e00205dba8b60"},
-              "mating_surface/anchor_node/axm-head-edge-demo.ps1": {"bytes": 551, "sha256": "fe9ed0b669e197653ada9076615ea160e4e48de63e86db339526d76dd8960089"},
-              "mating_surface/anchor_node/axm_head_edge_demo.py": {"bytes": 38604, "sha256": "adbe5f465621013d4d0a7eb2c46f78a96b1bc0c108098097341cf064c21afe0a"},
-              "mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py": {"bytes": 23801, "sha256": "88033019fdffeb7fcd22f88dc46409be49b427f5790b5c05c7d26fe966ced45d"},
-              "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json": {"bytes": 17324, "sha256": "a212676c2d54e62d32472de6b26a337d7ba584320eca8bdafa79914608148ace"},
-              "mating_surface/anchor_node/verify_axm_head_bootstrap.py": {"bytes": 5091, "sha256": "15be7b7e2c0885bc9efe515ef6c6152e38d22688144f1a62a73c63b7cd994165"},
-              "mating_surface/anchor_node/verify_axm_head_volume.py": {"bytes": 43114, "sha256": "ef68da907bd5c196a3a10c2874dae20c42cdb547ba14030a968e99d866ee3542"},
-          }
-
-          part_names = [
-              "part-00", "part-01", "part-02", "part-03",
-              "fix-04a", "fix-04b", "fix-04c-exact",
-              "part-05", "part-06",
+          paths = [
+              Path('mating_surface/anchor_node/axm-head-edge-demo-profile-01.json'),
+              Path('mating_surface/anchor_node/axm_head_edge_demo.py'),
+              Path('mating_surface/anchor_node/verify_axm_head_volume.py'),
+              Path('mating_surface/anchor_node/verify_axm_head_bootstrap.py'),
+              Path('mating_surface/anchor_node/axm-head-edge-demo.ps1'),
+              Path('mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md'),
+              Path('mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json'),
+              Path('mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py'),
           ]
-          part_paths = [Path(".axm-head-repair") / name for name in part_names]
-          if not all(path.is_file() for path in part_paths):
-              raise SystemExit("repair payload part denominator differs")
-          encoded = "".join("".join(path.read_text(encoding="ascii").split()) for path in part_paths)
-          compressed = base64.b64decode(encoded, validate=True)
-          if hashlib.sha256(compressed).hexdigest() != expected_payload_sha256:
-              raise SystemExit("repair payload digest differs")
-
-          expected_members = {"PAYLOAD-MANIFEST.json", *expected_files}
-          with tarfile.open(fileobj=io.BytesIO(compressed), mode="r:gz") as archive:
-              members = archive.getmembers()
-              names = [member.name for member in members]
-              if set(names) != expected_members or len(names) != len(expected_members):
-                  raise SystemExit("repair archive member denominator differs")
-              for member in members:
-                  path = PurePosixPath(member.name)
-                  if path.is_absolute() or ".." in path.parts or not member.isfile():
-                      raise SystemExit(f"unsafe repair archive member: {member.name}")
-
-              manifest_handle = archive.extractfile("PAYLOAD-MANIFEST.json")
-              if manifest_handle is None:
-                  raise SystemExit("repair payload manifest missing")
-              manifest = json.loads(manifest_handle.read().decode("utf-8"))
-              if manifest != {"schema": "axm-head-repair-payload/1", "files": expected_files}:
-                  raise SystemExit("repair payload manifest differs")
-
-              for relative, row in expected_files.items():
-                  handle = archive.extractfile(relative)
-                  if handle is None:
-                      raise SystemExit(f"repair payload member missing: {relative}")
-                  data = handle.read()
-                  if len(data) != row["bytes"] or hashlib.sha256(data).hexdigest() != row["sha256"]:
-                      raise SystemExit(f"repair payload member identity differs: {relative}")
-                  target = Path(relative)
-                  target.parent.mkdir(parents=True, exist_ok=True)
-                  target.write_bytes(data)
-
-          for relative, row in expected_files.items():
-              data = Path(relative).read_bytes()
-              if len(data) != row["bytes"] or hashlib.sha256(data).hexdigest() != row["sha256"]:
-                  raise SystemExit(f"materialized source identity differs: {relative}")
-          print("AXM HEAD semantic repair payload authenticated and materialized")
+          joined = '\n'.join(path.read_text(encoding='utf-8') for path in paths)
+          forbidden = {
+              'network runtime': r'\b(?:requests|urllib3|aiohttp|httpx)\b|socket\.(?:connect|create_connection)',
+              'credential material': r'AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer',
+              'private host': r'OCTO-(?:W|L)[0-9]+',
+          }
+          for label, pattern in forbidden.items():
+              if re.search(pattern, joined, re.I):
+                  raise SystemExit(f'{label} detected in public AXM HEAD surface')
           PY
 
-      - name: Qualify the materialized trust graph
+      - name: Validate syntax, exact profile, and closed fixture catalog
         shell: bash
         run: |
-          python -m py_compile \
-            mating_surface/anchor_node/axm_head_edge_demo.py \
-            mating_surface/anchor_node/verify_axm_head_bootstrap.py \
-            mating_surface/anchor_node/verify_axm_head_volume.py \
-            mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py
+          python -m py_compile mating_surface/anchor_node/axm_head_edge_demo.py
+          python -m py_compile mating_surface/anchor_node/verify_axm_head_volume.py
+          python -m py_compile mating_surface/anchor_node/verify_axm_head_bootstrap.py
+          python -m py_compile mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py
           python mating_surface/anchor_node/axm_head_edge_demo.py validate-profile \
             mating_surface/anchor_node/axm-head-edge-demo-profile-01.json
           python mating_surface/anchor_node/axm_head_edge_demo.py validate-fixtures \
             mating_surface/anchor_node/axm-head-edge-demo-profile-01.json \
             mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json
+
+      - name: Authenticate source trust roots
+        shell: bash
+        run: |
+          mkdir -p qualification/axm-head-edge-demo-contract-01
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import os
+
+          root = Path('mating_surface/anchor_node')
+          profile = json.loads((root / 'axm-head-edge-demo-profile-01.json').read_text(encoding='utf-8'))
+          catalog = json.loads((root / 'fixtures/axm-head-edge-demo-cases-01.json').read_text(encoding='utf-8'))
+
+          def canonical(value):
+              return (json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False) + '\n').encode('utf-8')
+
+          def normalized(path):
+              return path.read_text(encoding='utf-8').replace('\r\n', '\n').replace('\r', '\n').encode('utf-8')
+
+          observed = {
+              'profileCanonicalSha256': hashlib.sha256(canonical(profile)).hexdigest(),
+              'fixtureCatalogCanonicalSha256': hashlib.sha256(canonical(catalog)).hexdigest(),
+              'standaloneVerifierSha256': hashlib.sha256(normalized(root / 'verify_axm_head_volume.py')).hexdigest(),
+              'bootstrapSha256': hashlib.sha256(normalized(root / 'verify_axm_head_bootstrap.py')).hexdigest(),
+          }
+          expected = {
+              'profileCanonicalSha256': 'c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078',
+              'fixtureCatalogCanonicalSha256': '47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f',
+              'standaloneVerifierSha256': 'ef68da907bd5c196a3a10c2874dae20c42cdb547ba14030a968e99d866ee3542',
+              'bootstrapSha256': '15be7b7e2c0885bc9efe515ef6c6152e38d22688144f1a62a73c63b7cd994165',
+          }
+          if observed != expected:
+              raise SystemExit(f'trust-root mismatch: expected={expected} observed={observed}')
+          receipt = {
+              'schema': 'axm-head/source-trust-receipt@1',
+              'status': 'PASS',
+              'sourceRef': os.environ['GITHUB_SHA'],
+              'bootstrapRequired': True,
+              'fixtureCaseIds': profile['fixtureCaseIds'],
+              **observed,
+              'authority': 'none',
+          }
+          out = Path('qualification/axm-head-edge-demo-contract-01/trust-${{ matrix.os }}.json')
+          out.write_bytes((json.dumps(receipt, sort_keys=True, indent=2, ensure_ascii=False) + '\n').encode('utf-8'))
+          PY
+
+      - name: Run adversarial conformance suite
+        shell: bash
+        run: |
           python -m unittest discover \
             -s mating_surface/anchor_node/conformance \
             -p 'test_axm_head_edge_demo.py' \
-            -v 2>&1 | tee "$RUNNER_TEMP/axm-head-semantic-repair-tests.txt"
-          grep -F "Ran 35 tests" "$RUNNER_TEMP/axm-head-semantic-repair-tests.txt"
-          grep -Fx "OK" "$RUNNER_TEMP/axm-head-semantic-repair-tests.txt"
+            -v 2>&1 | tee qualification/axm-head-edge-demo-contract-01/test-output-${{ matrix.os }}.txt
 
+      - name: Build and independently bootstrap-verify every terminal class
+        shell: bash
+        run: |
           PROFILE="mating_surface/anchor_node/axm-head-edge-demo-profile-01.json"
           FIXTURES="mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
           TOOL="mating_surface/anchor_node/axm_head_edge_demo.py"
-          BOOTSTRAP="mating_surface/anchor_node/verify_axm_head_bootstrap.py"
-          VOLUME="$RUNNER_TEMP/axm-head-qualified-volume"
-          FOREIGN="$RUNNER_TEMP/axm-head-foreign"
-          mkdir -p "$FOREIGN"
-          python "$TOOL" build-volume "$PROFILE" "$FIXTURES" \
-            qualified-gpu-with-resident-fallback --out "$VOLUME"
-          (
-            cd "$FOREIGN"
-            python "$GITHUB_WORKSPACE/$BOOTSTRAP" "$VOLUME" \
-              --out "$RUNNER_TEMP/axm-head-semantic-repair-verdict.json"
-          )
+          BOOTSTRAP="$GITHUB_WORKSPACE/mating_surface/anchor_node/verify_axm_head_bootstrap.py"
+          DEST="$GITHUB_WORKSPACE/qualification/axm-head-edge-demo-contract-01"
+
+          for CASE in \
+            qualified-gpu-with-resident-fallback \
+            qualification-plan-missing-adapter \
+            hold-undeclared-mutation-interface \
+            qualification-plan-no-memory-pooling
+          do
+            VOLUME="$RUNNER_TEMP/axm-head-$CASE"
+            FOREIGN="$RUNNER_TEMP/foreign-$CASE"
+            mkdir -p "$FOREIGN"
+            python "$TOOL" build-volume "$PROFILE" "$FIXTURES" "$CASE" --out "$VOLUME"
+            (
+              cd "$FOREIGN"
+              python "$BOOTSTRAP" "$VOLUME" \
+                --out "$DEST/verdict-$CASE-${{ matrix.os }}.json"
+            )
+            cp "$VOLUME/MANIFEST.json" "$DEST/manifest-$CASE-${{ matrix.os }}.json"
+            cp "$VOLUME/PUBLIC/status.json" "$DEST/public-$CASE-${{ matrix.os }}.json"
+          done
+
+      - name: Preserve provider-free qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-edge-demo-contract-01-${{ matrix.os }}-${{ github.sha }}
+          path: qualification/axm-head-edge-demo-contract-01/
+          if-no-files-found: error
+          retention-days: 14
+
+  qualify-powershell-entrypoint:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate wrapper and one externally bootstrapped volume round trip
+        shell: pwsh
+        run: |
+          $Tool = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-edge-demo.ps1'
+          $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-edge-demo-profile-01.json'
+          $Fixtures = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\fixtures\axm-head-edge-demo-cases-01.json'
+          $Volume = Join-Path $env:RUNNER_TEMP 'axm-head-powershell-volume'
+
+          & $Tool validate-profile $Profile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          & $Tool build-volume $Profile $Fixtures qualified-gpu-with-resident-fallback --out $Volume
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          & $Tool verify-volume $Volume
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  compare-cross-platform-volume-identity:
+    needs: qualify-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Download both qualification artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: axm-head-edge-demo-contract-01-*-${{ github.sha }}
+          path: qualification-download
+
+      - name: Require byte-identical trusted volume projections
+        shell: bash
+        run: |
           python - <<'PY'
           from pathlib import Path
           import json
-          import os
-          verdict = json.loads((Path(os.environ["RUNNER_TEMP"]) / "axm-head-semantic-repair-verdict.json").read_text(encoding="utf-8"))
-          if verdict.get("status") != "PASS":
-              raise SystemExit("materialized reference volume did not pass")
-          if verdict.get("bootstrapAuthenticated") is not True:
-              raise SystemExit("external verifier bootstrap did not authenticate")
-          if verdict.get("successorAnswersReconstructed") is not True:
-              raise SystemExit("successor answers were not reconstructed")
-          PY
 
-      - name: Commit product source and remove transport
-        shell: bash
-        run: |
-          git config user.name "BigBirdReturns"
-          git config user.email "bigbirdreturns@proton.me"
-          git rm -r .axm-head-repair
-          git add \
-            mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md \
-            mating_surface/anchor_node/axm-head-edge-demo-profile-01.json \
-            mating_surface/anchor_node/axm-head-edge-demo.ps1 \
-            mating_surface/anchor_node/axm_head_edge_demo.py \
-            mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py \
-            mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json \
-            mating_surface/anchor_node/verify_axm_head_bootstrap.py \
-            mating_surface/anchor_node/verify_axm_head_volume.py
-          git diff --cached --check
-          python - <<'PY'
-          import subprocess
-          permanent = {
-              "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md",
-              "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json",
-              "mating_surface/anchor_node/axm-head-edge-demo.ps1",
-              "mating_surface/anchor_node/axm_head_edge_demo.py",
-              "mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py",
-              "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json",
-              "mating_surface/anchor_node/verify_axm_head_bootstrap.py",
-              "mating_surface/anchor_node/verify_axm_head_volume.py",
-          }
-          actual = set(subprocess.check_output(["git", "diff", "--cached", "--name-only"], text=True).splitlines())
-          transport = {path for path in actual if path.startswith(".axm-head-repair/")}
-          expected_transport = {
-              ".axm-head-repair/final-workflow.yml",
-              ".axm-head-repair/fix-04a",
-              ".axm-head-repair/fix-04b",
-              ".axm-head-repair/fix-04c-exact",
-              ".axm-head-repair/part-00",
-              ".axm-head-repair/part-01",
-              ".axm-head-repair/part-02",
-              ".axm-head-repair/part-03",
-              ".axm-head-repair/part-05",
-              ".axm-head-repair/part-06",
-          }
-          unexpected = {path for path in actual if not path.startswith(".axm-head-repair/") and path not in permanent}
-          if unexpected or transport != expected_transport:
-              raise SystemExit(
-                  f"staged path denominator differs: unexpected={sorted(unexpected)} "
-                  f"transport_missing={sorted(expected_transport - transport)} "
-                  f"transport_extra={sorted(transport - expected_transport)}"
-              )
+          root = Path('qualification-download')
+          cases = [
+              'qualified-gpu-with-resident-fallback',
+              'qualification-plan-missing-adapter',
+              'hold-undeclared-mutation-interface',
+              'qualification-plan-no-memory-pooling',
+          ]
+          groups = {'trust': sorted(root.glob('**/trust-*.json'))}
+          for case_id in cases:
+              for kind in ('manifest', 'public', 'verdict'):
+                  groups[f'{kind}:{case_id}'] = sorted(root.glob(f'**/{kind}-{case_id}-*.json'))
+
+          for label, paths in groups.items():
+              if len(paths) != 2:
+                  raise SystemExit(f'{label}: expected two platform artifacts, found {len(paths)}')
+              first, second = paths
+              if first.read_bytes() != second.read_bytes():
+                  raise SystemExit(f'{label}: Windows and Ubuntu bytes differ')
+              body = json.loads(first.read_text(encoding='utf-8'))
+              if body.get('status') != 'PASS' and label.startswith(('verdict:', 'trust')):
+                  raise SystemExit(f'{label}: retained receipt is not PASS')
+              if label.startswith('verdict:'):
+                  if body.get('bootstrapAuthenticated') is not True:
+                      raise SystemExit(f'{label}: verdict lacks external bootstrap authentication')
+                  if body.get('successorAnswersReconstructed') is not True:
+                      raise SystemExit(f'{label}: verdict lacks successor-answer reconstruction')
+              if label == 'trust' and body.get('bootstrapRequired') is not True:
+                  raise SystemExit('source trust receipt does not require the external bootstrap')
+          print('Windows and Ubuntu trusted AXM HEAD projections are byte-identical for all four cases')
           PY
-          git commit -m "Materialize AXM HEAD semantic trust graph"
-          git push origin HEAD:refs/heads/work/axm-head-edge-demo-contract-01
