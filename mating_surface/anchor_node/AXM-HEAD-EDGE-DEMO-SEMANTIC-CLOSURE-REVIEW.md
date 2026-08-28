@@ -11,14 +11,11 @@
     physical authority       BigBirdReturns/ai-execution-audit#37
     physical campaign        PREPARED_NOT_ARMED
 
-The predecessor is preserved unchanged in history. This successor does not
-retroactively repair or admit it, does not initialize the prepared physical
-join, and grants no physical execution or authority.
+The predecessor is preserved unchanged in history. This successor does not retroactively repair or admit it, does not initialize the prepared physical join, and grants no physical execution or authority.
 
 ## Predecessor baseline
 
-The clean detached predecessor changed exactly eight paths, added 2,912 lines,
-deleted none, and carried 24 focused tests. Its closed fixtures were:
+The clean detached predecessor changed exactly eight paths, added 2,912 lines, deleted none, and carried 24 focused tests. Its closed fixtures were:
 
     qualified-gpu-with-resident-fallback
     qualification-plan-missing-adapter
@@ -41,8 +38,7 @@ Frozen predecessor canonical JSON digests:
     profile canonical   b995e5a1480af74e5d082ba6dbdd2bb86d7b3489a8d233135c29b297638b6259
     catalog canonical   47e34302c415511aa2f9adbf112fe189246ee262c79fccb2036ffb5b21b9612f
 
-The exact public/profile non-claim and distinct cartridge mission boundary
-remain the predecessor strings. The successor freezes rather than edits them.
+The exact public/profile non-claim and distinct cartridge mission boundary remain the predecessor strings. The successor freezes rather than edits them.
 
 ## Defect-to-repair map
 
@@ -54,35 +50,45 @@ remain the predecessor strings. The successor freezes rather than edits them.
 | Decorative provenance | Freeze canonical profile/catalog digests, catalog schema, and exact ordered four-case denominator | Reviewed builder and verifier constants | Digest, schema, added, removed, renamed, unexercised, and unselected case mutations | PROFILE_PROVENANCE_INVALID, FIXTURE_PROVENANCE_INVALID, or CASE_DENOMINATOR_INVALID | Fixtures remain synthetic |
 | Verifier self-trust | Remove CLI override; freeze verifier digest in trusted builder; require non-executing preflight | Reviewed builder coordinate | Always-PASS program, one-byte mutation, alternate Python, path substitution, and manifest-digest substitution | VERIFIER_IDENTITY_INVALID or VERIFIER_PATH_INVALID | Operator authenticates admitted builder/digest before execution |
 
-All hostile volume mutations recompute affected file rows and the volume ID.
-Byte-level self-consistency therefore cannot hide the semantic forgery.
+All hostile volume mutations recompute affected file rows and the volume ID. Byte-level self-consistency therefore cannot hide the semantic forgery.
 
 ## Schema disposition
 
-No schema identifier changes. The ten object schemas, three terminal classes,
-mission identity, save identity, cache non-authority, route reevaluation,
-optional-organ removal, resident-floor fallback, provider-free runtime, zero
-credentials, zero private evidence bodies, authority none, and physical
-execution false remain unchanged.
+No schema identifier changes. The ten object schemas, three terminal classes, mission identity, save identity, cache non-authority, route reevaluation, optional-organ removal, resident-floor fallback, provider-free runtime, zero credentials, zero private evidence bodies, authority none, and physical execution false remain unchanged.
 
-The manifest gains closed provenance bindings (fixtureCatalogSchema,
-qualifiedCaseIds, and verifierSha256) under the existing candidate-only
-profile. This is a candidate repair before admission, not a migration of an
-admitted schema. If review requires a formal schema-version increment, that is
-an admission decision and predecessor fixtures become explicit migration
-witnesses.
+The manifest gains closed provenance bindings (`fixtureCatalogSchema`, `qualifiedCaseIds`, and `verifierSha256`) under the existing candidate-only profile. This is a candidate repair before admission, not a migration of an admitted schema. If review requires a formal schema-version increment, that is an admission decision and predecessor fixtures become explicit migration witnesses.
 
 ## Qualification and admission boundary
 
-Local qualification records compilation, focused witness totals, PowerShell
-round trip, four foreign-directory fixture verifications, inherited MP01,
-standards-first, and canonical byte comparisons. Hosted Ubuntu, Windows,
-exact-merge-ref, workflow, and artifact receipts are recorded only after the
-successor is pushed and those jobs actually complete.
+Passing qualification does not admit this supplier. A fresh independent review must evaluate the successor head. Issue #37 remains the sole physical-flight authority coordinate, and a later physical join remains a separate admission.
 
-Passing qualification does not admit this supplier. A fresh independent review
-must evaluate the successor head. Issue #37 remains the sole physical-flight
-authority coordinate, and a later physical join remains a separate admission.
+The semantic implementation was qualified at the exact pull-request merge ref below before the final admission-record polish:
+
+    semantic implementation head               ed59b774e3050b52258c5502f556bc5077bb4fad
+    semantic implementation tree               00348f727e1f76a8edc9bbd5277f2bb0fdb335e5
+    qualified pull-request merge ref            397ca17bcc7d7a5fc5ea81fdfc5bcd3b11d855b8
+
+    AXM HEAD Edge Demo Contract 01              run 33210515685 PASS
+    Ubuntu focused methods                      30 / 30 PASS
+    Windows focused methods                     30 / 30 PASS
+    four detached fixture volumes per host      4 / 4 PASS
+    PowerShell wrapper                          PASS
+    exact cross-platform manifest bytes         PASS
+    exact cross-platform public bytes           PASS
+    exact cross-platform verdict bytes          PASS
+
+    Spectra Anchor Node Mission Profile 01      run 33210515747 PASS
+    Standards-first mating surface              run 33210515700 PASS
+
+    Ubuntu qualification artifact               9701394344
+    Ubuntu ZIP bytes                            17,887
+    Ubuntu ZIP SHA-256                          b94b76a4f76d3340887a8063787ef71a1471a3d8b806ec1b3d40203339828fb9
+
+    Windows qualification artifact              9701401055
+    Windows ZIP bytes                           17,918
+    Windows ZIP SHA-256                         a08960e9a4d5fdf1ad09ce3fedc3fe51999f108e4b8e56c470823545fdd5abec
+
+The final admission head and merge ref are recorded in the pull-request admission ledger after all documentation and workflow coverage changes complete. This document does not self-assert the Git object that contains itself.
 
 ## Local qualification receipt
 
@@ -96,10 +102,3 @@ authority coordinate, and a later physical join remains a separate admission.
     standards-first witnesses                  10 / 10 PASS
     failures                                   0
     skips                                      0
-
-The first local PowerShell attempt was refused by the host execution policy
-before the wrapper ran. A process-scoped ExecutionPolicy Bypass rerun passed;
-no machine policy changed. Ubuntu, hosted Windows, cross-platform byte
-comparison, exact-merge-ref workflow, workflow IDs, artifact IDs, artifact byte
-counts, and artifact SHA-256 values remain PENDING until the successor is
-pushed and GitHub produces those receipts.

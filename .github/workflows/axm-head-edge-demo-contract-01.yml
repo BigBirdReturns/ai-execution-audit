@@ -65,6 +65,7 @@ jobs:
               Path('mating_surface/anchor_node/verify_axm_head_volume.py'),
               Path('mating_surface/anchor_node/axm-head-edge-demo.ps1'),
               Path('mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md'),
+              Path('mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-SEMANTIC-CLOSURE-REVIEW.md'),
               Path('mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json'),
               Path('mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py'),
           ]
@@ -91,14 +92,25 @@ jobs:
             mating_surface/anchor_node/axm-head-edge-demo-profile-01.json \
             mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json
 
-      - name: Run adversarial conformance suite
+      - name: Run closed adversarial conformance denominator
         shell: bash
         run: |
+          RECEIPT="qualification/axm-head-edge-demo-contract-01/test-output-${{ matrix.os }}.txt"
           mkdir -p qualification/axm-head-edge-demo-contract-01
           python -m unittest discover \
             -s mating_surface/anchor_node/conformance \
             -p 'test_axm_head_edge_demo.py' \
-            -v 2>&1 | tee qualification/axm-head-edge-demo-contract-01/test-output-${{ matrix.os }}.txt
+            -v 2>&1 | tee "$RECEIPT"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("qualification/axm-head-edge-demo-contract-01/test-output-${{ matrix.os }}.txt")
+          lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+          if not any(line.startswith("Ran 30 tests in ") for line in lines):
+              raise SystemExit("focused test denominator differs from 30")
+          if not lines or lines[-1] != "OK":
+              raise SystemExit("focused test suite did not terminate OK")
+          PY
 
       - name: Build and independently verify every terminal class
         shell: bash

@@ -110,20 +110,9 @@ PUBLIC/
 
 The standalone verifier does not trust the stored decision. It validates the complete work unit, equipment observation, and route denominator, reevaluates every route independently, reconstructs the expected terminal and selected route, and requires byte-for-byte equality with the stored decision. A forger who changes the candidate denominator and correctly recomputes every affected digest still fails when the stored decision no longer follows from the supplied task and routes.
 
-The verifier also derives all six cold-successor answers from the cartridge,
-save, equipment observation, complete route denominator, reconstructed decision,
-ledger, human-authority state, and unresolved obligations. Stored recovery
-answers are assertions until they exactly match that derived object.
+The verifier also derives all six cold-successor answers from the cartridge, save, equipment observation, complete route denominator, reconstructed decision, ledger, human-authority state, and unresolved obligations. Stored recovery answers are assertions until they exactly match that derived object.
 
-For profile axm-head/edge-demo/0.1, supplier coordinates, the public/profile
-claim boundary, the distinct cartridge mission boundary, canonical profile and
-fixture-catalog digests, catalog schema, and the ordered four-case denominator
-are exact constants. Shape-valid substitutes refuse. The builder admits only
-its sibling standalone verifier at the independently frozen SHA-256 recorded in
-the reviewed builder. A foreign operator authenticates copied verifier bytes
-without executing them with the verify-verifier command before invoking them.
-The volume manifest repeats the digest for binding and drift detection; it does
-not create trust in the verifier that checks the manifest.
+For profile `axm-head/edge-demo/0.1`, supplier coordinates, the public/profile claim boundary, the distinct cartridge mission boundary, canonical profile and fixture-catalog digests, catalog schema, and the ordered four-case denominator are exact constants. Shape-valid substitutes refuse. The builder admits only its sibling standalone verifier at the independently frozen SHA-256 recorded in the reviewed builder. A foreign operator authenticates copied verifier bytes without executing them with the `verify-verifier` command before invoking them. The volume manifest repeats the digest for binding and drift detection; it does not create trust in the verifier that checks the manifest.
 
 `CACHE/` is excluded from the volume identity and may be deleted, replaced, or regenerated. Unmanifested files anywhere else fail verification. A cache mutation cannot change the cartridge, save, decision, or volume identity.
 
@@ -150,6 +139,9 @@ $Fixtures = 'mating_surface\anchor_node\fixtures\axm-head-edge-demo-cases-01.jso
   qualified-gpu-with-resident-fallback `
   --out $env:TEMP\axm-head-qualified-volume
 
+& $Tool verify-verifier `
+  $env:TEMP\axm-head-qualified-volume\RECOVERY\verify_volume.py
+
 python $env:TEMP\axm-head-qualified-volume\RECOVERY\verify_volume.py `
   $env:TEMP\axm-head-qualified-volume
 ```
@@ -162,9 +154,7 @@ python mating_surface/anchor_node/axm_head_edge_demo.py ...
 
 A build target must not already exist. The standalone verifier can be copied with the volume and run from a foreign working directory. It imports no repository module.
 
-build-volume has no verifier override for this closed profile. Alternate
-verifier paths, one-byte mutations, valid alternate programs, and always-PASS
-substitutions refuse before substituted code is executed.
+`build-volume` has no verifier override for this closed profile. Alternate verifier paths, one-byte mutations, valid alternate programs, and always-PASS substitutions refuse before substituted code is executed.
 
 ## Fixed fixture campaign
 
@@ -177,7 +167,7 @@ hold-undeclared-mutation-interface
 qualification-plan-no-memory-pooling
 ```
 
-The twenty-four-witness conformance suite additionally covers the exact supplier-schema join, complete work-unit and route-denominator custody, optional-organ removal, stale observations, unknown fields, deterministic volume construction, LF/CRLF source equivalence, cache non-authority, unmanifested-file refusal, cartridge tamper, semantic cartridge/save mismatch after byte-level re-signing, decision self-identity recomputation, independent decision reconstruction after a fully re-signed route-denominator change, public privacy, and foreign-directory standalone verification.
+The thirty-method conformance suite additionally covers the exact supplier-schema join, complete work-unit and route-denominator custody, optional-organ removal, stale observations, unknown fields, deterministic volume construction, LF/CRLF source equivalence, cache non-authority, unmanifested-file refusal, cartridge tamper, semantic cartridge/save mismatch after byte-level re-signing, decision self-identity recomputation, independent decision reconstruction after a fully re-signed route-denominator change, public privacy, foreign-directory standalone verification, exact claim boundaries, derived cold-successor answers, exact supplier coordinates, frozen profile and catalog provenance, the ordered case denominator, and non-executing verifier authentication. The semantic-closure methods exercise forty-three re-signed forgery variants.
 
 ## Relationship to physical flight 01
 
