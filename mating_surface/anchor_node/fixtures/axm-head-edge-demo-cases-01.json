@@ -1,0 +1,450 @@
+{
+  "cases": [
+    {
+      "caseId": "qualified-gpu-with-resident-fallback",
+      "equipment": {
+        "equipmentId": "equipment:foreign-sensor@fixture",
+        "estatePhaseRef": "maryphase1_edge_demo_fixture",
+        "estatePhaseSha256": "9999999999999999999999999999999999999999999999999999999999999999",
+        "evidenceRef": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "freshUntilUnixNs": 1000,
+        "interface": {
+          "adapterAvailable": true,
+          "adapterRef": "adapter:file-drop@fixture",
+          "declared": true,
+          "readOnly": true
+        },
+        "observationTimeUnixNs": 500,
+        "observedAtUnixNs": 100,
+        "supplierSchema": "invitation-home/estate-phase@v0alpha1"
+      },
+      "expectedTerminal": "QUALIFIED_ASSEMBLY",
+      "mission": {
+        "cartridgeId": "cartridge:mp01@fixture",
+        "cartridgeSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "humanAuthority": {
+          "actionClass": "compute-only",
+          "actorId": "grace",
+          "required": true
+        },
+        "invariantRefs": [
+          "invariant:human-authority@1",
+          "invariant:cartridge-save-binding@1",
+          "invariant:optional-organ-removal@1"
+        ],
+        "missionId": "mission:axm-head-demo@fixture",
+        "save": {
+          "frontier": 7,
+          "nextSafeAction": "Run the next bounded qualification step without widening authority.",
+          "stateSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "unresolvedObligations": [
+            "obligation:physical-flight-not-yet-run"
+          ]
+        }
+      },
+      "routes": [
+        {
+          "available": true,
+          "capabilities": [
+            "local-inference",
+            "structured-output"
+          ],
+          "evidenceRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "fabricSeatRef": "seat:resident-cpu@fixture",
+          "hostClass": "portable-head",
+          "maximumWallTimeMs": 600000,
+          "memoryBytes": 8000000000,
+          "optionalOrgan": false,
+          "preferenceRank": 20,
+          "privacyLanes": [
+            "private-local"
+          ],
+          "residentFloor": true,
+          "routeClass": "resident-cpu",
+          "routeId": "route:resident-cpu@fixture",
+          "supplierRouteRef": "maryroute1_resident_floor_fixture",
+          "supplierRouteSha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "supplierSchema": "invitation-home/route-descriptor@v0alpha1",
+          "validatorRefs": [
+            "validator:deterministic@fixture"
+          ]
+        },
+        {
+          "available": true,
+          "capabilities": [
+            "local-inference",
+            "structured-output"
+          ],
+          "evidenceRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "fabricSeatRef": "seat:halo3-gpu@fixture",
+          "hostClass": "attached-accelerator",
+          "maximumWallTimeMs": 600000,
+          "memoryBytes": 24000000000,
+          "optionalOrgan": true,
+          "preferenceRank": 10,
+          "privacyLanes": [
+            "private-local"
+          ],
+          "residentFloor": false,
+          "routeClass": "halo3-gpu",
+          "routeId": "route:halo3-3090@fixture",
+          "supplierRouteRef": "maryroute1_7fb3caccd7f8b4a9e288e8dc",
+          "supplierRouteSha256": "7fb3caccd7f8b4a9e288e8dc1ac6c373a8274658e5210683c11689fd9ea0636e",
+          "supplierSchema": "invitation-home/route-descriptor@v0alpha1",
+          "validatorRefs": [
+            "validator:deterministic@fixture"
+          ]
+        }
+      ],
+      "task": {
+        "authorityClass": "compute-only",
+        "minimumMemoryBytes": 4000000000,
+        "privacyLane": "private-local",
+        "requiredCapabilities": [
+          "local-inference",
+          "structured-output"
+        ],
+        "requiredValidatorRef": "validator:deterministic@fixture",
+        "supplierSchema": "invitation-home/work-unit@v0alpha1",
+        "wallTimeMs": 300000,
+        "workUnitRef": "marywu1_edge_demo_fixture",
+        "workUnitSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    },
+    {
+      "caseId": "qualification-plan-missing-adapter",
+      "equipment": {
+        "equipmentId": "equipment:foreign-sensor@fixture",
+        "estatePhaseRef": "maryphase1_edge_demo_fixture",
+        "estatePhaseSha256": "9999999999999999999999999999999999999999999999999999999999999999",
+        "evidenceRef": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "freshUntilUnixNs": 1000,
+        "interface": {
+          "adapterAvailable": false,
+          "adapterRef": "adapter:file-drop@fixture",
+          "declared": true,
+          "readOnly": true
+        },
+        "observationTimeUnixNs": 500,
+        "observedAtUnixNs": 100,
+        "supplierSchema": "invitation-home/estate-phase@v0alpha1"
+      },
+      "expectedTerminal": "QUALIFICATION_PLAN",
+      "mission": {
+        "cartridgeId": "cartridge:mp01@fixture",
+        "cartridgeSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "humanAuthority": {
+          "actionClass": "compute-only",
+          "actorId": "grace",
+          "required": true
+        },
+        "invariantRefs": [
+          "invariant:human-authority@1",
+          "invariant:cartridge-save-binding@1",
+          "invariant:optional-organ-removal@1"
+        ],
+        "missionId": "mission:axm-head-demo@fixture",
+        "save": {
+          "frontier": 7,
+          "nextSafeAction": "Run the next bounded qualification step without widening authority.",
+          "stateSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "unresolvedObligations": [
+            "obligation:physical-flight-not-yet-run"
+          ]
+        }
+      },
+      "routes": [
+        {
+          "available": true,
+          "capabilities": [
+            "local-inference",
+            "structured-output"
+          ],
+          "evidenceRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "fabricSeatRef": "seat:resident-cpu@fixture",
+          "hostClass": "portable-head",
+          "maximumWallTimeMs": 600000,
+          "memoryBytes": 8000000000,
+          "optionalOrgan": false,
+          "preferenceRank": 20,
+          "privacyLanes": [
+            "private-local"
+          ],
+          "residentFloor": true,
+          "routeClass": "resident-cpu",
+          "routeId": "route:resident-cpu@fixture",
+          "supplierRouteRef": "maryroute1_resident_floor_fixture",
+          "supplierRouteSha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "supplierSchema": "invitation-home/route-descriptor@v0alpha1",
+          "validatorRefs": [
+            "validator:deterministic@fixture"
+          ]
+        },
+        {
+          "available": true,
+          "capabilities": [
+            "local-inference",
+            "structured-output"
+          ],
+          "evidenceRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "fabricSeatRef": "seat:halo3-gpu@fixture",
+          "hostClass": "attached-accelerator",
+          "maximumWallTimeMs": 600000,
+          "memoryBytes": 24000000000,
+          "optionalOrgan": true,
+          "preferenceRank": 10,
+          "privacyLanes": [
+            "private-local"
+          ],
+          "residentFloor": false,
+          "routeClass": "halo3-gpu",
+          "routeId": "route:halo3-3090@fixture",
+          "supplierRouteRef": "maryroute1_7fb3caccd7f8b4a9e288e8dc",
+          "supplierRouteSha256": "7fb3caccd7f8b4a9e288e8dc1ac6c373a8274658e5210683c11689fd9ea0636e",
+          "supplierSchema": "invitation-home/route-descriptor@v0alpha1",
+          "validatorRefs": [
+            "validator:deterministic@fixture"
+          ]
+        }
+      ],
+      "task": {
+        "authorityClass": "compute-only",
+        "minimumMemoryBytes": 4000000000,
+        "privacyLane": "private-local",
+        "requiredCapabilities": [
+          "local-inference",
+          "structured-output"
+        ],
+        "requiredValidatorRef": "validator:deterministic@fixture",
+        "supplierSchema": "invitation-home/work-unit@v0alpha1",
+        "wallTimeMs": 300000,
+        "workUnitRef": "marywu1_edge_demo_fixture",
+        "workUnitSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    },
+    {
+      "caseId": "hold-undeclared-mutation-interface",
+      "equipment": {
+        "equipmentId": "equipment:foreign-sensor@fixture",
+        "estatePhaseRef": "maryphase1_edge_demo_fixture",
+        "estatePhaseSha256": "9999999999999999999999999999999999999999999999999999999999999999",
+        "evidenceRef": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "freshUntilUnixNs": 1000,
+        "interface": {
+          "adapterAvailable": true,
+          "adapterRef": "adapter:file-drop@fixture",
+          "declared": false,
+          "readOnly": false
+        },
+        "observationTimeUnixNs": 500,
+        "observedAtUnixNs": 100,
+        "supplierSchema": "invitation-home/estate-phase@v0alpha1"
+      },
+      "expectedTerminal": "HOLD",
+      "mission": {
+        "cartridgeId": "cartridge:mp01@fixture",
+        "cartridgeSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "humanAuthority": {
+          "actionClass": "physical-mutation",
+          "actorId": "grace",
+          "required": true
+        },
+        "invariantRefs": [
+          "invariant:human-authority@1",
+          "invariant:cartridge-save-binding@1",
+          "invariant:optional-organ-removal@1"
+        ],
+        "missionId": "mission:axm-head-demo@fixture",
+        "save": {
+          "frontier": 7,
+          "nextSafeAction": "Run the next bounded qualification step without widening authority.",
+          "stateSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "unresolvedObligations": [
+            "obligation:physical-flight-not-yet-run"
+          ]
+        }
+      },
+      "routes": [
+        {
+          "available": true,
+          "capabilities": [
+            "local-inference",
+            "structured-output"
+          ],
+          "evidenceRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "fabricSeatRef": "seat:resident-cpu@fixture",
+          "hostClass": "portable-head",
+          "maximumWallTimeMs": 600000,
+          "memoryBytes": 8000000000,
+          "optionalOrgan": false,
+          "preferenceRank": 20,
+          "privacyLanes": [
+            "private-local"
+          ],
+          "residentFloor": true,
+          "routeClass": "resident-cpu",
+          "routeId": "route:resident-cpu@fixture",
+          "supplierRouteRef": "maryroute1_resident_floor_fixture",
+          "supplierRouteSha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "supplierSchema": "invitation-home/route-descriptor@v0alpha1",
+          "validatorRefs": [
+            "validator:deterministic@fixture"
+          ]
+        },
+        {
+          "available": true,
+          "capabilities": [
+            "local-inference",
+            "structured-output"
+          ],
+          "evidenceRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "fabricSeatRef": "seat:halo3-gpu@fixture",
+          "hostClass": "attached-accelerator",
+          "maximumWallTimeMs": 600000,
+          "memoryBytes": 24000000000,
+          "optionalOrgan": true,
+          "preferenceRank": 10,
+          "privacyLanes": [
+            "private-local"
+          ],
+          "residentFloor": false,
+          "routeClass": "halo3-gpu",
+          "routeId": "route:halo3-3090@fixture",
+          "supplierRouteRef": "maryroute1_7fb3caccd7f8b4a9e288e8dc",
+          "supplierRouteSha256": "7fb3caccd7f8b4a9e288e8dc1ac6c373a8274658e5210683c11689fd9ea0636e",
+          "supplierSchema": "invitation-home/route-descriptor@v0alpha1",
+          "validatorRefs": [
+            "validator:deterministic@fixture"
+          ]
+        }
+      ],
+      "task": {
+        "authorityClass": "physical-mutation",
+        "minimumMemoryBytes": 4000000000,
+        "privacyLane": "private-local",
+        "requiredCapabilities": [
+          "local-inference",
+          "structured-output"
+        ],
+        "requiredValidatorRef": "validator:deterministic@fixture",
+        "supplierSchema": "invitation-home/work-unit@v0alpha1",
+        "wallTimeMs": 300000,
+        "workUnitRef": "marywu1_edge_demo_fixture",
+        "workUnitSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    },
+    {
+      "caseId": "qualification-plan-no-memory-pooling",
+      "equipment": {
+        "equipmentId": "equipment:foreign-sensor@fixture",
+        "estatePhaseRef": "maryphase1_edge_demo_fixture",
+        "estatePhaseSha256": "9999999999999999999999999999999999999999999999999999999999999999",
+        "evidenceRef": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "freshUntilUnixNs": 1000,
+        "interface": {
+          "adapterAvailable": true,
+          "adapterRef": "adapter:file-drop@fixture",
+          "declared": true,
+          "readOnly": true
+        },
+        "observationTimeUnixNs": 500,
+        "observedAtUnixNs": 100,
+        "supplierSchema": "invitation-home/estate-phase@v0alpha1"
+      },
+      "expectedTerminal": "QUALIFICATION_PLAN",
+      "mission": {
+        "cartridgeId": "cartridge:mp01@fixture",
+        "cartridgeSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "humanAuthority": {
+          "actionClass": "compute-only",
+          "actorId": "grace",
+          "required": true
+        },
+        "invariantRefs": [
+          "invariant:human-authority@1",
+          "invariant:cartridge-save-binding@1",
+          "invariant:optional-organ-removal@1"
+        ],
+        "missionId": "mission:axm-head-demo@fixture",
+        "save": {
+          "frontier": 7,
+          "nextSafeAction": "Run the next bounded qualification step without widening authority.",
+          "stateSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "unresolvedObligations": [
+            "obligation:physical-flight-not-yet-run"
+          ]
+        }
+      },
+      "routes": [
+        {
+          "available": true,
+          "capabilities": [
+            "local-inference",
+            "structured-output"
+          ],
+          "evidenceRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "fabricSeatRef": "seat:resident-cpu@fixture",
+          "hostClass": "portable-head",
+          "maximumWallTimeMs": 600000,
+          "memoryBytes": 8000000000,
+          "optionalOrgan": false,
+          "preferenceRank": 20,
+          "privacyLanes": [
+            "private-local"
+          ],
+          "residentFloor": true,
+          "routeClass": "resident-cpu",
+          "routeId": "route:resident-cpu@fixture",
+          "supplierRouteRef": "maryroute1_resident_floor_fixture",
+          "supplierRouteSha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "supplierSchema": "invitation-home/route-descriptor@v0alpha1",
+          "validatorRefs": [
+            "validator:deterministic@fixture"
+          ]
+        },
+        {
+          "available": true,
+          "capabilities": [
+            "local-inference",
+            "structured-output"
+          ],
+          "evidenceRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "fabricSeatRef": "seat:halo3-gpu@fixture",
+          "hostClass": "attached-accelerator",
+          "maximumWallTimeMs": 600000,
+          "memoryBytes": 8000000000,
+          "optionalOrgan": true,
+          "preferenceRank": 10,
+          "privacyLanes": [
+            "private-local"
+          ],
+          "residentFloor": false,
+          "routeClass": "halo3-gpu",
+          "routeId": "route:halo3-3090@fixture",
+          "supplierRouteRef": "maryroute1_7fb3caccd7f8b4a9e288e8dc",
+          "supplierRouteSha256": "7fb3caccd7f8b4a9e288e8dc1ac6c373a8274658e5210683c11689fd9ea0636e",
+          "supplierSchema": "invitation-home/route-descriptor@v0alpha1",
+          "validatorRefs": [
+            "validator:deterministic@fixture"
+          ]
+        }
+      ],
+      "task": {
+        "authorityClass": "compute-only",
+        "minimumMemoryBytes": 12000000000,
+        "privacyLane": "private-local",
+        "requiredCapabilities": [
+          "local-inference",
+          "structured-output"
+        ],
+        "requiredValidatorRef": "validator:deterministic@fixture",
+        "supplierSchema": "invitation-home/work-unit@v0alpha1",
+        "wallTimeMs": 300000,
+        "workUnitRef": "marywu1_edge_demo_fixture",
+        "workUnitSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    }
+  ],
+  "profileId": "axm-head/edge-demo/0.1",
+  "schema": "axm-head-edge-demo-fixture-catalog/1"
+}

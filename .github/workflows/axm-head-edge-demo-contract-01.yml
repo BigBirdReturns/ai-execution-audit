@@ -1,0 +1,201 @@
+name: AXM HEAD Edge Demo Contract 01
+
+on:
+  pull_request:
+    paths:
+      - "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json"
+      - "mating_surface/anchor_node/axm_head_edge_demo.py"
+      - "mating_surface/anchor_node/verify_axm_head_volume.py"
+      - "mating_surface/anchor_node/axm-head-edge-demo.ps1"
+      - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md"
+      - "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
+      - "mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py"
+      - ".github/workflows/axm-head-edge-demo-contract-01.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json"
+      - "mating_surface/anchor_node/axm_head_edge_demo.py"
+      - "mating_surface/anchor_node/verify_axm_head_volume.py"
+      - "mating_surface/anchor_node/axm-head-edge-demo.ps1"
+      - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md"
+      - "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
+      - "mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py"
+      - ".github/workflows/axm-head-edge-demo-contract-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: axm-head-edge-demo-contract-01-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Refuse hidden network, credential, and private-host surfaces
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          paths = [
+              Path('mating_surface/anchor_node/axm-head-edge-demo-profile-01.json'),
+              Path('mating_surface/anchor_node/axm_head_edge_demo.py'),
+              Path('mating_surface/anchor_node/verify_axm_head_volume.py'),
+              Path('mating_surface/anchor_node/axm-head-edge-demo.ps1'),
+              Path('mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md'),
+              Path('mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json'),
+              Path('mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py'),
+          ]
+          joined = '\n'.join(path.read_text(encoding='utf-8') for path in paths)
+          forbidden = {
+              'network runtime': r'\b(?:requests|urllib3|aiohttp|httpx)\b|socket\.(?:connect|create_connection)',
+              'credential material': r'AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer',
+              'private host': r'OCTO-(?:W|L)[0-9]+',
+          }
+          for label, pattern in forbidden.items():
+              if re.search(pattern, joined, re.I):
+                  raise SystemExit(f'{label} detected in public AXM HEAD surface')
+          PY
+
+      - name: Validate syntax, profile, and closed fixture catalog
+        shell: bash
+        run: |
+          python -m py_compile mating_surface/anchor_node/axm_head_edge_demo.py
+          python -m py_compile mating_surface/anchor_node/verify_axm_head_volume.py
+          python -m py_compile mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py
+          python mating_surface/anchor_node/axm_head_edge_demo.py validate-profile \
+            mating_surface/anchor_node/axm-head-edge-demo-profile-01.json
+          python mating_surface/anchor_node/axm_head_edge_demo.py validate-fixtures \
+            mating_surface/anchor_node/axm-head-edge-demo-profile-01.json \
+            mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json
+
+      - name: Run adversarial conformance suite
+        shell: bash
+        run: |
+          mkdir -p qualification/axm-head-edge-demo-contract-01
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_axm_head_edge_demo.py' \
+            -v 2>&1 | tee qualification/axm-head-edge-demo-contract-01/test-output-${{ matrix.os }}.txt
+
+      - name: Build and independently verify every terminal class
+        shell: bash
+        run: |
+          PROFILE="mating_surface/anchor_node/axm-head-edge-demo-profile-01.json"
+          FIXTURES="mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
+          TOOL="mating_surface/anchor_node/axm_head_edge_demo.py"
+          DEST="$GITHUB_WORKSPACE/qualification/axm-head-edge-demo-contract-01"
+
+          for CASE in \
+            qualified-gpu-with-resident-fallback \
+            qualification-plan-missing-adapter \
+            hold-undeclared-mutation-interface \
+            qualification-plan-no-memory-pooling
+          do
+            VOLUME="$RUNNER_TEMP/axm-head-$CASE"
+            FOREIGN="$RUNNER_TEMP/foreign-$CASE"
+            mkdir -p "$FOREIGN"
+            python "$TOOL" build-volume "$PROFILE" "$FIXTURES" "$CASE" --out "$VOLUME"
+            (
+              cd "$FOREIGN"
+              python "$VOLUME/RECOVERY/verify_volume.py" "$VOLUME" \
+                --out "$DEST/verdict-$CASE-${{ matrix.os }}.json"
+            )
+            cp "$VOLUME/MANIFEST.json" "$DEST/manifest-$CASE-${{ matrix.os }}.json"
+            cp "$VOLUME/PUBLIC/status.json" "$DEST/public-$CASE-${{ matrix.os }}.json"
+          done
+
+      - name: Preserve provider-free qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-edge-demo-contract-01-${{ matrix.os }}-${{ github.sha }}
+          path: qualification/axm-head-edge-demo-contract-01/
+          if-no-files-found: error
+          retention-days: 14
+
+  qualify-powershell-entrypoint:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate wrapper and one removable-volume round trip
+        shell: pwsh
+        run: |
+          $Tool = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-edge-demo.ps1'
+          $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-edge-demo-profile-01.json'
+          $Fixtures = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\fixtures\axm-head-edge-demo-cases-01.json'
+          $Volume = Join-Path $env:RUNNER_TEMP 'axm-head-powershell-volume'
+
+          & $Tool validate-profile $Profile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          & $Tool build-volume $Profile $Fixtures qualified-gpu-with-resident-fallback --out $Volume
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          python (Join-Path $Volume 'RECOVERY\verify_volume.py') $Volume
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  compare-cross-platform-volume-identity:
+    needs: qualify-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Download both qualification artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: axm-head-edge-demo-contract-01-*-${{ github.sha }}
+          path: qualification-download
+
+      - name: Require byte-identical qualified volume projections
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          root = Path('qualification-download')
+          groups = {
+              'manifest': sorted(root.glob('**/manifest-qualified-gpu-with-resident-fallback-*.json')),
+              'public': sorted(root.glob('**/public-qualified-gpu-with-resident-fallback-*.json')),
+              'verdict': sorted(root.glob('**/verdict-qualified-gpu-with-resident-fallback-*.json')),
+          }
+          for label, paths in groups.items():
+              if len(paths) != 2:
+                  raise SystemExit(f'{label}: expected two platform artifacts, found {len(paths)}')
+              first, second = paths
+              if first.read_bytes() != second.read_bytes():
+                  raise SystemExit(f'{label}: Windows and Ubuntu bytes differ')
+              body = json.loads(first.read_text(encoding='utf-8'))
+              if label == 'verdict' and body.get('status') != 'PASS':
+                  raise SystemExit('cross-platform verdict is not PASS')
+          print('Windows and Ubuntu qualified volume projections are byte-identical')
+          PY
