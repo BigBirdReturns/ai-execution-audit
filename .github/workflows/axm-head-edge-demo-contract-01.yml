@@ -32,18 +32,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Execute authenticated semantic-dedent repair carrier
+      - name: Execute authenticated final-custody repair
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           import hashlib
+          import re
           import subprocess
           import textwrap
 
-          source_commit = "b269c51894af12758695d693d5778ac0288e63bd"
+          source_commit = "ce428cd0634ff344cd2eeb4fed475850d4d3037b"
           workflow_path = ".github/workflows/axm-head-edge-demo-contract-01.yml"
-          expected_blob = "6b140b579831c4ea512dc22a630b6bd8ec0b8ace"
+          expected_blob = "9d298466084558773a7f6169a99603612e5ca141"
           observed_blob = subprocess.check_output(
               ["git", "rev-parse", f"{source_commit}:{workflow_path}"],
               text=True,
@@ -53,19 +54,19 @@ jobs:
                   f"repair carrier Git object differs: expected={expected_blob} observed={observed_blob}"
               )
 
-          raw = subprocess.check_output(
+          raw_bytes = subprocess.check_output(
               ["git", "show", f"{source_commit}:{workflow_path}"],
-              text=True,
           )
-          expected_raw_sha256 = "ba3009f979e901cdb84045cb0678619e48dac364dd9f94b5e6b80924234faed7"
-          observed_raw_sha256 = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+          expected_raw_sha256 = "32f7ea47d814b5755595142384d4a8f2915fc32b01bea3ab8db49c988ab33f6c"
+          observed_raw_sha256 = hashlib.sha256(raw_bytes).hexdigest()
           if observed_raw_sha256 != expected_raw_sha256:
               raise SystemExit(
                   f"repair carrier raw digest differs: expected={expected_raw_sha256} observed={observed_raw_sha256}"
               )
+          raw = raw_bytes.decode("utf-8")
 
           start_marker = (
-              "      - name: Recover and execute the authenticated structural repair\n"
+              "      - name: Bind cartridge law and protect verdict output custody\n"
               "        shell: bash\n"
               "        run: |\n"
               "          python - <<'PY'\n"
@@ -73,17 +74,31 @@ jobs:
           end_marker = "          PY\n\n      - name: Qualify repaired source and hostile witnesses"
           if raw.count(start_marker) != 1 or raw.count(end_marker) != 1:
               raise SystemExit(
-                  f"semantic-dedent carrier markers differ: start={raw.count(start_marker)} end={raw.count(end_marker)}"
+                  f"final-custody carrier markers differ: start={raw.count(start_marker)} end={raw.count(end_marker)}"
               )
-          carried = textwrap.dedent(raw.split(start_marker, 1)[1].split(end_marker, 1)[0])
-          wrong = 'expected_sha256 = "beed52f9551ddfbc019945c5f0c8f7bd2535e875ef8a27e39cf39ebce0d8405b"'
-          right = 'expected_sha256 = "32f7ea47d814b5755595142384d4a8f2915fc32b01bea3ab8db49c988ab33f6c"'
-          if carried.count(wrong) != 1:
-              raise SystemExit("semantic-dedent digest correction anchor differs")
-          carried = carried.replace(wrong, right, 1)
+          script = textwrap.dedent(raw.split(start_marker, 1)[1].split(end_marker, 1)[0])
+          if script.count("import re\n") != 1:
+              raise SystemExit("repair-script import anchor differs")
+          script = script.replace("import re\n", "import re\nimport textwrap\n", 1)
 
-          repair = Path("/tmp/axm-head-semantic-dedent-carrier.py")
-          repair.write_text(carried, encoding="utf-8", newline="\n")
+          generated = re.compile(
+              r"(?P<prefix>\b\w+\s*(?:=|\+=)\s*)'''(?P<body>.*?)'''\.replace\(\"          \", \"\"\)",
+              re.DOTALL,
+          )
+          script, transformed = generated.subn(
+              lambda match: (
+                  match.group("prefix")
+                  + "textwrap.dedent('''"
+                  + match.group("body")
+                  + "''')"
+              ),
+              script,
+          )
+          if transformed != 9:
+              raise SystemExit(f"generated-block denominator differs: {transformed}")
+
+          repair = Path("/tmp/axm-head-final-custody-repair.py")
+          repair.write_text(script, encoding="utf-8", newline="\n")
           subprocess.run(["python", "-m", "py_compile", str(repair)], check=True)
           subprocess.run(["python", str(repair)], check=True)
           PY
@@ -91,7 +106,6 @@ jobs:
       - name: Qualify repaired source and hostile witnesses
         shell: bash
         run: |
-          mkdir -p qualification/axm-head-final-custody
           python -m py_compile \
             mating_surface/anchor_node/axm_head_edge_demo.py \
             mating_surface/anchor_node/verify_axm_head_bootstrap.py \
