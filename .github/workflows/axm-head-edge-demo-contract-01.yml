@@ -1,0 +1,477 @@
+name: AXM HEAD Edge Demo Contract 01
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/axm-head-edge-demo-contract-01.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md"
+      - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-SEMANTIC-CLOSURE-REVIEW.md"
+      - "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json"
+      - "mating_surface/anchor_node/axm-head-edge-demo.ps1"
+      - "mating_surface/anchor_node/axm_head_edge_demo.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
+      - "mating_surface/anchor_node/verify_axm_head_bootstrap.py"
+      - "mating_surface/anchor_node/verify_axm_head_volume.py"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/axm-head-edge-demo-contract-01.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md"
+      - "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-SEMANTIC-CLOSURE-REVIEW.md"
+      - "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json"
+      - "mating_surface/anchor_node/axm-head-edge-demo.ps1"
+      - "mating_surface/anchor_node/axm_head_edge_demo.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
+      - "mating_surface/anchor_node/verify_axm_head_bootstrap.py"
+      - "mating_surface/anchor_node/verify_axm_head_volume.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: axm-head-edge-demo-contract-01-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out event coordinate with complete history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Qualify every controlling coordinate
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PLATFORM: ${{ matrix.os }}
+          QUALIFICATION_ROOT: ${{ runner.temp }}/axm-head-qualification
+        run: |
+          set -euo pipefail
+
+          COORDINATES="$RUNNER_TEMP/axm-head-coordinates.tsv"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            printf 'head\t%s\nmerge\t%s\n' "$PR_HEAD_SHA" "$EVENT_SHA" > "$COORDINATES"
+          else
+            printf 'source\t%s\n' "$EVENT_SHA" > "$COORDINATES"
+          fi
+
+          PROFILE="mating_surface/anchor_node/axm-head-edge-demo-profile-01.json"
+          FIXTURES="mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"
+          TOOL="mating_surface/anchor_node/axm_head_edge_demo.py"
+          BOOTSTRAP="mating_surface/anchor_node/verify_axm_head_bootstrap.py"
+          TESTS="mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py"
+
+          while IFS=$'\t' read -r COORDINATE EXPECTED_SHA
+          do
+            [ -n "$COORDINATE" ] || continue
+            git checkout --force --detach "$EXPECTED_SHA"
+            git clean -ffdx
+
+            OBSERVED_SHA="$(git rev-parse HEAD)"
+            OBSERVED_TREE="$(git rev-parse 'HEAD^{tree}')"
+            if [ "$OBSERVED_SHA" != "$EXPECTED_SHA" ]; then
+              echo "checkout identity differs: expected=$EXPECTED_SHA observed=$OBSERVED_SHA" >&2
+              exit 1
+            fi
+            if [ -n "$(git status --porcelain=v1)" ]; then
+              echo "checkout is not clean before qualification" >&2
+              git status --short >&2
+              exit 1
+            fi
+
+            DEST="$QUALIFICATION_ROOT/$COORDINATE"
+            mkdir -p "$DEST"
+
+            python - "$DEST/source-identity-$COORDINATE-$PLATFORM.json" \
+              "$EVENT_NAME" "$COORDINATE" "$EXPECTED_SHA" "$OBSERVED_SHA" "$OBSERVED_TREE" <<'PY'
+          from pathlib import Path
+          import json
+          import sys
+
+          out, event_name, coordinate, expected_sha, observed_sha, tree = sys.argv[1:]
+          body = {
+              "schema": "axm-head/source-coordinate-verdict@1",
+              "status": "PASS" if expected_sha == observed_sha else "REFUSED",
+              "eventName": event_name,
+              "coordinate": coordinate,
+              "expectedSha": expected_sha,
+              "observedSha": observed_sha,
+              "tree": tree,
+              "cleanBeforeQualification": True,
+          }
+          Path(out).write_bytes((json.dumps(body, sort_keys=True, indent=2) + "\n").encode("utf-8"))
+          if body["status"] != "PASS":
+              raise SystemExit(2)
+          PY
+
+            python - <<'PY'
+          from pathlib import Path
+          import re
+
+          product_paths = [
+              Path("mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md"),
+              Path("mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-SEMANTIC-CLOSURE-REVIEW.md"),
+              Path("mating_surface/anchor_node/axm-head-edge-demo-profile-01.json"),
+              Path("mating_surface/anchor_node/axm-head-edge-demo.ps1"),
+              Path("mating_surface/anchor_node/axm_head_edge_demo.py"),
+              Path("mating_surface/anchor_node/conformance/test_axm_head_edge_demo.py"),
+              Path("mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json"),
+              Path("mating_surface/anchor_node/verify_axm_head_bootstrap.py"),
+              Path("mating_surface/anchor_node/verify_axm_head_volume.py"),
+          ]
+          joined = "\n".join(path.read_text(encoding="utf-8") for path in product_paths)
+          forbidden = {
+              "network runtime": r"\b(?:requests|urllib3|aiohttp|httpx)\b|socket\.(?:connect|create_connection)",
+              "credential material": r"AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer",
+              "private host": r"OCTO-(?:W|L)[0-9]+",
+          }
+          for label, pattern in forbidden.items():
+              if re.search(pattern, joined, re.I):
+                  raise SystemExit(f"{label} detected in permanent AXM HEAD product")
+
+          workflow = Path(".github/workflows/axm-head-edge-demo-contract-01.yml").read_text(encoding="utf-8")
+          if "permissions:\n  contents: read\n" not in workflow:
+              raise SystemExit("permanent workflow does not retain read-only contents permission")
+          carrier_fragments = {
+              "contents write": "contents" + ": write",
+              "repair job": "repair" + "-and-qualify",
+              "branch push": "git " + "push origin",
+              "repair source coordinate": "source_" + "commit =",
+              "authenticated carrier blob": "expected_" + "blob =",
+          }
+          for label, fragment in carrier_fragments.items():
+              if fragment in workflow:
+                  raise SystemExit(f"one-use carrier surface remains: {label}")
+          PY
+
+            python -m py_compile \
+              "$TOOL" \
+              "$BOOTSTRAP" \
+              mating_surface/anchor_node/verify_axm_head_volume.py \
+              "$TESTS"
+
+            python "$TOOL" validate-profile "$PROFILE" \
+              > "$DEST/profile-validation-$COORDINATE-$PLATFORM.json"
+            python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" \
+              > "$DEST/fixture-validation-$COORDINATE-$PLATFORM.json"
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_axm_head_edge_demo.py' \
+              -v 2>&1 | tee "$DEST/test-output-$COORDINATE-$PLATFORM.txt"
+            grep -F "Ran 38 tests" "$DEST/test-output-$COORDINATE-$PLATFORM.txt"
+            grep -Fx "OK" "$DEST/test-output-$COORDINATE-$PLATFORM.txt"
+
+            while IFS=$'\t' read -r CASE EXPECTED_TERMINAL
+            do
+              VOLUME="$RUNNER_TEMP/axm-head-volume-$COORDINATE-$CASE"
+              FOREIGN="$RUNNER_TEMP/axm-head-foreign-$COORDINATE-$CASE"
+              VERDICT="$DEST/verdict-$CASE-$COORDINATE-$PLATFORM.json"
+              VERDICT_STDOUT="$DEST/verdict-stdout-$CASE-$COORDINATE-$PLATFORM.json"
+              rm -rf "$VOLUME" "$FOREIGN"
+              mkdir -p "$FOREIGN"
+
+              python "$TOOL" build-volume "$PROFILE" "$FIXTURES" "$CASE" --out "$VOLUME" \
+                > "$DEST/build-$CASE-$COORDINATE-$PLATFORM.json"
+              (
+                cd "$FOREIGN"
+                python "$GITHUB_WORKSPACE/$BOOTSTRAP" "$VOLUME" --out "$VERDICT" > "$VERDICT_STDOUT"
+              )
+              cmp "$VERDICT" "$VERDICT_STDOUT"
+              cp "$VOLUME/MANIFEST.json" "$DEST/manifest-$CASE-$COORDINATE-$PLATFORM.json"
+              cp "$VOLUME/PUBLIC/status.json" "$DEST/public-$CASE-$COORDINATE-$PLATFORM.json"
+
+              python - "$VERDICT" \
+                "$DEST/manifest-$CASE-$COORDINATE-$PLATFORM.json" \
+                "$DEST/public-$CASE-$COORDINATE-$PLATFORM.json" \
+                "$EXPECTED_TERMINAL" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          verdict_path = Path(sys.argv[1])
+          manifest_path = Path(sys.argv[2])
+          public_path = Path(sys.argv[3])
+          expected_terminal = sys.argv[4]
+
+          verdict = json.loads(verdict_path.read_text(encoding="utf-8"))
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          public = json.loads(public_path.read_text(encoding="utf-8"))
+
+          if verdict.get("status") != "PASS":
+              raise SystemExit(f"{verdict_path}: verdict did not pass")
+          if verdict.get("terminal") != expected_terminal:
+              raise SystemExit(f"{verdict_path}: terminal differs")
+          if verdict.get("bootstrapAuthenticated") is not True:
+              raise SystemExit(f"{verdict_path}: verifier was not authenticated")
+          if verdict.get("successorAnswersReconstructed") is not True:
+              raise SystemExit(f"{verdict_path}: successor answers were not reconstructed")
+          if verdict.get("fileCount") != 12:
+              raise SystemExit(f"{verdict_path}: authoritative file count differs")
+          if verdict.get("executionOccurred") is not False:
+              raise SystemExit(f"{verdict_path}: execution claim promoted")
+          if verdict.get("systemAuthority") != "none":
+              raise SystemExit(f"{verdict_path}: authority claim promoted")
+
+          if manifest.get("terminal") != expected_terminal:
+              raise SystemExit(f"{manifest_path}: terminal differs")
+          if manifest.get("bootstrapRequired") is not True:
+              raise SystemExit(f"{manifest_path}: bootstrap requirement absent")
+          if len(manifest.get("files", [])) != 12:
+              raise SystemExit(f"{manifest_path}: authoritative file denominator differs")
+          if manifest.get("executionOccurred") is not False:
+              raise SystemExit(f"{manifest_path}: execution claim promoted")
+          if manifest.get("systemAuthority") != "none":
+              raise SystemExit(f"{manifest_path}: authority claim promoted")
+
+          if public.get("terminal") != expected_terminal:
+              raise SystemExit(f"{public_path}: terminal differs")
+          if public.get("executionOccurred") is not False:
+              raise SystemExit(f"{public_path}: execution claim promoted")
+          if public.get("systemAuthority") != "none":
+              raise SystemExit(f"{public_path}: authority claim promoted")
+          PY
+            done <<'CASES'
+          qualified-gpu-with-resident-fallback	QUALIFIED_ASSEMBLY
+          qualification-plan-missing-adapter	QUALIFICATION_PLAN
+          hold-undeclared-mutation-interface	HOLD
+          qualification-plan-no-memory-pooling	QUALIFICATION_PLAN
+          CASES
+          done < "$COORDINATES"
+
+      - name: Validate the PowerShell entrypoint on every coordinate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $coordinates = if ($env:EVENT_NAME -eq 'pull_request') {
+            @(
+              [pscustomobject]@{ Name = 'head'; Ref = $env:PR_HEAD_SHA },
+              [pscustomobject]@{ Name = 'merge'; Ref = $env:EVENT_SHA }
+            )
+          } else {
+            @([pscustomobject]@{ Name = 'source'; Ref = $env:EVENT_SHA })
+          }
+
+          foreach ($coordinate in $coordinates) {
+            git checkout --force --detach $coordinate.Ref
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git clean -ffdx
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            $Tool = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-edge-demo.ps1'
+            $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-edge-demo-profile-01.json'
+            $Fixtures = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\fixtures\axm-head-edge-demo-cases-01.json'
+            $Bootstrap = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\verify_axm_head_bootstrap.py'
+            $Volume = Join-Path $env:RUNNER_TEMP "axm-head-wrapper-$($coordinate.Name)"
+            $Verdict = Join-Path $env:RUNNER_TEMP "axm-head-wrapper-verdict-$($coordinate.Name).json"
+            if (Test-Path -LiteralPath $Volume) {
+              Remove-Item -LiteralPath $Volume -Recurse -Force
+            }
+            if (Test-Path -LiteralPath $Verdict) {
+              Remove-Item -LiteralPath $Verdict -Force
+            }
+
+            & $Tool validate-profile $Profile
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Tool build-volume $Profile $Fixtures qualified-gpu-with-resident-fallback --out $Volume
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            python $Bootstrap $Volume --out $Verdict
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            $receipt = Get-Content -LiteralPath $Verdict -Raw | ConvertFrom-Json
+            if ($receipt.status -ne 'PASS') { throw "wrapper verdict did not pass for $($coordinate.Name)" }
+            if ($receipt.bootstrapAuthenticated -ne $true) { throw "wrapper verifier was not authenticated for $($coordinate.Name)" }
+            if ($receipt.terminal -ne 'QUALIFIED_ASSEMBLY') { throw "wrapper terminal differs for $($coordinate.Name)" }
+            if ($receipt.fileCount -ne 12) { throw "wrapper authoritative file count differs for $($coordinate.Name)" }
+          }
+
+      - name: Preserve exact-coordinate qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-edge-demo-contract-01-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ runner.temp }}/axm-head-qualification/
+          if-no-files-found: error
+          retention-days: 14
+
+  compare:
+    needs: qualify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Download both platform receipt sets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: axm-head-edge-demo-contract-01-*-${{ github.sha }}
+          path: qualification-download
+
+      - name: Require platform and coordinate identity
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import os
+
+          root = Path("qualification-download")
+          coordinates = ("head", "merge") if os.environ["EVENT_NAME"] == "pull_request" else ("source",)
+          cases = {
+              "qualified-gpu-with-resident-fallback": "QUALIFIED_ASSEMBLY",
+              "qualification-plan-missing-adapter": "QUALIFICATION_PLAN",
+              "hold-undeclared-mutation-interface": "HOLD",
+              "qualification-plan-no-memory-pooling": "QUALIFICATION_PLAN",
+          }
+          roles = ("manifest", "public", "verdict")
+          canonical: dict[tuple[str, str, str], bytes] = {}
+
+          for coordinate in coordinates:
+              identities = sorted(root.glob(f"**/source-identity-{coordinate}-*.json"))
+              if len(identities) != 2:
+                  raise SystemExit(
+                      f"{coordinate}: expected two source identities, found {len(identities)}"
+                  )
+              for path in identities:
+                  body = json.loads(path.read_text(encoding="utf-8"))
+                  if body.get("status") != "PASS":
+                      raise SystemExit(f"{path}: source identity did not pass")
+                  if body.get("coordinate") != coordinate:
+                      raise SystemExit(f"{path}: coordinate label differs")
+                  if body.get("expectedSha") != body.get("observedSha"):
+                      raise SystemExit(f"{path}: checked-out SHA differs")
+                  expected_event_sha = (
+                      os.environ["PR_HEAD_SHA"]
+                      if coordinate == "head"
+                      else os.environ["EVENT_SHA"]
+                  )
+                  if body.get("observedSha") != expected_event_sha:
+                      raise SystemExit(f"{path}: event SHA binding differs")
+
+              logs = sorted(root.glob(f"**/test-output-{coordinate}-*.txt"))
+              if len(logs) != 2:
+                  raise SystemExit(f"{coordinate}: expected two test logs, found {len(logs)}")
+              for path in logs:
+                  text = path.read_text(encoding="utf-8")
+                  if "Ran 38 tests" not in text or "\nOK\n" not in text.replace("\r\n", "\n"):
+                      raise SystemExit(f"{path}: 38-test closure absent")
+
+              for case_id, expected_terminal in cases.items():
+                  for role in roles:
+                      paths = sorted(root.glob(f"**/{role}-{case_id}-{coordinate}-*.json"))
+                      if len(paths) != 2:
+                          raise SystemExit(
+                              f"{coordinate}/{case_id}/{role}: expected two platform files, found {len(paths)}"
+                          )
+                      first, second = paths
+                      first_bytes = first.read_bytes()
+                      second_bytes = second.read_bytes()
+                      if first_bytes != second_bytes:
+                          raise SystemExit(
+                              f"{coordinate}/{case_id}/{role}: Windows and Ubuntu bytes differ"
+                          )
+                      body = json.loads(first_bytes.decode("utf-8"))
+                      if body.get("terminal") != expected_terminal:
+                          raise SystemExit(
+                              f"{coordinate}/{case_id}/{role}: terminal differs"
+                          )
+                      if body.get("executionOccurred") is not False:
+                          raise SystemExit(
+                              f"{coordinate}/{case_id}/{role}: execution claim promoted"
+                          )
+                      if body.get("systemAuthority") != "none":
+                          raise SystemExit(
+                              f"{coordinate}/{case_id}/{role}: authority claim promoted"
+                          )
+                      if role == "manifest":
+                          if body.get("bootstrapRequired") is not True:
+                              raise SystemExit(
+                                  f"{coordinate}/{case_id}: bootstrap requirement absent"
+                              )
+                          if len(body.get("files", [])) != 12:
+                              raise SystemExit(
+                                  f"{coordinate}/{case_id}: authoritative file denominator differs"
+                              )
+                      elif role == "verdict":
+                          if body.get("status") != "PASS":
+                              raise SystemExit(
+                                  f"{coordinate}/{case_id}: verdict did not pass"
+                              )
+                          if body.get("bootstrapAuthenticated") is not True:
+                              raise SystemExit(
+                                  f"{coordinate}/{case_id}: verifier was not authenticated"
+                              )
+                          if body.get("successorAnswersReconstructed") is not True:
+                              raise SystemExit(
+                                  f"{coordinate}/{case_id}: successor answers were not reconstructed"
+                              )
+                          if body.get("fileCount") != 12:
+                              raise SystemExit(
+                                  f"{coordinate}/{case_id}: verdict file denominator differs"
+                              )
+                      canonical[(coordinate, case_id, role)] = first_bytes
+
+          if coordinates == ("head", "merge"):
+              for case_id in cases:
+                  for role in roles:
+                      if canonical[("head", case_id, role)] != canonical[("merge", case_id, role)]:
+                          raise SystemExit(
+                              f"{case_id}/{role}: exact head and PR merge-ref bytes differ"
+                          )
+
+          receipt = {
+              "schema": "axm-head/cross-coordinate-qualification@1",
+              "status": "PASS",
+              "eventName": os.environ["EVENT_NAME"],
+              "eventSha": os.environ["EVENT_SHA"],
+              "coordinates": list(coordinates),
+              "platforms": ["ubuntu-latest", "windows-latest"],
+              "caseIds": list(cases),
+              "rolesCompared": list(roles),
+              "focusedTestCount": 38,
+              "authoritativeFileCount": 12,
+              "platformByteIdentity": True,
+              "headMergeByteIdentity": coordinates == ("head", "merge"),
+              "executionOccurred": False,
+              "systemAuthority": "none",
+          }
+          destination = Path("qualification-comparison/cross-coordinate-verdict.json")
+          destination.parent.mkdir(parents=True, exist_ok=True)
+          destination.write_bytes(
+              (json.dumps(receipt, sort_keys=True, indent=2) + "\n").encode("utf-8")
+          )
+          print(json.dumps(receipt, sort_keys=True))
+          PY
+
+      - name: Preserve comparison receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-edge-demo-comparison-${{ github.sha }}
+          path: qualification-comparison/
+          if-no-files-found: error
+          retention-days: 14

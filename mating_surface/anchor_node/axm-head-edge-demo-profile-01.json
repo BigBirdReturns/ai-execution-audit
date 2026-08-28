@@ -1,0 +1,69 @@
+{
+  "claimBoundary": "Provider-free synthetic contract joining one MARY-style work unit, observed foreign equipment, independently evaluated compute routes, immutable cartridge identity, mutable save custody, non-authoritative cache, and cold-successor recovery on a removable mission volume. This profile executes no physical task and establishes no physical Estate, representative operator, field network, operational C2, production Lattice, targeting, engagement, effector, or weapons qualification or authority.",
+  "fixtureCaseIds": [
+    "qualified-gpu-with-resident-fallback",
+    "qualification-plan-missing-adapter",
+    "hold-undeclared-mutation-interface",
+    "qualification-plan-no-memory-pooling"
+  ],
+  "objectSchemas": [
+    "axm-head/equipment-observation@1",
+    "axm-head/work-unit-binding@1",
+    "axm-head/equipment-intake-decision@1",
+    "axm-head/route-denominator@1",
+    "axm-head/cartridge@1",
+    "axm-head/save@1",
+    "axm-head/ledger-event@1",
+    "axm-head/cold-successor@1",
+    "axm-head/public-status@1",
+    "axm-head/mission-volume@1"
+  ],
+  "permittedAuthorityClasses": [
+    "read-only",
+    "compute-only"
+  ],
+  "profileId": "axm-head/edge-demo/0.1",
+  "schema": "axm-head-edge-demo-profile/1",
+  "sourceCoordinates": {
+    "auditRuntime": {
+      "commit": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted",
+      "tree": "3f708c52782784e687cf1f0b68fd7d37a507ef4c"
+    },
+    "maryMetabolism": {
+      "commit": "9151e0b8de973faede371c816db2602c47b854bd",
+      "repository": "BigBirdReturns/mary-portable",
+      "status": "qualified_draft_not_admitted",
+      "tree": "4a43991b0178919ebfaedae120d7cd96b20091de"
+    },
+    "physicalFlightFloor": {
+      "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted_not_executed",
+      "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126"
+    }
+  },
+  "status": "candidate_contract_only",
+  "supplierBindings": {
+    "estateRouteSelectionSchema": "estate-route-selection/1",
+    "estateSeatSnapshotSchema": "estate-seat-snapshot/1",
+    "estateWorkerLeaseSchema": "estate-worker-lease/1",
+    "maryEstatePhaseSchema": "invitation-home/estate-phase@v0alpha1",
+    "maryRouteDescriptorSchema": "invitation-home/route-descriptor@v0alpha1",
+    "maryWorkUnitSchema": "invitation-home/work-unit@v0alpha1"
+  },
+  "terminalStates": [
+    "QUALIFIED_ASSEMBLY",
+    "QUALIFICATION_PLAN",
+    "HOLD"
+  ],
+  "volumeLayout": {
+    "cache": "CACHE",
+    "cartridge": "CARTRIDGE",
+    "public": "PUBLIC",
+    "recovery": "RECOVERY",
+    "routes": "ROUTES",
+    "save": "SAVE"
+  }
+}
