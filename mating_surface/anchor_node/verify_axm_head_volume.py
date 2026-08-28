@@ -819,16 +819,16 @@ def main(argv: list[str] | None = None) -> int:
         text = pretty_json(verdict)
         if args.out:
             args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_text(text, encoding="utf-8")
-        sys.stdout.write(text)
+            args.out.write_bytes(text.encode("utf-8"))
+        sys.stdout.buffer.write(text.encode("utf-8"))
         return 0
     except VerifyError as exc:
         verdict = {"schema": "axm-head/mission-volume-verdict@1", "status": "REFUSED", "code": exc.code, "message": str(exc)}
         text = pretty_json(verdict)
         if args.out:
             args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_text(text, encoding="utf-8")
-        sys.stdout.write(text)
+            args.out.write_bytes(text.encode("utf-8"))
+        sys.stdout.buffer.write(text.encode("utf-8"))
         return 2
 
 

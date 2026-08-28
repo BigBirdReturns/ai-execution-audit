@@ -158,7 +158,7 @@ hold-undeclared-mutation-interface
 qualification-plan-no-memory-pooling
 ```
 
-The twenty-three-witness conformance suite additionally covers the exact supplier-schema join, complete work-unit and route-denominator custody, optional-organ removal, stale observations, unknown fields, deterministic volume construction, LF/CRLF source equivalence, cache non-authority, unmanifested-file refusal, cartridge tamper, semantic cartridge/save mismatch after byte-level re-signing, decision self-identity recomputation, independent decision reconstruction after a fully re-signed route-denominator change, public privacy, and foreign-directory standalone verification.
+The twenty-four-witness conformance suite additionally covers the exact supplier-schema join, complete work-unit and route-denominator custody, optional-organ removal, stale observations, unknown fields, deterministic volume construction, LF/CRLF source equivalence, cache non-authority, unmanifested-file refusal, cartridge tamper, semantic cartridge/save mismatch after byte-level re-signing, decision self-identity recomputation, independent decision reconstruction after a fully re-signed route-denominator change, public privacy, and foreign-directory standalone verification.
 
 ## Relationship to physical flight 01
 

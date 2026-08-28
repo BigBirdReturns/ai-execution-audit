@@ -335,6 +335,32 @@ class AxmHeadEdgeDemoTests(unittest.TestCase):
         self.assertFalse(public["physicalFlightCompleted"])
         self.assertFalse(public["operationalC2Qualified"])
 
+    def test_standalone_verdict_file_is_canonical_lf_utf8(self) -> None:
+        volume = self.build("qualified-gpu-with-resident-fallback")
+        foreign = self.root / "foreign-canonical-verdict"
+        foreign.mkdir()
+        receipt = self.root / "canonical-verdict.json"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(volume / "RECOVERY" / "verify_volume.py"),
+                str(volume),
+                "--out",
+                str(receipt),
+            ],
+            cwd=foreign,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, b"")
+        data = receipt.read_bytes()
+        self.assertNotIn(b"\r\n", data)
+        self.assertTrue(data.endswith(b"\n"))
+        self.assertEqual(result.stdout, data)
+        self.assertEqual(data, mod.pretty_json_bytes(json.loads(data.decode("utf-8"))))
+
     def test_standalone_verifier_imports_no_repository_module(self) -> None:
         source = VERIFIER.read_text(encoding="utf-8")
         self.assertNotIn("import axm_head_edge_demo", source)
