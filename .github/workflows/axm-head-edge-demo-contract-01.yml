@@ -152,15 +152,13 @@ jobs:
               raise SystemExit("successor answers were not reconstructed")
           PY
 
-      - name: Commit only the repaired product and remove transport
+      - name: Commit product source and remove transport
         shell: bash
         run: |
           git config user.name "BigBirdReturns"
           git config user.email "bigbirdreturns@proton.me"
-          cp .axm-head-repair/final-workflow.yml .github/workflows/axm-head-edge-demo-contract-01.yml
           git rm -r .axm-head-repair
           git add \
-            .github/workflows/axm-head-edge-demo-contract-01.yml \
             mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md \
             mating_surface/anchor_node/axm-head-edge-demo-profile-01.json \
             mating_surface/anchor_node/axm-head-edge-demo.ps1 \
@@ -173,7 +171,6 @@ jobs:
           python - <<'PY'
           import subprocess
           permanent = {
-              ".github/workflows/axm-head-edge-demo-contract-01.yml",
               "mating_surface/anchor_node/AXM-HEAD-EDGE-DEMO-CONTRACT-01.md",
               "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json",
               "mating_surface/anchor_node/axm-head-edge-demo.ps1",
@@ -204,11 +201,6 @@ jobs:
                   f"transport_missing={sorted(expected_transport - transport)} "
                   f"transport_extra={sorted(transport - expected_transport)}"
               )
-          if subprocess.check_output(
-              ["git", "hash-object", ".github/workflows/axm-head-edge-demo-contract-01.yml"],
-              text=True,
-          ).strip() != "34dbd576c6b5e5f073cef8d866c87a668e11a2fc":
-              raise SystemExit("final workflow blob identity differs")
           PY
-          git commit -m "Close AXM HEAD semantic trust graph"
+          git commit -m "Materialize AXM HEAD semantic trust graph"
           git push origin HEAD:refs/heads/work/axm-head-edge-demo-contract-01
