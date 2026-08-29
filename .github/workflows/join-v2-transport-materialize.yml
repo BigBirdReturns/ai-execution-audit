@@ -26,7 +26,6 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import base64
           import hashlib
 
           root = Path('.join-v2-transport')
@@ -41,11 +40,11 @@ jobs:
           }
 
           for output_name, (prefix, expected) in targets.items():
-              parts = sorted(chunks.glob(f'{prefix}.*.b64'))
+              parts = sorted(chunks.glob(f'{prefix}.*.hex'))
               if not parts:
                   raise SystemExit(f'no chunks found for {prefix}')
               encoded = ''.join(path.read_text(encoding='ascii') for path in parts)
-              data = base64.b64decode(encoded, validate=True)
+              data = bytes.fromhex(encoded)
               observed = hashlib.sha256(data).hexdigest()
               if observed != expected:
                   raise SystemExit(f'{prefix} digest mismatch: expected={expected} observed={observed}')
