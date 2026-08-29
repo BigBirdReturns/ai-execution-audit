@@ -18,10 +18,12 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_PROFILE = HERE / "axm-head-physical-long-haul-join-profile-01.json"
 DEFAULT_FIXTURES = HERE / "fixtures" / "axm-head-physical-long-haul-join-cases-01.json"
 DEFAULT_VERIFIER = HERE / "verify_axm_head_physical_long_haul_join.py"
-STANDALONE_VERIFIER_SHA256 = "2b9761bb612e2092e2290d31ea2d07a7e7bc301daa38e04a6dd7dfdc52c7ad69"
+STANDALONE_VERIFIER_SHA256 = "676ac39effb7975b3328cd375930f7db6963e8973cbfc645ff4bcbb7c01f4b55"
 ENVELOPE_SCHEMA = "axm-head/physical-long-haul-verifier-envelope@2"
 MAX_JSON_BYTES = 32 * 1024 * 1024
 MAX_VERIFIER_BYTES = 4 * 1024 * 1024
+MAX_SIGNING_KEY_BYTES = 64 * 1024
+PRIVATE_SIGNING_KEY_SCHEMA = "axm-head/private-evidence-provenance-signing-key@1"
 
 WINDOWS_PATH_RE = re.compile(r"(?i)(?:^|[\s\"'])(?:[a-z]:[\\/]|\\\\[^\\/]+[\\/])")
 IPV4_RE = re.compile(r"(?<![0-9])(?:25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})){3}(?![0-9])")
@@ -279,8 +281,71 @@ def bootstrap_verify(*, profile_path: Path, input_path: Path, out: Path | None =
         data = canonical_json_bytes(receipt)
         if out is not None:
             write_new_output(out, data)
-        sys.stdout.buffer.write(data)
         return receipt
+
+
+def load_private_signing_key(path: Path, verify: types.ModuleType) -> dict[str, Any]:
+    data = read_regular_file_bytes(path, label="private evidence signing key", maximum=MAX_SIGNING_KEY_BYTES)
+    key = parse_json_object_bytes(data, label=str(path))
+    expected_keys = {"schema", "keyId", "algorithm", "modulusHex", "publicExponent", "privateExponentHex"}
+    if set(key) != expected_keys:
+        fail("PRIVATE_SIGNING_KEY_FIELDS_INVALID", "private signing key fields differ")
+    if key["schema"] != PRIVATE_SIGNING_KEY_SCHEMA:
+        fail("PRIVATE_SIGNING_KEY_SCHEMA_INVALID", "private signing key schema differs")
+    public = {name: key[name] for name in ("keyId", "algorithm", "modulusHex", "publicExponent")}
+    if public != verify.PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT:
+        fail("PRIVATE_SIGNING_KEY_TRUST_ROOT_MISMATCH", "private signing key does not match the frozen public trust root")
+    try:
+        modulus = int(key["modulusHex"], 16)
+        private_exponent = int(key["privateExponentHex"], 16)
+    except (TypeError, ValueError):
+        fail("PRIVATE_SIGNING_KEY_VALUE_INVALID", "private signing key integer fields are invalid")
+    if modulus.bit_length() < 2048 or private_exponent <= 1:
+        fail("PRIVATE_SIGNING_KEY_VALUE_INVALID", "private signing key strength is invalid")
+    return {**key, "modulus": modulus, "privateExponent": private_exponent}
+
+
+def sign_private_provenance(*, profile_path: Path, input_path: Path, key_path: Path, out: Path) -> dict[str, Any]:
+    with trusted_verifier_module() as verify:
+        profile = verify.validate_profile(profile_path)
+        value = verify.validate_input(input_path)
+        if value["privateEvidenceProvenance"] is not None:
+            fail("PRIVATE_EVIDENCE_PROVENANCE_ALREADY_PRESENT", "input already carries private evidence provenance")
+        private_objects = verify.complete_private_objects(value)
+        if private_objects is None:
+            fail("PRIVATE_EVIDENCE_PROVENANCE_DENOMINATOR_INCOMPLETE", "complete private objects are required before signing")
+        if any(obj["evidenceTier"] != "private_local_attested" for obj in private_objects):
+            fail("PRIVATE_EVIDENCE_TIER_NOT_ATTESTED", "every private object must be private_local_attested before signing")
+        key = load_private_signing_key(key_path, verify)
+        payload = verify.private_evidence_provenance_payload(value)
+        payload_bytes = verify.canonical_json_bytes(payload)
+        encoded = verify.rsa_pkcs1_v1_5_encoded_message(payload_bytes, key["modulus"])
+        signature = pow(int.from_bytes(encoded, "big"), key["privateExponent"], key["modulus"]).to_bytes(len(encoded), "big")
+        body = {
+            "schema": verify.PRIVATE_EVIDENCE_PROVENANCE_SCHEMA,
+            "profileId": verify.PROFILE_ID,
+            "keyId": key["keyId"],
+            "algorithm": key["algorithm"],
+            "payloadSha256": verify.sha256_bytes(payload_bytes),
+            "signatureBase64Url": verify.base64url_encode(signature),
+        }
+        value["privateEvidenceProvenance"] = {
+            "provenanceId": verify.content_id("axmheadprivateevidenceprovenance2", body),
+            **body,
+        }
+        verify.validate_input_value(value)
+        write_new_output(out, verify.pretty_json_bytes(value))
+        return {
+            "schema": "axm-head/private-evidence-provenance-signing@2",
+            "status": "PASS",
+            "profileId": profile["profileId"],
+            "provenanceId": value["privateEvidenceProvenance"]["provenanceId"],
+            "keyId": key["keyId"],
+            "payloadSha256": value["privateEvidenceProvenance"]["payloadSha256"],
+            "outputCreated": True,
+            "physicalExecutionOccurred": False,
+            "authority": "none",
+        }
 
 
 def refused_envelope(exc: BootstrapError) -> dict[str, Any]:
@@ -319,10 +384,21 @@ def main(argv: list[str] | None = None) -> int:
     verify_parser.add_argument("--profile", type=Path, default=DEFAULT_PROFILE)
     verify_parser.add_argument("--out", type=Path)
 
+    sign_parser = sub.add_parser("sign-private-provenance")
+    sign_parser.add_argument("input", type=Path)
+    sign_parser.add_argument("--profile", type=Path, default=DEFAULT_PROFILE)
+    sign_parser.add_argument("--key", required=True, type=Path)
+    sign_parser.add_argument("--out", required=True, type=Path)
+
     args = parser.parse_args(argv)
     try:
         if args.command == "verify":
-            bootstrap_verify(profile_path=args.profile, input_path=args.input, out=args.out)
+            receipt = bootstrap_verify(profile_path=args.profile, input_path=args.input, out=args.out)
+            sys.stdout.buffer.write(canonical_json_bytes(receipt))
+            return 0
+        if args.command == "sign-private-provenance":
+            receipt = sign_private_provenance(profile_path=args.profile, input_path=args.input, key_path=args.key, out=args.out)
+            sys.stdout.buffer.write(canonical_json_bytes(receipt))
             return 0
 
         with trusted_verifier_module() as verify:

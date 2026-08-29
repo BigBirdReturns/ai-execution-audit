@@ -85,6 +85,12 @@
     "receipt_refusal",
     "physical_action_before_separate_authorization"
   ],
+  "privateEvidenceProvenanceTrustRoot": {
+    "algorithm": "rsa-pkcs1v15-sha256",
+    "keyId": "axmheadprivateevidencetrustroot1_a7433c79c93efa9af76915fbac14a65807425c73e1a156068e0645fb1fa1301e",
+    "modulusHex": "cfcca8d34a7a813578450b4796b64dc5d925e776e69eb47bc396f00c42f583be3d435a78a88f67fc569ace656f4167d50a2a5c5fe1a4eaf607f3c0dcc390c643685c731e2f4d3b16da76bd00858500a5c3162fafb03587c26309a2251079396afdffd5554a14bc664406cd7d9a3b02e391453c3f40fa72512791172995bfb9600a6378e7e39680f5dd6ea7aaf93f7ab248c85abc03f7ba110416703a7c03d863e258f59754c1a79ec69ff39973916c4e9b8eba7ace15a511f41d3b5b2c1587fc330d302766b2645b90c05e9c3630a431373a0c1af9224d9eeb91a42dbc784617a3d097093a1195e66c8a68201756197df892c90cdc80b2ebe6d346af15442e99",
+    "publicExponent": 65537
+  },
   "profileId": "axm-head/physical-long-haul@2",
   "repository": "BigBirdReturns/ai-execution-audit",
   "repositoryOutputAllowed": false,

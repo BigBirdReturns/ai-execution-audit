@@ -9,6 +9,7 @@
       "input": {
         "caseId": "prepared-exact-public-sources-no-private-flight",
         "continuityAttestation": null,
+        "privateEvidenceProvenance": null,
         "privateFlightDispositionBinding": null,
         "profileId": "axm-head/physical-long-haul@2",
         "routeAttestation": null,
@@ -158,6 +159,7 @@
           "residentFloorAvailableAfterRemoval": true,
           "schema": "axm-head/continuity-attestation@2"
         },
+        "privateEvidenceProvenance": null,
         "privateFlightDispositionBinding": {
           "authorizationReceipt": {
             "actorClass": "named_human",
@@ -692,6 +694,7 @@
           "residentFloorAvailableAfterRemoval": true,
           "schema": "axm-head/continuity-attestation@2"
         },
+        "privateEvidenceProvenance": null,
         "privateFlightDispositionBinding": {
           "authorizationReceipt": {
             "actorClass": "preflight_card",
@@ -1224,6 +1227,7 @@
           "residentFloorAvailableAfterRemoval": true,
           "schema": "axm-head/continuity-attestation@2"
         },
+        "privateEvidenceProvenance": null,
         "privateFlightDispositionBinding": {
           "authorizationReceipt": {
             "actorClass": "named_human",
@@ -1726,6 +1730,7 @@
           "residentFloorAvailableAfterRemoval": true,
           "schema": "axm-head/continuity-attestation@2"
         },
+        "privateEvidenceProvenance": null,
         "privateFlightDispositionBinding": {
           "authorizationReceipt": {
             "actorClass": "named_human",
@@ -2259,6 +2264,7 @@
           "residentFloorAvailableAfterRemoval": true,
           "schema": "axm-head/continuity-attestation@2"
         },
+        "privateEvidenceProvenance": null,
         "privateFlightDispositionBinding": {
           "authorizationReceipt": {
             "actorClass": "named_human",
@@ -2792,6 +2798,7 @@
           "residentFloorAvailableAfterRemoval": true,
           "schema": "axm-head/continuity-attestation@2"
         },
+        "privateEvidenceProvenance": null,
         "privateFlightDispositionBinding": {
           "authorizationReceipt": {
             "actorClass": "named_human",
@@ -3325,6 +3332,7 @@
           "residentFloorAvailableAfterRemoval": true,
           "schema": "axm-head/continuity-attestation@2"
         },
+        "privateEvidenceProvenance": null,
         "privateFlightDispositionBinding": {
           "authorizationReceipt": {
             "actorClass": "named_human",
@@ -3858,6 +3866,7 @@
           "residentFloorAvailableAfterRemoval": true,
           "schema": "axm-head/continuity-attestation@2"
         },
+        "privateEvidenceProvenance": null,
         "privateFlightDispositionBinding": {
           "authorizationReceipt": {
             "actorClass": "named_human",
@@ -4391,6 +4400,7 @@
           "residentFloorAvailableAfterRemoval": true,
           "schema": "axm-head/continuity-attestation@2"
         },
+        "privateEvidenceProvenance": null,
         "privateFlightDispositionBinding": {
           "authorizationReceipt": {
             "actorClass": "named_human",

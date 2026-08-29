@@ -176,6 +176,12 @@ Authenticate the verifier and evaluate one local body-free input:
 
 The output location must not already exist. The command performs no hardware action, launches no worker, creates no listener, and writes nothing to issue #37. It verifies an already completed private receipt denominator.
 
+## Private evidence provenance trust root
+
+`PRIVATE_SELF_ATTESTED` is unavailable from self-consistent input bytes alone. The input must carry one detached `axm-head/private-evidence-provenance@2` signature over the exact source binding, five content-addressed private objects, complete stage-receipt identity sequence, and sealed-package disposition digests. The profile freezes the RSA SHA-256 public trust root. The corresponding private signing key remains outside the repository and is used only through `sign-private-provenance`; it authenticates evidence provenance and grants no mission or command authority. Synthetic fixtures carry no provenance signature and cannot select the private terminal.
+
+The library function `bootstrap_verify()` is silent and returns the receipt. Only the CLI `verify` command emits canonical receipt bytes to stdout.
+
 ## Claim boundary
 
 This product may qualify the postflight contract, exact source binding, distinct authorization boundary, receipt reconstruction rules, `PRIVATE_SELF_ATTESTED` self-attestation terminal, authenticated verifier, deterministic bytes, and private-material exclusion membrane. It may not claim that the private workstation exists, that issue #37 ran, that any hardware was attached or removed, that two physical cells or a replacement HEAD actually existed, that a sealed private package was produced, or that any stronger qualification or authority has been granted merely because this source code or its synthetic tests exist.

@@ -24,6 +24,17 @@ FIXTURES = ROOT / "fixtures" / "axm-head-physical-long-haul-join-cases-01.json"
 VERIFIER = ROOT / "verify_axm_head_physical_long_haul_join.py"
 TOOL = ROOT / "axm_head_physical_long_haul_join.py"
 
+TEST_PRIVATE_PROVENANCE_KEY = {'algorithm': 'rsa-pkcs1v15-sha256',
+ 'keyId': 'axmheadprivateevidencetrustroot1_ec9e1acaccc1eff237313d49279afd800b44f4e7bdac017fe0af682486d4ef44',
+ 'modulusHex': 'ab9273a16704ef7f7599443400988752cfb0d14bc5df3e7b05a69f9fb4c42400a0228f77814937dd605b67ab56f9e72cbc008443662aa22dd8c043b743e6cc2f1a4c170a68bf30dcbc453359a9f4b3f84369e7e44dd90698c8bc54d91aecb1f5a46accf1ffb6d9d52d6374432d99dc87adb314dd453060633b38f0fdf2f4556fd3e4d31f6e5822cc587773bc6f96dc68bff64084ded195993e6886cd77517a24fefe5031a4e03bb1129bfc31f4b8b7712c2c51fea78587486c60cc76cc10780423364b781cbd14936828eec12ca8a8c16d4d4ca52fc53ecad6112944fd3a757179c1c686c7ad4db01c1d06386e2935df1f84974147107a4686e88072b42ab727',
+ 'privateExponentHex': '2885eba7a88462e8d0e6c5541efbe7a2688993b578e3d4870bfba1e1ffb8ffe3e1eea7c20b183708a3749354c5b33aa5b735cc077b3f00952187afb6be63e9c00a4f047621ed5e661455a7de3aa52048b7eb70a8dcb630b7af59c4148f266e95dd22988b63e1552be38f84eb44fefd36529164912a815592ba6f25846578ce20bb5cd008c98353f55f12ca3d3456dc757c7032f7f29ecd05cb839b32406e58953700930049cf1790f25bbc80daf696c452e97d160dd1e7929e613b4965225c82c7235dfc94ab0304e70e914dd4ff3f65f655fe02c9aef56628bc669344881c601ad5ea9bc621f0ae5ecba466e8a4a9087756fbc66bd3db7aaab7e559acc713d1',
+ 'publicExponent': 65537,
+ 'schema': 'axm-head/private-evidence-provenance-signing-key@1'}
+TEST_PRIVATE_PROVENANCE_TRUST_ROOT = {'keyId': 'axmheadprivateevidencetrustroot1_ec9e1acaccc1eff237313d49279afd800b44f4e7bdac017fe0af682486d4ef44',
+ 'algorithm': 'rsa-pkcs1v15-sha256',
+ 'modulusHex': 'ab9273a16704ef7f7599443400988752cfb0d14bc5df3e7b05a69f9fb4c42400a0228f77814937dd605b67ab56f9e72cbc008443662aa22dd8c043b743e6cc2f1a4c170a68bf30dcbc453359a9f4b3f84369e7e44dd90698c8bc54d91aecb1f5a46accf1ffb6d9d52d6374432d99dc87adb314dd453060633b38f0fdf2f4556fd3e4d31f6e5822cc587773bc6f96dc68bff64084ded195993e6886cd77517a24fefe5031a4e03bb1129bfc31f4b8b7712c2c51fea78587486c60cc76cc10780423364b781cbd14936828eec12ca8a8c16d4d4ca52fc53ecad6112944fd3a757179c1c686c7ad4db01c1d06386e2935df1f84974147107a4686e88072b42ab727',
+ 'publicExponent': 65537}
+
 
 class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -86,6 +97,35 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
             value[key]["evidenceTier"] = tier
         self.refresh_all_top(value)
 
+    def sign_private_with_test_root(self, value: dict) -> None:
+        payload = mod.private_evidence_provenance_payload(value)
+        payload_bytes = mod.canonical_json_bytes(payload)
+        modulus = int(TEST_PRIVATE_PROVENANCE_KEY["modulusHex"], 16)
+        private_exponent = int(TEST_PRIVATE_PROVENANCE_KEY["privateExponentHex"], 16)
+        encoded = mod.rsa_pkcs1_v1_5_encoded_message(payload_bytes, modulus)
+        signature = pow(int.from_bytes(encoded, "big"), private_exponent, modulus).to_bytes(len(encoded), "big")
+        body = {
+            "schema": mod.PRIVATE_EVIDENCE_PROVENANCE_SCHEMA,
+            "profileId": mod.PROFILE_ID,
+            "keyId": TEST_PRIVATE_PROVENANCE_KEY["keyId"],
+            "algorithm": TEST_PRIVATE_PROVENANCE_KEY["algorithm"],
+            "payloadSha256": mod.sha256_bytes(payload_bytes),
+            "signatureBase64Url": mod.base64url_encode(signature),
+        }
+        value["privateEvidenceProvenance"] = {
+            "provenanceId": mod.content_id("axmheadprivateevidenceprovenance2", body),
+            **body,
+        }
+
+    def evaluate_with_test_trust_root(self, value: dict) -> dict:
+        profile = copy.deepcopy(self.profile)
+        profile["privateEvidenceProvenanceTrustRoot"] = TEST_PRIVATE_PROVENANCE_TRUST_ROOT
+        digest = mod.sha256_bytes(mod.canonical_json_bytes(profile))
+        with mock.patch.object(mod, "PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT", TEST_PRIVATE_PROVENANCE_TRUST_ROOT), mock.patch.object(
+            mod, "PROFILE_CANONICAL_SHA256", digest
+        ):
+            return mod.evaluate_input(mod.validate_profile_value(profile), mod.validate_input_value(value))
+
     def replace_authorization(self, value: dict, mutate) -> None:
         disposition = value["privateFlightDispositionBinding"]
         authorization = disposition["authorizationReceipt"]
@@ -126,6 +166,10 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
     def test_profile_closes_exact_ten_object_denominator(self) -> None:
         self.assertEqual(self.profile["objectSchemas"], list(mod.OBJECT_SCHEMAS))
         self.assertEqual(len(self.profile["objectSchemas"]), 10)
+        self.assertEqual(
+            self.profile["privateEvidenceProvenanceTrustRoot"],
+            mod.PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT,
+        )
 
     def test_profile_closes_exact_three_join_terminals(self) -> None:
         self.assertEqual(self.profile["terminalStates"], ["PREPARED_NOT_ARMED", "PRIVATE_SELF_ATTESTED", "HOLD"])
@@ -198,6 +242,7 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
         self.assertEqual([row["caseId"] for row in self.catalog["cases"]], list(mod.CASE_IDS))
         for row in self.catalog["cases"]:
             self.assertNotEqual(row["expectedTerminal"], "PRIVATE_SELF_ATTESTED")
+            self.assertIsNone(row["input"]["privateEvidenceProvenance"])
 
     def test_fixture_catalog_canonical_digest_is_frozen(self) -> None:
         self.assertEqual(mod.sha256_bytes(mod.canonical_json_bytes(self.catalog)), mod.FIXTURE_CATALOG_CANONICAL_SHA256)
@@ -223,15 +268,43 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
     def test_complete_private_local_attestation_reaches_self_attested_terminal(self) -> None:
         value = self.complete()
         self.retier_private(value, "private_local_attested")
-        result = self.evaluate(value)
-        self.assertEqual(result["join"]["terminal"], "PRIVATE_SELF_ATTESTED")
-        self.assertTrue(result["publicStatus"]["privatePhysicalFlightCompleted"])
-        self.assertTrue(result["publicStatus"]["selfAttestationOnly"])
+        unsigned = self.evaluate(value)
+        self.assertEqual(unsigned["join"]["terminal"], "HOLD")
+        self.assertIn("PRIVATE_EVIDENCE_PROVENANCE_REQUIRED", unsigned["join"]["reasonCodes"])
+
+        self.sign_private_with_test_root(value)
+        signed = self.evaluate_with_test_trust_root(value)
+        self.assertEqual(signed["join"]["terminal"], "PRIVATE_SELF_ATTESTED")
+        self.assertTrue(signed["publicStatus"]["privatePhysicalFlightCompleted"])
+        self.assertTrue(signed["publicStatus"]["selfAttestationOnly"])
+        self.assertTrue(signed["publicStatus"]["privateEvidenceProvenanceAuthenticated"])
+
+        forged = copy.deepcopy(value)
+        provenance = forged["privateEvidenceProvenance"]
+        replacement = "A" if provenance["signatureBase64Url"][-1] != "A" else "B"
+        provenance["signatureBase64Url"] = provenance["signatureBase64Url"][:-1] + replacement
+        provenance["provenanceId"] = mod.content_id(
+            "axmheadprivateevidenceprovenance2",
+            mod.body_without(provenance, "provenanceId"),
+        )
+        forged_result = self.evaluate_with_test_trust_root(forged)
+        self.assertEqual(forged_result["join"]["terminal"], "HOLD")
+        self.assertIn(
+            "PRIVATE_EVIDENCE_PROVENANCE_AUTHENTICATION_FAILED",
+            forged_result["join"]["reasonCodes"],
+        )
+
+        value["routeAttestation"]["residentRoute"]["throughputUnits"] += 1
+        self.refresh_top(value, "routeAttestation", "routeAttestationId", "axmheadphysicalrouteattestation2")
+        tampered = self.evaluate_with_test_trust_root(value)
+        self.assertEqual(tampered["join"]["terminal"], "HOLD")
+        self.assertIn("PRIVATE_EVIDENCE_PROVENANCE_PAYLOAD_MISMATCH", tampered["join"]["reasonCodes"])
 
     def test_private_self_attested_never_promotes_stronger_qualification(self) -> None:
         value = self.complete()
         self.retier_private(value, "private_local_attested")
-        public = self.evaluate(value)["publicStatus"]
+        self.sign_private_with_test_root(value)
+        public = self.evaluate_with_test_trust_root(value)["publicStatus"]
         for key in (
             "physicalEstateQualified", "representativeOperatorQualified", "fieldNetworkQualified",
             "operationalC2Qualified", "productionLatticeQualified", "missionAuthorityGranted",
@@ -654,7 +727,7 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
         ):
             receipt = bootstrap.bootstrap_verify(profile_path=PROFILE, input_path=input_path)
         self.assertEqual(receipt["join"]["terminal"], "PREPARED_NOT_ARMED")
-        self.assertEqual(json.loads(captured.getvalue().decode("utf-8"))["join"]["terminal"], "PREPARED_NOT_ARMED")
+        self.assertEqual(captured.getvalue(), b"")
         self.assertEqual(json.loads(input_path.read_text(encoding="utf-8")), {"mutated": True})
 
     def test_duplicate_json_key_is_refused_before_verifier_execution(self) -> None:
@@ -686,7 +759,8 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
     def test_public_projection_contains_zero_private_bodies(self) -> None:
         value = self.complete()
         self.retier_private(value, "private_local_attested")
-        public = self.evaluate(value)["publicStatus"]
+        self.sign_private_with_test_root(value)
+        public = self.evaluate_with_test_trust_root(value)["publicStatus"]
         self.assertEqual(public["publicEvidenceBodyCount"], 0)
         mod.scan_forbidden_private_material(public, "public")
 

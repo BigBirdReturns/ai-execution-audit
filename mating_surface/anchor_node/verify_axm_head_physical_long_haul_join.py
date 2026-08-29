@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -29,10 +31,21 @@ ENVELOPE_SCHEMA = "axm-head/physical-long-haul-verifier-envelope@2"
 PREFLIGHT_REFERENCE_SCHEMA = "axm-head/preflight-disposition-reference@1"
 AUTHORIZATION_SCHEMA = "stc-mary/named-human-authorization@1"
 STAGE_RECEIPT_SCHEMA = "stc-mary/private-flight-stage-receipt@1"
+PRIVATE_EVIDENCE_PROVENANCE_SCHEMA = "axm-head/private-evidence-provenance@2"
+PRIVATE_EVIDENCE_PROVENANCE_PAYLOAD_SCHEMA = "axm-head/private-evidence-provenance-payload@2"
+PRIVATE_EVIDENCE_PROVENANCE_ALGORITHM = "rsa-pkcs1v15-sha256"
+
+PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT = {
+    "algorithm": "rsa-pkcs1v15-sha256",
+    "keyId": "axmheadprivateevidencetrustroot1_a7433c79c93efa9af76915fbac14a65807425c73e1a156068e0645fb1fa1301e",
+    "modulusHex": "cfcca8d34a7a813578450b4796b64dc5d925e776e69eb47bc396f00c42f583be3d435a78a88f67fc569ace656f4167d50a2a5c5fe1a4eaf607f3c0dcc390c643685c731e2f4d3b16da76bd00858500a5c3162fafb03587c26309a2251079396afdffd5554a14bc664406cd7d9a3b02e391453c3f40fa72512791172995bfb9600a6378e7e39680f5dd6ea7aaf93f7ab248c85abc03f7ba110416703a7c03d863e258f59754c1a79ec69ff39973916c4e9b8eba7ace15a511f41d3b5b2c1587fc330d302766b2645b90c05e9c3630a431373a0c1af9224d9eeb91a42dbc784617a3d097093a1195e66c8a68201756197df892c90cdc80b2ebe6d346af15442e99",
+    "publicExponent": 65537
+}
+RSA_SHA256_DIGEST_INFO_PREFIX = bytes.fromhex("3031300d060960864801650304020105000420")
 
 # Filled after the profile and verifier are frozen.
-PROFILE_CANONICAL_SHA256 = "85aee024dfeaa7fcc3a294ee958470958c7ba8f754dc7abfcd9d299b3f4c11a7"
-FIXTURE_CATALOG_CANONICAL_SHA256 = "3864a583d162d3c7763716651fb57bef09fbaf6dd6269d0a3f6e50025486f223"
+PROFILE_CANONICAL_SHA256 = "4ea4fef34168eafa8e7e64fdd5d4b05725240b7cc12bca5fd068d3cc25cd3bfc"
+FIXTURE_CATALOG_CANONICAL_SHA256 = "db903e2d6e0238161783242b49ad55e105078f4f2f0733f74a30ad697eb1863a"
 
 TERMINALS = ("PREPARED_NOT_ARMED", "PRIVATE_SELF_ATTESTED", "HOLD")
 EVIDENCE_TIERS = ("none", "synthetic", "private_local_attested")
@@ -204,6 +217,7 @@ HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 SHA256_REF = re.compile(r"^sha256:[0-9a-f]{64}$")
 CONTENT_ID = re.compile(r"^[a-z0-9][a-z0-9._-]*_[0-9a-f]{64}$")
+BASE64URL = re.compile(r"^[A-Za-z0-9_-]+$")
 BOUNDED_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@-]{2,255}$")
 HOST_CLASS = re.compile(r"^[a-z0-9][a-z0-9._-]{2,63}$")
 WINDOWS_PATH_RE = re.compile(r"(?i)(?:^|[\s\"'])(?:[a-z]:[\\/]|\\\\[^\\/]+[\\/])")
@@ -263,6 +277,45 @@ def sha256_bytes(data: bytes) -> str:
 
 def content_id(prefix: str, body: Mapping[str, Any]) -> str:
     return f"{prefix}_{sha256_bytes(canonical_json_bytes(dict(body)))}"
+
+
+def base64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def base64url_decode(value: str, label: str) -> bytes:
+    require_string(value, label, BASE64URL, maximum=8192)
+    padding = "=" * ((4 - len(value) % 4) % 4)
+    try:
+        return base64.urlsafe_b64decode((value + padding).encode("ascii"))
+    except (ValueError, UnicodeError) as exc:
+        fail("PROVENANCE_SIGNATURE_ENCODING_INVALID", f"{label}: {exc}")
+
+
+def rsa_pkcs1_v1_5_encoded_message(message: bytes, modulus: int) -> bytes:
+    digest_info = RSA_SHA256_DIGEST_INFO_PREFIX + hashlib.sha256(message).digest()
+    width = (modulus.bit_length() + 7) // 8
+    padding_length = width - len(digest_info) - 3
+    if width < 256 or padding_length < 8:
+        fail("PROVENANCE_TRUST_ROOT_INVALID", "RSA provenance trust root must be at least 2048 bits")
+    return b"\x00\x01" + (b"\xff" * padding_length) + b"\x00" + digest_info
+
+
+def verify_rsa_pkcs1_v1_5_sha256(message: bytes, signature: bytes, trust_root: Mapping[str, Any]) -> bool:
+    try:
+        modulus = int(str(trust_root["modulusHex"]), 16)
+        exponent = int(trust_root["publicExponent"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    width = (modulus.bit_length() + 7) // 8
+    if len(signature) != width or exponent != 65537:
+        return False
+    encoded = pow(int.from_bytes(signature, "big"), exponent, modulus).to_bytes(width, "big")
+    try:
+        expected = rsa_pkcs1_v1_5_encoded_message(message, modulus)
+    except JoinError:
+        return False
+    return hmac.compare_digest(encoded, expected)
 
 
 def read_regular_file_bytes(path: Path, *, label: str, maximum: int) -> bytes:
@@ -449,6 +502,7 @@ def validate_profile_value(profile: dict[str, Any]) -> dict[str, Any]:
             "objectSchemas",
             "terminalStates",
             "evidenceTiers",
+            "privateEvidenceProvenanceTrustRoot",
             "stageSequence",
             "preflightPhaseSequence",
             "preflightStopConditions",
@@ -481,6 +535,8 @@ def validate_profile_value(profile: dict[str, Any]) -> dict[str, Any]:
         fail("TERMINAL_DENOMINATOR_INVALID", "profile terminalStates denominator differs")
     if profile["evidenceTiers"] != list(EVIDENCE_TIERS):
         fail("EVIDENCE_TIER_DENOMINATOR_INVALID", "profile evidenceTiers denominator differs")
+    if profile["privateEvidenceProvenanceTrustRoot"] != PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT:
+        fail("PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT_INVALID", "profile provenance trust root differs")
     if profile["stageSequence"] != list(STAGE_SEQUENCE):
         fail("STAGE_DENOMINATOR_INVALID", "profile stageSequence differs")
     if profile["preflightPhaseSequence"] != list(PREFLIGHT_PHASE_SEQUENCE):
@@ -1008,6 +1064,59 @@ def validate_disposition_binding(value: Any, label: str = "privateFlightDisposit
     return item
 
 
+def validate_private_evidence_provenance(value: Any, label: str = "privateEvidenceProvenance") -> dict[str, Any]:
+    item = dict(
+        require_exact_keys(
+            value,
+            {"schema", "provenanceId", "profileId", "keyId", "algorithm", "payloadSha256", "signatureBase64Url"},
+            label,
+        )
+    )
+    if item["schema"] != PRIVATE_EVIDENCE_PROVENANCE_SCHEMA or item["profileId"] != PROFILE_ID:
+        fail("PRIVATE_EVIDENCE_PROVENANCE_IDENTITY_INVALID", f"{label} identity differs")
+    require_string(item["provenanceId"], f"{label}.provenanceId", CONTENT_ID)
+    require_string(item["keyId"], f"{label}.keyId", BOUNDED_ID)
+    require_string(item["algorithm"], f"{label}.algorithm", BOUNDED_ID)
+    require_string(item["payloadSha256"], f"{label}.payloadSha256", HEX64)
+    base64url_decode(item["signatureBase64Url"], f"{label}.signatureBase64Url")
+    if item["keyId"] != PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT["keyId"]:
+        fail("PRIVATE_EVIDENCE_PROVENANCE_KEY_INVALID", f"{label}.keyId differs from the frozen trust root")
+    if item["algorithm"] != PRIVATE_EVIDENCE_PROVENANCE_ALGORITHM:
+        fail("PRIVATE_EVIDENCE_PROVENANCE_ALGORITHM_INVALID", f"{label}.algorithm differs")
+    assert_content_id(item, "provenanceId", "axmheadprivateevidenceprovenance2", "PRIVATE_EVIDENCE_PROVENANCE_CONTENT_ID_INVALID")
+    return item
+
+
+def private_evidence_provenance_payload(value: Mapping[str, Any]) -> dict[str, Any]:
+    route = value.get("routeAttestation")
+    continuity = value.get("continuityAttestation")
+    two_cell = value.get("twoCellAttestation")
+    successor = value.get("successorAttestation")
+    disposition = value.get("privateFlightDispositionBinding")
+    if not all(isinstance(item, Mapping) for item in (route, continuity, two_cell, successor, disposition)):
+        fail("PRIVATE_EVIDENCE_PROVENANCE_DENOMINATOR_INCOMPLETE", "complete private objects are required before provenance can be derived")
+    packet = disposition["packet"]
+    sealed = disposition["sealedPackage"]
+    return {
+        "schema": PRIVATE_EVIDENCE_PROVENANCE_PAYLOAD_SCHEMA,
+        "profileId": PROFILE_ID,
+        "sourceBindingId": value["sourceBinding"]["sourceBindingId"],
+        "issueNumber": 37,
+        "campaignId": disposition["campaignId"],
+        "authorizationReceiptId": disposition["authorizationReceipt"]["receiptId"],
+        "routeAttestationId": route["routeAttestationId"],
+        "continuityAttestationId": continuity["continuityAttestationId"],
+        "twoCellAttestationId": two_cell["twoCellAttestationId"],
+        "successorAttestationId": successor["successorAttestationId"],
+        "dispositionBindingId": disposition["dispositionBindingId"],
+        "stageReceiptIds": [row["receiptId"] for row in packet["stageReceipts"]],
+        "sealedPackageDigest": sealed["packageDigest"],
+        "sealedVerificationReceiptDigest": sealed["verificationReceiptDigest"],
+        "publicDispositionDigest": sealed["publicDispositionDigest"],
+        "evidenceTier": "private_local_attested",
+    }
+
+
 def validate_input_value(value: dict[str, Any]) -> dict[str, Any]:
     item = dict(
         require_exact_keys(
@@ -1022,6 +1131,7 @@ def validate_input_value(value: dict[str, Any]) -> dict[str, Any]:
                 "twoCellAttestation",
                 "successorAttestation",
                 "privateFlightDispositionBinding",
+                "privateEvidenceProvenance",
             },
             "input",
         )
@@ -1040,6 +1150,8 @@ def validate_input_value(value: dict[str, Any]) -> dict[str, Any]:
         validate_successor_attestation(item["successorAttestation"])
     if item["privateFlightDispositionBinding"] is not None:
         validate_disposition_binding(item["privateFlightDispositionBinding"])
+    if item["privateEvidenceProvenance"] is not None:
+        validate_private_evidence_provenance(item["privateEvidenceProvenance"])
     scan_forbidden_private_material(item)
     return item
 
@@ -1108,6 +1220,9 @@ def derive_predicates(value: dict[str, Any]) -> tuple[OrderedDict[str, bool], li
         "authorizationReceiptId": None,
         "cartridgeId": None,
         "missionStateDigest": None,
+        "privateEvidenceProvenanceAuthenticated": False,
+        "privateEvidenceProvenanceKeyId": None,
+        "privateEvidenceProvenancePayloadSha256": None,
     }
 
     predicates["publicSourceCoordinatesExact"] = source["publicSources"] == EXPECTED_PUBLIC_SOURCES
@@ -1177,6 +1292,29 @@ def derive_predicates(value: dict[str, Any]) -> tuple[OrderedDict[str, bool], li
     context["authorizationReceiptId"] = authorization["receiptId"]
     context["cartridgeId"] = cartridge["cartridgeId"]
     context["missionStateDigest"] = cartridge["missionStateDigest"]
+
+    provenance = value["privateEvidenceProvenance"]
+    if tier == "private_local_attested":
+        predicates["privateEvidenceProvenancePresent"] = provenance is not None
+        payload = private_evidence_provenance_payload(value)
+        payload_bytes = canonical_json_bytes(payload)
+        payload_sha256 = sha256_bytes(payload_bytes)
+        predicates["privateEvidenceProvenancePayloadExact"] = provenance is not None and provenance["payloadSha256"] == payload_sha256
+        signature_valid = False
+        if provenance is not None and predicates["privateEvidenceProvenancePayloadExact"]:
+            signature = base64url_decode(provenance["signatureBase64Url"], "privateEvidenceProvenance.signatureBase64Url")
+            signature_valid = verify_rsa_pkcs1_v1_5_sha256(payload_bytes, signature, PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT)
+        predicates["privateEvidenceProvenanceAuthenticated"] = signature_valid
+        add_reason(reasons, "PRIVATE_EVIDENCE_PROVENANCE_REQUIRED", provenance is None)
+        add_reason(reasons, "PRIVATE_EVIDENCE_PROVENANCE_PAYLOAD_MISMATCH", provenance is not None and not predicates["privateEvidenceProvenancePayloadExact"] )
+        add_reason(reasons, "PRIVATE_EVIDENCE_PROVENANCE_AUTHENTICATION_FAILED", provenance is not None and predicates["privateEvidenceProvenancePayloadExact"] and not signature_valid)
+        context["privateEvidenceProvenanceAuthenticated"] = signature_valid
+        if provenance is not None:
+            context["privateEvidenceProvenanceKeyId"] = provenance["keyId"]
+            context["privateEvidenceProvenancePayloadSha256"] = provenance["payloadSha256"]
+    else:
+        predicates["privateEvidenceProvenanceAbsentOutsidePrivateTier"] = provenance is None
+        add_reason(reasons, "PRIVATE_EVIDENCE_PROVENANCE_UNEXPECTED", provenance is not None)
 
     predicates["preflightReferenceCrossBound"] = preflight is not None and disposition["preflightReceiptId"] == preflight["receiptId"] and authorization["preflightReceiptId"] == preflight["receiptId"]
     predicates["authorizationReceiptDistinctFromPreflight"] = preflight is not None and authorization["receiptId"] != preflight["receiptId"]
@@ -1393,7 +1531,7 @@ def determine_terminal(value: dict[str, Any], predicates: Mapping[str, bool], re
 
     all_predicates = all(value for key, value in predicates.items() if key != "privateReceiptDenominatorAbsent")
     tier = context["evidenceTier"]
-    if all_predicates and tier == "private_local_attested":
+    if all_predicates and tier == "private_local_attested" and context["privateEvidenceProvenanceAuthenticated"]:
         return "PRIVATE_SELF_ATTESTED", []
     if all_predicates and tier == "synthetic":
         return "HOLD", ["SYNTHETIC_EVIDENCE_CANNOT_ATTEST"]
@@ -1473,6 +1611,8 @@ def make_verification_object(join: dict[str, Any], predicates: Mapping[str, bool
         "bootstrapRequired": True,
         "privateShapeComplete": all(value for key, value in predicates.items() if key != "privateReceiptDenominatorAbsent"),
         "evidenceTier": context["evidenceTier"],
+        "privateEvidenceProvenanceAuthenticated": context["privateEvidenceProvenanceAuthenticated"],
+        "privateEvidenceProvenanceKeyId": context["privateEvidenceProvenanceKeyId"],
         "authority": "none",
     }
     return {"verificationId": content_id("axmheadphysicallonghaulverification2", body), **body}
@@ -1488,6 +1628,9 @@ def make_public_status_object(value: dict[str, Any], join: dict[str, Any], verif
         "reasonCodes": join["reasonCodes"],
         "sources": source_summary(value["sourceBinding"]),
         "evidenceTier": context["evidenceTier"],
+        "privateEvidenceProvenanceAuthenticated": context["privateEvidenceProvenanceAuthenticated"],
+        "privateEvidenceProvenanceKeyId": context["privateEvidenceProvenanceKeyId"],
+        "privateEvidenceProvenancePayloadSha256": context["privateEvidenceProvenancePayloadSha256"],
         "authorizationReceiptId": context["authorizationReceiptId"],
         "cartridgeId": context["cartridgeId"],
         "missionStateDigest": context["missionStateDigest"],
@@ -1563,6 +1706,8 @@ def validate_catalog_value(catalog: dict[str, Any], profile: dict[str, Any]) -> 
             fail("SYNTHETIC_FIXTURE_TERMINAL_INVALID", f"{case_id} may not claim PRIVATE_SELF_ATTESTED")
         expected_reasons = require_string_list(case["expectedReasonCodes"], f"fixtureCatalog.cases[{index}].expectedReasonCodes", maximum=64)
         input_value = validate_input_value(case["input"])
+        if input_value["privateEvidenceProvenance"] is not None:
+            fail("SYNTHETIC_FIXTURE_PROVENANCE_FORBIDDEN", f"{case_id} may not carry authenticated private provenance")
         for key in (
             "routeAttestation",
             "continuityAttestation",
