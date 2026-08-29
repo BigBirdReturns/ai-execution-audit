@@ -18,7 +18,7 @@ DECISION_SCHEMA = "axm-head/physical-long-haul-001-join-decision@2"
 PUBLIC_SCHEMA = "axm-head/physical-long-haul-001-public-status@2"
 MANIFEST_SCHEMA = "axm-head/physical-long-haul-001-join-manifest@2"
 PROFILE_CANONICAL_SHA256 = "66a4e11b0023a67e0d545b9d29817819da17e9195304261f1fd30a6f6da74e56"
-STANDALONE_VERIFIER_SHA256 = "47e72c4a0eec643463e17ba4deb16ab345f06fc5e6a191f7e5124d7f92f249a4"
+STANDALONE_VERIFIER_SHA256 = "c0ea446f93c578fcc5adecd19f479078a48bb7c0e1df217fbfd3243d05a5ed0e"
 TERMINALS = ("PREPARED_NOT_ARMED", "HOLD", "READY_FOR_HUMAN_REVIEW", "REFUSED")
 ARTIFACT_LABELS = ("cartridge", "model", "verifier", "storage")
 PHASE_SEQUENCE = (
@@ -130,6 +130,7 @@ EXPECTED_RELATIVE_FILES = (
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 SHA256_REF = re.compile(r"^sha256:[0-9a-f]{64}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._:/@-]{2,255}$")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
 class JoinError(RuntimeError):
@@ -148,6 +149,10 @@ def canonical_json_bytes(value: Any) -> bytes:
     except (TypeError, ValueError) as exc:
         fail("NON_CANONICAL_JSON", str(exc))
     return (text + "\n").encode("utf-8")
+
+
+def type_strict_equal(actual: Any, expected: Any) -> bool:
+    return canonical_json_bytes(actual) == canonical_json_bytes(expected)
 
 
 def pretty_json_bytes(value: Any) -> bytes:
@@ -174,6 +179,15 @@ def read_object(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         fail("JSON_OBJECT_REQUIRED", f"{path} must contain one JSON object")
     return value
+
+
+def ensure_repository_external_output(path: Path | None) -> None:
+    if path is None:
+        return
+    repository = REPOSITORY_ROOT.resolve()
+    candidate = path.resolve(strict=False)
+    if candidate == repository or repository in candidate.parents:
+        fail("REPOSITORY_OUTPUT_REFUSED", "JOIN-v2 output may not be written inside the repository")
 
 
 def require_exact_keys(value: dict[str, Any], expected: set[str], label: str) -> None:
@@ -241,9 +255,9 @@ def validate_profile(path: Path) -> dict[str, Any]:
         fail("PROFILE_STATUS_INVALID", "profile status must remain candidate_contract_only")
     if profile["owningProject"] != "Estate" or profile["owningRepository"] != "BigBirdReturns/ai-execution-audit":
         fail("PROFILE_SCOPE_INVALID", "profile owning project or repository differs")
-    if profile["sourceCoordinates"] != EXPECTED_SOURCE_COORDINATES:
+    if not type_strict_equal(profile["sourceCoordinates"], EXPECTED_SOURCE_COORDINATES):
         fail("SOURCE_COORDINATES_INVALID", "profile source coordinates differ from the admitted join floor")
-    if profile["physicalFlightIssue"] != EXPECTED_ISSUE:
+    if not type_strict_equal(profile["physicalFlightIssue"], EXPECTED_ISSUE):
         fail("PHYSICAL_ISSUE_INVALID", "issue #37 must remain the sole physical-flight coordinate")
     if profile["terminalStates"] != list(TERMINALS):
         fail("TERMINAL_DENOMINATOR_INVALID", "terminal state denominator differs")
@@ -290,7 +304,7 @@ def validate_profile(path: Path) -> dict[str, Any]:
         ("authority", "none"),
         ("claimBoundary", CLAIM_BOUNDARY),
     ):
-        if profile[key] != expected:
+        if not type_strict_equal(profile[key], expected):
             fail("PROFILE_NONCLAIM_INVALID", f"profile {key} differs")
     if sha256_bytes(canonical_json_bytes(profile)) != PROFILE_CANONICAL_SHA256:
         fail("PROFILE_CANONICAL_DIGEST_INVALID", "profile canonical digest differs")
@@ -452,9 +466,9 @@ def validate_state(value: Any, profile: dict[str, Any]) -> dict[str, Any]:
         fail("STATE_IDENTITY_INVALID", "state schema or profileId differs")
     if value["joinContractId"] != join_contract_id(profile):
         fail("STATE_JOIN_BINDING_INVALID", "state joinContractId differs")
-    if value["sourceCoordinates"] != profile["sourceCoordinates"]:
+    if not type_strict_equal(value["sourceCoordinates"], profile["sourceCoordinates"]):
         fail("STATE_SOURCE_BINDING_INVALID", "state source coordinates differ")
-    if value["physicalFlightIssue"] != profile["physicalFlightIssue"]:
+    if not type_strict_equal(value["physicalFlightIssue"], profile["physicalFlightIssue"]):
         fail("STATE_ISSUE_BINDING_INVALID", "state physical-flight issue differs")
     validate_checkout_bindings(value["checkoutBindings"])
     validate_private_headers(value["privateCoordinateHeaders"])
@@ -680,7 +694,7 @@ def evaluate_preparation(profile: dict[str, Any], value: Any) -> dict[str, Any]:
             next_safe_action="Compile the deterministic operator card from this exact body-free preparation basis and change nothing else.",
             wake_condition="The card exactly matches the admitted phase plan, private-coordinate set, checkouts, stop conditions, and zero-authority boundary.",
         )
-    if state["executionCard"] != expected_card:
+    if not type_strict_equal(state["executionCard"], expected_card):
         return make_decision(
             profile,
             state,
@@ -734,6 +748,7 @@ def public_status(profile: dict[str, Any], decision: dict[str, Any]) -> dict[str
 
 def build_carrier(*, profile_path: Path, out: Path) -> dict[str, Any]:
     profile = validate_profile(profile_path)
+    ensure_repository_external_output(out)
     if out.exists():
         fail("OUTPUT_EXISTS", "carrier output must not already exist")
     verifier_source = Path(__file__).resolve().with_name("verify_axm_head_physical_long_haul_001_join_v2.py")
@@ -787,6 +802,7 @@ def build_carrier(*, profile_path: Path, out: Path) -> dict[str, Any]:
 
 
 def emit(value: dict[str, Any], out: Path | None = None, *, pretty: bool = False) -> None:
+    ensure_repository_external_output(out)
     data = pretty_json_bytes(value) if pretty else canonical_json_bytes(value)
     if out is not None:
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -795,6 +811,7 @@ def emit(value: dict[str, Any], out: Path | None = None, *, pretty: bool = False
 
 
 def run_bootstrap(carrier: Path, out: Path | None) -> int:
+    ensure_repository_external_output(out)
     bootstrap = Path(__file__).resolve().with_name("verify_axm_head_physical_long_haul_001_join_v2_bootstrap.py")
     command = [sys.executable, str(bootstrap), str(carrier)]
     if out is not None:

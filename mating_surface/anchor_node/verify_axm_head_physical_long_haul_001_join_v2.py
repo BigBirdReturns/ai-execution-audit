@@ -372,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
             "status": "REFUSED",
             "code": exc.code,
             "message": str(exc),
-            "bootstrapAuthenticated": os.environ.get("AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED") == "1",
+            "bootstrapAuthenticated": False,
             "physicalAuthorizationProduced": False,
             "physicalExecutionStarted": False,
             "workersLaunched": 0,

@@ -479,5 +479,77 @@ class JoinV2Tests(unittest.TestCase):
             self.assertNotIn(forbidden, text)
 
 
+    def test_43_caller_supplied_card_type_confusion_refuses(self):
+        cases = (
+            ("action.authorized", lambda card: card["actions"][0].__setitem__("authorized", 0)),
+            ("card.physicalAuthorizationProduced", lambda card: card.__setitem__("physicalAuthorizationProduced", 0)),
+            ("card.actionCount", lambda card: card.__setitem__("actionCount", 12.0)),
+            ("card.firstPhysicalActionOrdinal", lambda card: card.__setitem__("firstPhysicalActionOrdinal", 5.0)),
+        )
+        for label, mutate in cases:
+            with self.subTest(label=label):
+                state = self.full_state(card=True)
+                mutate(state["executionCard"])
+                body = dict(state)
+                body.pop("stateId")
+                state["stateId"] = TOOL.content_id("axmheadjoinstate2", body)
+                decision = TOOL.evaluate_preparation(self.profile, state)
+                self.assertEqual(decision["terminal"], "REFUSED")
+                self.assertIn("EXECUTION_CARD_MISMATCH", decision["reasonCodes"])
+
+    def test_44_issue_binding_type_confusion_refuses(self):
+        state = self.full_state()
+        state["physicalFlightIssue"]["issueNumber"] = 37.0
+        state["preparationBasisId"] = TOOL.content_id(
+            "axmheadjoinbasis2", TOOL.state_basis_body(self.profile, state)
+        )
+        body = dict(state)
+        body.pop("stateId")
+        state["stateId"] = TOOL.content_id("axmheadjoinstate2", body)
+        decision = TOOL.evaluate_preparation(self.profile, state)
+        self.assertEqual(decision["terminal"], "REFUSED")
+        self.assertEqual(decision["errorCode"], "STATE_ISSUE_BINDING_INVALID")
+
+    def test_45_direct_refusal_ignores_forged_authentication_environment(self):
+        carrier = self.build("forged-auth-refusal")
+        (carrier / "EXTRA.txt").write_text("extra\n", encoding="utf-8")
+        env = os.environ.copy()
+        env["AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED"] = "1"
+        env["AXM_HEAD_JOIN_V2_VERIFIER_SHA256"] = TOOL.STANDALONE_VERIFIER_SHA256
+        completed = subprocess.run(
+            [sys.executable, str(carrier / "RECOVERY/verify_join.py"), str(carrier)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 2)
+        self.assertEqual(completed.stderr, b"")
+        refusal = json.loads(completed.stdout)
+        self.assertEqual(refusal["status"], "REFUSED")
+        self.assertFalse(refusal["bootstrapAuthenticated"])
+
+    def test_46_repository_output_is_refused_before_writing(self):
+        carrier = self.build("external-carrier")
+        inside_dir = ANCHOR / ".join-v2-repository-output-refused-test"
+        inside_file = ANCHOR / ".join-v2-repository-output-refused-test.json"
+        try:
+            with self.assertRaisesRegex(TOOL.JoinError, "inside the repository"):
+                TOOL.build_carrier(profile_path=PROFILE_PATH, out=inside_dir)
+            with self.assertRaisesRegex(TOOL.JoinError, "inside the repository"):
+                TOOL.emit({"status": "PASS"}, inside_file)
+            with self.assertRaisesRegex(TOOL.JoinError, "inside the repository"):
+                TOOL.run_bootstrap(carrier, inside_file)
+            self.assertFalse(inside_dir.exists())
+            self.assertFalse(inside_file.exists())
+        finally:
+            if inside_dir.is_dir():
+                shutil.rmtree(inside_dir)
+            elif inside_dir.exists():
+                inside_dir.unlink()
+            if inside_file.exists():
+                inside_file.unlink()
+
+
 if __name__ == "__main__":
     unittest.main()

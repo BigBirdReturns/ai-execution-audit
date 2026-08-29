@@ -9,7 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-EXPECTED_VERIFIER_SHA256 = "47e72c4a0eec643463e17ba4deb16ab345f06fc5e6a191f7e5124d7f92f249a4"
+EXPECTED_VERIFIER_SHA256 = "c0ea446f93c578fcc5adecd19f479078a48bb7c0e1df217fbfd3243d05a5ed0e"
+TRUSTED_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 VERDICT_SCHEMA = "axm-head/physical-long-haul-001-join-verdict@2"
 DIRECT_VERDICT_KEYS = {
     "schema",
@@ -63,6 +64,9 @@ def ensure_output_safe(carrier: Path, out: Path | None) -> None:
         return
     carrier_resolved = carrier.resolve()
     out_resolved = out.resolve(strict=False)
+    repository_resolved = TRUSTED_REPOSITORY_ROOT.resolve()
+    if out_resolved == repository_resolved or repository_resolved in out_resolved.parents:
+        fail("REPOSITORY_OUTPUT_REFUSED", "verdict output may not be written inside the repository")
     if out_resolved == carrier_resolved or carrier_resolved in out_resolved.parents:
         fail("OUTPUT_OVERLAPS_CARRIER", "verdict output may not be inside the measured carrier")
     if out.exists():
