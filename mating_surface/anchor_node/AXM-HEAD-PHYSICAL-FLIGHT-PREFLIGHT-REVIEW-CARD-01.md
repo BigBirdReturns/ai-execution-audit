@@ -73,7 +73,7 @@ No terminal authorizes physical execution. `READY_FOR_HUMAN_REVIEW` means that t
 
 ## Body-free preparation state
 
-The preparation state binds the preflight review-card contract contract, exact source coordinates, issue #37, two checkout receipts, four private coordinate headers, zero activity, absent authorization, and authority `none`. The private headers contain only:
+The preparation state binds the preflight review-card contract, exact source coordinates, issue #37, two checkout receipts, four private coordinate headers, zero activity, absent authorization, and authority `none`. The private headers contain only:
 
 ```text
 label
