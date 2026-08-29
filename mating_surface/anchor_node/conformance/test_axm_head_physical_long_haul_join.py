@@ -294,6 +294,52 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
             forged_result["join"]["reasonCodes"],
         )
 
+        congruent = copy.deepcopy(value)
+        congruent_provenance = congruent["privateEvidenceProvenance"]
+        signature_bytes = mod.base64url_decode(
+            congruent_provenance["signatureBase64Url"],
+            "privateEvidenceProvenance.signatureBase64Url",
+        )
+        signature_integer = int.from_bytes(signature_bytes, "big")
+        modulus = int(TEST_PRIVATE_PROVENANCE_TRUST_ROOT["modulusHex"], 16)
+        congruent_integer = signature_integer + modulus
+        self.assertLess(congruent_integer, 1 << (8 * len(signature_bytes)))
+        congruent_provenance["signatureBase64Url"] = mod.base64url_encode(
+            congruent_integer.to_bytes(len(signature_bytes), "big")
+        )
+        congruent_provenance["provenanceId"] = mod.content_id(
+            "axmheadprivateevidenceprovenance2",
+            mod.body_without(congruent_provenance, "provenanceId"),
+        )
+        congruent_result = self.evaluate_with_test_trust_root(congruent)
+        self.assertEqual(congruent_result["join"]["terminal"], "HOLD")
+        self.assertIn(
+            "PRIVATE_EVIDENCE_PROVENANCE_AUTHENTICATION_FAILED",
+            congruent_result["join"]["reasonCodes"],
+        )
+
+        bad_key_value = {
+            "schema": bootstrap.PRIVATE_SIGNING_KEY_SCHEMA,
+            **mod.PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT,
+            "privateExponentHex": "2",
+        }
+        bad_key_path = self.root / "bad-private-exponent.json"
+        bad_key_path.write_bytes(mod.pretty_json_bytes(bad_key_value))
+        unsigned_input = self.complete()
+        self.retier_private(unsigned_input, "private_local_attested")
+        unsigned_input_path = self.root / "unsigned-private-input.json"
+        unsigned_input_path.write_bytes(mod.pretty_json_bytes(unsigned_input))
+        bad_output = self.root / "bad-private-exponent-output.json"
+        with self.assertRaises(bootstrap.BootstrapError) as context:
+            bootstrap.sign_private_provenance(
+                profile_path=PROFILE,
+                input_path=unsigned_input_path,
+                key_path=bad_key_path,
+                out=bad_output,
+            )
+        self.assertEqual(context.exception.code, "PRIVATE_SIGNING_KEY_SIGNATURE_SELF_CHECK_FAILED")
+        self.assertFalse(bad_output.exists())
+
         value["routeAttestation"]["residentRoute"]["throughputUnits"] += 1
         self.refresh_top(value, "routeAttestation", "routeAttestationId", "axmheadphysicalrouteattestation2")
         tampered = self.evaluate_with_test_trust_root(value)

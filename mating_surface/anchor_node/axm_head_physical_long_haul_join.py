@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_PROFILE = HERE / "axm-head-physical-long-haul-join-profile-01.json"
 DEFAULT_FIXTURES = HERE / "fixtures" / "axm-head-physical-long-haul-join-cases-01.json"
 DEFAULT_VERIFIER = HERE / "verify_axm_head_physical_long_haul_join.py"
-STANDALONE_VERIFIER_SHA256 = "676ac39effb7975b3328cd375930f7db6963e8973cbfc645ff4bcbb7c01f4b55"
+STANDALONE_VERIFIER_SHA256 = "3801e0ffa33eaf8de77aeb72532f04a683faea5b4b4d6b3d453e903c8a015d12"
 ENVELOPE_SCHEMA = "axm-head/physical-long-haul-verifier-envelope@2"
 MAX_JSON_BYTES = 32 * 1024 * 1024
 MAX_VERIFIER_BYTES = 4 * 1024 * 1024
@@ -321,6 +321,15 @@ def sign_private_provenance(*, profile_path: Path, input_path: Path, key_path: P
         payload_bytes = verify.canonical_json_bytes(payload)
         encoded = verify.rsa_pkcs1_v1_5_encoded_message(payload_bytes, key["modulus"])
         signature = pow(int.from_bytes(encoded, "big"), key["privateExponent"], key["modulus"]).to_bytes(len(encoded), "big")
+        if not verify.verify_rsa_pkcs1_v1_5_sha256(
+            payload_bytes,
+            signature,
+            verify.PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT,
+        ):
+            fail(
+                "PRIVATE_SIGNING_KEY_SIGNATURE_SELF_CHECK_FAILED",
+                "private signing key did not produce a signature accepted by the frozen public trust root",
+            )
         body = {
             "schema": verify.PRIVATE_EVIDENCE_PROVENANCE_SCHEMA,
             "profileId": verify.PROFILE_ID,

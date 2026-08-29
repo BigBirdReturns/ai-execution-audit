@@ -310,7 +310,10 @@ def verify_rsa_pkcs1_v1_5_sha256(message: bytes, signature: bytes, trust_root: M
     width = (modulus.bit_length() + 7) // 8
     if len(signature) != width or exponent != 65537:
         return False
-    encoded = pow(int.from_bytes(signature, "big"), exponent, modulus).to_bytes(width, "big")
+    signature_integer = int.from_bytes(signature, "big")
+    if signature_integer >= modulus:
+        return False
+    encoded = pow(signature_integer, exponent, modulus).to_bytes(width, "big")
     try:
         expected = rsa_pkcs1_v1_5_encoded_message(message, modulus)
     except JoinError:
