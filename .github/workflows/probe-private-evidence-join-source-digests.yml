@@ -1,0 +1,61 @@
+name: Probe Private Evidence Join Source Digests
+
+on:
+  push:
+    branches:
+      - work/axm-head-physical-long-haul-private-evidence-join-02
+    paths:
+      - ".github/workflows/probe-private-evidence-join-source-digests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-physical-long-haul-private-evidence-join-02
+          fetch-depth: 1
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Emit exact source identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import hashlib
+          import json
+          from pathlib import Path
+
+          paths = [
+              "mating_surface/anchor_node/axm-head-edge-demo-profile-01.json",
+              "mating_surface/anchor_node/fixtures/axm-head-edge-demo-cases-01.json",
+              "mating_surface/anchor_node/verify_axm_head_volume.py",
+              "mating_surface/anchor_node/verify_axm_head_bootstrap.py",
+              "mating_surface/anchor_node/stc-mary-physical-flight-profile-01.json",
+              "mating_surface/anchor_node/stc-mary-private-flight-packet-profile-01.json",
+              "mating_surface/anchor_node/stc_mary_physical_flight.mjs",
+              "mating_surface/anchor_node/stc_mary_private_flight_packet.mjs",
+              "mating_surface/anchor_node/axm-head-physical-flight-preflight-review-card-01-profile.json",
+              "mating_surface/anchor_node/axm_head_physical_flight_preflight_review_card_01.py",
+              "mating_surface/anchor_node/verify_axm_head_physical_flight_preflight_review_card_01.py",
+          ]
+          for raw in paths:
+              path = Path(raw)
+              data = path.read_bytes()
+              row = {
+                  "path": raw,
+                  "bytes": len(data),
+                  "sha256": hashlib.sha256(data).hexdigest(),
+              }
+              if path.suffix == ".json":
+                  value = json.loads(data.decode("utf-8"))
+                  canonical = (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+                  row["canonicalSha256"] = hashlib.sha256(canonical).hexdigest()
+              print(json.dumps(row, sort_keys=True))
+          PY
