@@ -1,0 +1,149 @@
+name: RPM Agent Evidence Membrane 01
+
+on:
+  push:
+    paths:
+      - ".github/workflows/rpm-agent-evidence-membrane-01.yml"
+      - "mating_surface/anchor_node/RPM-AGENT-EVIDENCE-MEMBRANE-01.md"
+      - "mating_surface/anchor_node/rpm-agent-evidence-membrane-profile-01.json"
+      - "mating_surface/anchor_node/rpm-agent-evidence-membrane.ps1"
+      - "mating_surface/anchor_node/rpm_agent_effects.py"
+      - "mating_surface/anchor_node/rpm_agent_estate_qualifier.py"
+      - "mating_surface/anchor_node/verify_rpm_agent_estate_bootstrap.py"
+      - "mating_surface/anchor_node/verify_rpm_agent_estate_receipt.py"
+      - "mating_surface/anchor_node/conformance/test_rpm_agent_evidence_membrane.py"
+  pull_request:
+    paths:
+      - ".github/workflows/rpm-agent-evidence-membrane-01.yml"
+      - "mating_surface/anchor_node/RPM-AGENT-EVIDENCE-MEMBRANE-01.md"
+      - "mating_surface/anchor_node/rpm-agent-evidence-membrane-profile-01.json"
+      - "mating_surface/anchor_node/rpm-agent-evidence-membrane.ps1"
+      - "mating_surface/anchor_node/rpm_agent_effects.py"
+      - "mating_surface/anchor_node/rpm_agent_estate_qualifier.py"
+      - "mating_surface/anchor_node/verify_rpm_agent_estate_bootstrap.py"
+      - "mating_surface/anchor_node/verify_rpm_agent_estate_receipt.py"
+      - "mating_surface/anchor_node/conformance/test_rpm_agent_evidence_membrane.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Static supplier qualification (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Check out Estate contract
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check out exact public supplier source
+        uses: actions/checkout@v4
+        with:
+          repository: ronit22203/medical-multiturn-assistant
+          ref: a0d32d3dcb1b39567df6bc02268b5452515c7e96
+          path: _supplier/rpm-agent
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Freeze hostile witness denominator
+        shell: bash
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          path = Path("mating_surface/anchor_node/conformance/test_rpm_agent_evidence_membrane.py")
+          tree = ast.parse(path.read_text(encoding="utf-8"))
+          count = sum(
+              1
+              for node in ast.walk(tree)
+              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+              and node.name.startswith("test_")
+          )
+          if count != 36:
+              raise SystemExit(f"hostile witness denominator changed: expected 36, observed {count}")
+          print("hostile_witnesses=36")
+          PY
+
+      - name: Run permanent hostile witnesses
+        shell: bash
+        run: >-
+          python -m unittest
+          mating_surface/anchor_node/conformance/test_rpm_agent_evidence_membrane.py
+          -v
+
+      - name: Qualify exact source without executing it
+        shell: bash
+        run: |
+          mkdir -p _receipts
+          python mating_surface/anchor_node/verify_rpm_agent_estate_bootstrap.py \
+            --upstream _supplier/rpm-agent \
+            --profile mating_surface/anchor_node/rpm-agent-evidence-membrane-profile-01.json \
+            --estate-root . \
+            --out _receipts/qualification-receipt.json \
+            --enforce-profile-expectation
+
+      - name: Independently verify receipt
+        shell: bash
+        run: |
+          python mating_surface/anchor_node/verify_rpm_agent_estate_receipt.py \
+            --profile mating_surface/anchor_node/rpm-agent-evidence-membrane-profile-01.json \
+            --receipt _receipts/qualification-receipt.json \
+            --out _receipts/verification-receipt.json
+
+      - name: Prove supplier checkout remained untouched
+        shell: bash
+        run: |
+          test -z "$(git -C _supplier/rpm-agent status --porcelain)"
+
+      - name: Upload body-free receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-agent-evidence-${{ matrix.os }}
+          path: _receipts/*.json
+          if-no-files-found: error
+          retention-days: 14
+
+  compare:
+    name: Compare authoritative receipt bytes
+    needs: qualify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download platform receipts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rpm-agent-evidence-*
+          path: receipts
+
+      - name: Require platform byte identity
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          for filename in ("qualification-receipt.json", "verification-receipt.json"):
+              paths = sorted(Path("receipts").glob(f"*/{filename}"))
+              if len(paths) != 2:
+                  raise SystemExit(f"expected two {filename} files, observed {len(paths)}")
+              values = [path.read_bytes() for path in paths]
+              if values[0] != values[1]:
+                  raise SystemExit(f"platform byte mismatch for {filename}")
+              digest = hashlib.sha256(values[0]).hexdigest()
+              print(f"{filename}_sha256={digest}")
+          PY
