@@ -1,0 +1,65 @@
+name: JOIN-v2 bounded transport materializer
+
+on:
+  push:
+    branches:
+      - work/axm-head-physical-long-haul-join-01
+    paths:
+      - ".join-v2-transport/READY"
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out transport branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct and hash-check exact source bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import hashlib
+
+          root = Path('.join-v2-transport')
+          chunks = root / 'chunks'
+          assembled = root / 'assembled'
+          assembled.mkdir(parents=True, exist_ok=True)
+
+          targets = {
+              'workflow.yml': ('workflow', 'afb9e44d918028d6aa5e598b5b330212219d0fad4dc1629384c0df3ce6519ee9'),
+              'tests.py': ('tests', 'b5dd1e068f3606c78ba14ad5b6e13ad3a9f2b0034f074103bde6a6863a0489a3'),
+              'verifier.py': ('verifier', 'c580ed079cf3e95f61bd7d78840cea39806955c5d9c26e35f2ed9e89d910b139'),
+          }
+
+          for output_name, (prefix, expected) in targets.items():
+              parts = sorted(chunks.glob(f'{prefix}.*.b64'))
+              if not parts:
+                  raise SystemExit(f'no chunks found for {prefix}')
+              encoded = ''.join(path.read_text(encoding='ascii') for path in parts)
+              data = base64.b64decode(encoded, validate=True)
+              observed = hashlib.sha256(data).hexdigest()
+              if observed != expected:
+                  raise SystemExit(f'{prefix} digest mismatch: expected={expected} observed={observed}')
+              (assembled / output_name).write_bytes(data)
+              print(f'{output_name} {len(data)} {observed}')
+          PY
+
+      - name: Commit assembled ordinary files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'BigBirdReturns'
+          git config user.email 'bigbirdreturns@proton.me'
+          rm -rf .join-v2-transport/chunks .join-v2-transport/READY
+          git add -A .join-v2-transport
+          git commit -m 'Materialize exact JOIN-v2 source blobs'
+          git push origin HEAD:work/axm-head-physical-long-haul-join-01
