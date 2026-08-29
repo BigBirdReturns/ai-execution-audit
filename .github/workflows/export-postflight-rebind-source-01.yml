@@ -20,13 +20,12 @@ jobs:
           ref: work/axm-head-postflight-join-current-conductor-01
           fetch-depth: 0
 
-      - name: Record exact source coordinate
+      - name: Record exact clean source coordinate
         shell: bash
         run: |
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
           git rev-parse HEAD > SOURCE-HEAD.txt
           git rev-parse 'HEAD^{tree}' > SOURCE-TREE.txt
-          git status --porcelain=v1 --untracked-files=all > SOURCE-STATUS.txt
-          test ! -s SOURCE-STATUS.txt
 
       - name: Package complete source checkout
         shell: bash
@@ -34,6 +33,7 @@ jobs:
           tar \
             --exclude=.git \
             --exclude=qualification \
+            --exclude=source.tar.gz \
             --sort=name \
             --mtime='UTC 1980-01-01' \
             --owner=0 \
