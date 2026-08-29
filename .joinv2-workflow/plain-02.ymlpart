@@ -1,0 +1,120 @@
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_axm_head_physical_flight_preflight_review_card_01.py' \
+              -v 2>&1 | tee "$DEST/inherited-preflight-tests.txt"
+            grep -F "Ran 49 tests" "$DEST/inherited-preflight-tests.txt"
+            grep -Fx "OK" "$DEST/inherited-preflight-tests.txt"
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_axm_head_edge_demo.py' \
+              -v 2>&1 | tee "$DEST/inherited-axm-head-tests.txt"
+            grep -F "Ran 38 tests" "$DEST/inherited-axm-head-tests.txt"
+            grep -Fx "OK" "$DEST/inherited-axm-head-tests.txt"
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_stc_mary_flight_conductor.py' \
+              -v 2>&1 | tee "$DEST/inherited-conductor-tests.txt"
+            grep -F "Ran 25 tests" "$DEST/inherited-conductor-tests.txt"
+            grep -Fx "OK" "$DEST/inherited-conductor-tests.txt"
+
+            python - "$PROFILE" <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+
+          root = Path("mating_surface/anchor_node")
+          profile = json.loads(Path(__import__('sys').argv[1]).read_text(encoding="utf-8"))
+
+          def canonical_sha(path: Path) -> str:
+              value = json.loads(path.read_text(encoding="utf-8"))
+              data = (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+              return hashlib.sha256(data).hexdigest()
+
+          def file_sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          observed = {
+              "axmProfileCanonicalSha256": canonical_sha(root / "axm-head-edge-demo-profile-01.json"),
+              "axmFixtureCatalogCanonicalSha256": canonical_sha(root / "fixtures" / "axm-head-edge-demo-cases-01.json"),
+              "axmStandaloneVerifierSha256": file_sha(root / "verify_axm_head_volume.py"),
+              "axmExternalBootstrapSha256": file_sha(root / "verify_axm_head_bootstrap.py"),
+              "conductorProfileRawSha256": file_sha(root / "stc-mary-flight-conductor-profile-01.json"),
+              "physicalFlightProfileCanonicalSha256": canonical_sha(root / "stc-mary-physical-flight-profile-01.json"),
+              "privatePacketProfileCanonicalSha256": canonical_sha(root / "stc-mary-private-flight-packet-profile-01.json"),
+              "preflightProfileCanonicalSha256": canonical_sha(root / "axm-head-physical-flight-preflight-review-card-01-profile.json"),
+              "preflightStandaloneVerifierSha256": file_sha(root / "verify_axm_head_physical_flight_preflight_review_card_01.py"),
+          }
+          if observed != profile["sourceDigests"]:
+              raise SystemExit(f"joined public source digests differ: {observed}")
+          PY
+
+            python - "$FIXTURES" "$TOOL" "$PROFILE" "$DEST/comparison" "$RUNNER_TEMP" <<'PY'
+          from pathlib import Path
+          import json
+          import subprocess
+          import sys
+
+          fixtures_path, tool_path, profile_path, comparison_text, temp_text = sys.argv[1:]
+          catalog = json.loads(Path(fixtures_path).read_text(encoding="utf-8"))
+          comparison = Path(comparison_text)
+          temp = Path(temp_text)
+          for row in catalog["cases"]:
+              case_id = row["caseId"]
+              input_path = temp / f"join-input-{case_id}.json"
+              receipt_path = comparison / f"receipt-{case_id}.json"
+              for path in (input_path, receipt_path):
+                  if path.exists():
+                      path.unlink()
+              subprocess.run(
+                  [sys.executable, tool_path, "emit-fixture", case_id, "--profile", profile_path, "--fixtures", fixtures_path, "--out", str(input_path)],
+                  check=True,
+                  stdout=subprocess.DEVNULL,
+              )
+              result = subprocess.run(
+                  [sys.executable, tool_path, "verify", str(input_path), "--profile", profile_path, "--out", str(receipt_path)],
+                  check=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+              )
+              if result.stderr:
+                  raise SystemExit(f"{case_id}: verifier wrote stderr")
+              if result.stdout != receipt_path.read_bytes():
+                  raise SystemExit(f"{case_id}: stdout and receipt bytes differ")
+              receipt = json.loads(result.stdout.decode("utf-8"))
+              if receipt["bootstrapAuthenticated"] is not True:
+                  raise SystemExit(f"{case_id}: verifier was not externally authenticated")
+              if receipt["join"]["terminal"] != row["expectedTerminal"]:
+                  raise SystemExit(f"{case_id}: terminal differs")
+              if receipt["join"]["reasonCodes"] != row["expectedReasonCodes"]:
+                  raise SystemExit(f"{case_id}: reason codes differ")
+              if receipt["publicStatus"]["privatePhysicalFlightCompleted"] is not False:
+                  raise SystemExit(f"{case_id}: synthetic fixture promoted physical completion")
+              if receipt["publicStatus"]["publicEvidenceBodyCount"] != 0:
+                  raise SystemExit(f"{case_id}: public evidence body count differs")
+              if b"\r\n" in result.stdout:
+                  raise SystemExit(f"{case_id}: authoritative bytes are not LF-only")
+          PY
+          done < "$COORDINATES"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            diff -r "$QUALIFICATION_ROOT/head/comparison" "$QUALIFICATION_ROOT/merge/comparison"
+          fi
+
+      - name: Validate PowerShell wrapper at each coordinate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $coordinates = if ($env:EVENT_NAME -eq 'pull_request') {
+            @(
+              [pscustomobject]@{ Name = 'head'; Ref = $env:PR_HEAD_SHA },
+              [pscustomobject]@{ Name = 'merge'; Ref = $env:EVENT_SHA }
+            )
+          } else {
+            @([pscustomobject]@{ Name = 'source'; Ref = $env:EVENT_SHA })
