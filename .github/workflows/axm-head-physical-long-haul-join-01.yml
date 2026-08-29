@@ -160,11 +160,15 @@ jobs:
               mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json \
               > "$receipts/$name-fixtures.json"
 
+            focused_stdout="$temp_root/tests-$PLATFORM-$name.stdout"
+            focused_stderr="$temp_root/tests-$PLATFORM-$name.txt"
             python -m unittest discover \
               -s mating_surface/anchor_node/conformance \
               -p 'test_axm_head_physical_long_haul_join.py' \
-              -v 2>&1 | tee "$temp_root/tests-$PLATFORM-$name.txt"
-            grep -F "Ran 52 tests" "$temp_root/tests-$PLATFORM-$name.txt"
+              -v > "$focused_stdout" 2> "$focused_stderr"
+            test ! -s "$focused_stdout"
+            cat "$focused_stderr"
+            grep -F "Ran 52 tests" "$focused_stderr"
             if [ "$PLATFORM" = "windows-latest" ]; then
               grep -Fx "OK (skipped=2)" "$temp_root/tests-$PLATFORM-$name.txt"
             else
