@@ -35,7 +35,7 @@ def main() -> int:
         workflow,
         "axm-head-physical-flight-preflight-preflight-review-card-01",
         "axm-head-physical-flight-preflight-review-card-01",
-        4,
+        6,
         "duplicated preflight workflow identity",
     )
 
