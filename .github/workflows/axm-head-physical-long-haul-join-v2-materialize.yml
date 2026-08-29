@@ -53,9 +53,11 @@ jobs:
           d384c1419319fc45b2d3a17d1b51aceda09b370cd27924ad4c3699485ea466b7  .joinv2-transport/payload-01.b64
           782bca8a19ec1cc8a55a716145952e163adc00a412a4ad983b6c051f10b03c20  .joinv2-transport/payload-02.b64
           d6fe94c6346181fa2234f44ffbbc71c5e32158727f7a72aa1b85b8589e4b9662  .joinv2-transport/payload-03.b64
-          736f6fdcb8393ceba87573a7e3f72ef49ba1962a9a69cd14cc7c1dfa483d1351  .joinv2-transport/payload-04.b64
+          c77f0faf01faf37cf2db78f3ec45a7388e2f8862c3f04d1d83ae7ed64b962012  .joinv2-transport/payload-04a.b64
+          630b8014a18e496a20b8a50f0c57e6f44b6d771c102bfbe0a8640f42714d1be8  .joinv2-transport/payload-04b.b64
           365fde6feb22de9ef617936ae543ef69883d0a2767e3157e83d6cef773ca964d  .joinv2-transport/payload-05.b64
-          87e69cbf0d21635e32478b002a8b06fae3b1479ae211fa50cda946eccd628a08  .joinv2-transport/payload-06.b64
+          932292704025e940c86d849fce496098b53b65ea15f5bab5390cfacea544ce7e  .joinv2-transport/payload-06a.b64
+          d631c750a32e250ca92c0f7f18df3ff9356f86dee51fec5ccd023dd1a2955dae  .joinv2-transport/payload-06b.b64
           3f20dc3fbb8068c7b571d2bc1eb78d2da6307b8a045ecdc566d1b3cb96bba6b8  .joinv2-transport/payload-07.b64
           EOF
           sha256sum --check "$RUNNER_TEMP/chunk-sha256.txt"
@@ -139,9 +141,11 @@ jobs:
               ".joinv2-transport/payload-01.b64",
               ".joinv2-transport/payload-02.b64",
               ".joinv2-transport/payload-03.b64",
-              ".joinv2-transport/payload-04.b64",
+              ".joinv2-transport/payload-04a.b64",
+              ".joinv2-transport/payload-04b.b64",
               ".joinv2-transport/payload-05.b64",
-              ".joinv2-transport/payload-06.b64",
+              ".joinv2-transport/payload-06a.b64",
+              ".joinv2-transport/payload-06b.b64",
               ".joinv2-transport/payload-07.b64",
               "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md",
               "mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json",
