@@ -1,0 +1,186 @@
+{
+  "authority": "none",
+  "bootstrapRequired": true,
+  "claimBoundary": "Provider-free postflight verification membrane for one private STC MARY physical-flight self-attestation. It binds exact admitted public sources to allowlisted body-free private receipts, derives route, continuity, two-cell, successor, sealed-package, and authorization-order predicates, and may emit PRIVATE_SELF_ATTESTED only for a complete private_local_attested denominator. It does not launch, authorize, or execute a physical campaign, publish a private body, qualify a representative operator, field network, operational C2 system, production Lattice integration, or grant mission, command, targeting, engagement, effector, or weapons authority.",
+  "dependenciesAbsent": [
+    "AWS",
+    "Lattice",
+    "WAN",
+    "original_host",
+    "remote_model_provider",
+    "repository_history"
+  ],
+  "externalServiceCalls": 0,
+  "fixtureCatalogCanonicalSha256": "54f2e194ec7237225c8163b36c0027a35060473839db0ef099feccb92255cfcc",
+  "listenersCreated": 0,
+  "networkRequired": false,
+  "objectSchemas": [
+    "axm-head/physical-long-haul-profile@2",
+    "axm-head/physical-flight-source-binding@2",
+    "axm-head/physical-route-attestation@2",
+    "axm-head/continuity-attestation@2",
+    "axm-head/two-cell-attestation@2",
+    "axm-head/successor-attestation@2",
+    "axm-head/private-flight-disposition-binding@2",
+    "axm-head/physical-long-haul-join@2",
+    "axm-head/physical-long-haul-verification@2",
+    "axm-head/physical-long-haul-public-status@2"
+  ],
+  "operationalCredentials": 0,
+  "owningProject": "Estate",
+  "owningRepository": "BigBirdReturns/ai-execution-audit",
+  "packetStageSequence": [
+    "VERIFY_INPUTS",
+    "MOUNT_PERSONAL_FLOOR",
+    "BIND_GRACE",
+    "RUN_PERSONAL_FLOOR_BASELINE",
+    "ATTACH_HALO3",
+    "RUN_HALO3_ACCELERATED",
+    "REMOVE_HALO3",
+    "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+    "REMOVE_LATTICE",
+    "VERIFY_LOCAL_CONTINUITY",
+    "PARTITION_TWO_CELLS",
+    "RESTORE_LINK_HOLD_CONFLICT",
+    "REPLACE_HEAD",
+    "REBUILD_PROJECTIONS",
+    "COLD_SUCCESSOR_VERIFY",
+    "SEAL_PRIVATE_EVIDENCE"
+  ],
+  "physicalFlightIssue": {
+    "issueNumber": 37,
+    "repository": "BigBirdReturns/ai-execution-audit",
+    "role": "sole_private_physical_flight_execution_coordinate"
+  },
+  "preflightLaw": {
+    "authority": "none",
+    "authorizedActionCount": 0,
+    "carrierId": "axmheadpreflightcarrier1_decd7e3c9158f25602eeafc4544f09f7570d726ebb9a7758b36a050441338772",
+    "packetStageSequence": [
+      "VERIFY_INPUTS",
+      "MOUNT_PERSONAL_FLOOR",
+      "BIND_GRACE",
+      "RUN_PERSONAL_FLOOR_BASELINE",
+      "ATTACH_HALO3",
+      "RUN_HALO3_ACCELERATED",
+      "REMOVE_HALO3",
+      "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+      "REMOVE_LATTICE",
+      "VERIFY_LOCAL_CONTINUITY",
+      "PARTITION_TWO_CELLS",
+      "RESTORE_LINK_HOLD_CONFLICT",
+      "REPLACE_HEAD",
+      "REBUILD_PROJECTIONS",
+      "COLD_SUCCESSOR_VERIFY",
+      "SEAL_PRIVATE_EVIDENCE"
+    ],
+    "phaseSequence": [
+      "admitted_checkout",
+      "artifact_coordinates",
+      "readiness",
+      "feed",
+      "personal_floor",
+      "halo3",
+      "post_halo3_continuity",
+      "two_cell_partition",
+      "successor_head",
+      "flight_plan",
+      "private_packet",
+      "sealed_flight"
+    ],
+    "physicalAuthorizationProduced": false,
+    "privateEvidenceBodies": 0,
+    "profileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+    "profileId": "axm-head/physical-flight-preflight-review-card@1",
+    "reviewCardActionCount": 12,
+    "standaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+    "stopConditions": [
+      "source_coordinate_drift",
+      "dirty_or_moving_checkout",
+      "private_coordinate_mismatch",
+      "unexpected_worker_or_listener",
+      "authorization_field_present",
+      "authority_not_none",
+      "receipt_refusal",
+      "physical_action_before_separate_authorization"
+    ],
+    "terminal": "READY_FOR_HUMAN_REVIEW"
+  },
+  "privateEvidenceBodiesPublic": 0,
+  "profileId": "axm-head/physical-long-haul-join@2",
+  "publicSources": {
+    "axmRemovableVolumeSupplier": {
+      "commit": "b452bb32e26249deab90db124f157bc62ad0850d",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "role": "admitted_synthetic_contract",
+      "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951"
+    },
+    "physicalFlightExecutionFloor": {
+      "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "role": "admitted_not_executed",
+      "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126"
+    },
+    "preflightReviewCard": {
+      "commit": "ec61bc3488cb5ae06ed9db2862a9f6910d310a79",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "role": "admitted_preflight_law",
+      "tree": "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67"
+    },
+    "stcMaryConductor": {
+      "commit": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "role": "admitted_operator_layer",
+      "tree": "3f708c52782784e687cf1f0b68fd7d37a507ef4c"
+    }
+  },
+  "repositoryOutputAllowed": false,
+  "requiredStageTerminals": {
+    "ATTACH_HALO3": "PASS",
+    "BIND_GRACE": "PASS",
+    "COLD_SUCCESSOR_VERIFY": "PASS",
+    "MOUNT_PERSONAL_FLOOR": "PASS",
+    "PARTITION_TWO_CELLS": "PASS",
+    "REBUILD_PROJECTIONS": "PASS",
+    "REMOVE_HALO3": "PASS",
+    "REMOVE_LATTICE": "PASS",
+    "REPLACE_HEAD": "PASS",
+    "RESTORE_LINK_HOLD_CONFLICT": "HUMAN_REQUIRED",
+    "RUN_HALO3_ACCELERATED": "PASS",
+    "RUN_PERSONAL_FLOOR_BASELINE": "PASS",
+    "SEAL_PRIVATE_EVIDENCE": "PASS",
+    "VERIFY_INPUTS": "PASS",
+    "VERIFY_LOCAL_CONTINUITY": "PASS",
+    "VERIFY_PERSONAL_FLOOR_CONTINUITY": "PASS"
+  },
+  "schema": "axm-head/physical-long-haul-profile@2",
+  "sourceDigests": {
+    "axmExternalBootstrapSha256": "885a2de66ac339d410bfebed97967fd863e3b7ad77ff3f0e9823ce6c94497d76",
+    "axmFixtureCatalogCanonicalSha256": "82e4bf7e8d18fae61a1e17d1cf758d46004d08dd4b877f933be5c96663b67291",
+    "axmProfileCanonicalSha256": "c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078",
+    "axmStandaloneVerifierSha256": "8ca6d225fc162e78fb1af41c9cd89c188491a08fe71a69b58c6c12cd9acf4e44",
+    "physicalFlightProfileCanonicalSha256": "3b987b9288083f52d30ba6fc5598b190169d1b30c1860556b302c7461df246b7",
+    "preflightProfileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+    "preflightStandaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+    "privatePacketProfileCanonicalSha256": "9208b6c28556ee2ba04a1bfdbc792dba457891fa9a8394aa80913a8e66dcd65c"
+  },
+  "standaloneVerifierSha256": "48db79eb2450ccec666469d9fe5281f528925a435f5b2d2e81fc7062b5ac0d3a",
+  "status": "candidate_contract_only",
+  "strongerClaims": {
+    "commandAuthorityGranted": false,
+    "fieldNetworkQualified": false,
+    "missionAuthorityGranted": false,
+    "operationalC2Qualified": false,
+    "physicalEstateQualified": false,
+    "productionLatticeQualified": false,
+    "representativeOperatorQualified": false,
+    "targetingEngagementEffectorOrWeaponsCapability": false
+  },
+  "terminalStates": [
+    "PREPARED_NOT_ARMED",
+    "PRIVATE_SELF_ATTESTED",
+    "HOLD"
+  ],
+  "version": 2,
+  "workersLaunched": 0
+}

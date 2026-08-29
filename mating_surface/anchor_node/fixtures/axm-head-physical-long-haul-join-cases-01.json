@@ -1,0 +1,1466 @@
+{
+  "cases": [
+    {
+      "caseId": "prepared-not-armed",
+      "expectedTerminal": "PREPARED_NOT_ARMED",
+      "input": {
+        "campaignId": "PRIVATE-STC-MARY-FLIGHT-01",
+        "continuity": {
+          "baselineOutputSha256": null,
+          "canonicalStateAfterSha256": null,
+          "canonicalStateBeforeSha256": null,
+          "evidenceTier": "none",
+          "halo3AbsentAfter": false,
+          "independentlyVerified": false,
+          "latticeAbsentDuringLocalContinuity": false,
+          "postRemovalOutputSha256": null,
+          "present": false,
+          "receiptId": null,
+          "residentFloorAvailableAfter": false
+        },
+        "privateDisposition": {
+          "authority": "none",
+          "authorization": {
+            "authorizationSequence": null,
+            "campaignId": "PRIVATE-STC-MARY-FLIGHT-01",
+            "evidenceTier": "none",
+            "firstPhysicalReceiptSequence": null,
+            "namedHumanAuthorityClass": null,
+            "preflightCarrierId": "axmheadpreflightcarrier1_decd7e3c9158f25602eeafc4544f09f7570d726ebb9a7758b36a050441338772",
+            "present": false,
+            "receiptId": null,
+            "schema": "axm-head/named-human-physical-authorization@1",
+            "terminal": "ABSENT"
+          },
+          "canonicalMissionStateSha256": null,
+          "evidenceTier": "none",
+          "present": false,
+          "privateEvidenceBodyCount": 0,
+          "privateMaterialScanTerminal": null,
+          "privatePhysicalFlightCompleted": false,
+          "publicEvidenceBodyCount": 0,
+          "sealedPackageSha256": null,
+          "sealedVerificationTerminal": null,
+          "selfAttestationOnly": false,
+          "sourceDispositionSha256": null,
+          "stageReceipts": [],
+          "strongerClaims": {
+            "commandAuthorityGranted": false,
+            "fieldNetworkQualified": false,
+            "missionAuthorityGranted": false,
+            "operationalC2Qualified": false,
+            "physicalEstateQualified": false,
+            "productionLatticeQualified": false,
+            "representativeOperatorQualified": false,
+            "targetingEngagementEffectorOrWeaponsCapability": false
+          }
+        },
+        "route": {
+          "acceleratorRoute": null,
+          "evidenceTier": "none",
+          "memoryPoolingUsed": false,
+          "present": false,
+          "residentRoute": null
+        },
+        "schema": "axm-head/physical-long-haul-input@2",
+        "sourceBinding": {
+          "physicalFlightIssue": {
+            "issueNumber": 37,
+            "repository": "BigBirdReturns/ai-execution-audit",
+            "role": "sole_private_physical_flight_execution_coordinate"
+          },
+          "preflight": {
+            "authority": "none",
+            "authorizedActionCount": 0,
+            "carrierId": "axmheadpreflightcarrier1_decd7e3c9158f25602eeafc4544f09f7570d726ebb9a7758b36a050441338772",
+            "packetStageSequence": [
+              "VERIFY_INPUTS",
+              "MOUNT_PERSONAL_FLOOR",
+              "BIND_GRACE",
+              "RUN_PERSONAL_FLOOR_BASELINE",
+              "ATTACH_HALO3",
+              "RUN_HALO3_ACCELERATED",
+              "REMOVE_HALO3",
+              "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+              "REMOVE_LATTICE",
+              "VERIFY_LOCAL_CONTINUITY",
+              "PARTITION_TWO_CELLS",
+              "RESTORE_LINK_HOLD_CONFLICT",
+              "REPLACE_HEAD",
+              "REBUILD_PROJECTIONS",
+              "COLD_SUCCESSOR_VERIFY",
+              "SEAL_PRIVATE_EVIDENCE"
+            ],
+            "phaseSequence": [
+              "admitted_checkout",
+              "artifact_coordinates",
+              "readiness",
+              "feed",
+              "personal_floor",
+              "halo3",
+              "post_halo3_continuity",
+              "two_cell_partition",
+              "successor_head",
+              "flight_plan",
+              "private_packet",
+              "sealed_flight"
+            ],
+            "physicalAuthorizationProduced": false,
+            "privateEvidenceBodies": 0,
+            "profileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+            "profileId": "axm-head/physical-flight-preflight-review-card@1",
+            "reviewCardActionCount": 12,
+            "standaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+            "stopConditions": [
+              "source_coordinate_drift",
+              "dirty_or_moving_checkout",
+              "private_coordinate_mismatch",
+              "unexpected_worker_or_listener",
+              "authorization_field_present",
+              "authority_not_none",
+              "receipt_refusal",
+              "physical_action_before_separate_authorization"
+            ],
+            "terminal": "READY_FOR_HUMAN_REVIEW"
+          },
+          "publicSources": {
+            "axmRemovableVolumeSupplier": {
+              "commit": "b452bb32e26249deab90db124f157bc62ad0850d",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_synthetic_contract",
+              "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951"
+            },
+            "physicalFlightExecutionFloor": {
+              "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_not_executed",
+              "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126"
+            },
+            "preflightReviewCard": {
+              "commit": "ec61bc3488cb5ae06ed9db2862a9f6910d310a79",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_preflight_law",
+              "tree": "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67"
+            },
+            "stcMaryConductor": {
+              "commit": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_operator_layer",
+              "tree": "3f708c52782784e687cf1f0b68fd7d37a507ef4c"
+            }
+          },
+          "sourceDigests": {
+            "axmExternalBootstrapSha256": "885a2de66ac339d410bfebed97967fd863e3b7ad77ff3f0e9823ce6c94497d76",
+            "axmFixtureCatalogCanonicalSha256": "82e4bf7e8d18fae61a1e17d1cf758d46004d08dd4b877f933be5c96663b67291",
+            "axmProfileCanonicalSha256": "c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078",
+            "axmStandaloneVerifierSha256": "8ca6d225fc162e78fb1af41c9cd89c188491a08fe71a69b58c6c12cd9acf4e44",
+            "physicalFlightProfileCanonicalSha256": "3b987b9288083f52d30ba6fc5598b190169d1b30c1860556b302c7461df246b7",
+            "preflightProfileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+            "preflightStandaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+            "privatePacketProfileCanonicalSha256": "9208b6c28556ee2ba04a1bfdbc792dba457891fa9a8394aa80913a8e66dcd65c"
+          }
+        },
+        "successor": {
+          "answers": {},
+          "canonicalStateSha256": null,
+          "dependenciesAbsent": [],
+          "evidenceTier": "none",
+          "independentlyVerified": false,
+          "missionId": null,
+          "namedHumanAuthorityClass": null,
+          "nextSafeActionSha256": null,
+          "originalHeadClassSha256": null,
+          "present": false,
+          "proofRootSha256": null,
+          "receiptId": null,
+          "replacementHeadClassSha256": null,
+          "unresolvedObligationCount": 0,
+          "verificationTerminal": null
+        },
+        "twoCell": {
+          "automaticMergeAllowed": false,
+          "commonParentSha256": null,
+          "evidenceTier": "none",
+          "independentlyVerified": false,
+          "leftChildSha256": null,
+          "leftHostClassSha256": null,
+          "present": false,
+          "receiptId": null,
+          "retainedChildSha256": [],
+          "reunionTerminal": null,
+          "rightChildSha256": null,
+          "rightHostClassSha256": null,
+          "unresolvedObligationCount": 0
+        }
+      }
+    },
+    {
+      "caseId": "synthetic-complete-private-shape",
+      "expectedTerminal": "HOLD",
+      "input": {
+        "campaignId": "PRIVATE-STC-MARY-FLIGHT-01",
+        "continuity": {
+          "baselineOutputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+          "canonicalStateAfterSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "canonicalStateBeforeSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "evidenceTier": "synthetic_simulation",
+          "halo3AbsentAfter": true,
+          "independentlyVerified": true,
+          "latticeAbsentDuringLocalContinuity": true,
+          "postRemovalOutputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+          "present": true,
+          "receiptId": "sha256:1ed42e60c7b8dc47fe17ebd3ef8e3ccec30f474955706238f7338f37c03c3d80",
+          "residentFloorAvailableAfter": true
+        },
+        "privateDisposition": {
+          "authority": "none",
+          "authorization": {
+            "authorizationSequence": 0,
+            "campaignId": "PRIVATE-STC-MARY-FLIGHT-01",
+            "evidenceTier": "synthetic_simulation",
+            "firstPhysicalReceiptSequence": 1,
+            "namedHumanAuthorityClass": "GRACE",
+            "preflightCarrierId": "axmheadpreflightcarrier1_decd7e3c9158f25602eeafc4544f09f7570d726ebb9a7758b36a050441338772",
+            "present": true,
+            "receiptId": "sha256:d5754cc3ac3cce4c1d41809990824b104f86f99100128766304387de961002fc",
+            "schema": "axm-head/named-human-physical-authorization@1",
+            "terminal": "AUTHORIZED"
+          },
+          "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "evidenceTier": "synthetic_simulation",
+          "present": true,
+          "privateEvidenceBodyCount": 16,
+          "privateMaterialScanTerminal": "PASS",
+          "privatePhysicalFlightCompleted": true,
+          "publicEvidenceBodyCount": 0,
+          "sealedPackageSha256": "sha256:df3cc7834a154e19bd4de4b82ba1f2868efef3f71d5f53549439532b5537dbcb",
+          "sealedVerificationTerminal": "PASS",
+          "selfAttestationOnly": true,
+          "sourceDispositionSha256": "sha256:2acbb2f1cbaef89c0bef038d2b0b9a6f650b34a1bce0efc90d60d537335e5215",
+          "stageReceipts": [
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:feabd546fce0e18f53565ff8f94ab6213dcc12e92bce334fb597567a928d983e",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:d5754cc3ac3cce4c1d41809990824b104f86f99100128766304387de961002fc",
+              "receiptId": "sha256:6a0839c1b177b3671f88e0960f0b1e3630f1ab3617db9d37cfa9889e08d2ef9e",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 1,
+              "stage": "VERIFY_INPUTS",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:4be3be6322f7d142a3804b4f814d5b140bae57ec5875785728dae2f7d3179ce9",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:6a0839c1b177b3671f88e0960f0b1e3630f1ab3617db9d37cfa9889e08d2ef9e",
+              "receiptId": "sha256:9a7cee877bb364252b836f2af6e94ea42c7bc90536f227062622e875e4624b04",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 2,
+              "stage": "MOUNT_PERSONAL_FLOOR",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:3617a847050744b63b220d5a94a33d9ae0ac0c5e4e512cc27e8104e1069659bd",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:9a7cee877bb364252b836f2af6e94ea42c7bc90536f227062622e875e4624b04",
+              "receiptId": "sha256:f0ec7278637da96923f3b570875d99ceb247dac9fbf04d9ca8e5d8f29388b516",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 3,
+              "stage": "BIND_GRACE",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:4757a923a496161f61a2f046206a7d12ca1f1f670e9009508bb0627977f603b4",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:f0ec7278637da96923f3b570875d99ceb247dac9fbf04d9ca8e5d8f29388b516",
+              "receiptId": "sha256:b7bb6518c891d6b4ad8da56270899b3cec75a7f0ca43b3ea3bd173b7cef3d37b",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 4,
+              "stage": "RUN_PERSONAL_FLOOR_BASELINE",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:6e8019aae2b79c5b83bda2e9a48c7c7b8cba75cda369771b338551be768a7e95",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:b7bb6518c891d6b4ad8da56270899b3cec75a7f0ca43b3ea3bd173b7cef3d37b",
+              "receiptId": "sha256:d0969a782d6af1387c29879dedfae9cc7dd5593b8dc7cac3066e20850cdbcfcb",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 5,
+              "stage": "ATTACH_HALO3",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:0b371d044f7ac9136b719483189eb6bdb00044eb2761603cd94a8d58233f01ab",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:d0969a782d6af1387c29879dedfae9cc7dd5593b8dc7cac3066e20850cdbcfcb",
+              "receiptId": "sha256:c7c591329938d7dc172c63b07a6ed4f85a28d1fb95924207496a52970d8a1cc0",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 6,
+              "stage": "RUN_HALO3_ACCELERATED",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:656d527848170be045b322d8495d7e092407b6e84640ba8a8da6b76873d5625b",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:c7c591329938d7dc172c63b07a6ed4f85a28d1fb95924207496a52970d8a1cc0",
+              "receiptId": "sha256:196db3c0ef700fff87dc0fa541aac4281bc2a89d30e34d3ea86c1b4be3356883",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 7,
+              "stage": "REMOVE_HALO3",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:3f9e241294cd07678e09f070259348826769a332b276a643f6509a868def733f",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:196db3c0ef700fff87dc0fa541aac4281bc2a89d30e34d3ea86c1b4be3356883",
+              "receiptId": "sha256:73cb6ede86c64db7037150023ef516df8810df325e097d49bb50fd54904fb866",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 8,
+              "stage": "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:24b23d70c72ac7c1470adf4eacb9211884e4cf0ed710f4841e70e03dfaaf3b45",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:73cb6ede86c64db7037150023ef516df8810df325e097d49bb50fd54904fb866",
+              "receiptId": "sha256:23f1f856ef6a06d64326b0a58180ccd56763ea420dd3580a249242aed91dcef9",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 9,
+              "stage": "REMOVE_LATTICE",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:a80ca767f86c4baed90aec3c3a3012828b53112288efee848980ec6ba9718754",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:23f1f856ef6a06d64326b0a58180ccd56763ea420dd3580a249242aed91dcef9",
+              "receiptId": "sha256:d3a1e955d0c571ef6089f12e5eb8df693c36a84d542a52b1a90617bddac9d8f0",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 10,
+              "stage": "VERIFY_LOCAL_CONTINUITY",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:c4d41757d3f5e438d0bb6a4c8407febce78bbca2596c84c889abb9379fd16ed5",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:d3a1e955d0c571ef6089f12e5eb8df693c36a84d542a52b1a90617bddac9d8f0",
+              "receiptId": "sha256:923542a0cd7673bdbe99d7a65f3dce1960d9f4312e359b356438bf9d7a617f32",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 11,
+              "stage": "PARTITION_TWO_CELLS",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:53feff87f10eb5255f4b65cc4e307a3ae2e57fc03b50e6421ad53c0148947b47",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:923542a0cd7673bdbe99d7a65f3dce1960d9f4312e359b356438bf9d7a617f32",
+              "receiptId": "sha256:26149b92292861664e0d02a18566c784948438f459fac8645679d80926bf3c56",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 12,
+              "stage": "RESTORE_LINK_HOLD_CONFLICT",
+              "terminal": "HUMAN_REQUIRED"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:82ad59035ab6fa5f61da031f78e84898770135ccd36e339cf3e05d015673ba95",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:26149b92292861664e0d02a18566c784948438f459fac8645679d80926bf3c56",
+              "receiptId": "sha256:f60f7259d3edfef7f565998a79e041ad40d43c37e4b6d4c995078784ceec15cd",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 13,
+              "stage": "REPLACE_HEAD",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:412f9115d1ad3ccf843ec48857a3e4aeeec7c29d51c37a6d2c5016c21ccfb41d",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:f60f7259d3edfef7f565998a79e041ad40d43c37e4b6d4c995078784ceec15cd",
+              "receiptId": "sha256:884d67c8df1f09d60d06f59a1fc164ec7fef677333d269eafa9d613c541a9814",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 14,
+              "stage": "REBUILD_PROJECTIONS",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:04de0fbb7571731d3f7c8ce07a4ccc53f5c94417c5578670f90f1ed88b751376",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:884d67c8df1f09d60d06f59a1fc164ec7fef677333d269eafa9d613c541a9814",
+              "receiptId": "sha256:37854eface7faaff119d4298440ac10000c7c3b5fa820a36d0ef650c55f77817",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 15,
+              "stage": "COLD_SUCCESSOR_VERIFY",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:1b796dcfd110aef63a4398b7d225ad0ee4414eb4403e0d0e464092f0f8e755ae",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:37854eface7faaff119d4298440ac10000c7c3b5fa820a36d0ef650c55f77817",
+              "receiptId": "sha256:25125db81ce0c3308e3c14d79a1b9e710597b890d8f649bf36e91ebc235f83d2",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 16,
+              "stage": "SEAL_PRIVATE_EVIDENCE",
+              "terminal": "PASS"
+            }
+          ],
+          "strongerClaims": {
+            "commandAuthorityGranted": false,
+            "fieldNetworkQualified": false,
+            "missionAuthorityGranted": false,
+            "operationalC2Qualified": false,
+            "physicalEstateQualified": false,
+            "productionLatticeQualified": false,
+            "representativeOperatorQualified": false,
+            "targetingEngagementEffectorOrWeaponsCapability": false
+          }
+        },
+        "route": {
+          "acceleratorRoute": {
+            "classificationSha256": "sha256:aed2a4f4b88fcf9008a4d1134802926003df0c13eb65ccf379c69c259bccbe3e",
+            "independentlyVerified": true,
+            "memoryMiB": 24576,
+            "missionSha256": "sha256:c6137b82820695456043ffaef911b39b1f95904924e35f5baff15ca37b6210c9",
+            "outputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+            "receiptId": "sha256:a4b60de6f2c6088297ac2c143365e23545b6e69ee2aa7ea06db4d7c8668cc7fc",
+            "requiredMemoryMiB": 16384,
+            "routeClass": "optional_accelerator",
+            "throughputMilliItemsPerSecond": 600000,
+            "verifierSha256": "sha256:c49ee9ee6af92c10dcb87865daa011a0d924c4c13fc9b9e414affab778bbd737"
+          },
+          "evidenceTier": "synthetic_simulation",
+          "memoryPoolingUsed": false,
+          "present": true,
+          "residentRoute": {
+            "classificationSha256": "sha256:aed2a4f4b88fcf9008a4d1134802926003df0c13eb65ccf379c69c259bccbe3e",
+            "independentlyVerified": true,
+            "memoryMiB": 32768,
+            "missionSha256": "sha256:c6137b82820695456043ffaef911b39b1f95904924e35f5baff15ca37b6210c9",
+            "outputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+            "receiptId": "sha256:8370258baa7a057a438b2cd9ecaa9f50381e845184692666c1524198b71d5bac",
+            "requiredMemoryMiB": 16384,
+            "routeClass": "resident_personal_floor",
+            "throughputMilliItemsPerSecond": 100000,
+            "verifierSha256": "sha256:c49ee9ee6af92c10dcb87865daa011a0d924c4c13fc9b9e414affab778bbd737"
+          }
+        },
+        "schema": "axm-head/physical-long-haul-input@2",
+        "sourceBinding": {
+          "physicalFlightIssue": {
+            "issueNumber": 37,
+            "repository": "BigBirdReturns/ai-execution-audit",
+            "role": "sole_private_physical_flight_execution_coordinate"
+          },
+          "preflight": {
+            "authority": "none",
+            "authorizedActionCount": 0,
+            "carrierId": "axmheadpreflightcarrier1_decd7e3c9158f25602eeafc4544f09f7570d726ebb9a7758b36a050441338772",
+            "packetStageSequence": [
+              "VERIFY_INPUTS",
+              "MOUNT_PERSONAL_FLOOR",
+              "BIND_GRACE",
+              "RUN_PERSONAL_FLOOR_BASELINE",
+              "ATTACH_HALO3",
+              "RUN_HALO3_ACCELERATED",
+              "REMOVE_HALO3",
+              "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+              "REMOVE_LATTICE",
+              "VERIFY_LOCAL_CONTINUITY",
+              "PARTITION_TWO_CELLS",
+              "RESTORE_LINK_HOLD_CONFLICT",
+              "REPLACE_HEAD",
+              "REBUILD_PROJECTIONS",
+              "COLD_SUCCESSOR_VERIFY",
+              "SEAL_PRIVATE_EVIDENCE"
+            ],
+            "phaseSequence": [
+              "admitted_checkout",
+              "artifact_coordinates",
+              "readiness",
+              "feed",
+              "personal_floor",
+              "halo3",
+              "post_halo3_continuity",
+              "two_cell_partition",
+              "successor_head",
+              "flight_plan",
+              "private_packet",
+              "sealed_flight"
+            ],
+            "physicalAuthorizationProduced": false,
+            "privateEvidenceBodies": 0,
+            "profileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+            "profileId": "axm-head/physical-flight-preflight-review-card@1",
+            "reviewCardActionCount": 12,
+            "standaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+            "stopConditions": [
+              "source_coordinate_drift",
+              "dirty_or_moving_checkout",
+              "private_coordinate_mismatch",
+              "unexpected_worker_or_listener",
+              "authorization_field_present",
+              "authority_not_none",
+              "receipt_refusal",
+              "physical_action_before_separate_authorization"
+            ],
+            "terminal": "READY_FOR_HUMAN_REVIEW"
+          },
+          "publicSources": {
+            "axmRemovableVolumeSupplier": {
+              "commit": "b452bb32e26249deab90db124f157bc62ad0850d",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_synthetic_contract",
+              "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951"
+            },
+            "physicalFlightExecutionFloor": {
+              "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_not_executed",
+              "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126"
+            },
+            "preflightReviewCard": {
+              "commit": "ec61bc3488cb5ae06ed9db2862a9f6910d310a79",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_preflight_law",
+              "tree": "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67"
+            },
+            "stcMaryConductor": {
+              "commit": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_operator_layer",
+              "tree": "3f708c52782784e687cf1f0b68fd7d37a507ef4c"
+            }
+          },
+          "sourceDigests": {
+            "axmExternalBootstrapSha256": "885a2de66ac339d410bfebed97967fd863e3b7ad77ff3f0e9823ce6c94497d76",
+            "axmFixtureCatalogCanonicalSha256": "82e4bf7e8d18fae61a1e17d1cf758d46004d08dd4b877f933be5c96663b67291",
+            "axmProfileCanonicalSha256": "c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078",
+            "axmStandaloneVerifierSha256": "8ca6d225fc162e78fb1af41c9cd89c188491a08fe71a69b58c6c12cd9acf4e44",
+            "physicalFlightProfileCanonicalSha256": "3b987b9288083f52d30ba6fc5598b190169d1b30c1860556b302c7461df246b7",
+            "preflightProfileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+            "preflightStandaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+            "privatePacketProfileCanonicalSha256": "9208b6c28556ee2ba04a1bfdbc792dba457891fa9a8394aa80913a8e66dcd65c"
+          }
+        },
+        "successor": {
+          "answers": {
+            "currentState": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+            "nextSafeAction": "sha256:d42c5028a32e712addceb007011d3a6eed8a669663db42d605cfc2eef9942046",
+            "whatMission": "PRIVATE-STC-MARY-FLIGHT-01",
+            "whatProvesIt": "sha256:126ef00618635fe8e22f0a943d8c72c480fa566fa2600abc1724765738b8d4ef",
+            "whatRemainsUnresolved": "1",
+            "whoMayAct": "GRACE"
+          },
+          "canonicalStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "dependenciesAbsent": [
+            "AWS",
+            "Lattice",
+            "WAN",
+            "original_host",
+            "remote_model_provider",
+            "repository_history"
+          ],
+          "evidenceTier": "synthetic_simulation",
+          "independentlyVerified": true,
+          "missionId": "PRIVATE-STC-MARY-FLIGHT-01",
+          "namedHumanAuthorityClass": "GRACE",
+          "nextSafeActionSha256": "sha256:d42c5028a32e712addceb007011d3a6eed8a669663db42d605cfc2eef9942046",
+          "originalHeadClassSha256": "sha256:d362ba591fd6c1428ca637d58f7f99a6877613beb24d95208bcc1aee42417e5a",
+          "present": true,
+          "proofRootSha256": "sha256:126ef00618635fe8e22f0a943d8c72c480fa566fa2600abc1724765738b8d4ef",
+          "receiptId": "sha256:be8c861a458837587e86fe99ec9c9df6b887fd671392cac470b113b753c7b2eb",
+          "replacementHeadClassSha256": "sha256:22155e75b4235ea1e42272877218922c42e9ab0fac44a06fd6c65e48019538bf",
+          "unresolvedObligationCount": 1,
+          "verificationTerminal": "PASS"
+        },
+        "twoCell": {
+          "automaticMergeAllowed": false,
+          "commonParentSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "evidenceTier": "synthetic_simulation",
+          "independentlyVerified": true,
+          "leftChildSha256": "sha256:93dc320898813a92a77e000609f45517a2c05166e5b25f8cc8c772fd40e512d2",
+          "leftHostClassSha256": "sha256:95d4fa280275f9b212218804dc554b7a58ed5a24767cc4b58bce3b8bc9615777",
+          "present": true,
+          "receiptId": "sha256:df881af78be30aa7378ced28cb436bd7f05f9ee9206a9c5757312b82b8a90b35",
+          "retainedChildSha256": [
+            "sha256:93dc320898813a92a77e000609f45517a2c05166e5b25f8cc8c772fd40e512d2",
+            "sha256:4ff6d635899856dcfc2ed9b9490fa36fb225dcecc7d7fa820a733d8819eda35e"
+          ],
+          "reunionTerminal": "HUMAN_REQUIRED",
+          "rightChildSha256": "sha256:4ff6d635899856dcfc2ed9b9490fa36fb225dcecc7d7fa820a733d8819eda35e",
+          "rightHostClassSha256": "sha256:f45486776102e2a1ce21634abb0db90d836e74016ffe68bc6190cd2bc5d8a28e",
+          "unresolvedObligationCount": 1
+        }
+      }
+    },
+    {
+      "caseId": "synthetic-shortened-stage-denominator",
+      "expectedTerminal": "HOLD",
+      "input": {
+        "campaignId": "PRIVATE-STC-MARY-FLIGHT-01",
+        "continuity": {
+          "baselineOutputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+          "canonicalStateAfterSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "canonicalStateBeforeSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "evidenceTier": "synthetic_simulation",
+          "halo3AbsentAfter": true,
+          "independentlyVerified": true,
+          "latticeAbsentDuringLocalContinuity": true,
+          "postRemovalOutputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+          "present": true,
+          "receiptId": "sha256:1ed42e60c7b8dc47fe17ebd3ef8e3ccec30f474955706238f7338f37c03c3d80",
+          "residentFloorAvailableAfter": true
+        },
+        "privateDisposition": {
+          "authority": "none",
+          "authorization": {
+            "authorizationSequence": 0,
+            "campaignId": "PRIVATE-STC-MARY-FLIGHT-01",
+            "evidenceTier": "synthetic_simulation",
+            "firstPhysicalReceiptSequence": 1,
+            "namedHumanAuthorityClass": "GRACE",
+            "preflightCarrierId": "axmheadpreflightcarrier1_decd7e3c9158f25602eeafc4544f09f7570d726ebb9a7758b36a050441338772",
+            "present": true,
+            "receiptId": "sha256:d5754cc3ac3cce4c1d41809990824b104f86f99100128766304387de961002fc",
+            "schema": "axm-head/named-human-physical-authorization@1",
+            "terminal": "AUTHORIZED"
+          },
+          "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "evidenceTier": "synthetic_simulation",
+          "present": true,
+          "privateEvidenceBodyCount": 15,
+          "privateMaterialScanTerminal": "PASS",
+          "privatePhysicalFlightCompleted": true,
+          "publicEvidenceBodyCount": 0,
+          "sealedPackageSha256": "sha256:df3cc7834a154e19bd4de4b82ba1f2868efef3f71d5f53549439532b5537dbcb",
+          "sealedVerificationTerminal": "PASS",
+          "selfAttestationOnly": true,
+          "sourceDispositionSha256": "sha256:2acbb2f1cbaef89c0bef038d2b0b9a6f650b34a1bce0efc90d60d537335e5215",
+          "stageReceipts": [
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:feabd546fce0e18f53565ff8f94ab6213dcc12e92bce334fb597567a928d983e",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:d5754cc3ac3cce4c1d41809990824b104f86f99100128766304387de961002fc",
+              "receiptId": "sha256:6a0839c1b177b3671f88e0960f0b1e3630f1ab3617db9d37cfa9889e08d2ef9e",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 1,
+              "stage": "VERIFY_INPUTS",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:4be3be6322f7d142a3804b4f814d5b140bae57ec5875785728dae2f7d3179ce9",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:6a0839c1b177b3671f88e0960f0b1e3630f1ab3617db9d37cfa9889e08d2ef9e",
+              "receiptId": "sha256:9a7cee877bb364252b836f2af6e94ea42c7bc90536f227062622e875e4624b04",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 2,
+              "stage": "MOUNT_PERSONAL_FLOOR",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:3617a847050744b63b220d5a94a33d9ae0ac0c5e4e512cc27e8104e1069659bd",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:9a7cee877bb364252b836f2af6e94ea42c7bc90536f227062622e875e4624b04",
+              "receiptId": "sha256:f0ec7278637da96923f3b570875d99ceb247dac9fbf04d9ca8e5d8f29388b516",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 3,
+              "stage": "BIND_GRACE",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:4757a923a496161f61a2f046206a7d12ca1f1f670e9009508bb0627977f603b4",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:f0ec7278637da96923f3b570875d99ceb247dac9fbf04d9ca8e5d8f29388b516",
+              "receiptId": "sha256:b7bb6518c891d6b4ad8da56270899b3cec75a7f0ca43b3ea3bd173b7cef3d37b",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 4,
+              "stage": "RUN_PERSONAL_FLOOR_BASELINE",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:6e8019aae2b79c5b83bda2e9a48c7c7b8cba75cda369771b338551be768a7e95",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:b7bb6518c891d6b4ad8da56270899b3cec75a7f0ca43b3ea3bd173b7cef3d37b",
+              "receiptId": "sha256:d0969a782d6af1387c29879dedfae9cc7dd5593b8dc7cac3066e20850cdbcfcb",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 5,
+              "stage": "ATTACH_HALO3",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:0b371d044f7ac9136b719483189eb6bdb00044eb2761603cd94a8d58233f01ab",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:d0969a782d6af1387c29879dedfae9cc7dd5593b8dc7cac3066e20850cdbcfcb",
+              "receiptId": "sha256:c7c591329938d7dc172c63b07a6ed4f85a28d1fb95924207496a52970d8a1cc0",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 6,
+              "stage": "RUN_HALO3_ACCELERATED",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:656d527848170be045b322d8495d7e092407b6e84640ba8a8da6b76873d5625b",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:c7c591329938d7dc172c63b07a6ed4f85a28d1fb95924207496a52970d8a1cc0",
+              "receiptId": "sha256:196db3c0ef700fff87dc0fa541aac4281bc2a89d30e34d3ea86c1b4be3356883",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 7,
+              "stage": "REMOVE_HALO3",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:3f9e241294cd07678e09f070259348826769a332b276a643f6509a868def733f",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:196db3c0ef700fff87dc0fa541aac4281bc2a89d30e34d3ea86c1b4be3356883",
+              "receiptId": "sha256:73cb6ede86c64db7037150023ef516df8810df325e097d49bb50fd54904fb866",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 8,
+              "stage": "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:24b23d70c72ac7c1470adf4eacb9211884e4cf0ed710f4841e70e03dfaaf3b45",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:73cb6ede86c64db7037150023ef516df8810df325e097d49bb50fd54904fb866",
+              "receiptId": "sha256:23f1f856ef6a06d64326b0a58180ccd56763ea420dd3580a249242aed91dcef9",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 9,
+              "stage": "REMOVE_LATTICE",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:a80ca767f86c4baed90aec3c3a3012828b53112288efee848980ec6ba9718754",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:23f1f856ef6a06d64326b0a58180ccd56763ea420dd3580a249242aed91dcef9",
+              "receiptId": "sha256:d3a1e955d0c571ef6089f12e5eb8df693c36a84d542a52b1a90617bddac9d8f0",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 10,
+              "stage": "VERIFY_LOCAL_CONTINUITY",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:c4d41757d3f5e438d0bb6a4c8407febce78bbca2596c84c889abb9379fd16ed5",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:d3a1e955d0c571ef6089f12e5eb8df693c36a84d542a52b1a90617bddac9d8f0",
+              "receiptId": "sha256:923542a0cd7673bdbe99d7a65f3dce1960d9f4312e359b356438bf9d7a617f32",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 11,
+              "stage": "PARTITION_TWO_CELLS",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:53feff87f10eb5255f4b65cc4e307a3ae2e57fc03b50e6421ad53c0148947b47",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:923542a0cd7673bdbe99d7a65f3dce1960d9f4312e359b356438bf9d7a617f32",
+              "receiptId": "sha256:26149b92292861664e0d02a18566c784948438f459fac8645679d80926bf3c56",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 12,
+              "stage": "RESTORE_LINK_HOLD_CONFLICT",
+              "terminal": "HUMAN_REQUIRED"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:82ad59035ab6fa5f61da031f78e84898770135ccd36e339cf3e05d015673ba95",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:26149b92292861664e0d02a18566c784948438f459fac8645679d80926bf3c56",
+              "receiptId": "sha256:f60f7259d3edfef7f565998a79e041ad40d43c37e4b6d4c995078784ceec15cd",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 13,
+              "stage": "REPLACE_HEAD",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:412f9115d1ad3ccf843ec48857a3e4aeeec7c29d51c37a6d2c5016c21ccfb41d",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:f60f7259d3edfef7f565998a79e041ad40d43c37e4b6d4c995078784ceec15cd",
+              "receiptId": "sha256:884d67c8df1f09d60d06f59a1fc164ec7fef677333d269eafa9d613c541a9814",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 14,
+              "stage": "REBUILD_PROJECTIONS",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:04de0fbb7571731d3f7c8ce07a4ccc53f5c94417c5578670f90f1ed88b751376",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:884d67c8df1f09d60d06f59a1fc164ec7fef677333d269eafa9d613c541a9814",
+              "receiptId": "sha256:37854eface7faaff119d4298440ac10000c7c3b5fa820a36d0ef650c55f77817",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 15,
+              "stage": "COLD_SUCCESSOR_VERIFY",
+              "terminal": "PASS"
+            }
+          ],
+          "strongerClaims": {
+            "commandAuthorityGranted": false,
+            "fieldNetworkQualified": false,
+            "missionAuthorityGranted": false,
+            "operationalC2Qualified": false,
+            "physicalEstateQualified": false,
+            "productionLatticeQualified": false,
+            "representativeOperatorQualified": false,
+            "targetingEngagementEffectorOrWeaponsCapability": false
+          }
+        },
+        "route": {
+          "acceleratorRoute": {
+            "classificationSha256": "sha256:aed2a4f4b88fcf9008a4d1134802926003df0c13eb65ccf379c69c259bccbe3e",
+            "independentlyVerified": true,
+            "memoryMiB": 24576,
+            "missionSha256": "sha256:c6137b82820695456043ffaef911b39b1f95904924e35f5baff15ca37b6210c9",
+            "outputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+            "receiptId": "sha256:a4b60de6f2c6088297ac2c143365e23545b6e69ee2aa7ea06db4d7c8668cc7fc",
+            "requiredMemoryMiB": 16384,
+            "routeClass": "optional_accelerator",
+            "throughputMilliItemsPerSecond": 600000,
+            "verifierSha256": "sha256:c49ee9ee6af92c10dcb87865daa011a0d924c4c13fc9b9e414affab778bbd737"
+          },
+          "evidenceTier": "synthetic_simulation",
+          "memoryPoolingUsed": false,
+          "present": true,
+          "residentRoute": {
+            "classificationSha256": "sha256:aed2a4f4b88fcf9008a4d1134802926003df0c13eb65ccf379c69c259bccbe3e",
+            "independentlyVerified": true,
+            "memoryMiB": 32768,
+            "missionSha256": "sha256:c6137b82820695456043ffaef911b39b1f95904924e35f5baff15ca37b6210c9",
+            "outputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+            "receiptId": "sha256:8370258baa7a057a438b2cd9ecaa9f50381e845184692666c1524198b71d5bac",
+            "requiredMemoryMiB": 16384,
+            "routeClass": "resident_personal_floor",
+            "throughputMilliItemsPerSecond": 100000,
+            "verifierSha256": "sha256:c49ee9ee6af92c10dcb87865daa011a0d924c4c13fc9b9e414affab778bbd737"
+          }
+        },
+        "schema": "axm-head/physical-long-haul-input@2",
+        "sourceBinding": {
+          "physicalFlightIssue": {
+            "issueNumber": 37,
+            "repository": "BigBirdReturns/ai-execution-audit",
+            "role": "sole_private_physical_flight_execution_coordinate"
+          },
+          "preflight": {
+            "authority": "none",
+            "authorizedActionCount": 0,
+            "carrierId": "axmheadpreflightcarrier1_decd7e3c9158f25602eeafc4544f09f7570d726ebb9a7758b36a050441338772",
+            "packetStageSequence": [
+              "VERIFY_INPUTS",
+              "MOUNT_PERSONAL_FLOOR",
+              "BIND_GRACE",
+              "RUN_PERSONAL_FLOOR_BASELINE",
+              "ATTACH_HALO3",
+              "RUN_HALO3_ACCELERATED",
+              "REMOVE_HALO3",
+              "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+              "REMOVE_LATTICE",
+              "VERIFY_LOCAL_CONTINUITY",
+              "PARTITION_TWO_CELLS",
+              "RESTORE_LINK_HOLD_CONFLICT",
+              "REPLACE_HEAD",
+              "REBUILD_PROJECTIONS",
+              "COLD_SUCCESSOR_VERIFY",
+              "SEAL_PRIVATE_EVIDENCE"
+            ],
+            "phaseSequence": [
+              "admitted_checkout",
+              "artifact_coordinates",
+              "readiness",
+              "feed",
+              "personal_floor",
+              "halo3",
+              "post_halo3_continuity",
+              "two_cell_partition",
+              "successor_head",
+              "flight_plan",
+              "private_packet",
+              "sealed_flight"
+            ],
+            "physicalAuthorizationProduced": false,
+            "privateEvidenceBodies": 0,
+            "profileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+            "profileId": "axm-head/physical-flight-preflight-review-card@1",
+            "reviewCardActionCount": 12,
+            "standaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+            "stopConditions": [
+              "source_coordinate_drift",
+              "dirty_or_moving_checkout",
+              "private_coordinate_mismatch",
+              "unexpected_worker_or_listener",
+              "authorization_field_present",
+              "authority_not_none",
+              "receipt_refusal",
+              "physical_action_before_separate_authorization"
+            ],
+            "terminal": "READY_FOR_HUMAN_REVIEW"
+          },
+          "publicSources": {
+            "axmRemovableVolumeSupplier": {
+              "commit": "b452bb32e26249deab90db124f157bc62ad0850d",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_synthetic_contract",
+              "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951"
+            },
+            "physicalFlightExecutionFloor": {
+              "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_not_executed",
+              "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126"
+            },
+            "preflightReviewCard": {
+              "commit": "ec61bc3488cb5ae06ed9db2862a9f6910d310a79",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_preflight_law",
+              "tree": "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67"
+            },
+            "stcMaryConductor": {
+              "commit": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_operator_layer",
+              "tree": "3f708c52782784e687cf1f0b68fd7d37a507ef4c"
+            }
+          },
+          "sourceDigests": {
+            "axmExternalBootstrapSha256": "885a2de66ac339d410bfebed97967fd863e3b7ad77ff3f0e9823ce6c94497d76",
+            "axmFixtureCatalogCanonicalSha256": "82e4bf7e8d18fae61a1e17d1cf758d46004d08dd4b877f933be5c96663b67291",
+            "axmProfileCanonicalSha256": "c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078",
+            "axmStandaloneVerifierSha256": "8ca6d225fc162e78fb1af41c9cd89c188491a08fe71a69b58c6c12cd9acf4e44",
+            "physicalFlightProfileCanonicalSha256": "3b987b9288083f52d30ba6fc5598b190169d1b30c1860556b302c7461df246b7",
+            "preflightProfileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+            "preflightStandaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+            "privatePacketProfileCanonicalSha256": "9208b6c28556ee2ba04a1bfdbc792dba457891fa9a8394aa80913a8e66dcd65c"
+          }
+        },
+        "successor": {
+          "answers": {
+            "currentState": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+            "nextSafeAction": "sha256:d42c5028a32e712addceb007011d3a6eed8a669663db42d605cfc2eef9942046",
+            "whatMission": "PRIVATE-STC-MARY-FLIGHT-01",
+            "whatProvesIt": "sha256:126ef00618635fe8e22f0a943d8c72c480fa566fa2600abc1724765738b8d4ef",
+            "whatRemainsUnresolved": "1",
+            "whoMayAct": "GRACE"
+          },
+          "canonicalStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "dependenciesAbsent": [
+            "AWS",
+            "Lattice",
+            "WAN",
+            "original_host",
+            "remote_model_provider",
+            "repository_history"
+          ],
+          "evidenceTier": "synthetic_simulation",
+          "independentlyVerified": true,
+          "missionId": "PRIVATE-STC-MARY-FLIGHT-01",
+          "namedHumanAuthorityClass": "GRACE",
+          "nextSafeActionSha256": "sha256:d42c5028a32e712addceb007011d3a6eed8a669663db42d605cfc2eef9942046",
+          "originalHeadClassSha256": "sha256:d362ba591fd6c1428ca637d58f7f99a6877613beb24d95208bcc1aee42417e5a",
+          "present": true,
+          "proofRootSha256": "sha256:126ef00618635fe8e22f0a943d8c72c480fa566fa2600abc1724765738b8d4ef",
+          "receiptId": "sha256:be8c861a458837587e86fe99ec9c9df6b887fd671392cac470b113b753c7b2eb",
+          "replacementHeadClassSha256": "sha256:22155e75b4235ea1e42272877218922c42e9ab0fac44a06fd6c65e48019538bf",
+          "unresolvedObligationCount": 1,
+          "verificationTerminal": "PASS"
+        },
+        "twoCell": {
+          "automaticMergeAllowed": false,
+          "commonParentSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "evidenceTier": "synthetic_simulation",
+          "independentlyVerified": true,
+          "leftChildSha256": "sha256:93dc320898813a92a77e000609f45517a2c05166e5b25f8cc8c772fd40e512d2",
+          "leftHostClassSha256": "sha256:95d4fa280275f9b212218804dc554b7a58ed5a24767cc4b58bce3b8bc9615777",
+          "present": true,
+          "receiptId": "sha256:df881af78be30aa7378ced28cb436bd7f05f9ee9206a9c5757312b82b8a90b35",
+          "retainedChildSha256": [
+            "sha256:93dc320898813a92a77e000609f45517a2c05166e5b25f8cc8c772fd40e512d2",
+            "sha256:4ff6d635899856dcfc2ed9b9490fa36fb225dcecc7d7fa820a733d8819eda35e"
+          ],
+          "reunionTerminal": "HUMAN_REQUIRED",
+          "rightChildSha256": "sha256:4ff6d635899856dcfc2ed9b9490fa36fb225dcecc7d7fa820a733d8819eda35e",
+          "rightHostClassSha256": "sha256:f45486776102e2a1ce21634abb0db90d836e74016ffe68bc6190cd2bc5d8a28e",
+          "unresolvedObligationCount": 1
+        }
+      }
+    },
+    {
+      "caseId": "synthetic-same-host-two-cell",
+      "expectedTerminal": "HOLD",
+      "input": {
+        "campaignId": "PRIVATE-STC-MARY-FLIGHT-01",
+        "continuity": {
+          "baselineOutputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+          "canonicalStateAfterSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "canonicalStateBeforeSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "evidenceTier": "synthetic_simulation",
+          "halo3AbsentAfter": true,
+          "independentlyVerified": true,
+          "latticeAbsentDuringLocalContinuity": true,
+          "postRemovalOutputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+          "present": true,
+          "receiptId": "sha256:1ed42e60c7b8dc47fe17ebd3ef8e3ccec30f474955706238f7338f37c03c3d80",
+          "residentFloorAvailableAfter": true
+        },
+        "privateDisposition": {
+          "authority": "none",
+          "authorization": {
+            "authorizationSequence": 0,
+            "campaignId": "PRIVATE-STC-MARY-FLIGHT-01",
+            "evidenceTier": "synthetic_simulation",
+            "firstPhysicalReceiptSequence": 1,
+            "namedHumanAuthorityClass": "GRACE",
+            "preflightCarrierId": "axmheadpreflightcarrier1_decd7e3c9158f25602eeafc4544f09f7570d726ebb9a7758b36a050441338772",
+            "present": true,
+            "receiptId": "sha256:d5754cc3ac3cce4c1d41809990824b104f86f99100128766304387de961002fc",
+            "schema": "axm-head/named-human-physical-authorization@1",
+            "terminal": "AUTHORIZED"
+          },
+          "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "evidenceTier": "synthetic_simulation",
+          "present": true,
+          "privateEvidenceBodyCount": 16,
+          "privateMaterialScanTerminal": "PASS",
+          "privatePhysicalFlightCompleted": true,
+          "publicEvidenceBodyCount": 0,
+          "sealedPackageSha256": "sha256:df3cc7834a154e19bd4de4b82ba1f2868efef3f71d5f53549439532b5537dbcb",
+          "sealedVerificationTerminal": "PASS",
+          "selfAttestationOnly": true,
+          "sourceDispositionSha256": "sha256:2acbb2f1cbaef89c0bef038d2b0b9a6f650b34a1bce0efc90d60d537335e5215",
+          "stageReceipts": [
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:feabd546fce0e18f53565ff8f94ab6213dcc12e92bce334fb597567a928d983e",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:d5754cc3ac3cce4c1d41809990824b104f86f99100128766304387de961002fc",
+              "receiptId": "sha256:6a0839c1b177b3671f88e0960f0b1e3630f1ab3617db9d37cfa9889e08d2ef9e",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 1,
+              "stage": "VERIFY_INPUTS",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:4be3be6322f7d142a3804b4f814d5b140bae57ec5875785728dae2f7d3179ce9",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:6a0839c1b177b3671f88e0960f0b1e3630f1ab3617db9d37cfa9889e08d2ef9e",
+              "receiptId": "sha256:9a7cee877bb364252b836f2af6e94ea42c7bc90536f227062622e875e4624b04",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 2,
+              "stage": "MOUNT_PERSONAL_FLOOR",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:3617a847050744b63b220d5a94a33d9ae0ac0c5e4e512cc27e8104e1069659bd",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:9a7cee877bb364252b836f2af6e94ea42c7bc90536f227062622e875e4624b04",
+              "receiptId": "sha256:f0ec7278637da96923f3b570875d99ceb247dac9fbf04d9ca8e5d8f29388b516",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 3,
+              "stage": "BIND_GRACE",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:4757a923a496161f61a2f046206a7d12ca1f1f670e9009508bb0627977f603b4",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:f0ec7278637da96923f3b570875d99ceb247dac9fbf04d9ca8e5d8f29388b516",
+              "receiptId": "sha256:b7bb6518c891d6b4ad8da56270899b3cec75a7f0ca43b3ea3bd173b7cef3d37b",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 4,
+              "stage": "RUN_PERSONAL_FLOOR_BASELINE",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:6e8019aae2b79c5b83bda2e9a48c7c7b8cba75cda369771b338551be768a7e95",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:b7bb6518c891d6b4ad8da56270899b3cec75a7f0ca43b3ea3bd173b7cef3d37b",
+              "receiptId": "sha256:d0969a782d6af1387c29879dedfae9cc7dd5593b8dc7cac3066e20850cdbcfcb",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 5,
+              "stage": "ATTACH_HALO3",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:0b371d044f7ac9136b719483189eb6bdb00044eb2761603cd94a8d58233f01ab",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:d0969a782d6af1387c29879dedfae9cc7dd5593b8dc7cac3066e20850cdbcfcb",
+              "receiptId": "sha256:c7c591329938d7dc172c63b07a6ed4f85a28d1fb95924207496a52970d8a1cc0",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 6,
+              "stage": "RUN_HALO3_ACCELERATED",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:656d527848170be045b322d8495d7e092407b6e84640ba8a8da6b76873d5625b",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:c7c591329938d7dc172c63b07a6ed4f85a28d1fb95924207496a52970d8a1cc0",
+              "receiptId": "sha256:196db3c0ef700fff87dc0fa541aac4281bc2a89d30e34d3ea86c1b4be3356883",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 7,
+              "stage": "REMOVE_HALO3",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:3f9e241294cd07678e09f070259348826769a332b276a643f6509a868def733f",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:196db3c0ef700fff87dc0fa541aac4281bc2a89d30e34d3ea86c1b4be3356883",
+              "receiptId": "sha256:73cb6ede86c64db7037150023ef516df8810df325e097d49bb50fd54904fb866",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 8,
+              "stage": "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:24b23d70c72ac7c1470adf4eacb9211884e4cf0ed710f4841e70e03dfaaf3b45",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:73cb6ede86c64db7037150023ef516df8810df325e097d49bb50fd54904fb866",
+              "receiptId": "sha256:23f1f856ef6a06d64326b0a58180ccd56763ea420dd3580a249242aed91dcef9",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 9,
+              "stage": "REMOVE_LATTICE",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:a80ca767f86c4baed90aec3c3a3012828b53112288efee848980ec6ba9718754",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:23f1f856ef6a06d64326b0a58180ccd56763ea420dd3580a249242aed91dcef9",
+              "receiptId": "sha256:d3a1e955d0c571ef6089f12e5eb8df693c36a84d542a52b1a90617bddac9d8f0",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 10,
+              "stage": "VERIFY_LOCAL_CONTINUITY",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:c4d41757d3f5e438d0bb6a4c8407febce78bbca2596c84c889abb9379fd16ed5",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:d3a1e955d0c571ef6089f12e5eb8df693c36a84d542a52b1a90617bddac9d8f0",
+              "receiptId": "sha256:923542a0cd7673bdbe99d7a65f3dce1960d9f4312e359b356438bf9d7a617f32",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 11,
+              "stage": "PARTITION_TWO_CELLS",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:53feff87f10eb5255f4b65cc4e307a3ae2e57fc03b50e6421ad53c0148947b47",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:923542a0cd7673bdbe99d7a65f3dce1960d9f4312e359b356438bf9d7a617f32",
+              "receiptId": "sha256:26149b92292861664e0d02a18566c784948438f459fac8645679d80926bf3c56",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 12,
+              "stage": "RESTORE_LINK_HOLD_CONFLICT",
+              "terminal": "HUMAN_REQUIRED"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:82ad59035ab6fa5f61da031f78e84898770135ccd36e339cf3e05d015673ba95",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:26149b92292861664e0d02a18566c784948438f459fac8645679d80926bf3c56",
+              "receiptId": "sha256:f60f7259d3edfef7f565998a79e041ad40d43c37e4b6d4c995078784ceec15cd",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 13,
+              "stage": "REPLACE_HEAD",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:412f9115d1ad3ccf843ec48857a3e4aeeec7c29d51c37a6d2c5016c21ccfb41d",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:f60f7259d3edfef7f565998a79e041ad40d43c37e4b6d4c995078784ceec15cd",
+              "receiptId": "sha256:884d67c8df1f09d60d06f59a1fc164ec7fef677333d269eafa9d613c541a9814",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 14,
+              "stage": "REBUILD_PROJECTIONS",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:04de0fbb7571731d3f7c8ce07a4ccc53f5c94417c5578670f90f1ed88b751376",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:884d67c8df1f09d60d06f59a1fc164ec7fef677333d269eafa9d613c541a9814",
+              "receiptId": "sha256:37854eface7faaff119d4298440ac10000c7c3b5fa820a36d0ef650c55f77817",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 15,
+              "stage": "COLD_SUCCESSOR_VERIFY",
+              "terminal": "PASS"
+            },
+            {
+              "canonicalMissionStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+              "evidenceBodyCount": 1,
+              "evidenceRootSha256": "sha256:1b796dcfd110aef63a4398b7d225ad0ee4414eb4403e0d0e464092f0f8e755ae",
+              "evidenceTier": "synthetic_simulation",
+              "previousReceiptId": "sha256:37854eface7faaff119d4298440ac10000c7c3b5fa820a36d0ef650c55f77817",
+              "receiptId": "sha256:25125db81ce0c3308e3c14d79a1b9e710597b890d8f649bf36e91ebc235f83d2",
+              "schema": "stc-mary/private-flight-stage-receipt@1",
+              "sequence": 16,
+              "stage": "SEAL_PRIVATE_EVIDENCE",
+              "terminal": "PASS"
+            }
+          ],
+          "strongerClaims": {
+            "commandAuthorityGranted": false,
+            "fieldNetworkQualified": false,
+            "missionAuthorityGranted": false,
+            "operationalC2Qualified": false,
+            "physicalEstateQualified": false,
+            "productionLatticeQualified": false,
+            "representativeOperatorQualified": false,
+            "targetingEngagementEffectorOrWeaponsCapability": false
+          }
+        },
+        "route": {
+          "acceleratorRoute": {
+            "classificationSha256": "sha256:aed2a4f4b88fcf9008a4d1134802926003df0c13eb65ccf379c69c259bccbe3e",
+            "independentlyVerified": true,
+            "memoryMiB": 24576,
+            "missionSha256": "sha256:c6137b82820695456043ffaef911b39b1f95904924e35f5baff15ca37b6210c9",
+            "outputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+            "receiptId": "sha256:a4b60de6f2c6088297ac2c143365e23545b6e69ee2aa7ea06db4d7c8668cc7fc",
+            "requiredMemoryMiB": 16384,
+            "routeClass": "optional_accelerator",
+            "throughputMilliItemsPerSecond": 600000,
+            "verifierSha256": "sha256:c49ee9ee6af92c10dcb87865daa011a0d924c4c13fc9b9e414affab778bbd737"
+          },
+          "evidenceTier": "synthetic_simulation",
+          "memoryPoolingUsed": false,
+          "present": true,
+          "residentRoute": {
+            "classificationSha256": "sha256:aed2a4f4b88fcf9008a4d1134802926003df0c13eb65ccf379c69c259bccbe3e",
+            "independentlyVerified": true,
+            "memoryMiB": 32768,
+            "missionSha256": "sha256:c6137b82820695456043ffaef911b39b1f95904924e35f5baff15ca37b6210c9",
+            "outputSha256": "sha256:7b65281fbea7f14036f4b97818da6221e2b2bbc99b19f829b342b00b26880702",
+            "receiptId": "sha256:8370258baa7a057a438b2cd9ecaa9f50381e845184692666c1524198b71d5bac",
+            "requiredMemoryMiB": 16384,
+            "routeClass": "resident_personal_floor",
+            "throughputMilliItemsPerSecond": 100000,
+            "verifierSha256": "sha256:c49ee9ee6af92c10dcb87865daa011a0d924c4c13fc9b9e414affab778bbd737"
+          }
+        },
+        "schema": "axm-head/physical-long-haul-input@2",
+        "sourceBinding": {
+          "physicalFlightIssue": {
+            "issueNumber": 37,
+            "repository": "BigBirdReturns/ai-execution-audit",
+            "role": "sole_private_physical_flight_execution_coordinate"
+          },
+          "preflight": {
+            "authority": "none",
+            "authorizedActionCount": 0,
+            "carrierId": "axmheadpreflightcarrier1_decd7e3c9158f25602eeafc4544f09f7570d726ebb9a7758b36a050441338772",
+            "packetStageSequence": [
+              "VERIFY_INPUTS",
+              "MOUNT_PERSONAL_FLOOR",
+              "BIND_GRACE",
+              "RUN_PERSONAL_FLOOR_BASELINE",
+              "ATTACH_HALO3",
+              "RUN_HALO3_ACCELERATED",
+              "REMOVE_HALO3",
+              "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+              "REMOVE_LATTICE",
+              "VERIFY_LOCAL_CONTINUITY",
+              "PARTITION_TWO_CELLS",
+              "RESTORE_LINK_HOLD_CONFLICT",
+              "REPLACE_HEAD",
+              "REBUILD_PROJECTIONS",
+              "COLD_SUCCESSOR_VERIFY",
+              "SEAL_PRIVATE_EVIDENCE"
+            ],
+            "phaseSequence": [
+              "admitted_checkout",
+              "artifact_coordinates",
+              "readiness",
+              "feed",
+              "personal_floor",
+              "halo3",
+              "post_halo3_continuity",
+              "two_cell_partition",
+              "successor_head",
+              "flight_plan",
+              "private_packet",
+              "sealed_flight"
+            ],
+            "physicalAuthorizationProduced": false,
+            "privateEvidenceBodies": 0,
+            "profileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+            "profileId": "axm-head/physical-flight-preflight-review-card@1",
+            "reviewCardActionCount": 12,
+            "standaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+            "stopConditions": [
+              "source_coordinate_drift",
+              "dirty_or_moving_checkout",
+              "private_coordinate_mismatch",
+              "unexpected_worker_or_listener",
+              "authorization_field_present",
+              "authority_not_none",
+              "receipt_refusal",
+              "physical_action_before_separate_authorization"
+            ],
+            "terminal": "READY_FOR_HUMAN_REVIEW"
+          },
+          "publicSources": {
+            "axmRemovableVolumeSupplier": {
+              "commit": "b452bb32e26249deab90db124f157bc62ad0850d",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_synthetic_contract",
+              "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951"
+            },
+            "physicalFlightExecutionFloor": {
+              "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_not_executed",
+              "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126"
+            },
+            "preflightReviewCard": {
+              "commit": "ec61bc3488cb5ae06ed9db2862a9f6910d310a79",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_preflight_law",
+              "tree": "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67"
+            },
+            "stcMaryConductor": {
+              "commit": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2",
+              "repository": "BigBirdReturns/ai-execution-audit",
+              "role": "admitted_operator_layer",
+              "tree": "3f708c52782784e687cf1f0b68fd7d37a507ef4c"
+            }
+          },
+          "sourceDigests": {
+            "axmExternalBootstrapSha256": "885a2de66ac339d410bfebed97967fd863e3b7ad77ff3f0e9823ce6c94497d76",
+            "axmFixtureCatalogCanonicalSha256": "82e4bf7e8d18fae61a1e17d1cf758d46004d08dd4b877f933be5c96663b67291",
+            "axmProfileCanonicalSha256": "c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078",
+            "axmStandaloneVerifierSha256": "8ca6d225fc162e78fb1af41c9cd89c188491a08fe71a69b58c6c12cd9acf4e44",
+            "physicalFlightProfileCanonicalSha256": "3b987b9288083f52d30ba6fc5598b190169d1b30c1860556b302c7461df246b7",
+            "preflightProfileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+            "preflightStandaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+            "privatePacketProfileCanonicalSha256": "9208b6c28556ee2ba04a1bfdbc792dba457891fa9a8394aa80913a8e66dcd65c"
+          }
+        },
+        "successor": {
+          "answers": {
+            "currentState": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+            "nextSafeAction": "sha256:d42c5028a32e712addceb007011d3a6eed8a669663db42d605cfc2eef9942046",
+            "whatMission": "PRIVATE-STC-MARY-FLIGHT-01",
+            "whatProvesIt": "sha256:126ef00618635fe8e22f0a943d8c72c480fa566fa2600abc1724765738b8d4ef",
+            "whatRemainsUnresolved": "1",
+            "whoMayAct": "GRACE"
+          },
+          "canonicalStateSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "dependenciesAbsent": [
+            "AWS",
+            "Lattice",
+            "WAN",
+            "original_host",
+            "remote_model_provider",
+            "repository_history"
+          ],
+          "evidenceTier": "synthetic_simulation",
+          "independentlyVerified": true,
+          "missionId": "PRIVATE-STC-MARY-FLIGHT-01",
+          "namedHumanAuthorityClass": "GRACE",
+          "nextSafeActionSha256": "sha256:d42c5028a32e712addceb007011d3a6eed8a669663db42d605cfc2eef9942046",
+          "originalHeadClassSha256": "sha256:d362ba591fd6c1428ca637d58f7f99a6877613beb24d95208bcc1aee42417e5a",
+          "present": true,
+          "proofRootSha256": "sha256:126ef00618635fe8e22f0a943d8c72c480fa566fa2600abc1724765738b8d4ef",
+          "receiptId": "sha256:be8c861a458837587e86fe99ec9c9df6b887fd671392cac470b113b753c7b2eb",
+          "replacementHeadClassSha256": "sha256:22155e75b4235ea1e42272877218922c42e9ab0fac44a06fd6c65e48019538bf",
+          "unresolvedObligationCount": 1,
+          "verificationTerminal": "PASS"
+        },
+        "twoCell": {
+          "automaticMergeAllowed": false,
+          "commonParentSha256": "sha256:2ae3c8041d5777f81c23523e2f93b2ffc672c598184ab383396b4bfa4c5cf706",
+          "evidenceTier": "synthetic_simulation",
+          "independentlyVerified": true,
+          "leftChildSha256": "sha256:93dc320898813a92a77e000609f45517a2c05166e5b25f8cc8c772fd40e512d2",
+          "leftHostClassSha256": "sha256:95d4fa280275f9b212218804dc554b7a58ed5a24767cc4b58bce3b8bc9615777",
+          "present": true,
+          "receiptId": "sha256:df881af78be30aa7378ced28cb436bd7f05f9ee9206a9c5757312b82b8a90b35",
+          "retainedChildSha256": [
+            "sha256:93dc320898813a92a77e000609f45517a2c05166e5b25f8cc8c772fd40e512d2",
+            "sha256:4ff6d635899856dcfc2ed9b9490fa36fb225dcecc7d7fa820a733d8819eda35e"
+          ],
+          "reunionTerminal": "HUMAN_REQUIRED",
+          "rightChildSha256": "sha256:4ff6d635899856dcfc2ed9b9490fa36fb225dcecc7d7fa820a733d8819eda35e",
+          "rightHostClassSha256": "sha256:95d4fa280275f9b212218804dc554b7a58ed5a24767cc4b58bce3b8bc9615777",
+          "unresolvedObligationCount": 1
+        }
+      }
+    }
+  ],
+  "schema": "axm-head/physical-long-haul-fixture-catalog@1",
+  "status": "synthetic_qualification_only"
+}
