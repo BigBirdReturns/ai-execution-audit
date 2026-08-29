@@ -67,3 +67,12 @@ jobs:
           }
           print(json.dumps(result, sort_keys=True, indent=2))
           PY
+
+      - name: Preserve non-execution boundary
+        shell: bash
+        run: |
+          test "${{ github.ref_name }}" = "work/axm-head-physical-long-haul-join-01"
+          echo "physicalExecutionStarted=false"
+          echo "workersLaunched=0"
+          echo "listenersCreated=0"
+          echo "authority=none"
