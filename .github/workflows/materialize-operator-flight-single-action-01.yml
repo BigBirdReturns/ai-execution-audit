@@ -1,0 +1,136 @@
+name: Materialize STC MARY single-action operator repair
+
+on:
+  push:
+    branches:
+      - work/operator-flight-single-action-01
+    paths:
+      - ".github/workflows/materialize-operator-flight-single-action-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: materialize-operator-flight-single-action-01
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out exact repair branch
+        uses: actions/checkout@v6
+        with:
+          ref: work/operator-flight-single-action-01
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Reconstruct the authenticated repair program
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import hashlib
+
+          names = [
+              'part-00', 'part-01', 'part-02', 'part-03', 'part-04',
+              'part-050', 'part-051', 'part-052', 'part-053', 'part-06',
+          ]
+          root = Path('.operator-flight-repair')
+          encoded = ''.join(''.join((root / name).read_text(encoding='ascii').split()) for name in names)
+          raw = base64.b64decode(encoded, validate=True)
+          expected = 'a163b49e891a69db4e99bf5edc8a69a573248676f322a6b21ec1b5f95e8990d7'
+          if hashlib.sha256(raw).hexdigest() != expected:
+              raise SystemExit('repair program digest differs')
+          target = root / 'apply.py'
+          target.write_bytes(raw)
+          PY
+
+      - name: Apply the bounded operator-dispatch repair
+        shell: bash
+        run: |
+          python .operator-flight-repair/apply.py
+
+      - name: Qualify source and inherited execution law
+        shell: bash
+        run: |
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_flight_conductor.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py
+          python mating_surface/anchor_node/stc_mary_flight_conductor.py validate-profile \
+            mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_flight_conductor.py' \
+            -v 2>&1 | tee /tmp/conductor-tests.txt
+          grep -F 'Ran 32 tests' /tmp/conductor-tests.txt
+          grep -Fx 'OK' /tmp/conductor-tests.txt
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_local_toolchain.py' \
+            -v
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_offline_carrier.py' \
+            -v
+          git diff --check
+
+      - name: Stage only product, review, and workflow payload bytes
+        shell: bash
+        run: |
+          git config user.name "BigBirdReturns"
+          git config user.email "bigbirdreturns@proton.me"
+          git add \
+            mating_surface/anchor_node/stc_mary_flight_conductor.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py \
+            mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md \
+            .operator-flight-repair/final-workflow.yml
+          rm -f .operator-flight-repair/apply.py
+          git rm \
+            .operator-flight-repair/part-00 \
+            .operator-flight-repair/part-01 \
+            .operator-flight-repair/part-02 \
+            .operator-flight-repair/part-03 \
+            .operator-flight-repair/part-04 \
+            .operator-flight-repair/part-050 \
+            .operator-flight-repair/part-051 \
+            .operator-flight-repair/part-052 \
+            .operator-flight-repair/part-053 \
+            .operator-flight-repair/part-06
+          python - <<'PY'
+          import subprocess
+          expected = {
+              '.operator-flight-repair/final-workflow.yml',
+              '.operator-flight-repair/part-00',
+              '.operator-flight-repair/part-01',
+              '.operator-flight-repair/part-02',
+              '.operator-flight-repair/part-03',
+              '.operator-flight-repair/part-04',
+              '.operator-flight-repair/part-050',
+              '.operator-flight-repair/part-051',
+              '.operator-flight-repair/part-052',
+              '.operator-flight-repair/part-053',
+              '.operator-flight-repair/part-06',
+              'mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md',
+              'mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py',
+              'mating_surface/anchor_node/stc_mary_flight_conductor.py',
+          }
+          actual = set(subprocess.check_output(['git', 'diff', '--cached', '--name-only'], text=True).splitlines())
+          if actual != expected:
+              raise SystemExit(f'staged path denominator differs: missing={sorted(expected-actual)} extra={sorted(actual-expected)}')
+          PY
+          git diff --cached --check
+
+      - name: Commit the qualified repair candidate
+        shell: bash
+        run: |
+          git commit -m "Make operator-flight single-action and fail-closed"
+          git push origin HEAD:refs/heads/work/operator-flight-single-action-01
