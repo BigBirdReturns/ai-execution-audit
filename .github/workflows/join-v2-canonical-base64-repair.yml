@@ -84,19 +84,8 @@ jobs:
           )
           verifier_intermediate = verifier_with_import.replace(old_decode, intermediate_decode, 1)
 
-          test_anchor = '''        self.assertIn(
-              "PRIVATE_EVIDENCE_PROVENANCE_AUTHENTICATION_FAILED",
-              congruent_result["join"]["reasonCodes"],
-          )
-
-          bad_key_value = {
-          '''
-          test_replacement = '''        self.assertIn(
-              "PRIVATE_EVIDENCE_PROVENANCE_AUTHENTICATION_FAILED",
-              congruent_result["join"]["reasonCodes"],
-          )
-
-          noncanonical = copy.deepcopy(value)
+          test_anchor = "        bad_key_value = {\n"
+          test_insertion = '''        noncanonical = copy.deepcopy(value)
           noncanonical_provenance = noncanonical["privateEvidenceProvenance"]
           canonical_signature = noncanonical_provenance["signatureBase64Url"]
           alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
@@ -121,7 +110,7 @@ jobs:
           '''
           if test_original.count(test_anchor) != 1:
               raise SystemExit("canonical-signature witness anchor differs")
-          test_final = test_original.replace(test_anchor, test_replacement, 1)
+          test_final = test_original.replace(test_anchor, test_insertion, 1)
 
           def verifier_sha(text: str) -> str:
               return hashlib.sha256(text.encode("utf-8")).hexdigest()
