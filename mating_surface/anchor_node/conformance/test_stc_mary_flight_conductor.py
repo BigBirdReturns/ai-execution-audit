@@ -3,6 +3,9 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
+import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -194,6 +197,121 @@ class StcMaryFlightConductorWitnesses(unittest.TestCase):
             patch.object(conductor, "import_admitted_validators", return_value={"available": lambda *_: None}),
         ):
             return conductor.derive_status(ws.root, persist=False)
+
+
+    def powershell_executable(self) -> str:
+        candidate = shutil.which("pwsh") or shutil.which("powershell")
+        if candidate is None:
+            if os.name == "nt":
+                self.fail("Windows qualification requires a PowerShell executable")
+            self.skipTest("PowerShell is unavailable on this runner")
+        return candidate
+
+    def operator_fixture(self, *, phase: str = "readiness", fail_command: str | None = None) -> tuple[Path, dict[str, str], Path]:
+        stub_anchor = self.root / "operator-conductor"
+        stub_anchor.mkdir(exist_ok=True)
+        conductor_stub = stub_anchor / "stc-mary-flight-conductor.ps1"
+        conductor_stub.write_text(
+            """[CmdletBinding(PositionalBinding = $false)]
+param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+$ErrorActionPreference = 'Stop'
+if ($env:STC_MARY_STUB_LOG) {
+    Add-Content -LiteralPath $env:STC_MARY_STUB_LOG -Value ('conductor:' + ($Arguments -join ' '))
+}
+if ($env:STC_MARY_STUB_CONDUCTOR_FAIL) { exit 19 }
+@{
+    currentPhase = $env:STC_MARY_STUB_PHASE
+    refusedPhaseCount = 0
+    authority = 'none'
+} | ConvertTo-Json -Compress
+exit 0
+""",
+            encoding="utf-8",
+            newline="\n",
+        )
+
+        tool_anchor = self.repository / "mating_surface" / "anchor_node"
+        tool_anchor.mkdir(parents=True, exist_ok=True)
+        generic_stub = """[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true, Position = 0)][string]$Command,
+    [Parameter(Position = 1, ValueFromRemainingArguments = $true)][string[]]$RemainingArguments
+)
+$ErrorActionPreference = 'Stop'
+Add-Content -LiteralPath $env:STC_MARY_STUB_LOG -Value ($env:STC_MARY_STUB_KIND + ':' + $Command)
+if ($env:STC_MARY_STUB_FAIL_COMMAND -eq $Command) { exit 23 }
+exit 0
+"""
+        for name, kind in (
+            ("stc-mary-local-toolchain.ps1", "tool"),
+            ("stc-mary-offline-carrier.ps1", "carrier"),
+            ("stc-mary-private-flight.ps1", "packet"),
+        ):
+            path = tool_anchor / name
+            path.write_text(generic_stub.replace("$env:STC_MARY_STUB_KIND", f"'{kind}'"), encoding="utf-8", newline="\n")
+
+        if os.name == "nt":
+            python_proxy = self.root / "python-proxy.cmd"
+            python_proxy.write_text(
+                "@echo off\r\n"
+                "if \"%~1\"==\"-c\" (\r\n"
+                "  echo {\"cudaAvailable\":true,\"deviceCount\":1,\"devices\":[0],\"version\":[3,12]}\r\n"
+                "  exit /b 0\r\n"
+                ")\r\n"
+                f"\"{sys.executable}\" %*\r\n"
+                "exit /b %ERRORLEVEL%\r\n",
+                encoding="utf-8",
+                newline="",
+            )
+        else:
+            python_proxy = self.root / "python-proxy.sh"
+            python_proxy.write_text(
+                "#!/usr/bin/env sh\n"
+                "if [ \"$1\" = \"-c\" ]; then\n"
+                "  printf '%s\\n' '{\"cudaAvailable\":true,\"deviceCount\":1,\"devices\":[0],\"version\":[3,12]}'\n"
+                "  exit 0\n"
+                "fi\n"
+                f"exec {shlex.quote(sys.executable)} \"$@\"\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            python_proxy.chmod(0o755)
+
+        arguments = self.init_arguments(out=self.private_parent / f"stc-mary-flight-conductor-operator-{phase.replace('_', '-')}")
+        ledger = {"currentPhase": "admitted_checkout"}
+        with (
+            patch.object(conductor, "HERE", stub_anchor),
+            patch.object(conductor, "git_snapshot", return_value=self.source_receipt()),
+            patch.object(conductor, "derive_status", return_value=ledger),
+            patch.object(conductor, "write_public_projection", return_value={}),
+        ):
+            conductor.initialize_workstation(arguments)
+
+        log = self.root / f"operator-{phase}.log"
+        env = os.environ.copy()
+        env.update(
+            {
+                "STC_MARY_STUB_LOG": str(log),
+                "STC_MARY_STUB_PHASE": phase,
+                "STC_MARY_PYTHON": str(python_proxy),
+            }
+        )
+        if fail_command is not None:
+            env["STC_MARY_STUB_FAIL_COMMAND"] = fail_command
+        return Path(arguments.out).resolve(), env, log
+
+    def run_operator(self, script: Path, arguments: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[bytes]:
+        shell = self.powershell_executable()
+        command = [shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-File", str(script), *arguments]
+        return subprocess.run(
+            command,
+            cwd=self.root,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
 
     def test_01_frozen_profile_validates(self) -> None:
         profile = conductor.load_profile()
@@ -447,6 +565,96 @@ class StcMaryFlightConductorWitnesses(unittest.TestCase):
             self.assertEqual(value["externalServiceCalls"], 0)
             self.assertEqual(value["operationalCredentials"], 0)
             self.assertEqual(value["privateEvidenceBodiesCommittedToPublicGit"], 0)
+
+
+    def test_26_operator_action_vocabulary_is_closed_and_preflight_aligned(self) -> None:
+        self.assertEqual(
+            conductor.OPERATOR_ACTIONS,
+            (
+                "readiness",
+                "feed",
+                "personal-floor",
+                "halo3",
+                "post-halo3-continuity",
+                "two-cell",
+                "successor-head",
+                "compile-plan",
+                "seal",
+            ),
+        )
+        self.assertEqual(set(conductor.OPERATOR_ACTION_PHASES), set(conductor.OPERATOR_ACTIONS))
+        self.assertEqual(conductor.OPERATOR_ACTION_PHASES["seal"], "sealed_flight")
+
+    def test_27_missing_unknown_and_additional_actions_refuse_before_tool_invocation(self) -> None:
+        for index, arguments in enumerate(([], ["unknown-action"], ["readiness", "extra"]), start=1):
+            with self.subTest(arguments=arguments):
+                root, env, log = self.operator_fixture(phase=f"readiness_{index}")
+                result = self.run_operator(root / conductor.OPERATOR_SCRIPT_FILE, arguments, env)
+                self.assertNotEqual(result.returncode, 0)
+                if log.exists():
+                    lines = log.read_text(encoding="utf-8").splitlines()
+                    self.assertFalse(any(line.startswith(("tool:", "carrier:", "packet:")) for line in lines))
+
+    def test_28_readiness_action_invokes_only_doctor(self) -> None:
+        root, env, log = self.operator_fixture(phase="readiness")
+        result = self.run_operator(root / conductor.OPERATOR_SCRIPT_FILE, ["readiness"], env)
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", errors="replace"))
+        lines = log.read_text(encoding="utf-8").splitlines()
+        self.assertEqual([line for line in lines if line.startswith(("tool:", "carrier:", "packet:"))], ["tool:doctor"])
+        ws_paths = conductor.read_json(root / conductor.PATH_MAP_FILE)["paths"]
+        for key in (
+            "feed",
+            "baseline",
+            "baselineVerification",
+            "accelerated",
+            "acceleratedVerification",
+            "continuity",
+            "continuityVerification",
+            "comparison",
+            "cellPair",
+            "reunion",
+            "successor",
+            "plan",
+            "packet",
+            "sealed",
+        ):
+            self.assertFalse(Path(ws_paths[key]).exists(), key)
+
+    def test_29_tool_refusal_stops_without_crossing_action_boundary(self) -> None:
+        root, env, log = self.operator_fixture(phase="readiness", fail_command="doctor")
+        result = self.run_operator(root / conductor.OPERATOR_SCRIPT_FILE, ["readiness"], env)
+        self.assertNotEqual(result.returncode, 0)
+        lines = log.read_text(encoding="utf-8").splitlines()
+        self.assertEqual([line for line in lines if line.startswith(("tool:", "carrier:", "packet:"))], ["tool:doctor"])
+
+    def test_30_wrong_phase_refuses_before_execution_floor_tool_invocation(self) -> None:
+        root, env, log = self.operator_fixture(phase="readiness")
+        result = self.run_operator(root / conductor.OPERATOR_SCRIPT_FILE, ["feed"], env)
+        self.assertNotEqual(result.returncode, 0)
+        lines = log.read_text(encoding="utf-8").splitlines()
+        self.assertFalse(any(line.startswith(("tool:", "carrier:", "packet:")) for line in lines))
+
+    def test_31_two_cell_action_advances_only_one_local_subtransaction(self) -> None:
+        root, env, log = self.operator_fixture(phase="two_cell_partition")
+        result = self.run_operator(root / conductor.OPERATOR_SCRIPT_FILE, ["two-cell"], env)
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", errors="replace"))
+        lines = log.read_text(encoding="utf-8").splitlines()
+        self.assertEqual([line for line in lines if line.startswith(("tool:", "carrier:", "packet:"))], ["carrier:template-inputs"])
+
+    def test_32_successor_action_builds_only_and_never_attests_replacement_host(self) -> None:
+        root, env, log = self.operator_fixture(phase="successor_head")
+        paths = conductor.read_json(root / conductor.PATH_MAP_FILE)["paths"]
+        inputs = Path(paths["offlineInputs"])
+        inputs.mkdir(parents=True)
+        for name in ("common-state.json", "authority.json", "obligations.json", "evidence-envelope.json", "next-safe-action.txt"):
+            (inputs / name).write_text("{}\n" if name.endswith(".json") else "continue\n", encoding="utf-8", newline="\n")
+        result = self.run_operator(root / conductor.OPERATOR_SCRIPT_FILE, ["successor-head"], env)
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", errors="replace"))
+        lines = log.read_text(encoding="utf-8").splitlines()
+        tool_lines = [line for line in lines if line.startswith(("tool:", "carrier:", "packet:"))]
+        self.assertEqual(tool_lines, ["carrier:build-successor"])
+        self.assertFalse(any("verify-successor" in line for line in lines))
+
 
 
 if __name__ == "__main__":
