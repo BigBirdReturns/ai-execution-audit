@@ -217,7 +217,7 @@ jobs:
           workflow = Path(".github/workflows/axm-head-physical-long-haul-join-01.yml").read_text(encoding="utf-8")
           if "permissions:\n  contents: read\n" not in workflow:
               raise SystemExit("permanent workflow is not read-only")
-          for fragment in ("contents: write", "git push", "pull_request_target"):
+          for fragment in ("contents:" + " write", "git" + " push", "pull_request" + "_target"):
               if fragment in workflow:
                   raise SystemExit(f"writable transport fragment remains: {fragment}")
           PY
