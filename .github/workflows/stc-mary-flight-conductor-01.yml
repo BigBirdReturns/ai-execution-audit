@@ -87,7 +87,7 @@ jobs:
             mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json
           git diff --check
 
-      - name: Run the closed 25-witness conductor suite
+      - name: Run the closed 32-witness conductor suite
         shell: bash
         run: |
           mkdir -p qualification/stc-mary-flight-conductor-01
@@ -95,6 +95,12 @@ jobs:
             -s mating_surface/anchor_node/conformance \
             -p 'test_stc_mary_flight_conductor.py' \
             -v 2>&1 | tee qualification/stc-mary-flight-conductor-01/conductor-tests-${{ matrix.os }}.txt
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('qualification/stc-mary-flight-conductor-01/conductor-tests-${{ matrix.os }}.txt').read_text(encoding='utf-8')
+          if 'Ran 32 tests' not in text or '\nOK' not in text:
+              raise SystemExit('closed 32-witness conductor denominator did not pass')
+          PY
 
       - name: Replay the inherited local-toolchain and offline-carrier suites
         shell: bash
@@ -155,7 +161,7 @@ jobs:
               'archiveSha256': hashlib.sha256(archive_bytes).hexdigest(),
               'archiveBytes': len(archive_bytes),
               'tests': logs,
-              'conductorWitnesses': 25,
+              'conductorWitnesses': 32,
               'inheritedLocalToolchainWitnesses': 13,
               'inheritedOfflineCarrierWitnesses': 30,
               'actualReadinessCensusExecuted': False,
@@ -217,4 +223,10 @@ jobs:
           $Conductor = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\stc-mary-flight-conductor.ps1'
           $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\stc-mary-flight-conductor-profile-01.json'
           & $Conductor validate-profile $Profile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover `
+            -s mating_surface/anchor_node/conformance `
+            -p 'test_stc_mary_flight_conductor.py' `
+            -k 'test_28_readiness_action_invokes_only_doctor' `
+            -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
