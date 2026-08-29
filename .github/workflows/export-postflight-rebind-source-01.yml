@@ -1,0 +1,55 @@
+name: Export current-conductor postflight join source
+
+on:
+  push:
+    branches:
+      - work/axm-head-postflight-join-current-conductor-01
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact branch
+        uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-postflight-join-current-conductor-01
+          fetch-depth: 0
+
+      - name: Record exact source coordinate
+        shell: bash
+        run: |
+          git rev-parse HEAD > SOURCE-HEAD.txt
+          git rev-parse 'HEAD^{tree}' > SOURCE-TREE.txt
+          git status --porcelain=v1 --untracked-files=all > SOURCE-STATUS.txt
+          test ! -s SOURCE-STATUS.txt
+
+      - name: Package complete source checkout
+        shell: bash
+        run: |
+          tar \
+            --exclude=.git \
+            --exclude=qualification \
+            --sort=name \
+            --mtime='UTC 1980-01-01' \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            -czf source.tar.gz .
+          sha256sum source.tar.gz > source.tar.gz.sha256
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-postflight-current-conductor-source
+          path: |
+            source.tar.gz
+            source.tar.gz.sha256
+            SOURCE-HEAD.txt
+            SOURCE-TREE.txt
+          if-no-files-found: error
+          retention-days: 3
