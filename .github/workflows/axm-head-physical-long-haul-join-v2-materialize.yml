@@ -54,10 +54,16 @@ jobs:
           782bca8a19ec1cc8a55a716145952e163adc00a412a4ad983b6c051f10b03c20  .joinv2-transport/payload-02.b64
           d6fe94c6346181fa2234f44ffbbc71c5e32158727f7a72aa1b85b8589e4b9662  .joinv2-transport/payload-03.b64
           c77f0faf01faf37cf2db78f3ec45a7388e2f8862c3f04d1d83ae7ed64b962012  .joinv2-transport/payload-04a.b64
-          630b8014a18e496a20b8a50f0c57e6f44b6d771c102bfbe0a8640f42714d1be8  .joinv2-transport/payload-04b.b64
+          cbdc02de369cd5d1d1f0d39dccc085d200103e1e000c634fd268384fbe409509  .joinv2-transport/payload-04b0.b64
+          ac25fad305b8af423f798c646c4f3a196d768ce7f9c3d2fb51f8580a9d343dbd  .joinv2-transport/payload-04b1.b64
+          c565b264acb3a0089725864c6ae7d2e539d75faebfa21bd31c741614973f6976  .joinv2-transport/payload-04b2.b64
+          9e0716067fa805c8449fd94d57b8c8af7849bd1341aa64520b7db3d4a9497a0d  .joinv2-transport/payload-04b3.b64
           365fde6feb22de9ef617936ae543ef69883d0a2767e3157e83d6cef773ca964d  .joinv2-transport/payload-05.b64
           932292704025e940c86d849fce496098b53b65ea15f5bab5390cfacea544ce7e  .joinv2-transport/payload-06a.b64
-          d631c750a32e250ca92c0f7f18df3ff9356f86dee51fec5ccd023dd1a2955dae  .joinv2-transport/payload-06b.b64
+          24cd34c8ec1fe9b570a62dce80d9d80317ed2b29f3aad84286f1db55d19f4574  .joinv2-transport/payload-06b0.b64
+          8c2143bf7bf3fdc54df9f7579973c1ac8e02410c9edabbd2a0b2c8b45bd6c985  .joinv2-transport/payload-06b1.b64
+          163d6ef87d56998da340be44253f43da9eae5265be9198dd2d88c0d442becdda  .joinv2-transport/payload-06b2.b64
+          e2b001431eba86eee015afd643ba138e6f47c2b9918ec7e3affb5d92331738c4  .joinv2-transport/payload-06b3.b64
           3f20dc3fbb8068c7b571d2bc1eb78d2da6307b8a045ecdc566d1b3cb96bba6b8  .joinv2-transport/payload-07.b64
           EOF
           sha256sum --check "$RUNNER_TEMP/chunk-sha256.txt"
@@ -142,10 +148,16 @@ jobs:
               ".joinv2-transport/payload-02.b64",
               ".joinv2-transport/payload-03.b64",
               ".joinv2-transport/payload-04a.b64",
-              ".joinv2-transport/payload-04b.b64",
+              ".joinv2-transport/payload-04b0.b64",
+              ".joinv2-transport/payload-04b1.b64",
+              ".joinv2-transport/payload-04b2.b64",
+              ".joinv2-transport/payload-04b3.b64",
               ".joinv2-transport/payload-05.b64",
               ".joinv2-transport/payload-06a.b64",
-              ".joinv2-transport/payload-06b.b64",
+              ".joinv2-transport/payload-06b0.b64",
+              ".joinv2-transport/payload-06b1.b64",
+              ".joinv2-transport/payload-06b2.b64",
+              ".joinv2-transport/payload-06b3.b64",
               ".joinv2-transport/payload-07.b64",
               "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md",
               "mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json",
