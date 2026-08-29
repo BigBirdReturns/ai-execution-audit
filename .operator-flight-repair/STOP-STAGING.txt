@@ -1,0 +1,1 @@
+No staging path is admissible. The clean publication branch must contain only the four permanent product paths.
