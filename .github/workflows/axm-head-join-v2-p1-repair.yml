@@ -1,0 +1,123 @@
+name: AXM HEAD JOIN v2 P1 Repair
+
+on:
+  push:
+    branches:
+      - work/axm-head-physical-long-haul-join-02
+    paths:
+      - ".join-v2-repair/trigger"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: axm-head-join-v2-p1-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact repair branch
+        uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-physical-long-haul-join-02
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Apply closed P1 repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          tool_path = Path("mating_surface/anchor_node/axm_head_physical_long_haul_join.py")
+          test_path = Path("mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py")
+          workflow_path = Path(".github/workflows/axm-head-physical-long-haul-join-01.yml")
+          payload_path = Path(".join-v2-repair/axm-head-physical-long-haul-join-01.yml.payload")
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected one exact predecessor, observed {count}")
+              return text.replace(old, new, 1)
+
+          tool = tool_path.read_text(encoding="utf-8")
+          tool = replace_once(
+              tool,
+              '    data = canonical_json_bytes(authenticated)\n    if out is not None: out.parent.mkdir(parents=True, exist_ok=True); out.write_bytes(data)\n    sys.stdout.buffer.write(data); return authenticated\n',
+              '    data = canonical_json_bytes(authenticated)\n    if out is not None: out.parent.mkdir(parents=True, exist_ok=True); out.write_bytes(data)\n    return authenticated\n',
+              "bootstrap library emission",
+          )
+          tool = replace_once(
+              tool,
+              '        elif args.command == "verify-join": bootstrap_verify(args.carrier, args.out)\n',
+              '        elif args.command == "verify-join": emit(bootstrap_verify(args.carrier, args.out))\n',
+              "verify-join CLI emission",
+          )
+          tool_path.write_text(tool, encoding="utf-8", newline="\n")
+
+          tests = test_path.read_text(encoding="utf-8")
+          tests = replace_once(
+              tests,
+              'import copy\nimport importlib.util\n',
+              'import contextlib\nimport copy\nimport importlib.util\nimport io\n',
+              "focused test imports",
+          )
+          tests = replace_once(
+              tests,
+              '    def test_external_bootstrap_authenticates(self):\n        td,c=self.build(); out=Path(td.name)/"verdict.json"; receipt=tool.bootstrap_verify(c,out); self.assertTrue(receipt["bootstrapAuthenticated"]); self.assertEqual(out.read_bytes(),tool.canonical_json_bytes(receipt)); td.cleanup()\n',
+              '    def test_external_bootstrap_authenticates_without_stdout(self):\n        td,c=self.build()\n        out=Path(td.name)/"verdict.json"\n        captured=io.BytesIO()\n        text=io.TextIOWrapper(captured,encoding="utf-8",write_through=True)\n        with contextlib.redirect_stdout(text):\n            receipt=tool.bootstrap_verify(c,out)\n        self.assertEqual(captured.getvalue(),b"")\n        self.assertTrue(receipt["bootstrapAuthenticated"])\n        self.assertEqual(out.read_bytes(),tool.canonical_json_bytes(receipt))\n        td.cleanup()\n',
+              "bootstrap silence witness",
+          )
+          test_path.write_text(tests, encoding="utf-8", newline="\n")
+
+          workflow = workflow_path.read_text(encoding="utf-8")
+          workflow = replace_once(
+              workflow,
+              '            python -m unittest discover \\\n              -s mating_surface/anchor_node/conformance \\\n              -p \'test_axm_head_physical_long_haul_join.py\' \\\n              -v 2>&1 | tee "$temp_root/tests-$PLATFORM-$name.txt"\n            grep -F "Ran 52 tests" "$temp_root/tests-$PLATFORM-$name.txt"\n',
+              '            focused_stdout="$temp_root/tests-$PLATFORM-$name.stdout"\n            focused_stderr="$temp_root/tests-$PLATFORM-$name.txt"\n            python -m unittest discover \\\n              -s mating_surface/anchor_node/conformance \\\n              -p \'test_axm_head_physical_long_haul_join.py\' \\\n              -v > "$focused_stdout" 2> "$focused_stderr"\n            test ! -s "$focused_stdout"\n            cat "$focused_stderr"\n            grep -F "Ran 52 tests" "$focused_stderr"\n',
+              "focused qualification stream custody",
+          )
+          payload_path.parent.mkdir(parents=True, exist_ok=True)
+          payload_path.write_text(workflow, encoding="utf-8", newline="\n")
+          PY
+
+      - name: Prove repair locally before transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            mating_surface/anchor_node/axm_head_physical_long_haul_join.py \
+            mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py
+          stdout_log="$RUNNER_TEMP/join-v2-focused.stdout"
+          stderr_log="$RUNNER_TEMP/join-v2-focused.stderr"
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_axm_head_physical_long_haul_join.py' \
+            -v > "$stdout_log" 2> "$stderr_log"
+          test ! -s "$stdout_log"
+          cat "$stderr_log"
+          grep -F "Ran 52 tests" "$stderr_log"
+          grep -Fx "OK" "$stderr_log"
+
+      - name: Publish only non-workflow repaired bytes and workflow payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "BigBirdReturns"
+          git config user.email "bigbirdreturns@proton.me"
+          git add \
+            mating_surface/anchor_node/axm_head_physical_long_haul_join.py \
+            mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py \
+            .join-v2-repair/axm-head-physical-long-haul-join-01.yml.payload
+          git diff --cached --check
+          git diff --cached --quiet && { echo "repair produced no change" >&2; exit 1; }
+          git commit -m "Close JOIN v2 public qualification verdict leakage"
+          git push origin "HEAD:refs/heads/work/axm-head-physical-long-haul-join-02"
