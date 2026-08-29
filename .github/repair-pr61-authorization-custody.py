@@ -179,6 +179,25 @@ def update_fixtures() -> str:
                 "axmheadprivateflightdispositionbinding2",
             )
 
+            if case["caseId"] == "hold-broken-stage-predecessor-chain":
+                receipts = disposition["packet"]["stageReceipts"]
+                receipts[7]["previousReceiptId"] = receipts[0]["receiptId"]
+                refresh(receipts[7], "receiptId", "stcmaryprivateflightstage1")
+                refresh(
+                    disposition,
+                    "dispositionBindingId",
+                    "axmheadprivateflightdispositionbinding2",
+                )
+
+            if case["caseId"] == "hold-successor-answer-forgery":
+                successor = value["successorAttestation"]
+                successor["answers"]["whoMayAct"] = "The preflight card may act."
+                refresh(
+                    successor,
+                    "successorAttestationId",
+                    "axmheadsuccessorattestation2",
+                )
+
         refresh(source, "sourceBindingId", "axmheadphysicalflightsourcebinding2")
         if value.get("privateEvidenceProvenance") is not None:
             raise SystemExit(f"{case['caseId']}: synthetic fixture carries provenance")
