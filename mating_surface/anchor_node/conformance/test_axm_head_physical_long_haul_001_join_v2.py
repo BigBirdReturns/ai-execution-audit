@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ANCHOR = Path(__file__).resolve().parents[1]
 TOOL_PATH = ANCHOR / "axm_head_physical_long_haul_001_join_v2.py"
@@ -571,6 +572,66 @@ class JoinV2Tests(unittest.TestCase):
         refusal = json.loads(result.stdout)
         self.assertEqual(refusal["status"], "REFUSED")
         self.assertFalse(refusal["bootstrapAuthenticated"])
+
+
+    def test_48_direct_verifier_refuses_repository_output_without_mutation(self):
+        carrier = self.build("direct-repository-output")
+        output = ANCHOR / ".join-v2-direct-repository-output-refused.json"
+        try:
+            self.assertFalse(output.exists())
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(carrier / "RECOVERY/verify_join.py"),
+                    str(carrier),
+                    "--out",
+                    str(output),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 2)
+            self.assertEqual(completed.stderr, b"")
+            refusal = json.loads(completed.stdout)
+            self.assertEqual(refusal["status"], "REFUSED")
+            self.assertEqual(refusal["code"], "REPOSITORY_OUTPUT_REFUSED")
+            self.assertFalse(refusal["bootstrapAuthenticated"])
+            self.assertFalse(output.exists())
+        finally:
+            if output.exists():
+                output.unlink()
+
+    def test_49_carrier_io_race_emits_canonical_unauthenticated_refusal(self):
+        carrier = self.build("carrier-io-race")
+        captured = []
+        original_verify = VERIFIER.verify
+
+        def raced_verify(path):
+            with mock.patch.object(Path, "read_bytes", side_effect=OSError("simulated carrier member race")):
+                return original_verify(path)
+
+        def capture_emit(value, out):
+            captured.append((value, out, VERIFIER.canonical_json_bytes(value)))
+
+        with mock.patch.object(VERIFIER, "verify", side_effect=raced_verify), mock.patch.object(
+            VERIFIER, "emit", side_effect=capture_emit
+        ):
+            return_code = VERIFIER.main([str(carrier)])
+
+        self.assertEqual(return_code, 2)
+        self.assertEqual(len(captured), 1)
+        refusal, out, receipt_bytes = captured[0]
+        self.assertIsNone(out)
+        self.assertEqual(refusal["status"], "REFUSED")
+        self.assertEqual(refusal["code"], "CARRIER_IO_FAILED")
+        self.assertFalse(refusal["bootstrapAuthenticated"])
+        self.assertFalse(refusal["physicalAuthorizationProduced"])
+        self.assertFalse(refusal["physicalExecutionStarted"])
+        self.assertEqual(refusal["workersLaunched"], 0)
+        self.assertEqual(refusal["listenersCreated"], 0)
+        self.assertEqual(refusal["authority"], "none")
+        self.assertEqual(json.loads(receipt_bytes), refusal)
 
 
 if __name__ == "__main__":

@@ -204,11 +204,27 @@ def validate_profile(profile: dict[str, Any]) -> None:
         fail("PROFILE_CANONICAL_DIGEST_INVALID", "profile canonical digest differs from the admitted candidate")
 
 
+def containing_git_repository(path: Path) -> Path | None:
+    candidate = path if path.is_dir() else path.parent
+    for ancestor in (candidate, *candidate.parents):
+        if (ancestor / ".git").exists():
+            return ancestor.resolve()
+    return None
+
+
 def ensure_output_safe(carrier: Path, out: Path | None) -> None:
     if out is None:
         return
     carrier_resolved = carrier.resolve()
     out_resolved = out.resolve(strict=False)
+    source_repository = Path(__file__).resolve().parents[2]
+    if (source_repository / ".git").exists() and (
+        out_resolved == source_repository or source_repository in out_resolved.parents
+    ):
+        fail("REPOSITORY_OUTPUT_REFUSED", "verdict output may not be written inside the trusted repository")
+    output_repository = containing_git_repository(out_resolved)
+    if output_repository is not None:
+        fail("REPOSITORY_OUTPUT_REFUSED", "verdict output may not be written inside a Git repository")
     if out_resolved == carrier_resolved or carrier_resolved in out_resolved.parents:
         fail("OUTPUT_OVERLAPS_CARRIER", "verdict output may not be inside the measured carrier")
     if out.exists():
@@ -372,6 +388,21 @@ def main(argv: list[str] | None = None) -> int:
             "status": "REFUSED",
             "code": exc.code,
             "message": str(exc),
+            "bootstrapAuthenticated": False,
+            "physicalAuthorizationProduced": False,
+            "physicalExecutionStarted": False,
+            "workersLaunched": 0,
+            "listenersCreated": 0,
+            "authority": "none",
+        }
+        emit(refused, None)
+        return 2
+    except OSError as exc:
+        refused = {
+            "schema": VERDICT_SCHEMA,
+            "status": "REFUSED",
+            "code": "CARRIER_IO_FAILED",
+            "message": f"carrier I/O failed: {type(exc).__name__}: {exc}",
             "bootstrapAuthenticated": False,
             "physicalAuthorizationProduced": False,
             "physicalExecutionStarted": False,

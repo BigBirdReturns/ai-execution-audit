@@ -166,7 +166,7 @@ The carrier embeds a standard-library verifier under `RECOVERY/verify_join.py`. 
 The external bootstrap reads and hashes the embedded verifier once, then executes those exact measured bytes through a trusted isolated stdin launcher rather than reopening the carrier pathname. It invokes the measured verifier without an authentication channel or output path, requires one canonical direct `PASS` receipt with `bootstrapAuthenticated: false`, validates every physical and authority non-claim, and then constructs the authenticated receipt itself. The admitted verifier digest is:
 
 ```text
-c0ea446f93c578fcc5adecd19f479078a48bb7c0e1df217fbfd3243d05a5ed0e
+ab7d043faf7155880bd025ac2b9bd03400ce8c0b11df2fb5c49e4fb521074289
 ```
 
 A substituted verifier is refused before its bytes run. Direct refusal remains canonical and unauthenticated even when a caller forges legacy environment variables. Verdict output inside the measured carrier, hard-linked to a measured member, or resolved anywhere under the repository root is refused before mutation.
@@ -202,9 +202,9 @@ A successful result is `READY_FOR_HUMAN_REVIEW`, not authorization. The private 
 
 ## Qualification and hostile witnesses
 
-The focused suite contains forty-seven permanent witnesses. It proves the exact source graph, canonical profile digest, issue #37 binding, twelve-phase denominator, sixteen-stage packet denominator, prepared zero-activity state, all four terminals, exact checkout requirements, four-header privacy denominator, deterministic card compilation, unauthorized action state, receipt and stop closure, deterministic carrier bytes, direct-verifier honesty, external verifier authentication, and the closed five-member carrier.
+The focused suite contains forty-nine permanent witnesses. It proves the exact source graph, canonical profile digest, issue #37 binding, twelve-phase denominator, sixteen-stage packet denominator, prepared zero-activity state, all four terminals, exact checkout requirements, four-header privacy denominator, deterministic card compilation, unauthorized action state, receipt and stop closure, deterministic carrier bytes, direct-verifier honesty, external verifier authentication, and the closed five-member carrier.
 
-Hostile witnesses refuse source drift, dirty or moving checkouts, missing headers, symlink roots, duplicate labels, invalid content references, physical execution, worker or listener activity, authority promotion, forged cards, unmanifested files, missing files, re-signed public claim promotion, re-signed preparation activity, Boolean/integer JSON type confusion after complete re-signing in both carrier and private review-card semantics, issue-number type confusion, forged bootstrap environment variables, non-canonical direct refusal, repository-local output, rewritten profile provenance, malicious verifier substitution, post-measurement verifier-path replacement, verdict output overlap, hard-link aliasing, and symlink members.
+Hostile witnesses refuse source drift, dirty or moving checkouts, missing headers, symlink roots, duplicate labels, invalid content references, physical execution, worker or listener activity, authority promotion, forged cards, unmanifested files, missing files, re-signed public claim promotion, re-signed preparation activity, Boolean/integer JSON type confusion after complete re-signing in both carrier and private review-card semantics, issue-number type confusion, forged bootstrap environment variables, non-canonical direct refusal, repository-local builder, bootstrap, and direct-verifier output, canonical carrier-I/O race refusal, rewritten profile provenance, malicious verifier substitution, post-measurement verifier-path replacement, verdict output overlap, hard-link aliasing, and symlink members.
 
 The workflow qualifies both the exact pull-request head and GitHub's synthesized merge coordinate on Ubuntu and Windows, replays the inherited AXM HEAD and flight-conductor suites, validates the PowerShell surface, and compares the canonical prepared carrier, public status, and authenticated verdict bytes across platforms and coordinates.
 
