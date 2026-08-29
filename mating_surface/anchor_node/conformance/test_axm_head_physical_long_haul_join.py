@@ -318,6 +318,27 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
             congruent_result["join"]["reasonCodes"],
         )
 
+        noncanonical = copy.deepcopy(value)
+        noncanonical_provenance = noncanonical["privateEvidenceProvenance"]
+        canonical_signature = noncanonical_provenance["signatureBase64Url"]
+        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        canonical_index = alphabet.index(canonical_signature[-1])
+        self.assertEqual(canonical_index & 0x0F, 0)
+        alias_signature = canonical_signature[:-1] + alphabet[canonical_index | 1]
+        padding = "=" * ((4 - len(canonical_signature) % 4) % 4)
+        self.assertEqual(
+            mod.base64.urlsafe_b64decode((canonical_signature + padding).encode("ascii")),
+            mod.base64.urlsafe_b64decode((alias_signature + padding).encode("ascii")),
+        )
+        noncanonical_provenance["signatureBase64Url"] = alias_signature
+        noncanonical_provenance["provenanceId"] = mod.content_id(
+            "axmheadprivateevidenceprovenance2",
+            mod.body_without(noncanonical_provenance, "provenanceId"),
+        )
+        with self.assertRaises(mod.JoinError) as context:
+            mod.validate_input_value(noncanonical)
+        self.assertEqual(context.exception.code, "PROVENANCE_SIGNATURE_ENCODING_INVALID")
+
         bad_key_value = {
             "schema": bootstrap.PRIVATE_SIGNING_KEY_SCHEMA,
             **mod.PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT,

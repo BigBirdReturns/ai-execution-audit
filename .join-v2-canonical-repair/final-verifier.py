@@ -291,7 +291,6 @@ def base64url_decode(value: str, label: str) -> bytes:
         decoded = base64.urlsafe_b64decode((value + padding).encode("ascii"))
     except (binascii.Error, ValueError, UnicodeError) as exc:
         fail("PROVENANCE_SIGNATURE_ENCODING_INVALID", f"{label}: {exc}")
-    # Temporary repair-carrier marker; absent from the final tree.
     if base64url_encode(decoded) != value:
         fail("PROVENANCE_SIGNATURE_ENCODING_INVALID", f"{label}: noncanonical base64url encoding")
     return decoded
