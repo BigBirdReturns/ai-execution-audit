@@ -34,6 +34,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python .join-v2-chain-repair/hotfix.py
           python .join-v2-chain-repair/repair.py
 
       - name: Prove repaired source before transport
