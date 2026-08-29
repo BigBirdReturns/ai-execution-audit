@@ -55,9 +55,17 @@ jobs:
           if raw.count(old) != 1:
               raise SystemExit('operator script newline repair anchor differs')
           raw = raw.replace(old, new, 1)
-          corrected_expected = 'a150e6dbc7b34a8fceec2864d17b3d0fa724e8c3dec21da984155eca40eeeed7'
+          newline_expected = 'a150e6dbc7b34a8fceec2864d17b3d0fa724e8c3dec21da984155eca40eeeed7'
+          if hashlib.sha256(raw).hexdigest() != newline_expected:
+              raise SystemExit('newline-corrected repair program digest differs')
+          old = b'        text = text.rstrip() + RUNBOOK_SECTION + "\\n"\n'
+          new = b'        text = text.rstrip() + RUNBOOK_SECTION.rstrip() + "\\n"\n'
+          if raw.count(old) != 1:
+              raise SystemExit('runbook trailing-newline repair anchor differs')
+          raw = raw.replace(old, new, 1)
+          corrected_expected = '6c8f66eae190a3c5aa97c77b81c72e895c85d5e43cee698e3e30fc5b467cc1e1'
           if hashlib.sha256(raw).hexdigest() != corrected_expected:
-              raise SystemExit('corrected repair program digest differs')
+              raise SystemExit('fully corrected repair program digest differs')
           target = root / 'apply.py'
           target.write_bytes(raw)
           PY
