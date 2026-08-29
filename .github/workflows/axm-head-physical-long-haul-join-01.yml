@@ -365,6 +365,8 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             git clean -ffdx
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git -c core.autocrlf=false checkout-index --force --all
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
             $Join = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-join.ps1'
             $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-join-profile-01.json'
