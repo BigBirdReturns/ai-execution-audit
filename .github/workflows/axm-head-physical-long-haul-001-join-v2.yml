@@ -81,29 +81,27 @@ jobs:
             printf 'source\t%s\n' "$EVENT_SHA" > "$COORDINATES"
           fi
 
+          REPO_ROOT="$GITHUB_WORKSPACE"
           while IFS=$'\t' read -r COORDINATE EXPECTED_SHA
           do
             [ -n "$COORDINATE" ] || continue
-            git checkout --force --detach "$EXPECTED_SHA"
-            git clean -ffdx
-            git config core.autocrlf false
-            git checkout-index --force --all
-
-            OBSERVED_SHA="$(git rev-parse HEAD)"
-            OBSERVED_TREE="$(git rev-parse 'HEAD^{tree}')"
+            OBSERVED_SHA="$(git -C "$REPO_ROOT" rev-parse "$EXPECTED_SHA^{commit}")"
+            OBSERVED_TREE="$(git -C "$REPO_ROOT" rev-parse "$EXPECTED_SHA^{tree}")"
             if [ "$OBSERVED_SHA" != "$EXPECTED_SHA" ]; then
-              echo "checkout identity differs: expected=$EXPECTED_SHA observed=$OBSERVED_SHA" >&2
+              echo "source identity differs: expected=$EXPECTED_SHA observed=$OBSERVED_SHA" >&2
               exit 1
             fi
-            if [ -n "$(git status --porcelain=v1)" ]; then
-              echo "checkout is not clean before qualification" >&2
-              git status --short >&2
-              exit 1
-            fi
+            git -C "$REPO_ROOT" diff-tree --check "$OBSERVED_SHA^" "$OBSERVED_SHA"
+
+            SOURCE_ROOT="$RUNNER_TEMP/join-v2-source-$PLATFORM-$COORDINATE"
+            rm -rf "$SOURCE_ROOT"
+            mkdir -p "$SOURCE_ROOT"
+            git -C "$REPO_ROOT" archive --format=tar "$OBSERVED_SHA" | tar -xf - -C "$SOURCE_ROOT"
 
             DEST="$QUALIFICATION_ROOT/$COORDINATE"
             rm -rf "$DEST"
             mkdir -p "$DEST"
+            cd "$SOURCE_ROOT"
 
             python - "$DEST/source-identity.json" "$EVENT_NAME" "$COORDINATE" "$EXPECTED_SHA" "$OBSERVED_SHA" "$OBSERVED_TREE" "$PLATFORM" <<'PY'
           from pathlib import Path
@@ -176,7 +174,6 @@ jobs:
 
             python -m py_compile "$TOOL" "$VERIFIER" "$BOOTSTRAP" "$TESTS"
             python "$TOOL" validate-profile "$PROFILE" > "$DEST/profile-validation.json"
-            git diff --check
 
             python -m unittest discover \
               -s mating_surface/anchor_node/conformance \
@@ -207,7 +204,6 @@ jobs:
             python - "$TOOL" "$PROFILE" "$DEST/review-state.json" "$DEST/review-decision.json" <<'PY'
           from pathlib import Path
           import importlib.util
-          import json
           import sys
 
           tool_path, profile_path, state_path, decision_path = map(Path, sys.argv[1:])
@@ -318,6 +314,8 @@ jobs:
           }
           (root / "qualification-receipt.json").write_bytes((json.dumps(value, sort_keys=True, indent=2) + "\n").encode("utf-8"))
           PY
+            cd "$REPO_ROOT"
+            rm -rf "$SOURCE_ROOT"
           done < "$COORDINATES"
 
       - name: Upload exact-coordinate receipts
@@ -359,14 +357,24 @@ jobs:
             @([pscustomobject]@{ Name = 'source'; Ref = $env:EVENT_SHA })
           }
 
+          $RepoRoot = $env:GITHUB_WORKSPACE
           foreach ($coordinate in $coordinates) {
-            git checkout --force --detach $coordinate.Ref
+            $Observed = (git -C $RepoRoot rev-parse "$($coordinate.Ref)^{commit}").Trim()
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            git clean -ffdx
+            if ($Observed -ne $coordinate.Ref) { throw "source identity differs for $($coordinate.Name)" }
+
+            $SourceRoot = Join-Path $env:RUNNER_TEMP "join-v2-source-pwsh-$($coordinate.Name)"
+            $Archive = Join-Path $env:RUNNER_TEMP "join-v2-source-pwsh-$($coordinate.Name).tar"
+            if (Test-Path -LiteralPath $SourceRoot) { Remove-Item -LiteralPath $SourceRoot -Recurse -Force }
+            if (Test-Path -LiteralPath $Archive) { Remove-Item -LiteralPath $Archive -Force }
+            New-Item -ItemType Directory -Path $SourceRoot | Out-Null
+            git -C $RepoRoot archive --format=tar $Observed -o $Archive
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            tar -xf $Archive -C $SourceRoot
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-            $Tool = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-001-join-v2.ps1'
-            $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-001-join-v2-profile.json'
+            $Tool = Join-Path $SourceRoot 'mating_surface\anchor_node\axm-head-physical-long-haul-001-join-v2.ps1'
+            $Profile = Join-Path $SourceRoot 'mating_surface\anchor_node\axm-head-physical-long-haul-001-join-v2-profile.json'
             $Prepared = Join-Path $env:RUNNER_TEMP "join-v2-prepared-$($coordinate.Name).json"
             $Carrier = Join-Path $env:RUNNER_TEMP "join-v2-carrier-pwsh-$($coordinate.Name)"
             $Verdict = Join-Path $env:RUNNER_TEMP "join-v2-verdict-pwsh-$($coordinate.Name).json"
@@ -392,6 +400,8 @@ jobs:
             if ($receipt.physicalExecutionStarted -ne $false) { throw "JOIN-v2 promoted physical execution" }
             if ($receipt.workersLaunched -ne 0 -or $receipt.listenersCreated -ne 0) { throw "JOIN-v2 promoted runtime activity" }
             if ($receipt.authority -ne 'none') { throw "JOIN-v2 promoted authority" }
+            Remove-Item -LiteralPath $SourceRoot -Recurse -Force
+            Remove-Item -LiteralPath $Archive -Force
           }
 
   compare:
