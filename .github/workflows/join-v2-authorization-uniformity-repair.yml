@@ -66,59 +66,52 @@ jobs:
           if verifier_intermediate == verifier_final:
               raise SystemExit("intermediate verifier marker was not inserted")
 
-          old_campaign_test = '''    def test_campaign_identity_mismatch_is_held(self) -> None:
-              value = self.complete()
-              value["continuityAttestation"]["campaignId"] = "OTHER-CAMPAIGN"
-              self.refresh_top(value, "continuityAttestation", "continuityAttestationId", "axmheadcontinuityattestation2")
-              self.assertIn("CAMPAIGN_IDENTITY_MISMATCH", self.evaluate(value)["join"]["reasonCodes"])
-          '''
-          new_campaign_test = '''    def test_campaign_identity_mismatch_is_held(self) -> None:
-              value = self.complete()
-              value["continuityAttestation"]["campaignId"] = "OTHER-CAMPAIGN"
-              self.refresh_top(value, "continuityAttestation", "continuityAttestationId", "axmheadcontinuityattestation2")
-              self.assertIn("CAMPAIGN_IDENTITY_MISMATCH", self.evaluate(value)["join"]["reasonCodes"])
+          def append_witness(text: str, start_marker: str, next_marker: str, witness_lines: list[str], sentinel: str) -> str:
+              if sentinel in text:
+                  raise SystemExit(f"witness already present: {sentinel}")
+              if text.count(start_marker) != 1 or text.count(next_marker) != 1:
+                  raise SystemExit(f"method boundary differs: {start_marker.strip()}")
+              start = text.index(start_marker)
+              end = text.index(next_marker, start + len(start_marker))
+              segment = text[start:end].rstrip("\n")
+              witness = "\n".join(witness_lines)
+              return text[:start] + segment + "\n\n" + witness + "\n\n" + text[end:]
 
-              signed = self.complete()
-              self.retier_private(signed, "private_local_attested")
-              self.replace_authorization(signed, lambda auth: auth.update({"campaignId": "OTHER-CAMPAIGN"}))
-              self.sign_private_with_test_root(signed)
-              result = self.evaluate_with_test_trust_root(signed)
-              self.assertEqual(result["join"]["terminal"], "HOLD")
-              self.assertIn("CAMPAIGN_IDENTITY_MISMATCH", result["join"]["reasonCodes"])
-          '''
-          if test_original.count(old_campaign_test) != 1:
-              raise SystemExit("campaign hostile-witness anchor differs")
-          test_final = test_original.replace(old_campaign_test, new_campaign_test, 1)
+          campaign_witness = [
+              "        signed = self.complete()",
+              "        self.retier_private(signed, \"private_local_attested\")",
+              "        self.replace_authorization(signed, lambda auth: auth.update({\"campaignId\": \"OTHER-CAMPAIGN\"}))",
+              "        self.sign_private_with_test_root(signed)",
+              "        result = self.evaluate_with_test_trust_root(signed)",
+              "        self.assertEqual(result[\"join\"][\"terminal\"], \"HOLD\")",
+              "        self.assertIn(\"CAMPAIGN_IDENTITY_MISMATCH\", result[\"join\"][\"reasonCodes\"])",
+          ]
+          test_final = append_witness(
+              test_original,
+              "    def test_campaign_identity_mismatch_is_held(self) -> None:\n",
+              "    def test_physical_action_before_authorization_is_held(self) -> None:\n",
+              campaign_witness,
+              "self.replace_authorization(signed, lambda auth: auth.update({\"campaignId\": \"OTHER-CAMPAIGN\"}))",
+          )
 
-          old_auth_test = '''    def test_stage_authorization_mismatch_is_held(self) -> None:
-              value = self.complete()
-              rows = value["privateFlightDispositionBinding"]["packet"]["stageReceipts"]
-              rows[8]["authorizationReceiptId"] = "otherauthorization1_" + "a" * 64
-              self.rechain_stage_receipts(value["privateFlightDispositionBinding"])
-              self.refresh_top(value, "privateFlightDispositionBinding", "dispositionBindingId", "axmheadprivateflightdispositionbinding2")
-              self.assertIn("STAGE_AUTHORIZATION_MISMATCH", self.evaluate(value)["join"]["reasonCodes"])
-          '''
-          new_auth_test = '''    def test_stage_authorization_mismatch_is_held(self) -> None:
-              value = self.complete()
-              rows = value["privateFlightDispositionBinding"]["packet"]["stageReceipts"]
-              rows[8]["authorizationReceiptId"] = "otherauthorization1_" + "a" * 64
-              self.rechain_stage_receipts(value["privateFlightDispositionBinding"])
-              self.refresh_top(value, "privateFlightDispositionBinding", "dispositionBindingId", "axmheadprivateflightdispositionbinding2")
-              self.assertIn("STAGE_AUTHORIZATION_MISMATCH", self.evaluate(value)["join"]["reasonCodes"])
-
-              signed = self.complete()
-              self.retier_private(signed, "private_local_attested")
-              disposition = signed["privateFlightDispositionBinding"]
-              disposition["authorizationReceiptId"] = "otherauthorization1_" + "b" * 64
-              self.refresh_top(signed, "privateFlightDispositionBinding", "dispositionBindingId", "axmheadprivateflightdispositionbinding2")
-              self.sign_private_with_test_root(signed)
-              result = self.evaluate_with_test_trust_root(signed)
-              self.assertEqual(result["join"]["terminal"], "HOLD")
-              self.assertIn("AUTHORIZATION_REFERENCE_MISMATCH", result["join"]["reasonCodes"])
-          '''
-          if test_final.count(old_auth_test) != 1:
-              raise SystemExit("authorization hostile-witness anchor differs")
-          test_final = test_final.replace(old_auth_test, new_auth_test, 1)
+          authorization_witness = [
+              "        signed = self.complete()",
+              "        self.retier_private(signed, \"private_local_attested\")",
+              "        disposition = signed[\"privateFlightDispositionBinding\"]",
+              "        disposition[\"authorizationReceiptId\"] = \"otherauthorization1_\" + \"b\" * 64",
+              "        self.refresh_top(signed, \"privateFlightDispositionBinding\", \"dispositionBindingId\", \"axmheadprivateflightdispositionbinding2\")",
+              "        self.sign_private_with_test_root(signed)",
+              "        result = self.evaluate_with_test_trust_root(signed)",
+              "        self.assertEqual(result[\"join\"][\"terminal\"], \"HOLD\")",
+              "        self.assertIn(\"AUTHORIZATION_REFERENCE_MISMATCH\", result[\"join\"][\"reasonCodes\"])",
+          ]
+          test_final = append_witness(
+              test_final,
+              "    def test_stage_authorization_mismatch_is_held(self) -> None:\n",
+              "    def test_sealed_verification_failure_is_held(self) -> None:\n",
+              authorization_witness,
+              "disposition[\"authorizationReceiptId\"] = \"otherauthorization1_\" + \"b\" * 64",
+          )
 
           def sha256_text(text: str) -> str:
               return hashlib.sha256(text.encode("utf-8")).hexdigest()
