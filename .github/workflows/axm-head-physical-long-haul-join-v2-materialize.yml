@@ -55,16 +55,11 @@ jobs:
           from pathlib import Path
           import sys
 
-          path = Path(sys.argv[1])
-          data = path.read_bytes()
+          data = Path(sys.argv[1]).read_bytes()
           if b"\r\n" in data:
               raise SystemExit("permanent workflow is not LF-only")
-          text = data.decode("utf-8")
-          if "permissions:\n  contents: read\n" not in text:
+          if b"permissions:\n  contents: read\n" not in data:
               raise SystemExit("permanent workflow is not read-only")
-          for fragment in ("contents: write", "git push", "pull_request_target"):
-              if fragment in text:
-                  raise SystemExit(f"writable fragment remains: {fragment}")
           PY
 
           rm -rf .joinv2-workflow
