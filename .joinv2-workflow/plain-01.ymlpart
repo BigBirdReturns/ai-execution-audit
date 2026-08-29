@@ -1,0 +1,120 @@
+              if relative.is_absolute() or ".." in relative.parts or not relative.parts:
+                  raise SystemExit(f"unsafe repository path: {relative}")
+              target = out.joinpath(*relative.parts)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              data = subprocess.run(
+                  ["git", "-C", str(repository), "cat-file", "blob", object_id],
+                  check=True,
+                  stdout=subprocess.PIPE,
+              ).stdout
+              target.write_bytes(data)
+              if mode == "100755" and os.name != "nt":
+                  target.chmod(target.stat().st_mode | 0o111)
+          PY
+
+            DEST="$QUALIFICATION_ROOT/$COORDINATE"
+            rm -rf "$DEST"
+            mkdir -p "$DEST/comparison"
+            cd "$SOURCE_ROOT"
+
+            python - "$DEST/source-identity.json" "$EVENT_NAME" "$COORDINATE" "$EXPECTED_SHA" "$OBSERVED_SHA" "$OBSERVED_TREE" "$PLATFORM" <<'PY'
+          from pathlib import Path
+          import json
+          import sys
+          out, event_name, coordinate, expected, observed, tree, platform = sys.argv[1:]
+          value = {
+              "schema": "axm-head/physical-long-haul-source-coordinate@2",
+              "status": "PASS" if expected == observed else "REFUSED",
+              "eventName": event_name,
+              "coordinate": coordinate,
+              "expectedSha": expected,
+              "observedSha": observed,
+              "tree": tree,
+              "platform": platform,
+              "materialization": "exact_git_blob_bytes",
+              "clean": True,
+              "detached": True,
+              "physicalExecutionStarted": False,
+              "workersLaunched": 0,
+              "listenersCreated": 0,
+              "authority": "none",
+          }
+          Path(out).write_bytes((json.dumps(value, sort_keys=True, indent=2) + "\n").encode("utf-8"))
+          if value["status"] != "PASS":
+              raise SystemExit(2)
+          PY
+
+            python - "$REPO_ROOT" "$OBSERVED_SHA" "${PRODUCT_PATHS[@]}" <<'PY'
+          from pathlib import Path
+          import ast
+          import re
+          import subprocess
+          import sys
+
+          repository = Path(sys.argv[1])
+          observed_sha = sys.argv[2]
+          product_paths = [Path(value) for value in sys.argv[3:]]
+          for path in product_paths:
+              if not path.is_file():
+                  raise SystemExit(f"missing permanent product path: {path}")
+
+          expected = sorted(path.as_posix() for path in product_paths)
+          observed = sorted(subprocess.check_output(
+              [
+                  "git", "-C", str(repository), "diff", "--name-only",
+                  "ec61bc3488cb5ae06ed9db2862a9f6910d310a79", observed_sha,
+              ],
+              text=True,
+          ).splitlines())
+          if observed != expected:
+              raise SystemExit(f"product path denominator differs: expected={expected} observed={observed}")
+          if Path(".github/workflows/axm-head-physical-long-haul-source-census.yml").exists():
+              raise SystemExit("census-only carrier workflow remains in final product tree")
+
+          forbidden_imports = {"socket", "requests", "urllib3", "aiohttp", "httpx", "paramiko", "winrm"}
+          for path in (path for path in product_paths if path.suffix == ".py"):
+              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      names = {alias.name.split(".")[0] for alias in node.names}
+                  elif isinstance(node, ast.ImportFrom) and node.module:
+                      names = {node.module.split(".")[0]}
+                  else:
+                      continue
+                  overlap = names & forbidden_imports
+                  if overlap:
+                      raise SystemExit(f"network or remote client import in {path}: {sorted(overlap)}")
+
+          joined = "\n".join(path.read_text(encoding="utf-8") for path in product_paths)
+          forbidden = {
+              "credential material": r"AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer",
+              "private Estate host": r"\bOCTO-(?:W|L|N)\d+\b",
+          }
+          for label, pattern in forbidden.items():
+              if re.search(pattern, joined, re.I):
+                  raise SystemExit(f"{label} detected in permanent postflight JOIN-v2 product")
+
+          workflow = Path(".github/workflows/axm-head-physical-long-haul-join-01.yml").read_text(encoding="utf-8")
+          if "permissions:\n  contents: read\n" not in workflow:
+              raise SystemExit("permanent workflow is not read-only")
+          for fragment in ("contents: write", "git push", "pull_request_target"):
+              if fragment in workflow:
+                  raise SystemExit(f"writable transport fragment remains: {fragment}")
+          PY
+
+            TOOL="mating_surface/anchor_node/axm_head_physical_long_haul_join.py"
+            PROFILE="mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json"
+            FIXTURES="mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json"
+            VERIFIER="mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py"
+            TESTS="mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py"
+
+            python -m py_compile "$TOOL" "$VERIFIER" "$TESTS"
+            python "$TOOL" validate-profile "$PROFILE" > "$DEST/comparison/profile-validation.json"
+            python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$DEST/comparison/fixture-validation.json"
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_axm_head_physical_long_haul_join.py' \
+              -v 2>&1 | tee "$DEST/focused-tests.txt"
+            grep -F "Ran 76 tests" "$DEST/focused-tests.txt"
+            grep -Fx "OK" "$DEST/focused-tests.txt"
