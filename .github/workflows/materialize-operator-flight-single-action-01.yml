@@ -47,9 +47,17 @@ jobs:
           root = Path('.operator-flight-repair')
           encoded = ''.join(''.join((root / name).read_text(encoding='ascii').split()) for name in names)
           raw = base64.b64decode(encoded, validate=True)
-          expected = 'a163b49e891a69db4e99bf5edc8a69a573248676f322a6b21ec1b5f95e8990d7'
-          if hashlib.sha256(raw).hexdigest() != expected:
-              raise SystemExit('repair program digest differs')
+          source_expected = 'a163b49e891a69db4e99bf5edc8a69a573248676f322a6b21ec1b5f95e8990d7'
+          if hashlib.sha256(raw).hexdigest() != source_expected:
+              raise SystemExit('repair program source digest differs')
+          old = b'    return "\\\\n".join(lines)\n'
+          new = b'    return "\\n".join(lines)\n'
+          if raw.count(old) != 1:
+              raise SystemExit('operator script newline repair anchor differs')
+          raw = raw.replace(old, new, 1)
+          corrected_expected = 'a150e6dbc7b34a8fceec2864d17b3d0fa724e8c3dec21da984155eca40eeeed7'
+          if hashlib.sha256(raw).hexdigest() != corrected_expected:
+              raise SystemExit('corrected repair program digest differs')
           target = root / 'apply.py'
           target.write_bytes(raw)
           PY
