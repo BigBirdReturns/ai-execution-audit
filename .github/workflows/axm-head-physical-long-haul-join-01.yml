@@ -168,7 +168,7 @@ jobs:
               -v > "$focused_stdout" 2> "$focused_stderr"
             test ! -s "$focused_stdout"
             cat "$focused_stderr"
-            grep -F "Ran 52 tests" "$focused_stderr"
+            grep -F "Ran 60 tests" "$focused_stderr"
             if [ "$PLATFORM" = "windows-latest" ]; then
               grep -Fx "OK (skipped=2)" "$temp_root/tests-$PLATFORM-$name.txt"
             else
@@ -284,6 +284,8 @@ jobs:
           echo "platformByteIdentity=true"
           echo "headToMergeByteIdentity=true"
           echo "privateSelfAttestedFixtures=0"
+          echo "privateProofRootsEmbedded=0"
+          echo "publicQualificationTerminal=PREPARED_NOT_ARMED"
           echo "physicalExecutionStartedByJoin=false"
           echo "workersLaunched=0"
           echo "listenersCreated=0"
