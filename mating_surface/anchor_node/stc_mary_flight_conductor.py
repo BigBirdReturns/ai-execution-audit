@@ -810,7 +810,8 @@ def validate_readiness_receipt(value: Any, ws: Workstation) -> Mapping[str, Any]
             assert_sha256(row["sha256"], "READINESS_ARTIFACT_INVALID", "artifact file digest")
             total += safe_int(row["bytes"], 1, 8 * 1024**4, "READINESS_ARTIFACT_INVALID", "artifact file bytes")
         require(total == artifact["totalBytes"], "READINESS_ARTIFACT_INVALID", "readiness artifact byte denominator differs")
-        assert_identity(artifact, "artifactId", "stcmarylocalartifact1", "READINESS_ARTIFACT_ID_INVALID")
+        artifact_identity = {key: item for key, item in artifact.items() if key != "privatePath"}
+        assert_identity(artifact_identity, "artifactId", "stcmarylocalartifact1", "READINESS_ARTIFACT_ID_INVALID")
         seen.add(label)
     require(seen == set(ARTIFACT_LABELS), "READINESS_ARTIFACT_DENOMINATOR_INVALID", "readiness artifact labels differ")
     assert_identity(value, "readinessId", "stcmarylocalreadiness1", "READINESS_RECEIPT_ID_INVALID")

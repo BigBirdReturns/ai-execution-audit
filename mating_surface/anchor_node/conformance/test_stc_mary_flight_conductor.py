@@ -15,6 +15,7 @@ if str(ANCHOR) not in sys.path:
     sys.path.insert(0, str(ANCHOR))
 
 import stc_mary_flight_conductor as conductor
+from stc_mary_local.common import hash_artifact
 
 
 class StcMaryFlightConductorWitnesses(unittest.TestCase):
@@ -283,14 +284,60 @@ class StcMaryFlightConductorWitnesses(unittest.TestCase):
         with patch.object(conductor, "git_snapshot", return_value=self.source_receipt()):
             self.assert_code("ARTIFACT_COORDINATE_OVERLAP", conductor.initialize_workstation, arguments)
 
-    def test_16_file_presence_alone_does_not_close_readiness(self) -> None:
+    def test_16_doctor_shaped_readiness_closes_and_file_presence_alone_does_not(self) -> None:
         ws = self.load_initialized()
         ws.path("readiness").parent.mkdir(parents=True, exist_ok=True)
-        conductor.write_json(ws.path("readiness"), {"schema": "present-but-not-a-receipt"})
+        artifacts = [
+            hash_artifact(row["label"], Path(row["privatePath"]))
+            for row in ws.config["artifacts"]
+        ]
+        body = {
+            "schema": "stc-mary-local-readiness-private/1",
+            "profileId": conductor.TOOLCHAIN_PROFILE_ID,
+            "capturedAtUnixNs": ws.config["createdAtUnixNs"] + 1,
+            "host": {},
+            "repository": {
+                "head": conductor.REQUIRED_COMMIT,
+                "branch": None,
+                "root": ws.config["executionSource"]["repositoryPath"],
+                "clean": True,
+                "statusSha256": conductor.sha256_bytes(b""),
+                "commandReceipts": {},
+                "privateStatus": {},
+            },
+            "commands": {},
+            "pythonModules": {},
+            "torch": {
+                "cudaAvailable": True,
+                "devices": [{"index": ws.config["selectedCudaDeviceIndex"]}],
+            },
+            "nvidiaQuery": {},
+            "nvidiaGpus": [],
+            "windows": {},
+            "artifacts": artifacts,
+            "externalServiceCalls": 0,
+            "operationalCredentials": 0,
+            "authority": "none",
+            "claimBoundary": "Doctor-shaped readiness fixture. It grants no authority.",
+        }
+        receipt = {
+            **body,
+            "readinessId": conductor.content_id("stcmarylocalreadiness1", body),
+        }
+        conductor.write_json(ws.path("readiness"), receipt)
         prior = {
             "admitted_checkout": conductor.closed("admitted_checkout", []),
             "artifact_coordinates": conductor.closed("artifact_coordinates", []),
         }
+        result = conductor.phase_readiness(ws, prior, {})
+        self.assertEqual(result.state, "CLOSED")
+        self.assertEqual(result.evidence, [receipt["readinessId"]])
+
+        conductor.write_json(
+            ws.path("readiness"),
+            {"schema": "present-but-not-a-receipt"},
+            replace=True,
+        )
         result = conductor.phase_readiness(ws, prior, {})
         self.assertEqual(result.state, "REFUSED")
         self.assertEqual(result.reason_code, "READINESS_RECEIPT_INVALID")
