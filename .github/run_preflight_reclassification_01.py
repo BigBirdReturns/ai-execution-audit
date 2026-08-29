@@ -9,5 +9,8 @@ if spec is None or spec.loader is None:
     raise SystemExit("unable to load the reclassification program")
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-module.REPLACEMENTS = module.REPLACEMENTS + (("physical-long-haul", "physical-flight-preflight"),)
+module.REPLACEMENTS = module.REPLACEMENTS + (
+    ("physical-long-haul", "physical-flight-preflight"),
+    ('"JOIN"', '"PREFLIGHT"'),
+)
 raise SystemExit(module.main())
