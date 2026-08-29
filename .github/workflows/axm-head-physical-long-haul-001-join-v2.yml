@@ -215,7 +215,7 @@ jobs:
               -s mating_surface/anchor_node/conformance \
               -p 'test_axm_head_physical_long_haul_001_join_v2.py' \
               -v 2>&1 | tee "$DEST/join-v2-tests.txt"
-            grep -F "Ran 42 tests" "$DEST/join-v2-tests.txt"
+            grep -F "Ran 46 tests" "$DEST/join-v2-tests.txt"
             grep -Fx "OK" "$DEST/join-v2-tests.txt"
 
             python -m unittest discover \
@@ -334,7 +334,7 @@ jobs:
               "sourceTree": source_tree,
               "platform": platform,
               "sourceMaterialization": "exact_git_blob_bytes",
-              "focusedWitnesses": 42,
+              "focusedWitnesses": 46,
               "inheritedAxmHeadWitnesses": 38,
               "inheritedConductorWitnesses": 25,
               "receipts": rows,
