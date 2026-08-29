@@ -35,6 +35,7 @@ jobs:
           import hashlib
           import json
           import re
+          import textwrap
 
           root = Path("mating_surface/anchor_node")
           verifier_path = root / "verify_axm_head_physical_long_haul_join.py"
@@ -78,14 +79,18 @@ jobs:
               raise SystemExit("base64url decoder anchor differs")
           verifier_final = verifier_with_import.replace(old_decode, final_decode, 1)
           intermediate_decode = final_decode.replace(
-              "              if base64url_encode(decoded) != value:\n",
-              "              # Temporary repair-carrier marker; absent from the final tree.\n              if base64url_encode(decoded) != value:\n",
+              "    if base64url_encode(decoded) != value:\n",
+              "    # Temporary repair-carrier marker; absent from the final tree.\n    if base64url_encode(decoded) != value:\n",
               1,
           )
+          if intermediate_decode == final_decode:
+              raise SystemExit("intermediate verifier marker was not inserted")
           verifier_intermediate = verifier_with_import.replace(old_decode, intermediate_decode, 1)
+          if verifier_intermediate == verifier_final:
+              raise SystemExit("intermediate and final verifier bytes collapsed")
 
           test_anchor = "        bad_key_value = {\n"
-          test_insertion = '''        noncanonical = copy.deepcopy(value)
+          test_block = '''noncanonical = copy.deepcopy(value)
           noncanonical_provenance = noncanonical["privateEvidenceProvenance"]
           canonical_signature = noncanonical_provenance["signatureBase64Url"]
           alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
@@ -105,11 +110,10 @@ jobs:
           with self.assertRaises(mod.JoinError) as context:
               mod.validate_input_value(noncanonical)
           self.assertEqual(context.exception.code, "PROVENANCE_SIGNATURE_ENCODING_INVALID")
-
-          bad_key_value = {
           '''
           if test_original.count(test_anchor) != 1:
               raise SystemExit("canonical-signature witness anchor differs")
+          test_insertion = textwrap.indent(test_block, "        ") + "\n        bad_key_value = {\n"
           test_final = test_original.replace(test_anchor, test_insertion, 1)
 
           def verifier_sha(text: str) -> str:
@@ -144,6 +148,8 @@ jobs:
               "listenersCreated": 0,
               "authority": "none",
           }
+          if manifest["finalVerifierSha256"] == manifest["intermediateVerifierSha256"]:
+              raise SystemExit("staged and final verifier digests must differ")
           (staging / "manifest.json").write_text(
               json.dumps(manifest, sort_keys=True, indent=2) + "\n",
               encoding="utf-8",
