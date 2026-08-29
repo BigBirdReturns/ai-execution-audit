@@ -1282,7 +1282,6 @@ def derive_predicates(value: dict[str, Any]) -> tuple[OrderedDict[str, bool], li
 
     tiers = [route["evidenceTier"], continuity["evidenceTier"], two_cell["evidenceTier"], successor["evidenceTier"], disposition["evidenceTier"]]
     campaigns = [route["campaignId"], continuity["campaignId"], two_cell["campaignId"], successor["campaignId"], disposition["campaignId"], authorization["campaignId"]]
-    # Temporary authorization-uniformity repair-carrier marker; absent from the final tree.
     auth_refs = [route["authorizationReceiptId"], continuity["authorizationReceiptId"], two_cell["authorizationReceiptId"], successor["authorizationReceiptId"], disposition["authorizationReceiptId"]]
     observed_times = [route["observedAtUnixNs"], continuity["observedAtUnixNs"], two_cell["observedAtUnixNs"], successor["observedAtUnixNs"], disposition["observedAtUnixNs"]]
 

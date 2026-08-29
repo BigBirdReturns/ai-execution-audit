@@ -1,0 +1,12 @@
+{
+  "authority": "none",
+  "finalVerifierSha256": "72cd88355a57c71e2cad25028f5562f02e6543f10072e400ee8b0ca469b4596e",
+  "focusedMethodDenominator": 76,
+  "intermediateVerifierSha256": "1ed4dbe77099b9abb9d520c638f00898c8dd6561cb1926638e29a2e7c31c20a5",
+  "issue37Advanced": false,
+  "listenersCreated": 0,
+  "parent": "03a0645dea3561ffba211a614e537d3fcce0f348",
+  "physicalExecutionOccurred": false,
+  "schema": "axm-head/join-v2-authorization-uniformity-repair-carrier@1",
+  "workersLaunched": 0
+}

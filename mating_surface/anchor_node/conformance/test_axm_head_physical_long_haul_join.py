@@ -421,6 +421,14 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
         self.refresh_top(value, "continuityAttestation", "continuityAttestationId", "axmheadcontinuityattestation2")
         self.assertIn("CAMPAIGN_IDENTITY_MISMATCH", self.evaluate(value)["join"]["reasonCodes"])
 
+        signed = self.complete()
+        self.retier_private(signed, "private_local_attested")
+        self.replace_authorization(signed, lambda auth: auth.update({"campaignId": "OTHER-CAMPAIGN"}))
+        self.sign_private_with_test_root(signed)
+        result = self.evaluate_with_test_trust_root(signed)
+        self.assertEqual(result["join"]["terminal"], "HOLD")
+        self.assertIn("CAMPAIGN_IDENTITY_MISMATCH", result["join"]["reasonCodes"])
+
     def test_physical_action_before_authorization_is_held(self) -> None:
         value = self.complete()
         value["routeAttestation"]["observedAtUnixNs"] = 1500
@@ -604,6 +612,16 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
         self.rechain_stage_receipts(value["privateFlightDispositionBinding"])
         self.refresh_top(value, "privateFlightDispositionBinding", "dispositionBindingId", "axmheadprivateflightdispositionbinding2")
         self.assertIn("STAGE_AUTHORIZATION_MISMATCH", self.evaluate(value)["join"]["reasonCodes"])
+
+        signed = self.complete()
+        self.retier_private(signed, "private_local_attested")
+        disposition = signed["privateFlightDispositionBinding"]
+        disposition["authorizationReceiptId"] = "otherauthorization1_" + "b" * 64
+        self.refresh_top(signed, "privateFlightDispositionBinding", "dispositionBindingId", "axmheadprivateflightdispositionbinding2")
+        self.sign_private_with_test_root(signed)
+        result = self.evaluate_with_test_trust_root(signed)
+        self.assertEqual(result["join"]["terminal"], "HOLD")
+        self.assertIn("AUTHORIZATION_REFERENCE_MISMATCH", result["join"]["reasonCodes"])
 
     def test_sealed_verification_failure_is_held(self) -> None:
         result = self.evaluate(self.case("hold-sealed-package-verification-failure"))
