@@ -1,0 +1,485 @@
+name: AXM HEAD Physical Long Haul 001 Join v2
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/axm-head-physical-long-haul-001-join-v2.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-001-JOIN-v2.md"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2-profile.json"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2.ps1"
+      - "mating_surface/anchor_node/axm_head_physical_long_haul_001_join_v2.py"
+      - "mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2.py"
+      - "mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2_bootstrap.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_001_join_v2.py"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/axm-head-physical-long-haul-001-join-v2.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-001-JOIN-v2.md"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2-profile.json"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2.ps1"
+      - "mating_surface/anchor_node/axm_head_physical_long_haul_001_join_v2.py"
+      - "mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2.py"
+      - "mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2_bootstrap.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_001_join_v2.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: axm-head-physical-long-haul-001-join-v2-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out complete event history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Qualify exact head and merge coordinates
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PLATFORM: ${{ matrix.os }}
+          QUALIFICATION_ROOT: ${{ runner.temp }}/axm-head-physical-long-haul-join-v2
+        run: |
+          set -euo pipefail
+
+          PRODUCT_PATHS=(
+            ".github/workflows/axm-head-physical-long-haul-001-join-v2.yml"
+            "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-001-JOIN-v2.md"
+            "mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2-profile.json"
+            "mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2.ps1"
+            "mating_surface/anchor_node/axm_head_physical_long_haul_001_join_v2.py"
+            "mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2.py"
+            "mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2_bootstrap.py"
+            "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_001_join_v2.py"
+          )
+
+          COORDINATES="$RUNNER_TEMP/join-v2-coordinates.tsv"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            printf 'head\t%s\nmerge\t%s\n' "$PR_HEAD_SHA" "$EVENT_SHA" > "$COORDINATES"
+          else
+            printf 'source\t%s\n' "$EVENT_SHA" > "$COORDINATES"
+          fi
+
+          while IFS=$'\t' read -r COORDINATE EXPECTED_SHA
+          do
+            [ -n "$COORDINATE" ] || continue
+            git checkout --force --detach "$EXPECTED_SHA"
+            git clean -ffdx
+            git config core.autocrlf false
+            git checkout-index --force --all
+
+            OBSERVED_SHA="$(git rev-parse HEAD)"
+            OBSERVED_TREE="$(git rev-parse 'HEAD^{tree}')"
+            if [ "$OBSERVED_SHA" != "$EXPECTED_SHA" ]; then
+              echo "checkout identity differs: expected=$EXPECTED_SHA observed=$OBSERVED_SHA" >&2
+              exit 1
+            fi
+            if [ -n "$(git status --porcelain=v1)" ]; then
+              echo "checkout is not clean before qualification" >&2
+              git status --short >&2
+              exit 1
+            fi
+
+            DEST="$QUALIFICATION_ROOT/$COORDINATE"
+            rm -rf "$DEST"
+            mkdir -p "$DEST"
+
+            python - "$DEST/source-identity.json" "$EVENT_NAME" "$COORDINATE" "$EXPECTED_SHA" "$OBSERVED_SHA" "$OBSERVED_TREE" "$PLATFORM" <<'PY'
+          from pathlib import Path
+          import json
+          import sys
+
+          out, event_name, coordinate, expected, observed, tree, platform = sys.argv[1:]
+          value = {
+              "schema": "axm-head/physical-long-haul-source-coordinate@2",
+              "status": "PASS" if expected == observed else "REFUSED",
+              "eventName": event_name,
+              "coordinate": coordinate,
+              "expectedSha": expected,
+              "observedSha": observed,
+              "tree": tree,
+              "platform": platform,
+              "clean": True,
+              "detached": True,
+              "physicalExecutionStarted": False,
+              "workersLaunched": 0,
+              "listenersCreated": 0,
+              "authority": "none",
+          }
+          Path(out).write_bytes((json.dumps(value, sort_keys=True, indent=2) + "\n").encode("utf-8"))
+          if value["status"] != "PASS":
+              raise SystemExit(2)
+          PY
+
+            python - "${PRODUCT_PATHS[@]}" <<'PY'
+          from pathlib import Path
+          import ast
+          import re
+          import sys
+
+          paths = [Path(value) for value in sys.argv[1:]]
+          for path in paths:
+              if not path.is_file():
+                  raise SystemExit(f"missing permanent product path: {path}")
+
+          python_paths = [path for path in paths if path.suffix == ".py"]
+          forbidden_imports = {"socket", "requests", "urllib3", "aiohttp", "httpx", "paramiko", "winrm"}
+          for path in python_paths:
+              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      names = {alias.name.split(".")[0] for alias in node.names}
+                  elif isinstance(node, ast.ImportFrom) and node.module:
+                      names = {node.module.split(".")[0]}
+                  else:
+                      continue
+                  overlap = names & forbidden_imports
+                  if overlap:
+                      raise SystemExit(f"network or remote client import in {path}: {sorted(overlap)}")
+
+          joined = "\n".join(path.read_text(encoding="utf-8") for path in paths)
+          forbidden = {
+              "credential material": r"AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer",
+              "private Estate host": r"\bOCTO-(?:W|L)\d+\b",
+          }
+          for label, pattern in forbidden.items():
+              if re.search(pattern, joined, re.I):
+                  raise SystemExit(f"{label} detected in permanent JOIN-v2 product")
+          PY
+
+            TOOL="mating_surface/anchor_node/axm_head_physical_long_haul_001_join_v2.py"
+            PROFILE="mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2-profile.json"
+            VERIFIER="mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2.py"
+            BOOTSTRAP="mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2_bootstrap.py"
+            TESTS="mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_001_join_v2.py"
+
+            python -m py_compile "$TOOL" "$VERIFIER" "$BOOTSTRAP" "$TESTS"
+            python "$TOOL" validate-profile "$PROFILE" > "$DEST/profile-validation.json"
+            git diff --check
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_axm_head_physical_long_haul_001_join_v2.py' \
+              -v 2>&1 | tee "$DEST/join-v2-tests.txt"
+            grep -F "Ran 42 tests" "$DEST/join-v2-tests.txt"
+            grep -Fx "OK" "$DEST/join-v2-tests.txt"
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_axm_head_edge_demo.py' \
+              -v 2>&1 | tee "$DEST/inherited-axm-head-tests.txt"
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_stc_mary_flight_conductor.py' \
+              -v 2>&1 | tee "$DEST/inherited-conductor-tests.txt"
+
+            CARRIER="$RUNNER_TEMP/join-v2-carrier-$COORDINATE"
+            rm -rf "$CARRIER"
+            python "$TOOL" build-carrier "$PROFILE" --out "$CARRIER" > "$DEST/build.json"
+            python "$TOOL" verify-carrier "$CARRIER" --out "$DEST/verdict.json" > "$DEST/verdict-stdout.json"
+            cmp "$DEST/verdict.json" "$DEST/verdict-stdout.json"
+            cp "$CARRIER/MANIFEST.json" "$DEST/MANIFEST.json"
+            cp "$CARRIER/JOIN/preparation-state.json" "$DEST/preparation-state.json"
+            cp "$CARRIER/JOIN/decision.json" "$DEST/prepared-decision.json"
+            cp "$CARRIER/PUBLIC/status.json" "$DEST/public-status.json"
+
+            python - "$TOOL" "$PROFILE" "$DEST/review-state.json" "$DEST/review-decision.json" <<'PY'
+          from pathlib import Path
+          import importlib.util
+          import json
+          import sys
+
+          tool_path, profile_path, state_path, decision_path = map(Path, sys.argv[1:])
+          spec = importlib.util.spec_from_file_location("join_v2_qualification", tool_path)
+          if spec is None or spec.loader is None:
+              raise SystemExit("unable to import JOIN-v2 tool")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          profile = module.validate_profile(profile_path)
+          checkouts = {
+              "conductor": {
+                  "commit": module.EXPECTED_SOURCE_COORDINATES["admittedConductor"]["commit"],
+                  "tree": module.EXPECTED_SOURCE_COORDINATES["admittedConductor"]["tree"],
+                  "detached": True,
+                  "clean": True,
+              },
+              "physicalFloor": {
+                  "commit": module.EXPECTED_SOURCE_COORDINATES["physicalFlightFloor"]["commit"],
+                  "tree": module.EXPECTED_SOURCE_COORDINATES["physicalFlightFloor"]["tree"],
+                  "detached": True,
+                  "clean": True,
+              },
+          }
+          headers = [
+              {
+                  "label": label,
+                  "contentRef": f"sha256:{index + 1:064x}",
+                  "exists": True,
+                  "symlinkRoot": False,
+                  "overlapFree": True,
+              }
+              for index, label in enumerate(module.ARTIFACT_LABELS)
+          ]
+          card_free = module.make_state(profile, checkout_bindings=checkouts, private_coordinate_headers=headers)
+          review_state = module.attach_compiled_card(profile, card_free)
+          decision = module.evaluate_preparation(profile, review_state)
+          if decision["terminal"] != "READY_FOR_HUMAN_REVIEW":
+              raise SystemExit("deterministic review card did not reach READY_FOR_HUMAN_REVIEW")
+          card = review_state["executionCard"]
+          if card["physicalAuthorizationProduced"] is not False or any(action["authorized"] for action in card["actions"]):
+              raise SystemExit("review card promoted physical authorization")
+          if review_state["physicalExecutionStarted"] is not False or review_state["workersLaunched"] != 0 or review_state["listenersCreated"] != 0:
+              raise SystemExit("review state promoted physical activity")
+          state_path.write_bytes(module.pretty_json_bytes(review_state))
+          decision_path.write_bytes(module.pretty_json_bytes(decision))
+          PY
+
+            python - "$DEST/MANIFEST.json" "$DEST/public-status.json" "$DEST/verdict.json" "$DEST/review-state.json" "$DEST/review-decision.json" <<'PY'
+          from pathlib import Path
+          import json
+          import sys
+
+          manifest, public, verdict, review_state, review_decision = [json.loads(Path(path).read_text(encoding="utf-8")) for path in sys.argv[1:]]
+          for value in (manifest, public, verdict):
+              if value.get("physicalExecutionStarted") is not False:
+                  raise SystemExit("physical execution claim promoted")
+              if value.get("workersLaunched") != 0 or value.get("listenersCreated") != 0:
+                  raise SystemExit("worker or listener claim promoted")
+              if value.get("authority") != "none":
+                  raise SystemExit("authority claim promoted")
+          if manifest.get("terminal") != "PREPARED_NOT_ARMED":
+              raise SystemExit("canonical carrier terminal differs")
+          if verdict.get("status") != "PASS" or verdict.get("bootstrapAuthenticated") is not True:
+              raise SystemExit("authenticated verdict did not pass")
+          if review_decision.get("terminal") != "READY_FOR_HUMAN_REVIEW":
+              raise SystemExit("review terminal differs")
+          if review_decision.get("physicalAuthorizationProduced") is not False:
+              raise SystemExit("review decision promoted authorization")
+          card = review_state.get("executionCard")
+          if not isinstance(card, dict) or card.get("actionCount") != 12:
+              raise SystemExit("review card denominator differs")
+          if any(action.get("authorized") is not False for action in card.get("actions", [])):
+              raise SystemExit("review card contains an authorized action")
+          PY
+
+            python - "$DEST" "$OBSERVED_SHA" "$OBSERVED_TREE" "$PLATFORM" <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import sys
+
+          root = Path(sys.argv[1])
+          source_commit, source_tree, platform = sys.argv[2:]
+          rows = []
+          for path in sorted(root.glob("*.json")):
+              data = path.read_bytes()
+              rows.append({"name": path.name, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()})
+          value = {
+              "schema": "axm-head/physical-long-haul-join-qualification@2",
+              "status": "PASS",
+              "sourceCommit": source_commit,
+              "sourceTree": source_tree,
+              "platform": platform,
+              "focusedWitnesses": 42,
+              "inheritedAxmHeadWitnesses": 38,
+              "inheritedConductorWitnesses": 25,
+              "receipts": rows,
+              "canonicalCarrierTerminal": "PREPARED_NOT_ARMED",
+              "reviewCardTerminal": "READY_FOR_HUMAN_REVIEW",
+              "reviewCardActionsAuthorized": 0,
+              "physicalAuthorizationProduced": False,
+              "physicalExecutionStarted": False,
+              "missionVolumeMaterialized": False,
+              "workersLaunched": 0,
+              "listenersCreated": 0,
+              "privateEvidenceBodies": 0,
+              "authority": "none",
+          }
+          (root / "qualification-receipt.json").write_bytes((json.dumps(value, sort_keys=True, indent=2) + "\n").encode("utf-8"))
+          PY
+          done < "$COORDINATES"
+
+      - name: Upload exact-coordinate receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-v2-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ runner.temp }}/axm-head-physical-long-haul-join-v2/
+          if-no-files-found: error
+          retention-days: 14
+
+  qualify-powershell:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out complete event history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate the PowerShell surface on each exact coordinate
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $coordinates = if ($env:EVENT_NAME -eq 'pull_request') {
+            @(
+              [pscustomobject]@{ Name = 'head'; Ref = $env:PR_HEAD_SHA },
+              [pscustomobject]@{ Name = 'merge'; Ref = $env:EVENT_SHA }
+            )
+          } else {
+            @([pscustomobject]@{ Name = 'source'; Ref = $env:EVENT_SHA })
+          }
+
+          foreach ($coordinate in $coordinates) {
+            git checkout --force --detach $coordinate.Ref
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git clean -ffdx
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            $Tool = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-001-join-v2.ps1'
+            $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-001-join-v2-profile.json'
+            $Prepared = Join-Path $env:RUNNER_TEMP "join-v2-prepared-$($coordinate.Name).json"
+            $Carrier = Join-Path $env:RUNNER_TEMP "join-v2-carrier-pwsh-$($coordinate.Name)"
+            $Verdict = Join-Path $env:RUNNER_TEMP "join-v2-verdict-pwsh-$($coordinate.Name).json"
+            if (Test-Path -LiteralPath $Carrier) { Remove-Item -LiteralPath $Carrier -Recurse -Force }
+            if (Test-Path -LiteralPath $Prepared) { Remove-Item -LiteralPath $Prepared -Force }
+            if (Test-Path -LiteralPath $Verdict) { Remove-Item -LiteralPath $Verdict -Force }
+
+            & $Tool validate-profile $Profile
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Tool prepared-state $Profile --out $Prepared
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Tool evaluate $Profile $Prepared
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Tool build-carrier $Profile --out $Carrier
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Tool verify-carrier $Carrier --out $Verdict
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            $receipt = Get-Content -LiteralPath $Verdict -Raw | ConvertFrom-Json
+            if ($receipt.status -ne 'PASS') { throw "JOIN-v2 verdict did not pass for $($coordinate.Name)" }
+            if ($receipt.terminal -ne 'PREPARED_NOT_ARMED') { throw "JOIN-v2 terminal differs for $($coordinate.Name)" }
+            if ($receipt.bootstrapAuthenticated -ne $true) { throw "JOIN-v2 verifier was not authenticated for $($coordinate.Name)" }
+            if ($receipt.physicalExecutionStarted -ne $false) { throw "JOIN-v2 promoted physical execution" }
+            if ($receipt.workersLaunched -ne 0 -or $receipt.listenersCreated -ne 0) { throw "JOIN-v2 promoted runtime activity" }
+            if ($receipt.authority -ne 'none') { throw "JOIN-v2 promoted authority" }
+          }
+
+  compare:
+    needs: [qualify, qualify-powershell]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Download Ubuntu receipts
+        uses: actions/download-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-v2-ubuntu-latest-${{ github.sha }}
+          path: qualification/ubuntu
+
+      - name: Download Windows receipts
+        uses: actions/download-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-v2-windows-latest-${{ github.sha }}
+          path: qualification/windows
+
+      - name: Require platform and head-to-merge byte identity
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import os
+
+          root = Path("qualification")
+          selected = [
+              "MANIFEST.json",
+              "preparation-state.json",
+              "prepared-decision.json",
+              "public-status.json",
+              "verdict.json",
+              "review-state.json",
+              "review-decision.json",
+          ]
+          coordinates = ["head", "merge"] if os.environ["EVENT_NAME"] == "pull_request" else ["source"]
+          rows = []
+          for coordinate in coordinates:
+              ubuntu = root / "ubuntu" / coordinate
+              windows = root / "windows" / coordinate
+              for name in selected:
+                  left = (ubuntu / name).read_bytes()
+                  right = (windows / name).read_bytes()
+                  if left != right:
+                      raise SystemExit(f"platform bytes differ: {coordinate}/{name}")
+                  rows.append({
+                      "coordinate": coordinate,
+                      "name": name,
+                      "bytes": len(left),
+                      "sha256": hashlib.sha256(left).hexdigest(),
+                  })
+          head_merge_identity = None
+          if coordinates == ["head", "merge"]:
+              for platform in ("ubuntu", "windows"):
+                  for name in selected:
+                      head = (root / platform / "head" / name).read_bytes()
+                      merge = (root / platform / "merge" / name).read_bytes()
+                      if head != merge:
+                          raise SystemExit(f"head-to-merge bytes differ: {platform}/{name}")
+              head_merge_identity = True
+          receipt = {
+              "schema": "axm-head/physical-long-haul-cross-coordinate-qualification@2",
+              "status": "PASS",
+              "eventSha": "${{ github.sha }}",
+              "platformByteIdentity": True,
+              "headToMergeByteIdentity": head_merge_identity,
+              "rows": rows,
+              "physicalAuthorizationProduced": False,
+              "physicalExecutionStarted": False,
+              "workersLaunched": 0,
+              "listenersCreated": 0,
+              "authority": "none",
+          }
+          Path("qualification/cross-coordinate-receipt.json").write_bytes(
+              (json.dumps(receipt, sort_keys=True, indent=2) + "\n").encode("utf-8")
+          )
+          PY
+
+      - name: Upload cross-coordinate receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-v2-cross-coordinate-${{ github.sha }}
+          path: qualification/cross-coordinate-receipt.json
+          if-no-files-found: error
+          retention-days: 14
