@@ -1,0 +1,34 @@
+name: Stage JOIN v2 repair sources
+
+on:
+  push:
+    branches:
+      - work/join-v2-repair-staging
+    paths:
+      - ".joinv2-repair/**"
+      - ".github/workflows/stage-join-v2-repair.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Materialize authenticated-receipt repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          gzip -dc .joinv2-repair/axm_head_physical_long_haul_join.py.gz > mating_surface/anchor_node/axm_head_physical_long_haul_join.py
+          gzip -dc .joinv2-repair/verify_axm_head_physical_long_haul_join.py.gz > mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py
+          test "$(sha256sum mating_surface/anchor_node/axm_head_physical_long_haul_join.py | cut -d' ' -f1)" = "3c21916149b26d656c69bba920dee00899f98892b0bbe2e105c61ebadc4d23e3"
+          test "$(sha256sum mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py | cut -d' ' -f1)" = "14340e6e9c54394be1e057dd928f10b3079c668acbdf7a3bdcf81fec45ec9861"
+          rm -rf .joinv2-repair .github/workflows/stage-join-v2-repair.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Stage authenticated JOIN v2 receipt core"
+          git push origin HEAD:work/join-v2-repair-staging
