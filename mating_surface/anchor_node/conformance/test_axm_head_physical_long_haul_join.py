@@ -1,6 +1,8 @@
 from __future__ import annotations
+import contextlib
 import copy
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -131,8 +133,17 @@ class JoinV2Tests(unittest.TestCase):
         a,outa=self.build(); b,outb=self.build(); self.assertEqual((outa/"MANIFEST.json").read_bytes(),(outb/"MANIFEST.json").read_bytes()); a.cleanup(); b.cleanup()
     def test_direct_verifier_is_unauthenticated(self):
         td,c=self.build(); r=self.direct(c); self.assertEqual(r.returncode,0); self.assertFalse(json.loads(r.stdout)["bootstrapAuthenticated"]); td.cleanup()
-    def test_external_bootstrap_authenticates(self):
-        td,c=self.build(); out=Path(td.name)/"verdict.json"; receipt=tool.bootstrap_verify(c,out); self.assertTrue(receipt["bootstrapAuthenticated"]); self.assertEqual(out.read_bytes(),tool.canonical_json_bytes(receipt)); td.cleanup()
+    def test_external_bootstrap_authenticates_without_stdout(self):
+        td,c=self.build()
+        out=Path(td.name)/"verdict.json"
+        captured=io.BytesIO()
+        text=io.TextIOWrapper(captured,encoding="utf-8",write_through=True)
+        with contextlib.redirect_stdout(text):
+            receipt=tool.bootstrap_verify(c,out)
+        self.assertEqual(captured.getvalue(),b"")
+        self.assertTrue(receipt["bootstrapAuthenticated"])
+        self.assertEqual(out.read_bytes(),tool.canonical_json_bytes(receipt))
+        td.cleanup()
     def test_malicious_verifier_substitution_refuses_before_execution(self):
         td,c=self.build(); (c/"RECOVERY/verify_join.py").write_text("raise SystemExit('EXECUTED')\n");
         with self.assertRaises(tool.JoinError) as cm: tool.bootstrap_verify(c,None)

@@ -600,7 +600,7 @@ def bootstrap_verify(carrier: Path, out: Path | None) -> dict[str, Any]:
     authenticated = copy.deepcopy(direct); authenticated["bootstrapAuthenticated"] = True; authenticated["bootstrapVerifierSha256"] = STANDALONE_VERIFIER_SHA256; authenticated["bootstrapProfileSha256"] = PROFILE_CANONICAL_SHA256
     data = canonical_json_bytes(authenticated)
     if out is not None: out.parent.mkdir(parents=True, exist_ok=True); out.write_bytes(data)
-    sys.stdout.buffer.write(data); return authenticated
+    return authenticated
 
 def emit(value: dict[str, Any]) -> None: sys.stdout.buffer.write(canonical_json_bytes(value))
 def refusal(exc: JoinError) -> dict[str, Any]: return {"schema": "axm-head/physical-long-haul-command-refusal@2", "status": "REFUSED", "errorCode": exc.code, "message": exc.code, "physicalExecutionStartedByJoin": False, "missionVolumeMaterializedByJoin": False, "workersLaunched": 0, "listenersCreated": 0, "publicEvidenceBodies": 0, "strongerClaims": copy.deepcopy(STRONGER_CLAIMS), "authority": "none"}
@@ -624,7 +624,7 @@ def main(argv: list[str] | None = None) -> int:
             profile = validate_exact_profile(args.profile); catalog = validate_exact_catalog(profile, args.fixtures); row = find_case(catalog, args.case); result = write_carrier(profile, catalog, row["input"], args.out); emit(result)
         elif args.command == "build-private":
             profile = validate_exact_profile(args.profile); catalog = validate_exact_catalog(profile, args.fixtures); input_value = read_json(args.input); result = write_carrier(profile, catalog, input_value, args.out); emit(result)
-        elif args.command == "verify-join": bootstrap_verify(args.carrier, args.out)
+        elif args.command == "verify-join": emit(bootstrap_verify(args.carrier, args.out))
         return 0
     except JoinError as exc: emit(refusal(exc)); return 2
 if __name__ == "__main__": raise SystemExit(main())
