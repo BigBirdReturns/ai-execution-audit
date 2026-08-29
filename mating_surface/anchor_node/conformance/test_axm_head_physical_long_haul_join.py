@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import os
+import secrets
 from pathlib import Path
 import shutil
 import subprocess
@@ -20,18 +21,70 @@ VERIFIER = ROOT / "verify_axm_head_physical_long_haul_join.py"
 spec = importlib.util.spec_from_file_location("join_tool", TOOL_PATH); tool = importlib.util.module_from_spec(spec); assert spec and spec.loader; spec.loader.exec_module(tool)
 
 def load(path): return json.loads(path.read_text(encoding="utf-8"))
+
+TEST_PROOF_ROOT = tool.create_private_proof_root("PRIVATE-STC-MARY-FLIGHT-01", secrets.token_bytes(32))
+
 def private_input():
     value = copy.deepcopy(next(row["input"] for row in load(FIXTURES)["cases"] if row["caseId"] == "synthetic-complete-private-shape"))
-    for component in (value["route"], value["continuity"], value["twoCell"], value["successor"], value["privateDisposition"]): component["evidenceTier"] = "private_local_attested"
-    value["privateDisposition"]["authorization"]["evidenceTier"] = "private_local_attested"
-    for row in value["privateDisposition"]["stageReceipts"]: row["evidenceTier"] = "private_local_attested"
-    return value
+    campaign = value["campaignId"]
+    proof_root_id = TEST_PROOF_ROOT["proofRootId"]
+    for component in (value["route"], value["continuity"], value["twoCell"], value["successor"], value["privateDisposition"]):
+        component["campaignId"] = campaign
+        component["proofRootId"] = proof_root_id
+        component["evidenceTier"] = "private_local_attested"
+    authorization = value["privateDisposition"]["authorization"]
+    authorization["campaignId"] = campaign
+    authorization["proofRootId"] = proof_root_id
+    authorization["evidenceTier"] = "private_local_attested"
+    for row in value["privateDisposition"]["stageReceipts"]:
+        row["campaignId"] = campaign
+        row["proofRootId"] = proof_root_id
+        row["evidenceTier"] = "private_local_attested"
+    value["successor"]["proofRootSha256"] = tool._proof_root_digest_ref(proof_root_id)
+    value["successor"]["answers"]["whatProvesIt"] = value["successor"]["proofRootSha256"]
+    canonical = value["privateDisposition"]["canonicalMissionStateSha256"]
+    value["continuity"]["canonicalStateBeforeSha256"] = canonical
+    value["continuity"]["canonicalStateAfterSha256"] = canonical
+    value["twoCell"]["commonParentSha256"] = canonical
+    value["successor"]["canonicalStateSha256"] = canonical
+    value["successor"]["answers"]["currentState"] = canonical
+    by_stage = {row["stage"]: row for row in value["privateDisposition"]["stageReceipts"]}
+    by_stage["BIND_GRACE"]["evidenceRootSha256"] = authorization["receiptId"]
+    by_stage["RUN_PERSONAL_FLOOR_BASELINE"]["evidenceRootSha256"] = value["route"]["residentRoute"]["receiptId"]
+    by_stage["RUN_HALO3_ACCELERATED"]["evidenceRootSha256"] = value["route"]["acceleratorRoute"]["receiptId"]
+    by_stage["VERIFY_PERSONAL_FLOOR_CONTINUITY"]["evidenceRootSha256"] = value["continuity"]["receiptId"]
+    by_stage["PARTITION_TWO_CELLS"]["evidenceRootSha256"] = value["twoCell"]["receiptId"]
+    by_stage["COLD_SUCCESSOR_VERIFY"]["evidenceRootSha256"] = value["successor"]["receiptId"]
+    by_stage["SEAL_PRIVATE_EVIDENCE"]["evidenceRootSha256"] = value["privateDisposition"]["sealedPackageSha256"]
+    value["privateDisposition"]["proof"] = None
+    return tool.authenticate_private_input(value, TEST_PROOF_ROOT)
+
+def resign_private_input(value):
+    result = copy.deepcopy(value)
+    result["privateDisposition"]["proof"] = None
+    return tool.authenticate_private_input(result, TEST_PROOF_ROOT)
 
 class JoinV2Tests(unittest.TestCase):
     def setUp(self): self.profile = tool.validate_exact_profile(PROFILE); self.catalog = tool.validate_exact_catalog(self.profile, FIXTURES)
     def build(self, value=None):
-        td = tempfile.TemporaryDirectory(); out = Path(td.name) / "carrier"; tool.write_carrier(self.profile, self.catalog, value or private_input(), out); return td, out
-    def direct(self, carrier): return subprocess.run([sys.executable, str(VERIFIER), str(carrier)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        td = tempfile.TemporaryDirectory()
+        out = Path(td.name) / "carrier"
+        root_path = Path(td.name) / "proof-root.private.json"
+        root_path.write_bytes(tool.canonical_json_bytes(TEST_PROOF_ROOT))
+        tool.write_carrier(self.profile, self.catalog, value or private_input(), out, TEST_PROOF_ROOT)
+        return td, out
+    def direct(self, carrier):
+        return subprocess.run(
+            [
+                sys.executable,
+                str(VERIFIER),
+                str(carrier),
+                "--proof-root",
+                str(carrier.parent / "proof-root.private.json"),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
     def resign_manifest(self, carrier):
         m = load(carrier / "MANIFEST.json"); rows=[]
         for rel in sorted(tool.EXPECTED_MEMBER_PATHS):
@@ -48,7 +101,82 @@ class JoinV2Tests(unittest.TestCase):
     def test_fixture_catalog_contains_no_private_tier(self): self.assertFalse(any(r["input"]["privateDisposition"]["evidenceTier"]=="private_local_attested" for r in self.catalog["cases"]))
     def test_prepared_terminal(self): self.assertEqual(tool.build_objects(self.profile, self.catalog["cases"][0]["input"])["join"]["terminal"],"PREPARED_NOT_ARMED")
     def test_synthetic_complete_holds(self): self.assertEqual(tool.build_objects(self.profile, self.catalog["cases"][1]["input"])["join"]["terminal"],"HOLD")
-    def test_private_complete_self_attests(self): self.assertEqual(tool.build_objects(self.profile,private_input())["join"]["terminal"],"PRIVATE_SELF_ATTESTED")
+
+    def test_private_labels_without_external_root_hold(self):
+        value = private_input()
+        result = tool.build_objects(self.profile, value)
+        self.assertEqual(result["join"]["terminal"], "HOLD")
+        self.assertIn("PRIVATE_PROOF_NOT_AUTHENTICATED", result["join"]["reasonCodes"])
+
+    def test_private_complete_self_attests_only_with_external_root(self):
+        result = tool.build_objects(self.profile, private_input(), TEST_PROOF_ROOT)
+        self.assertEqual(result["join"]["terminal"], "PRIVATE_SELF_ATTESTED")
+        self.assertTrue(result["join"]["predicates"]["privateProofAuthenticated"])
+
+    def test_forged_private_proof_tag_holds(self):
+        value = private_input()
+        value["privateDisposition"]["proof"]["authenticationTag"] = "hmac-sha256:" + "0" * 64
+        result = tool.build_objects(self.profile, value, TEST_PROOF_ROOT)
+        self.assertEqual(result["join"]["terminal"], "HOLD")
+        self.assertIn("PRIVATE_PROOF_NOT_AUTHENTICATED", result["join"]["reasonCodes"])
+
+    def test_component_campaign_splice_refuses_before_signing(self):
+        value = private_input()
+        value["privateDisposition"]["proof"] = None
+        value["route"]["campaignId"] = "PRIVATE-STC-MARY-FLIGHT-OTHER"
+        with self.assertRaises(tool.JoinError) as caught:
+            tool.authenticate_private_input(value, TEST_PROOF_ROOT)
+        self.assertEqual(caught.exception.code, "COMPONENT_CAMPAIGN_MISMATCH")
+
+    def test_component_proof_root_splice_refuses_before_signing(self):
+        value = private_input()
+        value["privateDisposition"]["proof"] = None
+        value["twoCell"]["proofRootId"] = "axmheadprivateproofroot1_" + "0" * 64
+        with self.assertRaises(tool.JoinError) as caught:
+            tool.authenticate_private_input(value, TEST_PROOF_ROOT)
+        self.assertEqual(caught.exception.code, "PRIVATE_PROOF_SCOPE_INVALID")
+
+    def test_route_continuity_splice_holds_after_complete_resigning(self):
+        value = private_input()
+        replacement = "sha256:" + "1" * 64
+        value["continuity"]["baselineOutputSha256"] = replacement
+        value["continuity"]["postRemovalOutputSha256"] = replacement
+        value = resign_private_input(value)
+        result = tool.build_objects(self.profile, value, TEST_PROOF_ROOT)
+        self.assertEqual(result["join"]["terminal"], "HOLD")
+        self.assertIn("ROUTE_CONTINUITY_LINK_MISMATCH", result["join"]["reasonCodes"])
+
+    def test_stage_component_splice_holds_after_complete_resigning(self):
+        value = private_input()
+        value["privateDisposition"]["stageReceipts"][3]["evidenceRootSha256"] = "sha256:" + "2" * 64
+        value = resign_private_input(value)
+        result = tool.build_objects(self.profile, value, TEST_PROOF_ROOT)
+        self.assertEqual(result["join"]["terminal"], "HOLD")
+        self.assertIn("STAGE_COMPONENT_RECEIPT_LINK_MISMATCH", result["join"]["reasonCodes"])
+
+    def test_successor_state_splice_holds_after_complete_resigning(self):
+        value = private_input()
+        replacement = "sha256:" + "3" * 64
+        value["successor"]["canonicalStateSha256"] = replacement
+        value["successor"]["answers"]["currentState"] = replacement
+        value = resign_private_input(value)
+        result = tool.build_objects(self.profile, value, TEST_PROOF_ROOT)
+        self.assertEqual(result["join"]["terminal"], "HOLD")
+        self.assertIn("CANONICAL_STATE_CHAIN_MISMATCH", result["join"]["reasonCodes"])
+
+    def test_wrong_external_root_refuses_private_carrier(self):
+        td, carrier = self.build()
+        wrong_root = tool.create_private_proof_root("PRIVATE-STC-MARY-FLIGHT-01", secrets.token_bytes(32))
+        wrong_path = Path(td.name) / "wrong-proof-root.private.json"
+        wrong_path.write_bytes(tool.canonical_json_bytes(wrong_root))
+        result = subprocess.run(
+            [sys.executable, str(VERIFIER), str(carrier), "--proof-root", str(wrong_path)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(json.loads(result.stdout)["status"], "REFUSED")
+        td.cleanup()
     def test_supplier_commit_drift_refuses(self):
         v=private_input(); v["sourceBinding"]["publicSources"]["axmRemovableVolumeSupplier"]["commit"]="0"*40
         with self.assertRaises(tool.JoinError): tool.build_objects(self.profile,v)
@@ -139,14 +267,14 @@ class JoinV2Tests(unittest.TestCase):
         captured=io.BytesIO()
         text=io.TextIOWrapper(captured,encoding="utf-8",write_through=True)
         with contextlib.redirect_stdout(text):
-            receipt=tool.bootstrap_verify(c,out)
+            receipt=tool.bootstrap_verify(c,out,TEST_PROOF_ROOT)
         self.assertEqual(captured.getvalue(),b"")
         self.assertTrue(receipt["bootstrapAuthenticated"])
         self.assertEqual(out.read_bytes(),tool.canonical_json_bytes(receipt))
         td.cleanup()
     def test_malicious_verifier_substitution_refuses_before_execution(self):
         td,c=self.build(); (c/"RECOVERY/verify_join.py").write_text("raise SystemExit('EXECUTED')\n");
-        with self.assertRaises(tool.JoinError) as cm: tool.bootstrap_verify(c,None)
+        with self.assertRaises(tool.JoinError) as cm: tool.bootstrap_verify(c,None,TEST_PROOF_ROOT)
         self.assertEqual(cm.exception.code,"BOOTSTRAP_SOURCE_AUTHENTICATION_FAILED"); td.cleanup()
     def test_unmanifested_file_refuses(self):
         td,c=self.build(); (c/"EXTRA").write_text("x"); self.assert_refused(c,"FILE_DENOMINATOR_INVALID"); td.cleanup()
@@ -173,7 +301,7 @@ class JoinV2Tests(unittest.TestCase):
             if rel.endswith(".json"): self.assertNotIn(b"\r\n",(c/rel).read_bytes())
         td.cleanup()
     def test_foreign_working_directory(self):
-        td,c=self.build(); other=tempfile.TemporaryDirectory(); r=subprocess.run([sys.executable,str(VERIFIER),str(c)],cwd=other.name,stdout=subprocess.PIPE); self.assertEqual(r.returncode,0); other.cleanup(); td.cleanup()
+        td,c=self.build(); other=tempfile.TemporaryDirectory(); r=subprocess.run([sys.executable,str(VERIFIER),str(c),"--proof-root",str(c.parent/"proof-root.private.json")],cwd=other.name,stdout=subprocess.PIPE); self.assertEqual(r.returncode,0); other.cleanup(); td.cleanup()
     def test_bootstrap_output_inside_repository_refuses(self):
         td,c=self.build();
         with self.assertRaises(tool.JoinError) as cm: tool.bootstrap_verify(c,ROOT/"forbidden-verdict.json")
@@ -191,10 +319,10 @@ class JoinV2Tests(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "symlink privilege is not portable on Windows")
     def test_bootstrap_refuses_symlinked_recovery_source(self):
         td,c=self.build(); original=c/"RECOVERY/verify_join.py"; backup=c/"RECOVERY/verify_join.real"; original.rename(backup); original.symlink_to(backup)
-        with self.assertRaises(tool.JoinError) as cm: tool.bootstrap_verify(c,None)
+        with self.assertRaises(tool.JoinError) as cm: tool.bootstrap_verify(c,None,TEST_PROOF_ROOT)
         self.assertEqual(cm.exception.code,"SYMLINK_MEMBER_REFUSED"); td.cleanup()
     def test_partial_private_denominator_holds(self):
-        v=private_input(); v["successor"]["present"]=False; v["successor"]["evidenceTier"]="none"
+        v=private_input(); v["successor"]["present"]=False; v["successor"]["evidenceTier"]="none"; v["successor"]["proofRootId"]=None
         for key in ("originalHeadClassSha256","replacementHeadClassSha256","missionId","canonicalStateSha256","proofRootSha256","namedHumanAuthorityClass","nextSafeActionSha256","verificationTerminal","receiptId"): v["successor"][key]=None
         v["successor"]["unresolvedObligationCount"]=0; v["successor"]["answers"]={}; v["successor"]["dependenciesAbsent"]=[]; v["successor"]["independentlyVerified"]=False
         self.assertEqual(tool.build_objects(self.profile,v)["join"]["terminal"],"HOLD")

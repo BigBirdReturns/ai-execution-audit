@@ -1,7 +1,7 @@
 {
   "authority": "none",
   "bootstrapRequired": true,
-  "claimBoundary": "Provider-free postflight verification membrane for one private STC MARY physical-flight self-attestation. It binds exact admitted public sources to allowlisted body-free private receipts, derives route, continuity, two-cell, successor, sealed-package, and authorization-order predicates, and may emit PRIVATE_SELF_ATTESTED only for a complete private_local_attested denominator. It does not launch, authorize, or execute a physical campaign, publish a private body, qualify a representative operator, field network, operational C2 system, production Lattice integration, or grant mission, command, targeting, engagement, effector, or weapons authority.",
+  "claimBoundary": "Provider-free postflight verification membrane for one private STC MARY physical-flight self-attestation. It binds exact admitted public sources to allowlisted body-free private receipts, requires a separately custodied private proof root to authenticate the complete single-campaign receipt graph, derives route, continuity, two-cell, successor, sealed-package, authorization-order, and cross-stage predicates, and may emit PRIVATE_SELF_ATTESTED only when that authenticated private_local_attested denominator closes. The proof root never enters the carrier or repository. The join does not launch, authorize, or execute a physical campaign, publish a private body, qualify a representative operator, field network, operational C2 system, production Lattice integration, or grant mission, command, targeting, engagement, effector, or weapons authority.",
   "dependenciesAbsent": [
     "AWS",
     "Lattice",
@@ -11,7 +11,7 @@
     "repository_history"
   ],
   "externalServiceCalls": 0,
-  "fixtureCatalogCanonicalSha256": "54f2e194ec7237225c8163b36c0027a35060473839db0ef099feccb92255cfcc",
+  "fixtureCatalogCanonicalSha256": "e5ad2cfcf55c8f75c49177f289668be7b6f84b69030ea6fa24ac9566e7dd11f5",
   "listenersCreated": 0,
   "networkRequired": false,
   "objectSchemas": [
@@ -107,6 +107,25 @@
     "terminal": "READY_FOR_HUMAN_REVIEW"
   },
   "privateEvidenceBodiesPublic": 0,
+  "privateProofLaw": {
+    "algorithm": "HMAC-SHA-256",
+    "campaignBindingRequired": true,
+    "componentBindingRequired": true,
+    "envelopeSchema": "axm-head/private-proof-envelope@1",
+    "rootEmbeddedInCarrier": false,
+    "rootRepositoryAllowed": false,
+    "rootRequiredForSelfAttestation": true,
+    "rootSchema": "axm-head/private-proof-root@1",
+    "stageComponentBindings": {
+      "BIND_GRACE": "authorization",
+      "COLD_SUCCESSOR_VERIFY": "successor",
+      "PARTITION_TWO_CELLS": "twoCell",
+      "RUN_HALO3_ACCELERATED": "acceleratorRoute",
+      "RUN_PERSONAL_FLOOR_BASELINE": "residentRoute",
+      "SEAL_PRIVATE_EVIDENCE": "sealedPackage",
+      "VERIFY_PERSONAL_FLOOR_CONTINUITY": "continuity"
+    }
+  },
   "profileId": "axm-head/physical-long-haul-join@2",
   "publicSources": {
     "axmRemovableVolumeSupplier": {
@@ -164,7 +183,7 @@
     "preflightStandaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
     "privatePacketProfileCanonicalSha256": "9208b6c28556ee2ba04a1bfdbc792dba457891fa9a8394aa80913a8e66dcd65c"
   },
-  "standaloneVerifierSha256": "48db79eb2450ccec666469d9fe5281f528925a435f5b2d2e81fc7062b5ac0d3a",
+  "standaloneVerifierSha256": "e959925c27579c228e75c3753f99955070835192b358d900fd87253f2240978e",
   "status": "candidate_contract_only",
   "strongerClaims": {
     "commandAuthorityGranted": false,

@@ -40,3 +40,60 @@ Construction and hosted qualification perform no physical action, produce no phy
 ## Control question
 
 Can the authenticated verifier reconstruct every consequential physical predicate from a complete body-free private receipt chain while making source admission, preflight review, synthetic evidence, route memory pooling, hardware identity, and self-consistent re-signing incapable of manufacturing physical evidence or authority?
+
+
+## Private proof-root and single-campaign closure
+
+`PRIVATE_SELF_ATTESTED` now requires a separately custodied `axm-head/private-proof-root@1` that never enters the repository, carrier, public receipt, workflow artifact, stdout, or stderr. The root authenticates one `axm-head/private-proof-envelope@1` over the complete canonical input graph with HMAC-SHA-256. Public bytes alone can reconstruct `PREPARED_NOT_ARMED` and `HOLD`; they cannot manufacture the private terminal.
+
+Every route, continuity, two-cell, successor, authorization, stage, and disposition component carries the same campaign and proof-root coordinates. The verifier rejects mixed campaign or root coordinates and derives these cross-stage links:
+
+```text
+BIND_GRACE                          -> authorization receipt
+RUN_PERSONAL_FLOOR_BASELINE         -> resident-route receipt
+RUN_HALO3_ACCELERATED               -> accelerator-route receipt
+VERIFY_PERSONAL_FLOOR_CONTINUITY    -> continuity receipt
+PARTITION_TWO_CELLS                 -> two-cell receipt
+COLD_SUCCESSOR_VERIFY               -> successor receipt
+SEAL_PRIVATE_EVIDENCE               -> sealed-package digest
+```
+
+It also requires the accepted output to agree across resident, accelerator, baseline, and post-removal continuity; the canonical mission state to agree across continuity, two-cell parent, successor, packet stages, and disposition; and the successor proof root to identify the separately supplied private root.
+
+The private postflight command sequence is closed:
+
+```powershell
+$Join = '.\mating_surface\anchor_node\axm-head-physical-long-haul-join.ps1'
+
+& $Join create-proof-root `
+  .\mating_surface\anchor_node\axm-head-physical-long-haul-join-profile-01.json `
+  --campaign PRIVATE-STC-MARY-FLIGHT-01 `
+  --out PATH_OUTSIDE_REPOSITORY\join-v2-proof-root.private.json
+
+& $Join authenticate-private-input `
+  .\mating_surface\anchor_node\axm-head-physical-long-haul-join-profile-01.json `
+  .\mating_surface\anchor_node\fixtures\axm-head-physical-long-haul-join-cases-01.json `
+  PATH_TO_BODY_FREE_PRIVATE_INPUT `
+  --proof-root PATH_OUTSIDE_REPOSITORY\join-v2-proof-root.private.json `
+  --out PATH_OUTSIDE_REPOSITORY\join-v2-authenticated-input.json
+
+& $Join build-private `
+  .\mating_surface\anchor_node\axm-head-physical-long-haul-join-profile-01.json `
+  .\mating_surface\anchor_node\fixtures\axm-head-physical-long-haul-join-cases-01.json `
+  PATH_OUTSIDE_REPOSITORY\join-v2-authenticated-input.json `
+  --proof-root PATH_OUTSIDE_REPOSITORY\join-v2-proof-root.private.json `
+  --out PATH_OUTSIDE_REPOSITORY\axm-head-join-v2-carrier
+
+& $Join verify-join `
+  PATH_OUTSIDE_REPOSITORY\axm-head-join-v2-carrier `
+  --proof-root PATH_OUTSIDE_REPOSITORY\join-v2-proof-root.private.json `
+  --out PATH_OUTSIDE_REPOSITORY\join-v2-verdict.json
+```
+
+Creating the authentication root does not authorize or start physical work. The root becomes useful only after issue #37 separately produces a complete body-free private receipt graph. Qualification uses an ephemeral root entirely inside the test process, captures focused-test stdout as empty, and publishes only the `PREPARED_NOT_ARMED` fixture.
+
+```text
+profile canonical SHA-256: fa4cacd185f3ca87297fef64a87af68da4aacfffb8cadfa34403f9e0de98f97b
+fixture catalog canonical SHA-256: e5ad2cfcf55c8f75c49177f289668be7b6f84b69030ea6fa24ac9566e7dd11f5
+standalone verifier SHA-256: e959925c27579c228e75c3753f99955070835192b358d900fd87253f2240978e
+```
