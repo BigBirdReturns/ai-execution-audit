@@ -13,11 +13,11 @@ from pathlib import Path
 from unittest import mock
 
 ANCHOR = Path(__file__).resolve().parents[1]
-TOOL_PATH = ANCHOR / "axm_head_physical_long_haul_001_join_v2.py"
-VERIFIER_PATH = ANCHOR / "verify_axm_head_physical_long_haul_001_join_v2.py"
-BOOTSTRAP_PATH = ANCHOR / "verify_axm_head_physical_long_haul_001_join_v2_bootstrap.py"
-PROFILE_PATH = ANCHOR / "axm-head-physical-long-haul-001-join-v2-profile.json"
-WRAPPER_PATH = ANCHOR / "axm-head-physical-long-haul-001-join-v2.ps1"
+TOOL_PATH = ANCHOR / "axm_head_physical_flight_preflight_review_card_01.py"
+VERIFIER_PATH = ANCHOR / "verify_axm_head_physical_flight_preflight_review_card_01.py"
+BOOTSTRAP_PATH = ANCHOR / "verify_axm_head_physical_flight_preflight_review_card_01_bootstrap.py"
+PROFILE_PATH = ANCHOR / "axm-head-physical-flight-preflight-review-card-01-profile.json"
+WRAPPER_PATH = ANCHOR / "axm-head-physical-flight-preflight-review-card-01.ps1"
 
 
 def load_module(name: str, path: Path):
@@ -28,12 +28,12 @@ def load_module(name: str, path: Path):
     return module
 
 
-TOOL = load_module("join_v2_tool_tests", TOOL_PATH)
-VERIFIER = load_module("join_v2_verifier_tests", VERIFIER_PATH)
-BOOTSTRAP = load_module("join_v2_bootstrap_tests", BOOTSTRAP_PATH)
+TOOL = load_module("preflight_review_card_01_tool_tests", TOOL_PATH)
+VERIFIER = load_module("preflight_review_card_01_verifier_tests", VERIFIER_PATH)
+BOOTSTRAP = load_module("preflight_review_card_01_bootstrap_tests", BOOTSTRAP_PATH)
 
 
-class JoinV2Tests(unittest.TestCase):
+class PreflightReviewCard01Tests(unittest.TestCase):
     maxDiff = None
 
     def setUp(self) -> None:
@@ -106,7 +106,7 @@ class JoinV2Tests(unittest.TestCase):
             self.fail(f"manifest row missing: {relative}")
         body = dict(manifest)
         body.pop("carrierId")
-        manifest["carrierId"] = TOOL.content_id("axmheadjoincarrier2", body)
+        manifest["carrierId"] = TOOL.content_id("axmheadpreflightcarrier1", body)
         manifest_path.write_bytes(TOOL.pretty_json_bytes(manifest))
 
     def mutate_json_and_resign(self, carrier: Path, relative: str, mutate) -> None:
@@ -130,7 +130,7 @@ class JoinV2Tests(unittest.TestCase):
         changed["sourceCoordinates"]["admittedAxmHeadSupplier"]["tree"] = "0" * 40
         path = self.root / "profile.json"
         path.write_text(json.dumps(changed), encoding="utf-8")
-        with self.assertRaisesRegex(TOOL.JoinError, "source coordinates differ"):
+        with self.assertRaisesRegex(TOOL.PreflightError, "source coordinates differ"):
             TOOL.validate_profile(path)
 
     def test_04_issue_37_is_sole_physical_coordinate(self):
@@ -227,7 +227,7 @@ class JoinV2Tests(unittest.TestCase):
         self.assertTrue(all(not row["physicalAction"] for row in card["actions"][: ordinal - 1]))
 
     def test_19_card_compilation_refuses_incomplete_preparation(self):
-        with self.assertRaisesRegex(TOOL.JoinError, "safe private coordinate headers"):
+        with self.assertRaisesRegex(TOOL.PreflightError, "safe private coordinate headers"):
             TOOL.compile_execution_card(self.profile, TOOL.prepared_state(self.profile))
 
     def test_20_card_compilation_refuses_started_activity(self):
@@ -237,7 +237,7 @@ class JoinV2Tests(unittest.TestCase):
             private_coordinate_headers=self.headers,
             physical_execution_started=True,
         )
-        with self.assertRaisesRegex(TOOL.JoinError, "after physical activity begins"):
+        with self.assertRaisesRegex(TOOL.PreflightError, "after physical activity begins"):
             TOOL.compile_execution_card(self.profile, state)
 
     def test_21_physical_execution_started_refuses(self):
@@ -299,7 +299,7 @@ class JoinV2Tests(unittest.TestCase):
         state["executionCard"]["actions"][0]["authorized"] = True
         body = dict(state)
         body.pop("stateId")
-        state["stateId"] = TOOL.content_id("axmheadjoinstate2", body)
+        state["stateId"] = TOOL.content_id("axmheadpreflightstate1", body)
         decision = TOOL.evaluate_preparation(self.profile, state)
         self.assertEqual(decision["terminal"], "REFUSED")
         self.assertIn("EXECUTION_CARD_MISMATCH", decision["reasonCodes"])
@@ -322,10 +322,10 @@ class JoinV2Tests(unittest.TestCase):
     def test_31_direct_verifier_passes_without_self_authentication(self):
         carrier = self.build("forged-auth-environment")
         env = os.environ.copy()
-        env["AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED"] = "1"
-        env["AXM_HEAD_JOIN_V2_VERIFIER_SHA256"] = TOOL.STANDALONE_VERIFIER_SHA256
+        env["AXM_HEAD_PREFLIGHT_REVIEW_CARD_01_BOOTSTRAP_AUTHENTICATED"] = "1"
+        env["AXM_HEAD_PREFLIGHT_REVIEW_CARD_01_VERIFIER_SHA256"] = TOOL.STANDALONE_VERIFIER_SHA256
         completed = subprocess.run(
-            [sys.executable, str(carrier / "RECOVERY/verify_join.py"), str(carrier)],
+            [sys.executable, str(carrier / "RECOVERY/verify_preflight.py"), str(carrier)],
             stdout=subprocess.PIPE,
             env=env,
             check=False,
@@ -365,8 +365,8 @@ class JoinV2Tests(unittest.TestCase):
         cases = (
             ("PUBLIC/status.json", "physicalExecutionStarted", True, "public status is not reconstructed"),
             ("PUBLIC/status.json", "physicalExecutionStarted", 0, "public status is not reconstructed"),
-            ("JOIN/decision.json", "physicalAuthorizationProduced", True, "decision is not reconstructed"),
-            ("JOIN/decision.json", "physicalAuthorizationProduced", 0, "decision is not reconstructed"),
+            ("PREFLIGHT/decision.json", "physicalAuthorizationProduced", True, "decision is not reconstructed"),
+            ("PREFLIGHT/decision.json", "physicalAuthorizationProduced", 0, "decision is not reconstructed"),
         )
         for index, (relative, key, replacement, message) in enumerate(cases):
             with self.subTest(relative=relative, key=key, replacement=replacement):
@@ -389,7 +389,7 @@ class JoinV2Tests(unittest.TestCase):
                 carrier = self.build(f"resigned-preparation-{index}")
                 self.mutate_json_and_resign(
                     carrier,
-                    "JOIN/preparation-state.json",
+                    "PREFLIGHT/preparation-state.json",
                     lambda value, k=key, r=replacement: value.__setitem__(k, r),
                 )
                 with self.assertRaisesRegex(VERIFIER.VerificationError, "prepared state is not reconstructed"):
@@ -410,7 +410,7 @@ class JoinV2Tests(unittest.TestCase):
                 manifest[key] = replacement
                 body = dict(manifest)
                 body.pop("carrierId")
-                manifest["carrierId"] = TOOL.content_id("axmheadjoincarrier2", body)
+                manifest["carrierId"] = TOOL.content_id("axmheadpreflightcarrier1", body)
                 manifest_path.write_bytes(TOOL.pretty_json_bytes(manifest))
                 with self.assertRaisesRegex(VERIFIER.VerificationError, message):
                     VERIFIER.verify(carrier)
@@ -424,12 +424,12 @@ class JoinV2Tests(unittest.TestCase):
     def test_38_malicious_verifier_substitution_refuses_before_execution(self):
         carrier = self.build()
         marker = self.root / "executed.txt"
-        verifier = carrier / "RECOVERY/verify_join.py"
+        verifier = carrier / "RECOVERY/verify_preflight.py"
         verifier.write_text(
             f"from pathlib import Path\nPath({str(marker)!r}).write_text('executed')\nprint('{{\"status\":\"PASS\"}}')\n",
             encoding="utf-8",
         )
-        self.resign_manifest_member(carrier, "RECOVERY/verify_join.py")
+        self.resign_manifest_member(carrier, "RECOVERY/verify_preflight.py")
         completed = subprocess.run([sys.executable, str(BOOTSTRAP_PATH), str(carrier)], stdout=subprocess.PIPE, check=False)
         self.assertEqual(completed.returncode, 2)
         refusal = json.loads(completed.stdout)
@@ -493,7 +493,7 @@ class JoinV2Tests(unittest.TestCase):
                 mutate(state["executionCard"])
                 body = dict(state)
                 body.pop("stateId")
-                state["stateId"] = TOOL.content_id("axmheadjoinstate2", body)
+                state["stateId"] = TOOL.content_id("axmheadpreflightstate1", body)
                 decision = TOOL.evaluate_preparation(self.profile, state)
                 self.assertEqual(decision["terminal"], "REFUSED")
                 self.assertIn("EXECUTION_CARD_MISMATCH", decision["reasonCodes"])
@@ -502,11 +502,11 @@ class JoinV2Tests(unittest.TestCase):
         state = self.full_state()
         state["physicalFlightIssue"]["issueNumber"] = 37.0
         state["preparationBasisId"] = TOOL.content_id(
-            "axmheadjoinbasis2", TOOL.state_basis_body(self.profile, state)
+            "axmheadpreflightbasis1", TOOL.state_basis_body(self.profile, state)
         )
         body = dict(state)
         body.pop("stateId")
-        state["stateId"] = TOOL.content_id("axmheadjoinstate2", body)
+        state["stateId"] = TOOL.content_id("axmheadpreflightstate1", body)
         decision = TOOL.evaluate_preparation(self.profile, state)
         self.assertEqual(decision["terminal"], "REFUSED")
         self.assertEqual(decision["errorCode"], "STATE_ISSUE_BINDING_INVALID")
@@ -515,10 +515,10 @@ class JoinV2Tests(unittest.TestCase):
         carrier = self.build("forged-auth-refusal")
         (carrier / "EXTRA.txt").write_text("extra\n", encoding="utf-8")
         env = os.environ.copy()
-        env["AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED"] = "1"
-        env["AXM_HEAD_JOIN_V2_VERIFIER_SHA256"] = TOOL.STANDALONE_VERIFIER_SHA256
+        env["AXM_HEAD_PREFLIGHT_REVIEW_CARD_01_BOOTSTRAP_AUTHENTICATED"] = "1"
+        env["AXM_HEAD_PREFLIGHT_REVIEW_CARD_01_VERIFIER_SHA256"] = TOOL.STANDALONE_VERIFIER_SHA256
         completed = subprocess.run(
-            [sys.executable, str(carrier / "RECOVERY/verify_join.py"), str(carrier)],
+            [sys.executable, str(carrier / "RECOVERY/verify_preflight.py"), str(carrier)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
@@ -532,14 +532,14 @@ class JoinV2Tests(unittest.TestCase):
 
     def test_46_repository_output_is_refused_before_writing(self):
         carrier = self.build("external-carrier")
-        inside_dir = ANCHOR / ".join-v2-repository-output-refused-test"
-        inside_file = ANCHOR / ".join-v2-repository-output-refused-test.json"
+        inside_dir = ANCHOR / ".preflight-review-card-01-repository-output-refused-test"
+        inside_file = ANCHOR / ".preflight-review-card-01-repository-output-refused-test.json"
         try:
-            with self.assertRaisesRegex(TOOL.JoinError, "inside the repository"):
+            with self.assertRaisesRegex(TOOL.PreflightError, "inside the repository"):
                 TOOL.build_carrier(profile_path=PROFILE_PATH, out=inside_dir)
-            with self.assertRaisesRegex(TOOL.JoinError, "inside the repository"):
+            with self.assertRaisesRegex(TOOL.PreflightError, "inside the repository"):
                 TOOL.emit({"status": "PASS"}, inside_file)
-            with self.assertRaisesRegex(TOOL.JoinError, "inside the repository"):
+            with self.assertRaisesRegex(TOOL.PreflightError, "inside the repository"):
                 TOOL.run_bootstrap(carrier, inside_file)
             self.assertFalse(inside_dir.exists())
             self.assertFalse(inside_file.exists())
@@ -554,7 +554,7 @@ class JoinV2Tests(unittest.TestCase):
 
     def test_47_bootstrap_executes_measured_bytes_not_reopened_path(self):
         carrier = self.build("measured-verifier-race")
-        verifier_path = carrier / "RECOVERY/verify_join.py"
+        verifier_path = carrier / "RECOVERY/verify_preflight.py"
         measured_bytes = verifier_path.read_bytes()
         marker = self.root / "malicious-verifier-executed.txt"
         verifier_path.write_text(
@@ -563,8 +563,8 @@ class JoinV2Tests(unittest.TestCase):
             encoding="utf-8",
         )
         env = os.environ.copy()
-        env.pop("AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED", None)
-        env.pop("AXM_HEAD_JOIN_V2_VERIFIER_SHA256", None)
+        env.pop("AXM_HEAD_PREFLIGHT_REVIEW_CARD_01_BOOTSTRAP_AUTHENTICATED", None)
+        env.pop("AXM_HEAD_PREFLIGHT_REVIEW_CARD_01_VERIFIER_SHA256", None)
         result = BOOTSTRAP.invoke_measured_verifier(measured_bytes, carrier, env)
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stderr, b"")
@@ -576,13 +576,13 @@ class JoinV2Tests(unittest.TestCase):
 
     def test_48_direct_verifier_refuses_repository_output_without_mutation(self):
         carrier = self.build("direct-repository-output")
-        output = ANCHOR / ".join-v2-direct-repository-output-refused.json"
+        output = ANCHOR / ".preflight-review-card-01-direct-repository-output-refused.json"
         try:
             self.assertFalse(output.exists())
             completed = subprocess.run(
                 [
                     sys.executable,
-                    str(carrier / "RECOVERY/verify_join.py"),
+                    str(carrier / "RECOVERY/verify_preflight.py"),
                     str(carrier),
                     "--out",
                     str(output),

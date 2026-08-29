@@ -1,6 +1,6 @@
 {
-  "schema": "axm-head-physical-long-haul-001-join-v2-profile/2",
-  "profileId": "axm-head/physical-long-haul-001/join-v2",
+  "schema": "axm-head/physical-flight-preflight-review-card-profile/1",
+  "profileId": "axm-head/physical-flight-preflight-review-card@1",
   "status": "candidate_contract_only",
   "owningProject": "Estate",
   "owningRepository": "BigBirdReturns/ai-execution-audit",
@@ -250,5 +250,5 @@
   "workersLaunched": 0,
   "listenersCreated": 0,
   "authority": "none",
-  "claimBoundary": "Public preflight join binding the admitted AXM HEAD mission-volume contract to the admitted STC MARY conductor, frozen physical-flight floor, and sole issue #37 execution coordinate. It may validate body-free private coordinate headers and compile an exact operator card, but it performs no physical action, materializes no mission volume, launches no worker, creates no listener, grants no authorization, and establishes no physical Estate, representative operator, field network, operational C2, production Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority."
+  "claimBoundary": "Public physical-flight preflight review-card contract binding the admitted AXM HEAD mission-volume contract to the admitted STC MARY conductor, frozen physical-flight floor, and sole issue #37 execution coordinate. It may validate body-free private coordinate headers and compile an exact unauthorized operator card for separate named-human review, but it performs no physical action, materializes no mission volume, launches no worker, creates no listener, grants no authorization, consumes no private evidence body, and establishes no physical Estate, representative operator, field network, operational C2, production Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority."
 }

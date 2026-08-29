@@ -1,8 +1,8 @@
-# AXM HEAD Physical Long Haul 001 Join v2
+# AXM HEAD Physical Flight Preflight Review Card 01
 
 ## Object
 
-This increment defines the public preflight join between the admitted AXM HEAD removable mission-volume supplier and the admitted STC MARY private-flight conductor. It closes the repository-side dependency question before any private physical authorization can exist. The join validates the exact public floors, accepts only body-free private coordinate headers, and deterministically compiles an operator review card. It does not initialize a workstation, materialize a mission volume, update issue #37, launch a worker, create a listener, observe equipment, execute a task, or authorize an Estate visit.
+This increment defines the public physical-flight preflight review-card contract between the admitted AXM HEAD removable mission-volume supplier and the admitted STC MARY private-flight conductor. It closes the repository-side dependency question before any private physical authorization can exist. The preflight review-card contract validates the exact public floors, accepts only body-free private coordinate headers, and deterministically compiles an operator review card. It does not initialize a workstation, materialize a mission volume, update issue #37, launch a worker, create a listener, observe equipment, execute a task, or authorize an Estate visit.
 
 The carrier begins at `PREPARED_NOT_ARMED`. A later body-free preparation object may reach `READY_FOR_HUMAN_REVIEW` only when the two required checkouts are exact, clean, and detached; all four private artifact coordinates are present as content references without paths or bodies; and the compiled card is byte-equivalent to the admitted phase plan. Every card action remains `authorized: false`. Human review is therefore a separate transaction, and review is not execution authority.
 
@@ -39,11 +39,11 @@ sole physical-flight coordinate
 BigBirdReturns/ai-execution-audit#37
 ```
 
-The source split is deliberate. The conductor remains the admitted operator surface. The older detached floor remains the physical execution source. The AXM supplier supplies the removable-volume and equipment-intake law. This join binds the three coordinates without moving, replacing, or collapsing them.
+The source split is deliberate. The conductor remains the admitted operator surface. The older detached floor remains the physical execution source. The AXM supplier supplies the removable-volume and equipment-intake law. This preflight review-card contract binds the three coordinates without moving, replacing, or collapsing them.
 
 ## Closed terminals
 
-The join admits exactly four public preparation terminals:
+The preflight review-card contract admits exactly four public preparation terminals:
 
 ```text
 PREPARED_NOT_ARMED
@@ -73,7 +73,7 @@ No terminal authorizes physical execution. `READY_FOR_HUMAN_REVIEW` means that t
 
 ## Body-free preparation state
 
-The preparation state binds the join contract, exact source coordinates, issue #37, two checkout receipts, four private coordinate headers, zero activity, absent authorization, and authority `none`. The private headers contain only:
+The preparation state binds the preflight review-card contract contract, exact source coordinates, issue #37, two checkout receipts, four private coordinate headers, zero activity, absent authorization, and authority `none`. The private headers contain only:
 
 ```text
 label
@@ -143,7 +143,7 @@ The canonical public carrier contains one manifest and five measured members:
 ```text
 MANIFEST.json
 
-JOIN/
+PREFLIGHT/
   preparation-state.json
   decision.json
 
@@ -152,7 +152,7 @@ PUBLIC/
 
 RECOVERY/
   profile.json
-  verify_join.py
+  verify_preflight.py
 ```
 
 The carrier contains only the initial `PREPARED_NOT_ARMED` state. It does not contain private coordinate headers or a compiled card. Those belong to a later private preparation transaction. The manifest closes the source graph, issue #37, profile digest, verifier digest, complete five-file denominator, terminal, and every non-claim.
@@ -161,12 +161,12 @@ Unmanifested files, missing members, symlink members, changed bytes, changed row
 
 ## External verifier authentication
 
-The carrier embeds a standard-library verifier under `RECOVERY/verify_join.py`. Direct execution reconstructs the canonical prepared state, decision, public status, file denominator, manifest, and carrier identity, while truthfully reporting that it has not authenticated itself.
+The carrier embeds a standard-library verifier under `RECOVERY/verify_preflight.py`. Direct execution reconstructs the canonical prepared state, decision, public status, file denominator, manifest, and carrier identity, while truthfully reporting that it has not authenticated itself.
 
 The external bootstrap reads and hashes the embedded verifier once, then executes those exact measured bytes through a trusted isolated stdin launcher rather than reopening the carrier pathname. It invokes the measured verifier without an authentication channel or output path, requires one canonical direct `PASS` receipt with `bootstrapAuthenticated: false`, validates every physical and authority non-claim, and then constructs the authenticated receipt itself. The admitted verifier digest is:
 
 ```text
-8ba7f39f512a4f683bf6780ff0ac3a128d10d83dd07b59f4e7e62946f41b5761
+c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2
 ```
 
 A substituted verifier is refused before its bytes run. Direct refusal remains canonical and unauthenticated even when a caller forges legacy environment variables. Verdict output inside the measured carrier, hard-linked to a measured member, or resolved anywhere under the repository root is refused before mutation.
@@ -176,11 +176,11 @@ A substituted verifier is refused before its bytes run. Direct refusal remains c
 From the repository root:
 
 ```powershell
-$Tool = 'mating_surface\anchor_node\axm-head-physical-long-haul-001-join-v2.ps1'
-$Profile = 'mating_surface\anchor_node\axm-head-physical-long-haul-001-join-v2-profile.json'
-$Prepared = Join-Path $env:TEMP 'axm-head-join-v2-prepared.json'
-$Carrier = Join-Path $env:TEMP 'axm-head-join-v2-carrier'
-$Verdict = Join-Path $env:TEMP 'axm-head-join-v2-verdict.json'
+$Tool = 'mating_surface\anchor_node\axm-head-physical-flight-preflight-review-card-01.ps1'
+$Profile = 'mating_surface\anchor_node\axm-head-physical-flight-preflight-review-card-01-profile.json'
+$Prepared = Join-Path $env:TEMP 'axm-head-preflight-review-card-01-prepared.json'
+$Carrier = Join-Path $env:TEMP 'axm-head-preflight-review-card-01-carrier'
+$Verdict = Join-Path $env:TEMP 'axm-head-preflight-review-card-01-verdict.json'
 
 & $Tool validate-profile $Profile
 & $Tool prepared-state $Profile --out $Prepared
@@ -210,16 +210,16 @@ The workflow qualifies both the exact pull-request head and GitHub's synthesized
 
 ## Relationship to issue #37
 
-Issue #37 remains the sole private physical-flight ledger. This join does not initialize or update that ledger. It does not satisfy any `private_local_attested` gate, packet stage, physical cell, successor, or sealed-flight criterion. The join makes the body-free private preparation and review card mechanically constructible against the admitted supplier floor.
+Issue #37 remains the sole private physical-flight ledger. This preflight review-card contract does not initialize or update that ledger. It does not satisfy any `private_local_attested` gate, packet stage, physical cell, successor, or sealed-flight criterion. The preflight review-card contract makes the body-free private preparation and review card mechanically constructible against the admitted supplier floor.
 
 Only a later, separately reviewed private authorization transaction may accept one bounded action under issue #37. That transaction must preserve the exact source graph, named-human authority, resident-floor continuity, optional HALO3 semantics, HUMAN_REQUIRED reunion, cold successor, private evidence custody, and every public non-claim.
 
 ## Claim boundary
 
-This candidate proves a public preflight join, exact admitted supplier and conductor binding, frozen physical-floor binding, sole-ledger binding, closed body-free private-coordinate schema, deterministic unauthorized operator review card, independently reconstructed prepared carrier, and externally authenticated verification.
+This candidate proves a public physical-flight preflight review-card contract, exact admitted supplier and conductor binding, frozen physical-floor binding, sole-ledger binding, closed body-free private-coordinate schema, deterministic unauthorized operator review card, independently reconstructed prepared carrier, and externally authenticated verification.
 
 It does not prove that a private workstation exists, equipment was observed, any physical coordinate was accessed, a mission volume was materialized, a worker or listener ran, a task executed, a model output was correct, issue #37 advanced, the physical Estate was qualified, or any representative-operator, field-network, operational-C2, production-Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority exists.
 
 ## Control question
 
-Does the join let a foreign successor reconstruct the exact supplier, conductor, physical floor, issue, private-coordinate denominator, phase plan, stop conditions, and review card while proving that every listed action remains unauthorized and that the named human has nothing to do at the Estate until a separate private authorization transaction produces one exact bounded action?
+Does the preflight review-card contract let a foreign successor reconstruct the exact supplier, conductor, physical floor, issue, private-coordinate denominator, phase plan, stop conditions, and review card while proving that every listed action remains unauthorized and that the named human has nothing to do at the Estate until a separate private authorization transaction produces one exact bounded action?

@@ -10,15 +10,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
-PROFILE_SCHEMA = "axm-head-physical-long-haul-001-join-v2-profile/2"
-PROFILE_ID = "axm-head/physical-long-haul-001/join-v2"
-STATE_SCHEMA = "axm-head/physical-long-haul-001-join-state@2"
-CARD_SCHEMA = "axm-head/physical-operator-card@2"
-DECISION_SCHEMA = "axm-head/physical-long-haul-001-join-decision@2"
-PUBLIC_SCHEMA = "axm-head/physical-long-haul-001-public-status@2"
-MANIFEST_SCHEMA = "axm-head/physical-long-haul-001-join-manifest@2"
-PROFILE_CANONICAL_SHA256 = "66a4e11b0023a67e0d545b9d29817819da17e9195304261f1fd30a6f6da74e56"
-STANDALONE_VERIFIER_SHA256 = "8ba7f39f512a4f683bf6780ff0ac3a128d10d83dd07b59f4e7e62946f41b5761"
+PROFILE_SCHEMA = "axm-head/physical-flight-preflight-review-card-profile/1"
+PROFILE_ID = "axm-head/physical-flight-preflight-review-card@1"
+STATE_SCHEMA = "axm-head/physical-flight-preflight-review-card-state@1"
+CARD_SCHEMA = "axm-head/physical-flight-preflight-operator-card@1"
+DECISION_SCHEMA = "axm-head/physical-flight-preflight-review-decision@1"
+PUBLIC_SCHEMA = "axm-head/physical-flight-preflight-public-status@1"
+MANIFEST_SCHEMA = "axm-head/physical-flight-preflight-review-card-manifest@1"
+PROFILE_CANONICAL_SHA256 = "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56"
+STANDALONE_VERIFIER_SHA256 = "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2"
 TERMINALS = ("PREPARED_NOT_ARMED", "HOLD", "READY_FOR_HUMAN_REVIEW", "REFUSED")
 ARTIFACT_LABELS = ("cartridge", "model", "verifier", "storage")
 PHASE_SEQUENCE = (
@@ -95,10 +95,11 @@ EXPECTED_ISSUE = {
     "role": "sole_private_physical_flight_execution_coordinate",
 }
 CLAIM_BOUNDARY = (
-    "Public preflight join binding the admitted AXM HEAD mission-volume contract to the admitted STC MARY "
-    "conductor, frozen physical-flight floor, and sole issue #37 execution coordinate. It may validate body-free "
-    "private coordinate headers and compile an exact operator card, but it performs no physical action, materializes "
-    "no mission volume, launches no worker, creates no listener, grants no authorization, and establishes no physical "
+    "Public physical-flight preflight review-card contract binding the admitted AXM HEAD mission-volume contract to "
+    "the admitted STC MARY conductor, frozen physical-flight floor, and sole issue #37 execution coordinate. It may "
+    "validate body-free private coordinate headers and compile an exact unauthorized operator card for separate "
+    "named-human review, but it performs no physical action, materializes no mission volume, launches no worker, "
+    "creates no listener, grants no authorization, consumes no private evidence body, and establishes no physical "
     "Estate, representative operator, field network, operational C2, production Lattice, mission, command, targeting, "
     "engagement, effector, or weapons qualification or authority."
 )
@@ -121,11 +122,11 @@ CONTROL_QUESTION = (
     "condition stops the campaign while every action remains unauthorized?"
 )
 EXPECTED_RELATIVE_FILES = (
-    "JOIN/preparation-state.json",
-    "JOIN/decision.json",
+    "PREFLIGHT/preparation-state.json",
+    "PREFLIGHT/decision.json",
     "PUBLIC/status.json",
     "RECOVERY/profile.json",
-    "RECOVERY/verify_join.py",
+    "RECOVERY/verify_preflight.py",
 )
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 SHA256_REF = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -133,14 +134,14 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9._:/@-]{2,255}$")
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
-class JoinError(RuntimeError):
+class PreflightError(RuntimeError):
     def __init__(self, code: str, message: str):
         super().__init__(message)
         self.code = code
 
 
 def fail(code: str, message: str) -> None:
-    raise JoinError(code, message)
+    raise PreflightError(code, message)
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -187,7 +188,7 @@ def ensure_repository_external_output(path: Path | None) -> None:
     repository = REPOSITORY_ROOT.resolve()
     candidate = path.resolve(strict=False)
     if candidate == repository or repository in candidate.parents:
-        fail("REPOSITORY_OUTPUT_REFUSED", "JOIN-v2 output may not be written inside the repository")
+        fail("REPOSITORY_OUTPUT_REFUSED", "PREFLIGHT-REVIEW-CARD-01 output may not be written inside the repository")
 
 
 def require_exact_keys(value: dict[str, Any], expected: set[str], label: str) -> None:
@@ -256,7 +257,7 @@ def validate_profile(path: Path) -> dict[str, Any]:
     if profile["owningProject"] != "Estate" or profile["owningRepository"] != "BigBirdReturns/ai-execution-audit":
         fail("PROFILE_SCOPE_INVALID", "profile owning project or repository differs")
     if not type_strict_equal(profile["sourceCoordinates"], EXPECTED_SOURCE_COORDINATES):
-        fail("SOURCE_COORDINATES_INVALID", "profile source coordinates differ from the admitted join floor")
+        fail("SOURCE_COORDINATES_INVALID", "profile source coordinates differ from the admitted preflight floor")
     if not type_strict_equal(profile["physicalFlightIssue"], EXPECTED_ISSUE):
         fail("PHYSICAL_ISSUE_INVALID", "issue #37 must remain the sole physical-flight coordinate")
     if profile["terminalStates"] != list(TERMINALS):
@@ -311,7 +312,7 @@ def validate_profile(path: Path) -> dict[str, Any]:
     return profile
 
 
-def join_contract_id(profile: dict[str, Any]) -> str:
+def preflight_contract_id(profile: dict[str, Any]) -> str:
     body = {
         "schema": PROFILE_SCHEMA,
         "profileId": PROFILE_ID,
@@ -324,14 +325,14 @@ def join_contract_id(profile: dict[str, Any]) -> str:
         "packetStageSequence": profile["packetStageSequence"],
         "claimBoundary": CLAIM_BOUNDARY,
     }
-    return content_id("axmheadphysjoin2", body)
+    return content_id("axmheadpreflightcontract1", body)
 
 
 def state_basis_body(profile: dict[str, Any], value: dict[str, Any]) -> dict[str, Any]:
     return {
         "schema": STATE_SCHEMA,
         "profileId": PROFILE_ID,
-        "joinContractId": join_contract_id(profile),
+        "preflightContractId": preflight_contract_id(profile),
         "sourceCoordinates": value["sourceCoordinates"],
         "physicalFlightIssue": value["physicalFlightIssue"],
         "checkoutBindings": value["checkoutBindings"],
@@ -359,7 +360,7 @@ def make_state(
     value: dict[str, Any] = {
         "schema": STATE_SCHEMA,
         "profileId": PROFILE_ID,
-        "joinContractId": join_contract_id(profile),
+        "preflightContractId": preflight_contract_id(profile),
         "sourceCoordinates": copy.deepcopy(profile["sourceCoordinates"]),
         "physicalFlightIssue": copy.deepcopy(profile["physicalFlightIssue"]),
         "checkoutBindings": copy.deepcopy(checkout_bindings or {}),
@@ -370,10 +371,10 @@ def make_state(
         "authorization": copy.deepcopy(authorization or {"granted": False, "actorId": None, "transactionId": None}),
         "authority": authority,
     }
-    value["preparationBasisId"] = content_id("axmheadjoinbasis2", state_basis_body(profile, value))
+    value["preparationBasisId"] = content_id("axmheadpreflightbasis1", state_basis_body(profile, value))
     value["executionCard"] = copy.deepcopy(execution_card)
     body = dict(value)
-    value["stateId"] = content_id("axmheadjoinstate2", body)
+    value["stateId"] = content_id("axmheadpreflightstate1", body)
     return value
 
 
@@ -446,7 +447,7 @@ def validate_state(value: Any, profile: dict[str, Any]) -> dict[str, Any]:
         {
             "schema",
             "profileId",
-            "joinContractId",
+            "preflightContractId",
             "sourceCoordinates",
             "physicalFlightIssue",
             "checkoutBindings",
@@ -464,8 +465,8 @@ def validate_state(value: Any, profile: dict[str, Any]) -> dict[str, Any]:
     )
     if value["schema"] != STATE_SCHEMA or value["profileId"] != PROFILE_ID:
         fail("STATE_IDENTITY_INVALID", "state schema or profileId differs")
-    if value["joinContractId"] != join_contract_id(profile):
-        fail("STATE_JOIN_BINDING_INVALID", "state joinContractId differs")
+    if value["preflightContractId"] != preflight_contract_id(profile):
+        fail("STATE_PREFLIGHT_BINDING_INVALID", "state preflightContractId differs")
     if not type_strict_equal(value["sourceCoordinates"], profile["sourceCoordinates"]):
         fail("STATE_SOURCE_BINDING_INVALID", "state source coordinates differ")
     if not type_strict_equal(value["physicalFlightIssue"], profile["physicalFlightIssue"]):
@@ -478,14 +479,14 @@ def validate_state(value: Any, profile: dict[str, Any]) -> dict[str, Any]:
     validate_authorization(value["authorization"])
     require_string(value["authority"], "state.authority")
     basis = state_basis_body(profile, value)
-    expected_basis_id = content_id("axmheadjoinbasis2", basis)
+    expected_basis_id = content_id("axmheadpreflightbasis1", basis)
     if value["preparationBasisId"] != expected_basis_id:
         fail("STATE_BASIS_ID_INVALID", "preparationBasisId does not bind the body-free preparation basis")
     if value["executionCard"] is not None and not isinstance(value["executionCard"], dict):
         fail("EXECUTION_CARD_INVALID", "executionCard must be null or an object")
     body = dict(value)
     actual_state_id = body.pop("stateId")
-    if actual_state_id != content_id("axmheadjoinstate2", body):
+    if actual_state_id != content_id("axmheadpreflightstate1", body):
         fail("STATE_ID_INVALID", "stateId does not bind the complete state")
     return value
 
@@ -513,8 +514,8 @@ def compile_execution_card(profile: dict[str, Any], state: dict[str, Any]) -> di
     if not prerequisites_complete(state):
         fail("PREPARATION_INCOMPLETE", "both exact checkouts and all four safe private coordinate headers are required")
     sorted_headers = sorted(state["privateCoordinateHeaders"], key=lambda row: row["label"])
-    checkout_set_id = content_id("axmheadjoincheckouts2", state["checkoutBindings"])
-    private_coordinate_set_id = content_id("axmheadjoinprivatecoords2", {"headers": sorted_headers})
+    checkout_set_id = content_id("axmheadpreflightcheckouts1", state["checkoutBindings"])
+    private_coordinate_set_id = content_id("axmheadpreflightprivatecoords1", {"headers": sorted_headers})
     actions: list[dict[str, Any]] = []
     first_physical: int | None = None
     for ordinal, plan in enumerate(profile["phasePlans"], start=1):
@@ -536,7 +537,7 @@ def compile_execution_card(profile: dict[str, Any], state: dict[str, Any]) -> di
     body: dict[str, Any] = {
         "schema": CARD_SCHEMA,
         "profileId": PROFILE_ID,
-        "joinContractId": join_contract_id(profile),
+        "preflightContractId": preflight_contract_id(profile),
         "preparationBasisId": state["preparationBasisId"],
         "checkoutSetId": checkout_set_id,
         "privateCoordinateSetId": private_coordinate_set_id,
@@ -554,7 +555,7 @@ def compile_execution_card(profile: dict[str, Any], state: dict[str, Any]) -> di
         "controlQuestion": CONTROL_QUESTION,
         "claimBoundary": CLAIM_BOUNDARY,
     }
-    return {**body, "cardId": content_id("axmheadoperatorcard2", body)}
+    return {**body, "cardId": content_id("axmheadpreflightcard1", body)}
 
 
 def attach_compiled_card(profile: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
@@ -586,7 +587,7 @@ def make_decision(
     body: dict[str, Any] = {
         "schema": DECISION_SCHEMA,
         "profileId": PROFILE_ID,
-        "joinContractId": join_contract_id(profile),
+        "preflightContractId": preflight_contract_id(profile),
         "stateId": state["stateId"] if state else None,
         "executionCardId": state["executionCard"]["cardId"] if state and state["executionCard"] else None,
         "terminal": terminal,
@@ -604,19 +605,19 @@ def make_decision(
         "authority": "none",
         "claimBoundary": CLAIM_BOUNDARY,
     }
-    return {**body, "decisionId": content_id("axmheadjoindecision2", body)}
+    return {**body, "decisionId": content_id("axmheadpreflightdecision1", body)}
 
 
 def evaluate_preparation(profile: dict[str, Any], value: Any) -> dict[str, Any]:
     try:
         state = validate_state(value, profile)
-    except JoinError as exc:
+    except PreflightError as exc:
         return make_decision(
             profile,
             None,
             terminal="REFUSED",
             reason_codes=[exc.code],
-            next_safe_action="Quarantine the altered preparation object and reconstruct it from the admitted JOIN-v2 source.",
+            next_safe_action="Quarantine the altered preparation object and reconstruct it from the admitted PREFLIGHT-REVIEW-CARD-01 source.",
             wake_condition="A newly reconstructed body-free state validates against the exact admitted coordinates and closed schema.",
             error_code=exc.code,
             error_message=str(exc),
@@ -627,7 +628,7 @@ def evaluate_preparation(profile: dict[str, Any], value: Any) -> dict[str, Any]:
             state,
             terminal="REFUSED",
             reason_codes=["PHYSICAL_EXECUTION_ALREADY_STARTED"],
-            next_safe_action="Stop and preserve the unexpected activity record for review; do not treat this join as authorization.",
+            next_safe_action="Stop and preserve the unexpected activity record for review; do not treat this preflight review-card contract as authorization.",
             wake_condition="A separate investigation resolves the unauthorized start and a new preparation state begins from zero activity.",
         )
     if state["workersLaunched"] != 0 or state["listenersCreated"] != 0:
@@ -646,7 +647,7 @@ def evaluate_preparation(profile: dict[str, Any], value: Any) -> dict[str, Any]:
             terminal="REFUSED",
             reason_codes=["AUTHORITY_PROMOTION_REFUSED"],
             next_safe_action="Remove the forged authority-bearing object from consideration and reconstruct the preparation state.",
-            wake_condition="The join carries no authorization, acting authority, or machine-created permission.",
+            wake_condition="The preflight review-card contract carries no authorization, acting authority, or machine-created permission.",
         )
     if not state["checkoutBindings"] and not state["privateCoordinateHeaders"] and state["executionCard"] is None:
         return make_decision(
@@ -700,7 +701,7 @@ def evaluate_preparation(profile: dict[str, Any], value: Any) -> dict[str, Any]:
             state,
             terminal="REFUSED",
             reason_codes=["EXECUTION_CARD_MISMATCH"],
-            next_safe_action="Discard the caller-supplied card and recompile it from the admitted JOIN-v2 source.",
+            next_safe_action="Discard the caller-supplied card and recompile it from the admitted PREFLIGHT-REVIEW-CARD-01 source.",
             wake_condition="The complete card is byte-equivalent to the deterministic profile-derived card and every action remains unauthorized.",
         )
     return make_decision(
@@ -709,7 +710,7 @@ def evaluate_preparation(profile: dict[str, Any], value: Any) -> dict[str, Any]:
         terminal="READY_FOR_HUMAN_REVIEW",
         reason_codes=["BODY_FREE_PREPARATION_BOUND", "EXACT_OPERATOR_CARD_COMPILED", "SEPARATE_HUMAN_AUTHORIZATION_REQUIRED"],
         next_safe_action="Review the exact operator card as a separate human transaction. Do not execute any listed action merely because the card exists.",
-        wake_condition="A named human explicitly accepts or rejects one bounded next action under issue #37 without changing this join's authority none state.",
+        wake_condition="A named human explicitly accepts or rejects one bounded next action under issue #37 without changing this preflight review-card contract's authority none state.",
     )
 
 
@@ -717,7 +718,7 @@ def public_status(profile: dict[str, Any], decision: dict[str, Any]) -> dict[str
     return {
         "schema": PUBLIC_SCHEMA,
         "profileId": PROFILE_ID,
-        "joinContractId": join_contract_id(profile),
+        "preflightContractId": preflight_contract_id(profile),
         "stateId": decision["stateId"],
         "decisionId": decision["decisionId"],
         "executionCardId": decision["executionCardId"],
@@ -751,7 +752,7 @@ def build_carrier(*, profile_path: Path, out: Path) -> dict[str, Any]:
     ensure_repository_external_output(out)
     if out.exists():
         fail("OUTPUT_EXISTS", "carrier output must not already exist")
-    verifier_source = Path(__file__).resolve().with_name("verify_axm_head_physical_long_haul_001_join_v2.py")
+    verifier_source = Path(__file__).resolve().with_name("verify_axm_head_physical_flight_preflight_review_card_01.py")
     if not verifier_source.is_file():
         fail("VERIFIER_SOURCE_MISSING", "standalone verifier source is missing")
     verifier_bytes = verifier_source.read_bytes()
@@ -763,11 +764,11 @@ def build_carrier(*, profile_path: Path, out: Path) -> dict[str, Any]:
         fail("PREPARED_TERMINAL_INVALID", "canonical carrier must begin PREPARED_NOT_ARMED")
     public = public_status(profile, decision)
     members: dict[str, bytes] = {
-        "JOIN/preparation-state.json": pretty_json_bytes(state),
-        "JOIN/decision.json": pretty_json_bytes(decision),
+        "PREFLIGHT/preparation-state.json": pretty_json_bytes(state),
+        "PREFLIGHT/decision.json": pretty_json_bytes(decision),
         "PUBLIC/status.json": pretty_json_bytes(public),
         "RECOVERY/profile.json": pretty_json_bytes(profile),
-        "RECOVERY/verify_join.py": verifier_bytes,
+        "RECOVERY/verify_preflight.py": verifier_bytes,
     }
     for relative, data in members.items():
         path = out.joinpath(*relative.split("/"))
@@ -777,7 +778,7 @@ def build_carrier(*, profile_path: Path, out: Path) -> dict[str, Any]:
     body: dict[str, Any] = {
         "schema": MANIFEST_SCHEMA,
         "profileId": PROFILE_ID,
-        "joinContractId": join_contract_id(profile),
+        "preflightContractId": preflight_contract_id(profile),
         "stateId": state["stateId"],
         "decisionId": decision["decisionId"],
         "terminal": "PREPARED_NOT_ARMED",
@@ -796,7 +797,7 @@ def build_carrier(*, profile_path: Path, out: Path) -> dict[str, Any]:
         "authority": "none",
         "claimBoundary": CLAIM_BOUNDARY,
     }
-    manifest = {**body, "carrierId": content_id("axmheadjoincarrier2", body)}
+    manifest = {**body, "carrierId": content_id("axmheadpreflightcarrier1", body)}
     (out / "MANIFEST.json").write_bytes(pretty_json_bytes(manifest))
     return manifest
 
@@ -812,7 +813,7 @@ def emit(value: dict[str, Any], out: Path | None = None, *, pretty: bool = False
 
 def run_bootstrap(carrier: Path, out: Path | None) -> int:
     ensure_repository_external_output(out)
-    bootstrap = Path(__file__).resolve().with_name("verify_axm_head_physical_long_haul_001_join_v2_bootstrap.py")
+    bootstrap = Path(__file__).resolve().with_name("verify_axm_head_physical_flight_preflight_review_card_01_bootstrap.py")
     command = [sys.executable, str(bootstrap), str(carrier)]
     if out is not None:
         command.extend(["--out", str(out)])
@@ -824,7 +825,7 @@ def run_bootstrap(carrier: Path, out: Path | None) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build and evaluate AXM HEAD physical long-haul JOIN-v2")
+    parser = argparse.ArgumentParser(description="Build and evaluate the AXM HEAD physical-flight preflight review-card contract")
     sub = parser.add_subparsers(dest="command", required=True)
     validate_parser = sub.add_parser("validate-profile")
     validate_parser.add_argument("profile", type=Path)
@@ -873,7 +874,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verify-carrier":
             return run_bootstrap(args.carrier, args.out)
         fail("COMMAND_INVALID", f"unknown command: {args.command}")
-    except JoinError as exc:
+    except PreflightError as exc:
         emit(
             {
                 "status": "REFUSED",

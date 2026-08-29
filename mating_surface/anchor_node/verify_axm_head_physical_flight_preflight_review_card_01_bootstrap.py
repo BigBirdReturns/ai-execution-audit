@@ -9,14 +9,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-EXPECTED_VERIFIER_SHA256 = "8ba7f39f512a4f683bf6780ff0ac3a128d10d83dd07b59f4e7e62946f41b5761"
+EXPECTED_VERIFIER_SHA256 = "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2"
 TRUSTED_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-VERDICT_SCHEMA = "axm-head/physical-long-haul-001-join-verdict@2"
+VERDICT_SCHEMA = "axm-head/physical-flight-preflight-review-card-verdict@1"
 DIRECT_VERDICT_KEYS = {
     "schema",
     "status",
     "carrierId",
-    "joinContractId",
+    "preflightContractId",
     "stateId",
     "decisionId",
     "terminal",
@@ -36,7 +36,7 @@ DIRECT_VERDICT_KEYS = {
 MEASURED_VERIFIER_LAUNCHER = (
     "import sys\n"
     "source = sys.stdin.buffer.read()\n"
-    "name = '<authenticated-join-v2-verifier>'\n"
+    "name = '<authenticated-preflight-review-card-01-verifier>'\n"
     "namespace = {'__name__': '__main__', '__file__': name}\n"
     "exec(compile(source, name, 'exec'), namespace, namespace)\n"
 )
@@ -109,7 +109,7 @@ def validate_direct_verdict(value: Any, verifier_digest: str) -> dict[str, Any]:
     for key, expected_value in expected.items():
         if not type_strict_equal(value[key], expected_value):
             fail("DIRECT_VERDICT_SEMANTICS_INVALID", f"direct verifier {key} differs")
-    for key in ("carrierId", "joinContractId", "stateId", "decisionId", "profileCanonicalSha256"):
+    for key in ("carrierId", "preflightContractId", "stateId", "decisionId", "profileCanonicalSha256"):
         if not isinstance(value[key], str) or not value[key]:
             fail("DIRECT_VERDICT_IDENTITY_INVALID", f"direct verifier {key} is invalid")
     authenticated = dict(value)
@@ -146,7 +146,7 @@ def invoke_measured_verifier(verifier_bytes: bytes, carrier: Path, env: dict[str
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Authenticate and invoke the JOIN-v2 standalone verifier")
+    parser = argparse.ArgumentParser(description="Authenticate and invoke the preflight review-card standalone verifier")
     parser.add_argument("carrier", type=Path)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
@@ -154,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
         carrier = args.carrier
         if not carrier.is_dir() or carrier.is_symlink():
             fail("CARRIER_DIRECTORY_INVALID", "carrier must be a non-symlink directory")
-        verifier = carrier / "RECOVERY" / "verify_join.py"
+        verifier = carrier / "RECOVERY" / "verify_preflight.py"
         if not verifier.is_file() or verifier.is_symlink():
             fail("VERIFIER_MEMBER_INVALID", "embedded verifier is missing or symlinked")
         verifier_bytes = verifier.read_bytes()
@@ -164,8 +164,8 @@ def main(argv: list[str] | None = None) -> int:
         ensure_output_safe(carrier, args.out)
 
         env = os.environ.copy()
-        env.pop("AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED", None)
-        env.pop("AXM_HEAD_JOIN_V2_VERIFIER_SHA256", None)
+        env.pop("AXM_HEAD_PREFLIGHT_REVIEW_CARD_01_BOOTSTRAP_AUTHENTICATED", None)
+        env.pop("AXM_HEAD_PREFLIGHT_REVIEW_CARD_01_VERIFIER_SHA256", None)
         result = invoke_measured_verifier(verifier_bytes, carrier, env)
         if result.stderr:
             sys.stderr.buffer.write(result.stderr)
