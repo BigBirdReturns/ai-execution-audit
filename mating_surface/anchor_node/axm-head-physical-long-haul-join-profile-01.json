@@ -1,0 +1,163 @@
+{
+  "authority": "none",
+  "bootstrapRequired": true,
+  "claimBoundary": "Provider-free postflight verification membrane for one private STC MARY physical-flight self-attestation. It binds exact admitted public sources, a distinct named-human authorization receipt, a complete private sixteen-stage denominator, route and continuity attestations, two distinct physical cells, HUMAN_REQUIRED reunion custody, replacement-HEAD recovery, six independently reconstructed cold-successor answers, and a detached verified sealed package. PRIVATE_SELF_ATTESTED remains local self-attestation only and grants no physical Estate, representative-operator, field-network, operational-C2, production-Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority.",
+  "coldSuccessorAnswerKeys": [
+    "whatMission",
+    "currentState",
+    "whoMayAct",
+    "whatProvesIt",
+    "whatRemainsUnresolved",
+    "nextSafeAction"
+  ],
+  "evidenceTiers": [
+    "none",
+    "synthetic",
+    "private_local_attested"
+  ],
+  "externalServiceCalls": 0,
+  "fixtureCaseIds": [
+    "prepared-exact-public-sources-no-private-flight",
+    "hold-complete-synthetic-private-shape",
+    "hold-preflight-card-substituted-for-human-authorization",
+    "hold-incomplete-private-receipt-denominator",
+    "hold-broken-stage-predecessor-chain",
+    "hold-same-host-two-cell-attestation",
+    "hold-wrong-conflict-terminal",
+    "hold-successor-answer-forgery",
+    "hold-sealed-package-verification-failure",
+    "hold-preflight-not-ready-for-human-review"
+  ],
+  "joinName": "AXM-HEAD-PHYSICAL-LONG-HAUL-001-JOIN-v2",
+  "networkRequired": false,
+  "objectSchemas": [
+    "axm-head/physical-long-haul-profile@2",
+    "axm-head/physical-flight-source-binding@2",
+    "axm-head/physical-route-attestation@2",
+    "axm-head/continuity-attestation@2",
+    "axm-head/two-cell-attestation@2",
+    "axm-head/successor-attestation@2",
+    "axm-head/private-flight-disposition-binding@2",
+    "axm-head/physical-long-haul-join@2",
+    "axm-head/physical-long-haul-verification@2",
+    "axm-head/physical-long-haul-public-status@2"
+  ],
+  "operationalCredentials": 0,
+  "owningProject": "Estate",
+  "preflightPhaseSequence": [
+    "admitted_checkout",
+    "artifact_coordinates",
+    "readiness",
+    "feed",
+    "personal_floor",
+    "halo3",
+    "post_halo3_continuity",
+    "two_cell_partition",
+    "successor_head",
+    "flight_plan",
+    "private_packet",
+    "sealed_flight"
+  ],
+  "preflightReceiptClasses": [
+    "conductor_source_receipt",
+    "conductor_artifact_coordinate",
+    "stc-mary-local-readiness-private/1",
+    "stc-mary-invented-aperture-feed/1",
+    "stc-mary-aperture-workload-result/1",
+    "stc-mary-aperture-workload-verification/1",
+    "stc-mary-aperture-workload-comparison/1",
+    "stc-mary-offline-two-cell-verification/1",
+    "stc-mary-offline-successor-verification/1",
+    "stc-mary-local-flight-plan/1",
+    "stc-mary-private-flight-packet-config/1",
+    "stc-mary-private-flight-packet-status/1",
+    "stc-mary-private-flight-packet-state/1",
+    "stc-mary-private-flight-sealed-verification/1",
+    "stc-mary-physical-flight-public-disposition/1"
+  ],
+  "preflightStopConditions": [
+    "source_coordinate_drift",
+    "dirty_or_moving_checkout",
+    "private_coordinate_mismatch",
+    "unexpected_worker_or_listener",
+    "authorization_field_present",
+    "authority_not_none",
+    "receipt_refusal",
+    "physical_action_before_separate_authorization"
+  ],
+  "profileId": "axm-head/physical-long-haul@2",
+  "repository": "BigBirdReturns/ai-execution-audit",
+  "repositoryOutputAllowed": false,
+  "schema": "axm-head/physical-long-haul-profile@2",
+  "sourceBindings": {
+    "admittedAxmHeadSupplier": {
+      "commit": "b452bb32e26249deab90db124f157bc62ad0850d",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted_synthetic_contract",
+      "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951"
+    },
+    "admittedConductor": {
+      "archiveSha256": "88ebac8db2e1107faf3a9aa6f0f543149c308212e2d113da6b060d4047d2f241",
+      "commit": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted_operator_layer",
+      "tree": "3f708c52782784e687cf1f0b68fd7d37a507ef4c"
+    },
+    "admittedPreflightReviewCard": {
+      "commit": "ec61bc3488cb5ae06ed9db2862a9f6910d310a79",
+      "profileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+      "profileId": "axm-head/physical-flight-preflight-review-card@1",
+      "profileSchema": "axm-head/physical-flight-preflight-review-card-profile/1",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "standaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+      "status": "admitted_preflight_contract",
+      "tree": "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67"
+    },
+    "physicalFlightFloor": {
+      "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted_not_executed",
+      "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126"
+    },
+    "physicalFlightIssue": {
+      "issueNumber": 37,
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "role": "sole_private_physical_flight_execution_coordinate"
+    }
+  },
+  "sourceDigests": {
+    "axmExternalBootstrapSha256": "885a2de66ac339d410bfebed97967fd863e3b7ad77ff3f0e9823ce6c94497d76",
+    "axmFixtureCatalogCanonicalSha256": "82e4bf7e8d18fae61a1e17d1cf758d46004d08dd4b877f933be5c96663b67291",
+    "axmProfileCanonicalSha256": "c6529dbe52c678f8ae7ede650b706b1de22f10f6444dd99a5720e41b03cf7078",
+    "axmStandaloneVerifierSha256": "8ca6d225fc162e78fb1af41c9cd89c188491a08fe71a69b58c6c12cd9acf4e44",
+    "conductorProfileRawSha256": "ca1fa71c7168dbcca9ff3e77930d06621350f5509ca922968eb3b40e709cadeb",
+    "physicalFlightProfileCanonicalSha256": "3b987b9288083f52d30ba6fc5598b190169d1b30c1860556b302c7461df246b7",
+    "preflightProfileCanonicalSha256": "c0ef16ec7d7fbea70d59618d2a7c59cec42178c61cfeb564c839969e40ce2f56",
+    "preflightStandaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
+    "privatePacketProfileCanonicalSha256": "9208b6c28556ee2ba04a1bfdbc792dba457891fa9a8394aa80913a8e66dcd65c"
+  },
+  "stageSequence": [
+    "VERIFY_INPUTS",
+    "MOUNT_PERSONAL_FLOOR",
+    "BIND_GRACE",
+    "RUN_PERSONAL_FLOOR_BASELINE",
+    "ATTACH_HALO3",
+    "RUN_HALO3_ACCELERATED",
+    "REMOVE_HALO3",
+    "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+    "REMOVE_LATTICE",
+    "VERIFY_LOCAL_CONTINUITY",
+    "PARTITION_TWO_CELLS",
+    "RESTORE_LINK_HOLD_CONFLICT",
+    "REPLACE_HEAD",
+    "REBUILD_PROJECTIONS",
+    "COLD_SUCCESSOR_VERIFY",
+    "SEAL_PRIVATE_EVIDENCE"
+  ],
+  "status": "candidate_contract_only",
+  "terminalStates": [
+    "PREPARED_NOT_ARMED",
+    "PRIVATE_SELF_ATTESTED",
+    "HOLD"
+  ]
+}

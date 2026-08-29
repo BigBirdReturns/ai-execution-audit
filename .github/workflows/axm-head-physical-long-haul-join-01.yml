@@ -1,0 +1,456 @@
+name: AXM HEAD Physical Long-Haul Join 01
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/axm-head-physical-long-haul-join-01.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1"
+      - "mating_surface/anchor_node/axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/axm-head-physical-long-haul-join-01.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1"
+      - "mating_surface/anchor_node/axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: axm-head-physical-long-haul-join-01-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out complete event history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Qualify exact head and synthesized merge coordinates
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PLATFORM: ${{ matrix.os }}
+          QUALIFICATION_ROOT: ${{ runner.temp }}/axm-head-physical-long-haul-join-01
+        run: |
+          set -euo pipefail
+
+          PRODUCT_PATHS=(
+            ".github/workflows/axm-head-physical-long-haul-join-01.yml"
+            "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md"
+            "mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json"
+            "mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1"
+            "mating_surface/anchor_node/axm_head_physical_long_haul_join.py"
+            "mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py"
+            "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py"
+            "mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json"
+          )
+
+          COORDINATES="$RUNNER_TEMP/physical-long-haul-join-01-coordinates.tsv"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            printf 'head\t%s\nmerge\t%s\n' "$PR_HEAD_SHA" "$EVENT_SHA" > "$COORDINATES"
+          else
+            printf 'source\t%s\n' "$EVENT_SHA" > "$COORDINATES"
+          fi
+
+          REPO_ROOT="$GITHUB_WORKSPACE"
+          while IFS=$'\t' read -r COORDINATE EXPECTED_SHA
+          do
+            [ -n "$COORDINATE" ] || continue
+            OBSERVED_SHA="$(git -C "$REPO_ROOT" rev-parse "$EXPECTED_SHA^{commit}")"
+            OBSERVED_TREE="$(git -C "$REPO_ROOT" rev-parse "$EXPECTED_SHA^{tree}")"
+            [ "$OBSERVED_SHA" = "$EXPECTED_SHA" ]
+            git -C "$REPO_ROOT" merge-base --is-ancestor ec61bc3488cb5ae06ed9db2862a9f6910d310a79 "$OBSERVED_SHA"
+            [ "$(git -C "$REPO_ROOT" rev-parse 'ec61bc3488cb5ae06ed9db2862a9f6910d310a79^{tree}')" = "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67" ]
+            git -C "$REPO_ROOT" diff-tree --check "$OBSERVED_SHA^" "$OBSERVED_SHA"
+
+            SOURCE_ROOT="$RUNNER_TEMP/physical-long-haul-join-01-source-$PLATFORM-$COORDINATE"
+            rm -rf "$SOURCE_ROOT"
+            python - "$REPO_ROOT" "$OBSERVED_SHA" "$SOURCE_ROOT" <<'PY'
+          from __future__ import annotations
+          from pathlib import Path, PurePosixPath
+          import os
+          import subprocess
+          import sys
+
+          repository = Path(sys.argv[1])
+          commit = sys.argv[2]
+          out = Path(sys.argv[3])
+          out.mkdir(parents=True, exist_ok=False)
+          listing = subprocess.run(
+              ["git", "-C", str(repository), "ls-tree", "-r", "-z", "--full-tree", commit],
+              check=True,
+              stdout=subprocess.PIPE,
+          ).stdout
+          for record in listing.split(b"\0"):
+              if not record:
+                  continue
+              metadata, raw_path = record.split(b"\t", 1)
+              mode, object_type, object_id = metadata.decode("ascii").split()
+              if object_type != "blob":
+                  raise SystemExit(f"unexpected tree object type: {object_type}")
+              relative = PurePosixPath(raw_path.decode("utf-8"))
+              if relative.is_absolute() or ".." in relative.parts or not relative.parts:
+                  raise SystemExit(f"unsafe repository path: {relative}")
+              target = out.joinpath(*relative.parts)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              data = subprocess.run(
+                  ["git", "-C", str(repository), "cat-file", "blob", object_id],
+                  check=True,
+                  stdout=subprocess.PIPE,
+              ).stdout
+              target.write_bytes(data)
+              if mode == "100755" and os.name != "nt":
+                  target.chmod(target.stat().st_mode | 0o111)
+          PY
+
+            DEST="$QUALIFICATION_ROOT/$COORDINATE"
+            rm -rf "$DEST"
+            mkdir -p "$DEST/comparison"
+            cd "$SOURCE_ROOT"
+
+            python - "$DEST/source-identity.json" "$EVENT_NAME" "$COORDINATE" "$EXPECTED_SHA" "$OBSERVED_SHA" "$OBSERVED_TREE" "$PLATFORM" <<'PY'
+          from pathlib import Path
+          import json
+          import sys
+          out, event_name, coordinate, expected, observed, tree, platform = sys.argv[1:]
+          value = {
+              "schema": "axm-head/physical-long-haul-source-coordinate@2",
+              "status": "PASS" if expected == observed else "REFUSED",
+              "eventName": event_name,
+              "coordinate": coordinate,
+              "expectedSha": expected,
+              "observedSha": observed,
+              "tree": tree,
+              "platform": platform,
+              "materialization": "exact_git_blob_bytes",
+              "clean": True,
+              "detached": True,
+              "physicalExecutionStarted": False,
+              "workersLaunched": 0,
+              "listenersCreated": 0,
+              "authority": "none",
+          }
+          Path(out).write_bytes((json.dumps(value, sort_keys=True, indent=2) + "\n").encode("utf-8"))
+          if value["status"] != "PASS":
+              raise SystemExit(2)
+          PY
+
+            python - "$REPO_ROOT" "$OBSERVED_SHA" "${PRODUCT_PATHS[@]}" <<'PY'
+          from pathlib import Path
+          import ast
+          import re
+          import subprocess
+          import sys
+
+          repository = Path(sys.argv[1])
+          observed_sha = sys.argv[2]
+          product_paths = [Path(value) for value in sys.argv[3:]]
+          for path in product_paths:
+              if not path.is_file():
+                  raise SystemExit(f"missing permanent product path: {path}")
+
+          expected = sorted(path.as_posix() for path in product_paths)
+          observed = sorted(subprocess.check_output(
+              [
+                  "git", "-C", str(repository), "diff", "--name-only",
+                  "ec61bc3488cb5ae06ed9db2862a9f6910d310a79", observed_sha,
+              ],
+              text=True,
+          ).splitlines())
+          if observed != expected:
+              raise SystemExit(f"product path denominator differs: expected={expected} observed={observed}")
+          if Path(".github/workflows/axm-head-physical-long-haul-source-census.yml").exists():
+              raise SystemExit("census-only carrier workflow remains in final product tree")
+
+          forbidden_imports = {"socket", "requests", "urllib3", "aiohttp", "httpx", "paramiko", "winrm"}
+          for path in (path for path in product_paths if path.suffix == ".py"):
+              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      names = {alias.name.split(".")[0] for alias in node.names}
+                  elif isinstance(node, ast.ImportFrom) and node.module:
+                      names = {node.module.split(".")[0]}
+                  else:
+                      continue
+                  overlap = names & forbidden_imports
+                  if overlap:
+                      raise SystemExit(f"network or remote client import in {path}: {sorted(overlap)}")
+
+          joined = "\n".join(path.read_text(encoding="utf-8") for path in product_paths)
+          forbidden = {
+              "credential material": r"AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer",
+              "private Estate host": r"\bOCTO-(?:W|L|N)\d+\b",
+          }
+          for label, pattern in forbidden.items():
+              if re.search(pattern, joined, re.I):
+                  raise SystemExit(f"{label} detected in permanent postflight JOIN-v2 product")
+
+          workflow = Path(".github/workflows/axm-head-physical-long-haul-join-01.yml").read_text(encoding="utf-8")
+          if "permissions:\n  contents: read\n" not in workflow:
+              raise SystemExit("permanent workflow is not read-only")
+          for fragment in ("contents: write", "git push", "pull_request_target"):
+              if fragment in workflow:
+                  raise SystemExit(f"writable transport fragment remains: {fragment}")
+          PY
+
+            TOOL="mating_surface/anchor_node/axm_head_physical_long_haul_join.py"
+            PROFILE="mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json"
+            FIXTURES="mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json"
+            VERIFIER="mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py"
+            TESTS="mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py"
+
+            python -m py_compile "$TOOL" "$VERIFIER" "$TESTS"
+            python "$TOOL" validate-profile "$PROFILE" > "$DEST/comparison/profile-validation.json"
+            python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$DEST/comparison/fixture-validation.json"
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_axm_head_physical_long_haul_join.py' \
+              -v 2>&1 | tee "$DEST/focused-tests.txt"
+            grep -F "Ran 76 tests" "$DEST/focused-tests.txt"
+            grep -Fx "OK" "$DEST/focused-tests.txt"
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_axm_head_physical_flight_preflight_review_card_01.py' \
+              -v 2>&1 | tee "$DEST/inherited-preflight-tests.txt"
+            grep -F "Ran 49 tests" "$DEST/inherited-preflight-tests.txt"
+            grep -Fx "OK" "$DEST/inherited-preflight-tests.txt"
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_axm_head_edge_demo.py' \
+              -v 2>&1 | tee "$DEST/inherited-axm-head-tests.txt"
+            grep -F "Ran 38 tests" "$DEST/inherited-axm-head-tests.txt"
+            grep -Fx "OK" "$DEST/inherited-axm-head-tests.txt"
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_stc_mary_flight_conductor.py' \
+              -v 2>&1 | tee "$DEST/inherited-conductor-tests.txt"
+            grep -F "Ran 25 tests" "$DEST/inherited-conductor-tests.txt"
+            grep -Fx "OK" "$DEST/inherited-conductor-tests.txt"
+
+            python - "$PROFILE" <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+
+          root = Path("mating_surface/anchor_node")
+          profile = json.loads(Path(__import__('sys').argv[1]).read_text(encoding="utf-8"))
+
+          def canonical_sha(path: Path) -> str:
+              value = json.loads(path.read_text(encoding="utf-8"))
+              data = (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+              return hashlib.sha256(data).hexdigest()
+
+          def file_sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          observed = {
+              "axmProfileCanonicalSha256": canonical_sha(root / "axm-head-edge-demo-profile-01.json"),
+              "axmFixtureCatalogCanonicalSha256": canonical_sha(root / "fixtures" / "axm-head-edge-demo-cases-01.json"),
+              "axmStandaloneVerifierSha256": file_sha(root / "verify_axm_head_volume.py"),
+              "axmExternalBootstrapSha256": file_sha(root / "verify_axm_head_bootstrap.py"),
+              "conductorProfileRawSha256": file_sha(root / "stc-mary-flight-conductor-profile-01.json"),
+              "physicalFlightProfileCanonicalSha256": canonical_sha(root / "stc-mary-physical-flight-profile-01.json"),
+              "privatePacketProfileCanonicalSha256": canonical_sha(root / "stc-mary-private-flight-packet-profile-01.json"),
+              "preflightProfileCanonicalSha256": canonical_sha(root / "axm-head-physical-flight-preflight-review-card-01-profile.json"),
+              "preflightStandaloneVerifierSha256": file_sha(root / "verify_axm_head_physical_flight_preflight_review_card_01.py"),
+          }
+          if observed != profile["sourceDigests"]:
+              raise SystemExit(f"joined public source digests differ: {observed}")
+          PY
+
+            python - "$FIXTURES" "$TOOL" "$PROFILE" "$DEST/comparison" "$RUNNER_TEMP" <<'PY'
+          from pathlib import Path
+          import json
+          import subprocess
+          import sys
+
+          fixtures_path, tool_path, profile_path, comparison_text, temp_text = sys.argv[1:]
+          catalog = json.loads(Path(fixtures_path).read_text(encoding="utf-8"))
+          comparison = Path(comparison_text)
+          temp = Path(temp_text)
+          for row in catalog["cases"]:
+              case_id = row["caseId"]
+              input_path = temp / f"join-input-{case_id}.json"
+              receipt_path = comparison / f"receipt-{case_id}.json"
+              for path in (input_path, receipt_path):
+                  if path.exists():
+                      path.unlink()
+              subprocess.run(
+                  [sys.executable, tool_path, "emit-fixture", case_id, "--profile", profile_path, "--fixtures", fixtures_path, "--out", str(input_path)],
+                  check=True,
+                  stdout=subprocess.DEVNULL,
+              )
+              result = subprocess.run(
+                  [sys.executable, tool_path, "verify", str(input_path), "--profile", profile_path, "--out", str(receipt_path)],
+                  check=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+              )
+              if result.stderr:
+                  raise SystemExit(f"{case_id}: verifier wrote stderr")
+              if result.stdout != receipt_path.read_bytes():
+                  raise SystemExit(f"{case_id}: stdout and receipt bytes differ")
+              receipt = json.loads(result.stdout.decode("utf-8"))
+              if receipt["bootstrapAuthenticated"] is not True:
+                  raise SystemExit(f"{case_id}: verifier was not externally authenticated")
+              if receipt["join"]["terminal"] != row["expectedTerminal"]:
+                  raise SystemExit(f"{case_id}: terminal differs")
+              if receipt["join"]["reasonCodes"] != row["expectedReasonCodes"]:
+                  raise SystemExit(f"{case_id}: reason codes differ")
+              if receipt["publicStatus"]["privatePhysicalFlightCompleted"] is not False:
+                  raise SystemExit(f"{case_id}: synthetic fixture promoted physical completion")
+              if receipt["publicStatus"]["publicEvidenceBodyCount"] != 0:
+                  raise SystemExit(f"{case_id}: public evidence body count differs")
+              if b"\r\n" in result.stdout:
+                  raise SystemExit(f"{case_id}: authoritative bytes are not LF-only")
+          PY
+          done < "$COORDINATES"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            diff -r "$QUALIFICATION_ROOT/head/comparison" "$QUALIFICATION_ROOT/merge/comparison"
+          fi
+
+      - name: Validate PowerShell wrapper at each coordinate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $coordinates = if ($env:EVENT_NAME -eq 'pull_request') {
+            @(
+              [pscustomobject]@{ Name = 'head'; Ref = $env:PR_HEAD_SHA },
+              [pscustomobject]@{ Name = 'merge'; Ref = $env:EVENT_SHA }
+            )
+          } else {
+            @([pscustomobject]@{ Name = 'source'; Ref = $env:EVENT_SHA })
+          }
+
+          foreach ($coordinate in $coordinates) {
+            git checkout --force --detach $coordinate.Ref
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git clean -ffdx
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            $Join = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-join.ps1'
+            $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-join-profile-01.json'
+            $Fixtures = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\fixtures\axm-head-physical-long-haul-join-cases-01.json'
+            $Input = Join-Path $env:RUNNER_TEMP "postflight-join-input-$($coordinate.Name).json"
+            $Receipt = Join-Path $env:RUNNER_TEMP "postflight-join-receipt-$($coordinate.Name).json"
+            Remove-Item -LiteralPath $Input -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $Receipt -Force -ErrorAction SilentlyContinue
+
+            & $Join validate-profile $Profile
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Join validate-fixtures $Profile $Fixtures
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Join emit-fixture prepared-exact-public-sources-no-private-flight --profile $Profile --fixtures $Fixtures --out $Input
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Join verify $Input --profile $Profile --out $Receipt
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            $Value = Get-Content -LiteralPath $Receipt -Raw | ConvertFrom-Json
+            if ($Value.bootstrapAuthenticated -ne $true) { throw 'bootstrap authentication absent' }
+            if ($Value.join.terminal -ne 'PREPARED_NOT_ARMED') { throw 'prepared terminal differs' }
+            if ($Value.publicStatus.privatePhysicalFlightCompleted -ne $false) { throw 'physical completion promoted' }
+            if ($Value.publicStatus.authority -ne 'none') { throw 'authority promoted' }
+          }
+
+      - name: Preserve exact-coordinate qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-01-${{ matrix.os }}
+          path: ${{ runner.temp }}/axm-head-physical-long-haul-join-01
+          if-no-files-found: error
+          retention-days: 30
+
+  compare-platforms:
+    needs: qualify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download Ubuntu receipts
+        uses: actions/download-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-01-ubuntu-latest
+          path: ${{ runner.temp }}/ubuntu
+
+      - name: Download Windows receipts
+        uses: actions/download-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-01-windows-latest
+          path: ${{ runner.temp }}/windows
+
+      - name: Require exact platform byte identity
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          OUT: ${{ runner.temp }}/cross-platform.json
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            for coordinate in head merge
+            do
+              diff -r "$RUNNER_TEMP/ubuntu/$coordinate/comparison" "$RUNNER_TEMP/windows/$coordinate/comparison"
+            done
+          else
+            diff -r "$RUNNER_TEMP/ubuntu/source/comparison" "$RUNNER_TEMP/windows/source/comparison"
+          fi
+          python - "$OUT" <<'PY'
+          from pathlib import Path
+          import json
+          import sys
+          value = {
+              "schema": "axm-head/physical-long-haul-cross-platform-qualification@2",
+              "status": "PASS",
+              "platformByteIdentity": True,
+              "headToMergeByteIdentity": True,
+              "physicalExecutionStarted": False,
+              "workersLaunched": 0,
+              "listenersCreated": 0,
+              "authority": "none",
+          }
+          Path(sys.argv[1]).write_bytes((json.dumps(value, sort_keys=True, indent=2) + "\n").encode("utf-8"))
+          PY
+
+      - name: Preserve cross-platform receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-01-cross-platform
+          path: ${{ runner.temp }}/cross-platform.json
+          if-no-files-found: error
+          retention-days: 30
