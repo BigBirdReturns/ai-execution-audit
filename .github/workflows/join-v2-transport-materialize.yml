@@ -25,31 +25,44 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          from io import BytesIO
           from pathlib import Path
+          import base64
           import hashlib
+          import zipfile
 
           root = Path('.join-v2-transport')
           chunks = root / 'chunks'
           assembled = root / 'assembled'
           assembled.mkdir(parents=True, exist_ok=True)
 
+          parts = sorted(chunks.glob('payload.*.b64'))
+          if not parts:
+              raise SystemExit('no bounded payload chunks found')
+          encoded = ''.join(path.read_text(encoding='ascii') for path in parts)
+          payload = base64.b64decode(encoded, validate=True)
+          expected_payload_sha = '20afaffa53d3502c63c7c627e71730e5133e4fd6bb74bf57174bbdc4dbce4e8d'
+          observed_payload_sha = hashlib.sha256(payload).hexdigest()
+          if observed_payload_sha != expected_payload_sha:
+              raise SystemExit(f'payload digest mismatch: expected={expected_payload_sha} observed={observed_payload_sha}')
+
           targets = {
-              'workflow.yml': ('workflow', 'afb9e44d918028d6aa5e598b5b330212219d0fad4dc1629384c0df3ce6519ee9'),
-              'tests.py': ('tests', 'b5dd1e068f3606c78ba14ad5b6e13ad3a9f2b0034f074103bde6a6863a0489a3'),
-              'verifier.py': ('verifier', 'c580ed079cf3e95f61bd7d78840cea39806955c5d9c26e35f2ed9e89d910b139'),
+              '.github/workflows/axm-head-physical-long-haul-join-v2.yml': ('workflow.yml', 'afb9e44d918028d6aa5e598b5b330212219d0fad4dc1629384c0df3ce6519ee9'),
+              'mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join_v2.py': ('tests.py', 'b5dd1e068f3606c78ba14ad5b6e13ad3a9f2b0034f074103bde6a6863a0489a3'),
+              'mating_surface/anchor_node/verify_axm_head_physical_long_haul_join_v2.py': ('verifier.py', 'c580ed079cf3e95f61bd7d78840cea39806955c5d9c26e35f2ed9e89d910b139'),
           }
 
-          for output_name, (prefix, expected) in targets.items():
-              parts = sorted(chunks.glob(f'{prefix}.*.hex'))
-              if not parts:
-                  raise SystemExit(f'no chunks found for {prefix}')
-              encoded = ''.join(path.read_text(encoding='ascii') for path in parts)
-              data = bytes.fromhex(encoded)
-              observed = hashlib.sha256(data).hexdigest()
-              if observed != expected:
-                  raise SystemExit(f'{prefix} digest mismatch: expected={expected} observed={observed}')
-              (assembled / output_name).write_bytes(data)
-              print(f'{output_name} {len(data)} {observed}')
+          with zipfile.ZipFile(BytesIO(payload), 'r') as archive:
+              names = archive.namelist()
+              if names != list(targets):
+                  raise SystemExit(f'payload member denominator differs: {names}')
+              for source_name, (output_name, expected) in targets.items():
+                  data = archive.read(source_name)
+                  observed = hashlib.sha256(data).hexdigest()
+                  if observed != expected:
+                      raise SystemExit(f'{source_name} digest mismatch: expected={expected} observed={observed}')
+                  (assembled / output_name).write_bytes(data)
+                  print(f'{output_name} {len(data)} {observed}')
           PY
 
       - name: Commit assembled ordinary files
