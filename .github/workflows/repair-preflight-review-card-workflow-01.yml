@@ -1,0 +1,109 @@
+name: Repair Preflight Review Card Workflow 01
+
+on:
+  push:
+    branches:
+      - work/axm-head-physical-flight-preflight-review-card-01
+    paths:
+      - ".github/workflows/repair-preflight-review-card-workflow-01.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repair-preflight-review-card-workflow-01
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the exact repair branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: work/axm-head-physical-flight-preflight-review-card-01
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Apply the bounded workflow and contract repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "work/axm-head-physical-flight-preflight-review-card-01"
+          test -f .github/repair_preflight_review_card_workflow_01.py
+          python .github/repair_preflight_review_card_workflow_01.py
+          git diff --check
+
+      - name: Requalify the unchanged product mechanics
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOL="mating_surface/anchor_node/axm_head_physical_flight_preflight_review_card_01.py"
+          PROFILE="mating_surface/anchor_node/axm-head-physical-flight-preflight-review-card-01-profile.json"
+          VERIFIER="mating_surface/anchor_node/verify_axm_head_physical_flight_preflight_review_card_01.py"
+          BOOTSTRAP="mating_surface/anchor_node/verify_axm_head_physical_flight_preflight_review_card_01_bootstrap.py"
+          TESTS="mating_surface/anchor_node/conformance/test_axm_head_physical_flight_preflight_review_card_01.py"
+
+          python -m py_compile "$TOOL" "$VERIFIER" "$BOOTSTRAP" "$TESTS"
+          python "$TOOL" validate-profile "$PROFILE" > "$RUNNER_TEMP/profile-validation.json"
+
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_axm_head_physical_flight_preflight_review_card_01.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/preflight-tests.txt"
+          grep -F "Ran 49 tests" "$RUNNER_TEMP/preflight-tests.txt"
+          grep -Fx "OK" "$RUNNER_TEMP/preflight-tests.txt"
+
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_axm_head_edge_demo.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/inherited-axm-head-tests.txt"
+          grep -F "Ran 38 tests" "$RUNNER_TEMP/inherited-axm-head-tests.txt"
+          grep -Fx "OK" "$RUNNER_TEMP/inherited-axm-head-tests.txt"
+
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_flight_conductor.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/inherited-conductor-tests.txt"
+          grep -F "Ran 25 tests" "$RUNNER_TEMP/inherited-conductor-tests.txt"
+          grep -Fx "OK" "$RUNNER_TEMP/inherited-conductor-tests.txt"
+
+          CARRIER="$RUNNER_TEMP/preflight-review-card-01-repair-carrier"
+          VERDICT="$RUNNER_TEMP/preflight-review-card-01-repair-verdict.json"
+          rm -rf "$CARRIER" "$VERDICT"
+          python "$TOOL" build-carrier "$PROFILE" --out "$CARRIER" > "$RUNNER_TEMP/build.json"
+          python "$TOOL" verify-carrier "$CARRIER" --out "$VERDICT" > "$RUNNER_TEMP/verdict-stdout.json"
+          cmp "$VERDICT" "$RUNNER_TEMP/verdict-stdout.json"
+
+      - name: Stage the repaired workflow payload and contract wording
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="work/axm-head-physical-flight-preflight-review-card-01"
+          WORKFLOW=".github/workflows/axm-head-physical-flight-preflight-review-card-01.yml"
+          PAYLOAD=".github/axm-head-physical-flight-preflight-review-card-01.workflow-repair-payload.yml"
+          CONTRACT="mating_surface/anchor_node/AXM-HEAD-PHYSICAL-FLIGHT-PREFLIGHT-REVIEW-CARD-01.md"
+
+          cp "$WORKFLOW" "$PAYLOAD"
+          git checkout HEAD -- "$WORKFLOW"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$PAYLOAD" "$CONTRACT"
+          git diff --cached --check
+          if git diff --cached --name-only | grep -q '^.github/workflows/'; then
+            echo "workflow mutation entered the Actions-authenticated staging commit" >&2
+            exit 1
+          fi
+          test -f "$PAYLOAD"
+
+          git commit -m "Stage the preflight workflow repair payload"
+          git push origin "HEAD:refs/heads/$BRANCH"
+          printf 'staging_commit=%s\n' "$(git rev-parse HEAD)"
+          printf 'staging_tree=%s\n' "$(git rev-parse 'HEAD^{tree}')"
