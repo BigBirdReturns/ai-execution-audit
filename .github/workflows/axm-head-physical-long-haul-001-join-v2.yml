@@ -95,8 +95,44 @@ jobs:
 
             SOURCE_ROOT="$RUNNER_TEMP/join-v2-source-$PLATFORM-$COORDINATE"
             rm -rf "$SOURCE_ROOT"
-            mkdir -p "$SOURCE_ROOT"
-            git -C "$REPO_ROOT" archive --format=tar "$OBSERVED_SHA" | tar -xf - -C "$SOURCE_ROOT"
+            python - "$REPO_ROOT" "$OBSERVED_SHA" "$SOURCE_ROOT" <<'PY'
+          from __future__ import annotations
+          from pathlib import Path, PurePosixPath
+          import os
+          import subprocess
+          import sys
+
+          repository = Path(sys.argv[1])
+          commit = sys.argv[2]
+          out = Path(sys.argv[3])
+          out.mkdir(parents=True, exist_ok=False)
+          listing = subprocess.run(
+              ["git", "-C", str(repository), "ls-tree", "-r", "-z", "--full-tree", commit],
+              check=True,
+              stdout=subprocess.PIPE,
+          ).stdout
+          for record in listing.split(b"\0"):
+              if not record:
+                  continue
+              metadata, raw_path = record.split(b"\t", 1)
+              mode, object_type, object_id = metadata.decode("ascii").split()
+              if object_type != "blob":
+                  raise SystemExit(f"unexpected tree object type: {object_type}")
+              relative_text = raw_path.decode("utf-8")
+              relative = PurePosixPath(relative_text)
+              if relative.is_absolute() or ".." in relative.parts or not relative.parts:
+                  raise SystemExit(f"unsafe repository path: {relative_text!r}")
+              target = out.joinpath(*relative.parts)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              data = subprocess.run(
+                  ["git", "-C", str(repository), "cat-file", "blob", object_id],
+                  check=True,
+                  stdout=subprocess.PIPE,
+              ).stdout
+              target.write_bytes(data)
+              if mode == "100755" and os.name != "nt":
+                  target.chmod(target.stat().st_mode | 0o111)
+          PY
 
             DEST="$QUALIFICATION_ROOT/$COORDINATE"
             rm -rf "$DEST"
@@ -118,6 +154,7 @@ jobs:
               "observedSha": observed,
               "tree": tree,
               "platform": platform,
+              "materialization": "exact_git_blob_bytes",
               "clean": True,
               "detached": True,
               "physicalExecutionStarted": False,
@@ -141,9 +178,8 @@ jobs:
               if not path.is_file():
                   raise SystemExit(f"missing permanent product path: {path}")
 
-          python_paths = [path for path in paths if path.suffix == ".py"]
           forbidden_imports = {"socket", "requests", "urllib3", "aiohttp", "httpx", "paramiko", "winrm"}
-          for path in python_paths:
+          for path in (path for path in paths if path.suffix == ".py"):
               tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
               for node in ast.walk(tree):
                   if isinstance(node, ast.Import):
@@ -191,7 +227,7 @@ jobs:
               -p 'test_stc_mary_flight_conductor.py' \
               -v 2>&1 | tee "$DEST/inherited-conductor-tests.txt"
 
-            CARRIER="$RUNNER_TEMP/join-v2-carrier-$COORDINATE"
+            CARRIER="$RUNNER_TEMP/join-v2-carrier-$PLATFORM-$COORDINATE"
             rm -rf "$CARRIER"
             python "$TOOL" build-carrier "$PROFILE" --out "$CARRIER" > "$DEST/build.json"
             python "$TOOL" verify-carrier "$CARRIER" --out "$DEST/verdict.json" > "$DEST/verdict-stdout.json"
@@ -297,6 +333,7 @@ jobs:
               "sourceCommit": source_commit,
               "sourceTree": source_tree,
               "platform": platform,
+              "sourceMaterialization": "exact_git_blob_bytes",
               "focusedWitnesses": 42,
               "inheritedAxmHeadWitnesses": 38,
               "inheritedConductorWitnesses": 25,
@@ -357,6 +394,47 @@ jobs:
             @([pscustomobject]@{ Name = 'source'; Ref = $env:EVENT_SHA })
           }
 
+          $materializer = @'
+          from __future__ import annotations
+          from pathlib import Path, PurePosixPath
+          import os
+          import subprocess
+          import sys
+
+          repository = Path(sys.argv[1])
+          commit = sys.argv[2]
+          out = Path(sys.argv[3])
+          out.mkdir(parents=True, exist_ok=False)
+          listing = subprocess.run(
+              ["git", "-C", str(repository), "ls-tree", "-r", "-z", "--full-tree", commit],
+              check=True,
+              stdout=subprocess.PIPE,
+          ).stdout
+          for record in listing.split(b"\0"):
+              if not record:
+                  continue
+              metadata, raw_path = record.split(b"\t", 1)
+              mode, object_type, object_id = metadata.decode("ascii").split()
+              if object_type != "blob":
+                  raise SystemExit(f"unexpected tree object type: {object_type}")
+              relative_text = raw_path.decode("utf-8")
+              relative = PurePosixPath(relative_text)
+              if relative.is_absolute() or ".." in relative.parts or not relative.parts:
+                  raise SystemExit(f"unsafe repository path: {relative_text!r}")
+              target = out.joinpath(*relative.parts)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              data = subprocess.run(
+                  ["git", "-C", str(repository), "cat-file", "blob", object_id],
+                  check=True,
+                  stdout=subprocess.PIPE,
+              ).stdout
+              target.write_bytes(data)
+              if mode == "100755" and os.name != "nt":
+                  target.chmod(target.stat().st_mode | 0o111)
+          '@
+          $MaterializerPath = Join-Path $env:RUNNER_TEMP 'join-v2-exact-blob-materializer.py'
+          [IO.File]::WriteAllText($MaterializerPath, $materializer, [Text.UTF8Encoding]::new($false))
+
           $RepoRoot = $env:GITHUB_WORKSPACE
           foreach ($coordinate in $coordinates) {
             $Observed = (git -C $RepoRoot rev-parse "$($coordinate.Ref)^{commit}").Trim()
@@ -364,13 +442,8 @@ jobs:
             if ($Observed -ne $coordinate.Ref) { throw "source identity differs for $($coordinate.Name)" }
 
             $SourceRoot = Join-Path $env:RUNNER_TEMP "join-v2-source-pwsh-$($coordinate.Name)"
-            $Archive = Join-Path $env:RUNNER_TEMP "join-v2-source-pwsh-$($coordinate.Name).tar"
             if (Test-Path -LiteralPath $SourceRoot) { Remove-Item -LiteralPath $SourceRoot -Recurse -Force }
-            if (Test-Path -LiteralPath $Archive) { Remove-Item -LiteralPath $Archive -Force }
-            New-Item -ItemType Directory -Path $SourceRoot | Out-Null
-            git -C $RepoRoot archive --format=tar $Observed -o $Archive
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            tar -xf $Archive -C $SourceRoot
+            python $MaterializerPath $RepoRoot $Observed $SourceRoot
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
             $Tool = Join-Path $SourceRoot 'mating_surface\anchor_node\axm-head-physical-long-haul-001-join-v2.ps1'
@@ -401,8 +474,8 @@ jobs:
             if ($receipt.workersLaunched -ne 0 -or $receipt.listenersCreated -ne 0) { throw "JOIN-v2 promoted runtime activity" }
             if ($receipt.authority -ne 'none') { throw "JOIN-v2 promoted authority" }
             Remove-Item -LiteralPath $SourceRoot -Recurse -Force
-            Remove-Item -LiteralPath $Archive -Force
           }
+          Remove-Item -LiteralPath $MaterializerPath -Force
 
   compare:
     needs: [qualify, qualify-powershell]
@@ -474,6 +547,7 @@ jobs:
               "eventSha": "${{ github.sha }}",
               "platformByteIdentity": True,
               "headToMergeByteIdentity": head_merge_identity,
+              "sourceMaterialization": "exact_git_blob_bytes",
               "rows": rows,
               "physicalAuthorizationProduced": False,
               "physicalExecutionStarted": False,
