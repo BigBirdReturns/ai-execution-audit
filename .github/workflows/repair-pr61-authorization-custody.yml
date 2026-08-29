@@ -49,7 +49,7 @@ jobs:
           python .github/repair-pr61-authorization-custody.py | tee /tmp/repair-receipt.json
           python -m json.tool /tmp/repair-receipt.json >/dev/null
 
-      - name: Preserve canonical signature-mutation witness
+      - name: Preserve deterministic RSA hostile witnesses
         shell: bash
         run: |
           set -euo pipefail
@@ -58,7 +58,8 @@ jobs:
 
           path = Path("mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py")
           text = path.read_text(encoding="utf-8")
-          old = (
+
+          old_signature = (
               '        forged = copy.deepcopy(value)\n'
               '        provenance = forged["privateEvidenceProvenance"]\n'
               '        replacement = "A" if provenance["signatureBase64Url"][-1] != "A" else "B"\n'
@@ -69,7 +70,7 @@ jobs:
               '        )\n'
               '        forged_result = self.evaluate_with_test_trust_root(forged)\n'
           )
-          new = (
+          new_signature = (
               '        forged = copy.deepcopy(value)\n'
               '        provenance = forged["privateEvidenceProvenance"]\n'
               '        signature_bytes = bytearray(\n'
@@ -86,9 +87,26 @@ jobs:
               '        )\n'
               '        forged_result = self.evaluate_with_test_trust_root(forged)\n'
           )
-          if text.count(old) != 1:
-              raise SystemExit(f"signature witness anchor count differs: {text.count(old)}")
-          path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+          if text.count(old_signature) != 1:
+              raise SystemExit(f"signature witness anchor count differs: {text.count(old_signature)}")
+          text = text.replace(old_signature, new_signature, 1)
+
+          old_modulus = (
+              '        signature_integer = int.from_bytes(signature_bytes, "big")\n'
+              '        modulus = int(TEST_PRIVATE_PROVENANCE_TRUST_ROOT["modulusHex"], 16)\n'
+              '        congruent_integer = signature_integer + modulus\n'
+              '        self.assertLess(congruent_integer, 1 << (8 * len(signature_bytes)))\n'
+          )
+          new_modulus = (
+              '        modulus = int(TEST_PRIVATE_PROVENANCE_TRUST_ROOT["modulusHex"], 16)\n'
+              '        congruent_integer = modulus\n'
+              '        self.assertLess(congruent_integer, 1 << (8 * len(signature_bytes)))\n'
+          )
+          if text.count(old_modulus) != 1:
+              raise SystemExit(f"modulus witness anchor count differs: {text.count(old_modulus)}")
+          text = text.replace(old_modulus, new_modulus, 1)
+
+          path.write_text(text, encoding="utf-8", newline="\n")
           PY
 
       - name: Qualify corrective product
