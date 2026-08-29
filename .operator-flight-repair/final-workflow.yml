@@ -1,0 +1,232 @@
+name: STC MARY Private Flight Conductor 01
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/stc-mary-flight-conductor-01.yml"
+      - "mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md"
+      - "mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py"
+      - "mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json"
+      - "mating_surface/anchor_node/stc-mary-flight-conductor.ps1"
+      - "mating_surface/anchor_node/stc_mary_flight_conductor.py"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/stc-mary-flight-conductor-01.yml"
+      - "mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md"
+      - "mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py"
+      - "mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json"
+      - "mating_surface/anchor_node/stc-mary-flight-conductor.ps1"
+      - "mating_surface/anchor_node/stc_mary_flight_conductor.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stc-mary-flight-conductor-01-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-conductor:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+
+      - name: Restore exact blob line endings
+        shell: bash
+        run: |
+          git config core.autocrlf false
+          git checkout-index --force --all
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Refuse network clients, credential material, and private host identities
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          paths = [
+              Path('mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md'),
+              Path('mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py'),
+              Path('mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json'),
+              Path('mating_surface/anchor_node/stc-mary-flight-conductor.ps1'),
+              Path('mating_surface/anchor_node/stc_mary_flight_conductor.py'),
+          ]
+          joined = '\n'.join(path.read_text(encoding='utf-8') for path in paths)
+          forbidden = {
+              'network client': r'\b(?:requests|urllib3|aiohttp|httpx)\b|socket\.(?:connect|create_connection)',
+              'credential material': r'AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer',
+              'private host identity': r'OCTO-(?:W|L)[0-9]+',
+          }
+          for label, pattern in forbidden.items():
+              if re.search(pattern, joined, re.I):
+                  raise SystemExit(f'{label} detected in the public conductor surface')
+          PY
+
+      - name: Check syntax, frozen profile, and clean source formatting
+        shell: bash
+        run: |
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_flight_conductor.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py
+          python mating_surface/anchor_node/stc_mary_flight_conductor.py validate-profile \
+            mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json
+          git diff --check
+
+      - name: Run the closed 32-witness conductor suite
+        shell: bash
+        run: |
+          mkdir -p qualification/stc-mary-flight-conductor-01
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_flight_conductor.py' \
+            -v 2>&1 | tee qualification/stc-mary-flight-conductor-01/conductor-tests-${{ matrix.os }}.txt
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('qualification/stc-mary-flight-conductor-01/conductor-tests-${{ matrix.os }}.txt').read_text(encoding='utf-8')
+          if 'Ran 32 tests' not in text or '\nOK' not in text:
+              raise SystemExit('closed 32-witness conductor denominator did not pass')
+          PY
+
+      - name: Replay the inherited local-toolchain and offline-carrier suites
+        shell: bash
+        run: |
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_local_toolchain.py' \
+            -v 2>&1 | tee qualification/stc-mary-flight-conductor-01/inherited-local-toolchain-tests-${{ matrix.os }}.txt
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_offline_carrier.py' \
+            -v 2>&1 | tee qualification/stc-mary-flight-conductor-01/inherited-offline-carrier-tests-${{ matrix.os }}.txt
+
+      - name: Freeze the exact six-member source archive and qualification receipt
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZIP_STORED, ZipFile, ZipInfo
+          import hashlib
+          import json
+          import os
+
+          members = [
+              '.github/workflows/stc-mary-flight-conductor-01.yml',
+              'mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md',
+              'mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py',
+              'mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json',
+              'mating_surface/anchor_node/stc-mary-flight-conductor.ps1',
+              'mating_surface/anchor_node/stc_mary_flight_conductor.py',
+          ]
+          qualification = Path('qualification/stc-mary-flight-conductor-01')
+          archive = qualification / 'stc-mary-flight-conductor-source-01.zip'
+          rows = []
+          with ZipFile(archive, 'w', compression=ZIP_STORED, allowZip64=True) as handle:
+              for relative in members:
+                  data = Path(relative).read_bytes()
+                  info = ZipInfo(relative, date_time=(1980, 1, 1, 0, 0, 0))
+                  info.compress_type = ZIP_STORED
+                  info.create_system = 3
+                  info.external_attr = 0o100644 << 16
+                  info.flag_bits = 0x800
+                  handle.writestr(info, data)
+                  rows.append({'relativePath': relative, 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)})
+          archive_bytes = archive.read_bytes()
+          logs = []
+          for path in sorted(qualification.glob('*tests-${{ matrix.os }}.txt')):
+              data = path.read_bytes()
+              logs.append({'name': path.name, 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)})
+          receipt = {
+              'schema': 'stc-mary-flight-conductor-qualification/1',
+              'runnerClass': '${{ matrix.os }}',
+              'sourceCommit': os.environ['GITHUB_SHA'],
+              'sourceMembers': rows,
+              'sourceMemberCount': len(rows),
+              'sourceBytes': sum(row['bytes'] for row in rows),
+              'archiveName': archive.name,
+              'archiveSha256': hashlib.sha256(archive_bytes).hexdigest(),
+              'archiveBytes': len(archive_bytes),
+              'tests': logs,
+              'conductorWitnesses': 32,
+              'inheritedLocalToolchainWitnesses': 13,
+              'inheritedOfflineCarrierWitnesses': 30,
+              'actualReadinessCensusExecuted': False,
+              'actualHalo3AuditionExecuted': False,
+              'actualSecondHostObserved': False,
+              'actualPartitionExecuted': False,
+              'actualReunionExecuted': False,
+              'actualSuccessorRecovered': False,
+              'actualPacketStageRecorded': False,
+              'actualPhysicalFlightCompleted': False,
+              'physicalEstateQualified': False,
+              'representativeOperatorQualified': False,
+              'fieldNetworkQualified': False,
+              'operationalC2Qualified': False,
+              'productionLatticeQualified': False,
+              'networkRequired': False,
+              'externalServiceCalls': 0,
+              'operationalCredentials': 0,
+              'privateEvidenceBodies': 0,
+              'authority': 'none',
+          }
+          (qualification / 'qualification-receipt-${{ matrix.os }}.json').write_text(
+              json.dumps(receipt, indent=2) + '\n',
+              encoding='utf-8',
+              newline='\n',
+          )
+          PY
+
+      - name: Upload body-free qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stc-mary-flight-conductor-01-${{ matrix.os }}-${{ github.sha }}
+          path: qualification/stc-mary-flight-conductor-01/
+          if-no-files-found: error
+          retention-days: 14
+
+  qualify-powershell-entrypoint:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+
+      - name: Restore exact blob line endings
+        shell: bash
+        run: |
+          git config core.autocrlf false
+          git checkout-index --force --all
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate the PowerShell command surface
+        shell: pwsh
+        run: |
+          $Conductor = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\stc-mary-flight-conductor.ps1'
+          $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\stc-mary-flight-conductor-profile-01.json'
+          & $Conductor validate-profile $Profile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover `
+            -s mating_surface/anchor_node/conformance `
+            -p 'test_stc_mary_flight_conductor.py' `
+            -k 'test_28_readiness_action_invokes_only_doctor' `
+            -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

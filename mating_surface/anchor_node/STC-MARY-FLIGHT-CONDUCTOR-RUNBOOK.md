@@ -230,3 +230,37 @@ No daemon or database holds progress. After process termination or host restart,
 ```
 
 The same root, source bytes, exact execution checkout, and admitted receipts reconstruct the same campaign identity and phase result. No WAN, cloud account, remote model provider, repository history beyond the frozen execution checkout, or operational credential is required.
+
+## Single-action operator surface
+
+`operator-flight.ps1` is a single-action dispatcher. It accepts exactly one action and rejects a missing, unknown, or additional argument before invoking an execution-floor tool:
+
+```text
+readiness
+feed
+personal-floor
+halo3
+post-halo3-continuity
+two-cell
+successor-head
+compile-plan
+seal
+```
+
+Every action first reconstructs the workstation ledger and requires the exact current conductor phase. The script then invokes only the selected bounded transaction, checks each tool exit code, and terminates. It cannot continue into a later phase merely because later commands exist in the generated file.
+
+Before `readiness`, `STC_MARY_PYTHON` must resolve to one exact Python 3.11-or-later file whose Torch probe reports `torch.cuda.is_available() == true` and includes the selected CUDA index. `readiness` invokes only `doctor` and stops before feed generation.
+
+`two-cell` advances at most one locally executable subtransaction per invocation:
+
+```text
+template-inputs
+or
+build-cell-pair after complete private inputs exist
+or
+reconcile-cells after both private host verifications exist
+```
+
+It never moves a bundle, performs a host attestation, or selects a conflict winner. `successor-head` builds the successor bundle only and never attests the replacement host. Packet stages remain governed by `packet-handoff.ps1` and the packet runtime. `seal` is available only when the conductor reconstructs `sealed_flight`, which requires the private packet phase to be closed.
+
+A failed or overbroad predecessor workstation remains immutable evidence. After a conductor repair, initialize a new successor workstation rather than editing or continuing an older campaign root.
