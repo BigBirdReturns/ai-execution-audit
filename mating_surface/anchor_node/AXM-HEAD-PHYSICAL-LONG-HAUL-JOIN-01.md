@@ -81,8 +81,10 @@ preflight terminal READY_FOR_HUMAN_REVIEW
 preflight action denominator 12
 preflight authorized action count 0
 preflight phase, stage, stop-condition and receipt-class denominators exact
-named-human authorization distinct from the preflight receipt
-authorization precedes physical observation and packet receipts
+preflight completion timestamp retained and cross-bound
+named-human authorization scope bound to the exact campaign
+named-human actor identity distinct from the preflight receipt and source binding
+authorization issued after preflight completion and before physical observation and packet receipts
 complete sixteen-stage denominator retained
 fifteen PASS terminals retained
 RESTORE_LINK_HOLD_CONFLICT = HUMAN_REQUIRED
@@ -100,6 +102,7 @@ post-removal resident output reproduced
 canonical mission state unchanged
 Lattice unnecessary for local continuity
 two complete cells independently verified
+two cell identities distinct
 two actual host classes distinct
 two branches distinct and both retained
 automatic reunion merge false
@@ -188,4 +191,4 @@ This product may qualify the postflight contract, exact source binding, distinct
 
 ## Control question
 
-Can an independently authenticated local verifier reconstruct the complete private continuity, partition, reunion, successor, and sealed-package predicates from body-free `private_local_attested` receipts, while making the admitted preflight card, synthetic evidence, source coordinates, hardware identity, and self-consistent forgery incapable of manufacturing physical evidence or authority?
+Can an independently authenticated local verifier reconstruct the complete private continuity, ordered campaign-bound authorization, distinct-cell partition, reunion, successor, and sealed-package predicates from body-free `private_local_attested` receipts, while making the admitted preflight card, synthetic evidence, source coordinates, hardware identity, and self-consistent forgery incapable of manufacturing physical evidence or authority?

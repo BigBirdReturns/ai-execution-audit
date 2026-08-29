@@ -35,6 +35,8 @@ STAGE_RECEIPT_SCHEMA = "stc-mary/private-flight-stage-receipt@1"
 PRIVATE_EVIDENCE_PROVENANCE_SCHEMA = "axm-head/private-evidence-provenance@2"
 PRIVATE_EVIDENCE_PROVENANCE_PAYLOAD_SCHEMA = "axm-head/private-evidence-provenance-payload@2"
 PRIVATE_EVIDENCE_PROVENANCE_ALGORITHM = "rsa-pkcs1v15-sha256"
+EXPECTED_CAMPAIGN_ID = "PRIVATE-STC-MARY-FLIGHT-01"
+EXPECTED_AUTHORIZATION_SCOPE = "private-stc-mary-flight-01"
 
 PRIVATE_EVIDENCE_PROVENANCE_TRUST_ROOT = {
     "algorithm": "rsa-pkcs1v15-sha256",
@@ -46,7 +48,7 @@ RSA_SHA256_DIGEST_INFO_PREFIX = bytes.fromhex("3031300d0609608648016503040201050
 
 # Filled after the profile and verifier are frozen.
 PROFILE_CANONICAL_SHA256 = "4ea4fef34168eafa8e7e64fdd5d4b05725240b7cc12bca5fd068d3cc25cd3bfc"
-FIXTURE_CATALOG_CANONICAL_SHA256 = "db903e2d6e0238161783242b49ad55e105078f4f2f0733f74a30ad697eb1863a"
+FIXTURE_CATALOG_CANONICAL_SHA256 = "34cd78ccc87b2e566c84bf3ee3c57f0e134608d0f3fa627725324a1b404e93fc"
 
 TERMINALS = ("PREPARED_NOT_ARMED", "PRIVATE_SELF_ATTESTED", "HOLD")
 EVIDENCE_TIERS = ("none", "synthetic", "private_local_attested")
@@ -589,6 +591,7 @@ def validate_preflight_reference(value: Any, label: str) -> dict[str, Any]:
                 "terminal",
                 "reviewCardActionCount",
                 "authorizedActionCount",
+                "completedAtUnixNs",
                 "phaseSequence",
                 "packetStageSequence",
                 "stopConditions",
@@ -607,6 +610,7 @@ def validate_preflight_reference(value: Any, label: str) -> dict[str, Any]:
         fail("PREFLIGHT_TERMINAL_INVALID", f"{label}.terminal is outside the closed preflight denominator")
     require_int(item["reviewCardActionCount"], f"{label}.reviewCardActionCount", 0, 64)
     require_int(item["authorizedActionCount"], f"{label}.authorizedActionCount", 0, 64)
+    require_int(item["completedAtUnixNs"], f"{label}.completedAtUnixNs", 1)
     require_string_list(item["phaseSequence"], f"{label}.phaseSequence", maximum=32)
     require_string_list(item["packetStageSequence"], f"{label}.packetStageSequence", maximum=32)
     require_string_list(item["stopConditions"], f"{label}.stopConditions", maximum=32)
@@ -874,6 +878,7 @@ def validate_authorization_receipt(value: Any, label: str) -> dict[str, Any]:
                 "preflightReceiptId",
                 "preflightTerminal",
                 "preflightAuthorizedActionCount",
+                "preflightCompletedAtUnixNs",
                 "bodyPresent",
                 "authorityClass",
             },
@@ -899,6 +904,7 @@ def validate_authorization_receipt(value: Any, label: str) -> dict[str, Any]:
     if terminal not in PREFLIGHT_TERMINALS:
         fail("PREFLIGHT_TERMINAL_INVALID", f"{label}.preflightTerminal differs")
     require_int(item["preflightAuthorizedActionCount"], f"{label}.preflightAuthorizedActionCount", 0, 64)
+    require_int(item["preflightCompletedAtUnixNs"], f"{label}.preflightCompletedAtUnixNs", 1)
     if require_bool(item["bodyPresent"], f"{label}.bodyPresent"):
         fail("PRIVATE_BODY_FORBIDDEN", f"{label} carries a body")
     authority_class = require_string(item["authorityClass"], f"{label}.authorityClass")
@@ -1286,7 +1292,9 @@ def derive_predicates(value: dict[str, Any]) -> tuple[OrderedDict[str, bool], li
     observed_times = [route["observedAtUnixNs"], continuity["observedAtUnixNs"], two_cell["observedAtUnixNs"], successor["observedAtUnixNs"], disposition["observedAtUnixNs"]]
 
     predicates["evidenceTierUniform"] = len(set(tiers)) == 1
-    predicates["campaignIdentityUniform"] = len(set(campaigns)) == 1
+    predicates["campaignIdentityUniform"] = (
+        len(set(campaigns)) == 1 and campaigns[0] == EXPECTED_CAMPAIGN_ID
+    )
     predicates["authorizationReferenceUniform"] = len(set(auth_refs + [authorization["receiptId"]])) == 1
     predicates["issueBindingExact"] = all(obj["issueNumber"] == 37 for obj in (route, continuity, two_cell, successor, disposition)) and authorization["issueNumber"] == 37
     add_reason(reasons, "EVIDENCE_TIER_MISMATCH", not predicates["evidenceTierUniform"])
@@ -1327,10 +1335,33 @@ def derive_predicates(value: dict[str, Any]) -> tuple[OrderedDict[str, bool], li
     predicates["authorizationReceiptDistinctFromPreflight"] = preflight is not None and authorization["receiptId"] != preflight["receiptId"]
     predicates["namedHumanAuthorizationDistinct"] = authorization["actorClass"] == "named_human" and authorization["authorityClass"] == "bounded_operator_authorization"
     predicates["preflightNotPromotedToAuthorization"] = authorization["actorClass"] != "preflight_card"
+    preflight_actor_identities = (
+        set()
+        if preflight is None
+        else {preflight["receiptId"], source["sourceBindingId"]}
+    )
+    predicates["authorizationScopeCoversCampaign"] = (
+        authorization["campaignId"] == EXPECTED_CAMPAIGN_ID
+        and authorization["scope"] == EXPECTED_AUTHORIZATION_SCOPE
+    )
+    predicates["namedHumanActorDistinctFromPreflight"] = (
+        preflight is not None
+        and authorization["actorRef"] not in preflight_actor_identities
+    )
+    predicates["authorizationPreflightCompletionCrossBound"] = (
+        preflight is not None
+        and authorization["preflightCompletedAtUnixNs"] == preflight["completedAtUnixNs"]
+    )
+    predicates["authorizationIssuedAfterPreflightCompletion"] = (
+        preflight is not None
+        and authorization["issuedAtUnixNs"] > preflight["completedAtUnixNs"]
+    )
     predicates["authorizationFollowsCompletedPreflight"] = (
         preflight is not None
         and authorization["preflightTerminal"] == "READY_FOR_HUMAN_REVIEW"
         and authorization["preflightAuthorizedActionCount"] == 0
+        and predicates["authorizationPreflightCompletionCrossBound"]
+        and predicates["authorizationIssuedAfterPreflightCompletion"]
         and authorization["issuedAtUnixNs"] < authorization["firstPhysicalActionUnixNs"]
     )
     predicates["physicalObservationsFollowAuthorization"] = all(time >= authorization["firstPhysicalActionUnixNs"] for time in observed_times)
@@ -1338,6 +1369,10 @@ def derive_predicates(value: dict[str, Any]) -> tuple[OrderedDict[str, bool], li
     add_reason(reasons, "AUTHORIZATION_RECEIPT_NOT_DISTINCT", not predicates["authorizationReceiptDistinctFromPreflight"])
     add_reason(reasons, "NAMED_HUMAN_AUTHORIZATION_REQUIRED", not predicates["namedHumanAuthorizationDistinct"])
     add_reason(reasons, "PREFLIGHT_CARD_CANNOT_AUTHORIZE", not predicates["preflightNotPromotedToAuthorization"])
+    add_reason(reasons, "AUTHORIZATION_SCOPE_MISMATCH", not predicates["authorizationScopeCoversCampaign"])
+    add_reason(reasons, "PREFLIGHT_IDENTITY_CANNOT_BE_HUMAN_ACTOR", not predicates["namedHumanActorDistinctFromPreflight"])
+    add_reason(reasons, "PREFLIGHT_COMPLETION_REFERENCE_MISMATCH", not predicates["authorizationPreflightCompletionCrossBound"])
+    add_reason(reasons, "AUTHORIZATION_BEFORE_PREFLIGHT_COMPLETION", not predicates["authorizationIssuedAfterPreflightCompletion"])
     add_reason(reasons, "AUTHORIZATION_BOUNDARY_INVALID", not predicates["authorizationFollowsCompletedPreflight"])
     add_reason(reasons, "PHYSICAL_ACTION_BEFORE_AUTHORIZATION", not predicates["physicalObservationsFollowAuthorization"])
 
@@ -1396,6 +1431,7 @@ def derive_predicates(value: dict[str, Any]) -> tuple[OrderedDict[str, bool], li
     right = two_cell["rightCell"]
     reunion = two_cell["reunion"]
     predicates["twoCellHostClassesDistinct"] = left["hostClass"] != right["hostClass"]
+    predicates["twoCellIdentitiesDistinct"] = left["cellId"] != right["cellId"]
     predicates["twoCellBranchesDistinct"] = left["branchId"] != right["branchId"]
     predicates["twoCellStatesIndependentlyVerified"] = left["verificationStatus"] == "PASS" and right["verificationStatus"] == "PASS"
     predicates["reunionTerminalHumanRequired"] = reunion["terminal"] == "HUMAN_REQUIRED"
@@ -1403,6 +1439,7 @@ def derive_predicates(value: dict[str, Any]) -> tuple[OrderedDict[str, bool], li
     predicates["bothBranchesRetained"] = set(reunion["retainedBranchIds"]) == {left["branchId"], right["branchId"]} and len(reunion["retainedBranchIds"]) == 2
     predicates["unresolvedReconciliationObligationRetained"] = reunion["unresolvedObligationCount"] > 0
     add_reason(reasons, "TWO_CELL_HOST_CLASSES_NOT_DISTINCT", not predicates["twoCellHostClassesDistinct"])
+    add_reason(reasons, "TWO_CELL_IDENTITIES_NOT_DISTINCT", not predicates["twoCellIdentitiesDistinct"])
     add_reason(reasons, "TWO_CELL_BRANCHES_NOT_DISTINCT", not predicates["twoCellBranchesDistinct"])
     add_reason(reasons, "TWO_CELL_VERIFICATION_FAILED", not predicates["twoCellStatesIndependentlyVerified"])
     add_reason(reasons, "REUNION_NOT_HUMAN_REQUIRED", not predicates["reunionTerminalHumanRequired"])

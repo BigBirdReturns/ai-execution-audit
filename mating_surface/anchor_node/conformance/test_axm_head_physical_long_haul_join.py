@@ -281,8 +281,14 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
 
         forged = copy.deepcopy(value)
         provenance = forged["privateEvidenceProvenance"]
-        replacement = "A" if provenance["signatureBase64Url"][-1] != "A" else "B"
-        provenance["signatureBase64Url"] = provenance["signatureBase64Url"][:-1] + replacement
+        signature_bytes = bytearray(
+            mod.base64url_decode(
+                provenance["signatureBase64Url"],
+                "privateEvidenceProvenance.signatureBase64Url",
+            )
+        )
+        signature_bytes[0] ^= 1
+        provenance["signatureBase64Url"] = mod.base64url_encode(bytes(signature_bytes))
         provenance["provenanceId"] = mod.content_id(
             "axmheadprivateevidenceprovenance2",
             mod.body_without(provenance, "provenanceId"),
@@ -300,9 +306,8 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
             congruent_provenance["signatureBase64Url"],
             "privateEvidenceProvenance.signatureBase64Url",
         )
-        signature_integer = int.from_bytes(signature_bytes, "big")
         modulus = int(TEST_PRIVATE_PROVENANCE_TRUST_ROOT["modulusHex"], 16)
-        congruent_integer = signature_integer + modulus
+        congruent_integer = modulus
         self.assertLess(congruent_integer, 1 << (8 * len(signature_bytes)))
         congruent_provenance["signatureBase64Url"] = mod.base64url_encode(
             congruent_integer.to_bytes(len(signature_bytes), "big")
@@ -385,6 +390,21 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
         self.assertIn("PREFLIGHT_CARD_CANNOT_AUTHORIZE", result["join"]["reasonCodes"])
         self.assertIn("NAMED_HUMAN_AUTHORIZATION_REQUIRED", result["join"]["reasonCodes"])
 
+        signed = self.complete()
+        self.retier_private(signed, "private_local_attested")
+        preflight_id = signed["sourceBinding"]["preflightDisposition"]["receiptId"]
+        self.replace_authorization(
+            signed,
+            lambda authorization: authorization.update({"actorRef": preflight_id}),
+        )
+        self.sign_private_with_test_root(signed)
+        actor_result = self.evaluate_with_test_trust_root(signed)
+        self.assertEqual(actor_result["join"]["terminal"], "HOLD")
+        self.assertIn(
+            "PREFLIGHT_IDENTITY_CANNOT_BE_HUMAN_ACTOR",
+            actor_result["join"]["reasonCodes"],
+        )
+
     def test_preflight_authorized_action_count_is_held(self) -> None:
         value = self.complete()
         preflight = value["sourceBinding"]["preflightDisposition"]
@@ -429,6 +449,20 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
         self.assertEqual(result["join"]["terminal"], "HOLD")
         self.assertIn("CAMPAIGN_IDENTITY_MISMATCH", result["join"]["reasonCodes"])
 
+        scoped = self.complete()
+        self.retier_private(scoped, "private_local_attested")
+        self.replace_authorization(
+            scoped,
+            lambda authorization: authorization.update({"scope": "unrelated-scope"}),
+        )
+        self.sign_private_with_test_root(scoped)
+        scope_result = self.evaluate_with_test_trust_root(scoped)
+        self.assertEqual(scope_result["join"]["terminal"], "HOLD")
+        self.assertIn(
+            "AUTHORIZATION_SCOPE_MISMATCH",
+            scope_result["join"]["reasonCodes"],
+        )
+
     def test_physical_action_before_authorization_is_held(self) -> None:
         value = self.complete()
         value["routeAttestation"]["observedAtUnixNs"] = 1500
@@ -439,6 +473,26 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
         value = self.complete()
         self.replace_authorization(value, lambda auth: auth.update({"issuedAtUnixNs": 2200, "firstPhysicalActionUnixNs": 2000}))
         self.assertIn("AUTHORIZATION_BOUNDARY_INVALID", self.evaluate(value)["join"]["reasonCodes"])
+
+        signed = self.complete()
+        self.retier_private(signed, "private_local_attested")
+        completed_at = signed["sourceBinding"]["preflightDisposition"]["completedAtUnixNs"]
+        self.replace_authorization(
+            signed,
+            lambda authorization: authorization.update(
+                {
+                    "issuedAtUnixNs": completed_at - 1,
+                    "preflightCompletedAtUnixNs": completed_at,
+                }
+            ),
+        )
+        self.sign_private_with_test_root(signed)
+        chronology_result = self.evaluate_with_test_trust_root(signed)
+        self.assertEqual(chronology_result["join"]["terminal"], "HOLD")
+        self.assertIn(
+            "AUTHORIZATION_BEFORE_PREFLIGHT_COMPLETION",
+            chronology_result["join"]["reasonCodes"],
+        )
 
     def test_route_memory_pooling_is_refused_semantically(self) -> None:
         value = self.complete()
@@ -503,6 +557,24 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
     def test_same_host_two_cell_is_held(self) -> None:
         result = self.evaluate(self.case("hold-same-host-two-cell-attestation"))
         self.assertIn("TWO_CELL_HOST_CLASSES_NOT_DISTINCT", result["join"]["reasonCodes"])
+
+        signed = self.complete()
+        self.retier_private(signed, "private_local_attested")
+        two_cell = signed["twoCellAttestation"]
+        two_cell["rightCell"]["cellId"] = two_cell["leftCell"]["cellId"]
+        self.refresh_top(
+            signed,
+            "twoCellAttestation",
+            "twoCellAttestationId",
+            "axmheadtwocellattestation2",
+        )
+        self.sign_private_with_test_root(signed)
+        identity_result = self.evaluate_with_test_trust_root(signed)
+        self.assertEqual(identity_result["join"]["terminal"], "HOLD")
+        self.assertIn(
+            "TWO_CELL_IDENTITIES_NOT_DISTINCT",
+            identity_result["join"]["reasonCodes"],
+        )
 
     def test_same_branch_two_cell_is_held(self) -> None:
         value = self.complete()
