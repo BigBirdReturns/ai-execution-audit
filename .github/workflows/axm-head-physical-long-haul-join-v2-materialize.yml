@@ -1,0 +1,173 @@
+name: AXM HEAD Postflight JOIN-v2 One-Use Materializer
+
+on:
+  push:
+    branches:
+      - work/axm-head-physical-long-haul-join-v2-postflight
+    paths:
+      - ".joinv2-transport/**"
+      - ".github/workflows/axm-head-physical-long-haul-join-v2-materialize.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: axm-head-postflight-join-v2-materialize-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact transport branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Reconstruct and commit the exact non-workflow product
+        shell: bash
+        env:
+          EXPECTED_BASE: ec61bc3488cb5ae06ed9db2862a9f6910d310a79
+          EXPECTED_BRANCH: work/axm-head-physical-long-haul-join-v2-postflight
+          PAYLOAD_SHA256: b912835b261d2c7b08c3c7de46450262ae88e43151b09e8ce0e4628216de2dd0
+        run: |
+          set -euo pipefail
+
+          if [ ! -f .joinv2-transport/payload-00.b64 ]; then
+            echo "JOIN-v2 payload already materialized; no write required."
+            exit 0
+          fi
+
+          test "${GITHUB_REF_NAME}" = "${EXPECTED_BRANCH}"
+          git merge-base --is-ancestor "${EXPECTED_BASE}" HEAD
+
+          cat > "$RUNNER_TEMP/chunk-sha256.txt" <<'EOF'
+          1758066e135edd3af33730aed2698d22ede5ceff22480f31a987d469a1a319b4  .joinv2-transport/payload-00.b64
+          d384c1419319fc45b2d3a17d1b51aceda09b370cd27924ad4c3699485ea466b7  .joinv2-transport/payload-01.b64
+          782bca8a19ec1cc8a55a716145952e163adc00a412a4ad983b6c051f10b03c20  .joinv2-transport/payload-02.b64
+          d6fe94c6346181fa2234f44ffbbc71c5e32158727f7a72aa1b85b8589e4b9662  .joinv2-transport/payload-03.b64
+          736f6fdcb8393ceba87573a7e3f72ef49ba1962a9a69cd14cc7c1dfa483d1351  .joinv2-transport/payload-04.b64
+          365fde6feb22de9ef617936ae543ef69883d0a2767e3157e83d6cef773ca964d  .joinv2-transport/payload-05.b64
+          87e69cbf0d21635e32478b002a8b06fae3b1479ae211fa50cda946eccd628a08  .joinv2-transport/payload-06.b64
+          3f20dc3fbb8068c7b571d2bc1eb78d2da6307b8a045ecdc566d1b3cb96bba6b8  .joinv2-transport/payload-07.b64
+          EOF
+          sha256sum --check "$RUNNER_TEMP/chunk-sha256.txt"
+
+          cat .joinv2-transport/payload-*.b64 | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/joinv2-nonworkflow.tar.gz"
+          echo "${PAYLOAD_SHA256}  $RUNNER_TEMP/joinv2-nonworkflow.tar.gz" | sha256sum --check
+
+          EXTRACT="$RUNNER_TEMP/joinv2-extract"
+          rm -rf "$EXTRACT"
+          mkdir -p "$EXTRACT"
+
+          python - "$RUNNER_TEMP/joinv2-nonworkflow.tar.gz" "$EXTRACT" <<'PY'
+          from pathlib import Path, PurePosixPath
+          import sys
+          import tarfile
+
+          archive = Path(sys.argv[1])
+          destination = Path(sys.argv[2])
+          expected = [
+              "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md",
+              "mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json",
+              "mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1",
+              "mating_surface/anchor_node/axm_head_physical_long_haul_join.py",
+              "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py",
+              "mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json",
+              "mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py",
+          ]
+          with tarfile.open(archive, "r:gz") as handle:
+              members = handle.getmembers()
+              names = [member.name for member in members]
+              if names != expected:
+                  raise SystemExit(f"archive denominator differs: {names!r}")
+              for member in members:
+                  pure = PurePosixPath(member.name)
+                  if pure.is_absolute() or ".." in pure.parts or not member.isfile():
+                      raise SystemExit(f"unsafe archive member: {member.name}")
+              handle.extractall(destination, filter="data")
+          PY
+
+          while IFS= read -r relative
+          do
+            mkdir -p "$(dirname "$relative")"
+            install -m 0644 "$EXTRACT/$relative" "$relative"
+          done <<'EOF'
+          mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md
+          mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json
+          mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1
+          mating_surface/anchor_node/axm_head_physical_long_haul_join.py
+          mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py
+          mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json
+          mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py
+          EOF
+
+          cat > "$RUNNER_TEMP/product-sha256.txt" <<'EOF'
+          07e502fc624829c7c94bba5f00d06f2c58d8811cbc2c8926b995ba2d135a307c  mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md
+          3d7bd7cb8d5d84090ce33030a3571c84462dd644e2180977037cc381a44b700c  mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json
+          0d9a848f90b5a81a51a491b0dc9094b3f857a2b598ae42ed015ce1d3306198eb  mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1
+          ca2d037465562ec58cffa49e06ca3ac203b6be430ffd7c770ca8e10ee6e52d4e  mating_surface/anchor_node/axm_head_physical_long_haul_join.py
+          f170dea45589712ed1b937b87fdb1c6db1c033ab2f168beaf141df8d9d04f6f5  mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py
+          b23cb760a449c0a277b05d01d9538621a1b8eb757c05497bafaceee5cd0c8381  mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json
+          2b9761bb612e2092e2290d31ea2d07a7e7bc301daa38e04a6dd7dfdc52c7ad69  mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py
+          EOF
+          sha256sum --check "$RUNNER_TEMP/product-sha256.txt"
+
+          rm -rf .joinv2-transport
+          git add --all -- \
+            .joinv2-transport \
+            mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md \
+            mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json \
+            mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1 \
+            mating_surface/anchor_node/axm_head_physical_long_haul_join.py \
+            mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py \
+            mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json \
+            mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py
+
+          python - <<'PY'
+          import subprocess
+
+          expected = sorted([
+              ".joinv2-transport/payload-00.b64",
+              ".joinv2-transport/payload-01.b64",
+              ".joinv2-transport/payload-02.b64",
+              ".joinv2-transport/payload-03.b64",
+              ".joinv2-transport/payload-04.b64",
+              ".joinv2-transport/payload-05.b64",
+              ".joinv2-transport/payload-06.b64",
+              ".joinv2-transport/payload-07.b64",
+              "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md",
+              "mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json",
+              "mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1",
+              "mating_surface/anchor_node/axm_head_physical_long_haul_join.py",
+              "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py",
+              "mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json",
+              "mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py",
+          ])
+          observed = sorted(subprocess.check_output(
+              ["git", "diff", "--cached", "--name-only"], text=True
+          ).splitlines())
+          if observed != expected:
+              raise SystemExit(f"staged denominator differs: {observed!r}")
+          PY
+
+          git config user.name "BigBirdReturns"
+          git config user.email "bigbirdreturns@proton.me"
+          git commit -m "Build AXM HEAD postflight physical long-haul join v2"
+          git push origin "HEAD:${EXPECTED_BRANCH}"
+
+      - name: Preserve the non-execution boundary
+        shell: bash
+        run: |
+          echo "physicalExecutionStarted=false"
+          echo "missionVolumeMaterialized=false"
+          echo "workersLaunched=0"
+          echo "listenersCreated=0"
+          echo "authority=none"
