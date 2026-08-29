@@ -319,20 +319,34 @@ class JoinV2Tests(unittest.TestCase):
         self.assertEqual([row["path"] for row in manifest["files"]], list(TOOL.EXPECTED_RELATIVE_FILES))
 
     def test_31_direct_verifier_passes_without_self_authentication(self):
-        carrier = self.build()
-        completed = subprocess.run([sys.executable, str(carrier / "RECOVERY/verify_join.py"), str(carrier)], stdout=subprocess.PIPE, check=False)
+        carrier = self.build("forged-auth-environment")
+        env = os.environ.copy()
+        env["AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED"] = "1"
+        env["AXM_HEAD_JOIN_V2_VERIFIER_SHA256"] = TOOL.STANDALONE_VERIFIER_SHA256
+        completed = subprocess.run(
+            [sys.executable, str(carrier / "RECOVERY/verify_join.py"), str(carrier)],
+            stdout=subprocess.PIPE,
+            env=env,
+            check=False,
+        )
         self.assertEqual(completed.returncode, 0)
         verdict = json.loads(completed.stdout)
         self.assertEqual(verdict["status"], "PASS")
         self.assertFalse(verdict["bootstrapAuthenticated"])
 
     def test_32_bootstrap_authenticates_exact_verifier(self):
-        carrier = self.build()
-        completed = subprocess.run([sys.executable, str(BOOTSTRAP_PATH), str(carrier)], stdout=subprocess.PIPE, check=False)
+        carrier = self.build("bootstrap-custody")
+        out = self.root / "authenticated-verdict.json"
+        completed = subprocess.run(
+            [sys.executable, str(BOOTSTRAP_PATH), str(carrier), "--out", str(out)],
+            stdout=subprocess.PIPE,
+            check=False,
+        )
         self.assertEqual(completed.returncode, 0)
+        self.assertEqual(completed.stdout, out.read_bytes())
         verdict = json.loads(completed.stdout)
         self.assertTrue(verdict["bootstrapAuthenticated"])
-        self.assertEqual(verdict["standaloneVerifierSha256"], BOOTSTRAP.EXPECTED_VERIFIER_SHA256)
+        self.assertEqual(verdict["standaloneVerifierSha256"], TOOL.STANDALONE_VERIFIER_SHA256)
 
     def test_33_unmanifested_file_refuses(self):
         carrier = self.build()
@@ -347,16 +361,58 @@ class JoinV2Tests(unittest.TestCase):
             VERIFIER.verify(carrier)
 
     def test_35_resigned_public_claim_promotion_refuses(self):
-        carrier = self.build()
-        self.mutate_json_and_resign(carrier, "PUBLIC/status.json", lambda value: value.__setitem__("physicalExecutionStarted", True))
-        with self.assertRaisesRegex(VERIFIER.VerificationError, "public status is not reconstructed"):
-            VERIFIER.verify(carrier)
+        cases = (
+            ("PUBLIC/status.json", "physicalExecutionStarted", True, "public status is not reconstructed"),
+            ("PUBLIC/status.json", "physicalExecutionStarted", 0, "public status is not reconstructed"),
+            ("JOIN/decision.json", "physicalAuthorizationProduced", True, "decision is not reconstructed"),
+            ("JOIN/decision.json", "physicalAuthorizationProduced", 0, "decision is not reconstructed"),
+        )
+        for index, (relative, key, replacement, message) in enumerate(cases):
+            with self.subTest(relative=relative, key=key, replacement=replacement):
+                carrier = self.build(f"resigned-public-semantics-{index}")
+                self.mutate_json_and_resign(
+                    carrier,
+                    relative,
+                    lambda value, k=key, r=replacement: value.__setitem__(k, r),
+                )
+                with self.assertRaisesRegex(VERIFIER.VerificationError, message):
+                    VERIFIER.verify(carrier)
 
     def test_36_resigned_preparation_activity_refuses(self):
-        carrier = self.build()
-        self.mutate_json_and_resign(carrier, "JOIN/preparation-state.json", lambda value: value.__setitem__("workersLaunched", 1))
-        with self.assertRaisesRegex(VERIFIER.VerificationError, "prepared state is not reconstructed"):
-            VERIFIER.verify(carrier)
+        member_cases = (
+            ("workersLaunched", 1),
+            ("workersLaunched", False),
+        )
+        for index, (key, replacement) in enumerate(member_cases):
+            with self.subTest(member=key, replacement=replacement):
+                carrier = self.build(f"resigned-preparation-{index}")
+                self.mutate_json_and_resign(
+                    carrier,
+                    "JOIN/preparation-state.json",
+                    lambda value, k=key, r=replacement: value.__setitem__(k, r),
+                )
+                with self.assertRaisesRegex(VERIFIER.VerificationError, "prepared state is not reconstructed"):
+                    VERIFIER.verify(carrier)
+
+        manifest_cases = (
+            ("physicalExecutionStarted", True, "manifest physicalExecutionStarted differs"),
+            ("physicalExecutionStarted", 0, "manifest physicalExecutionStarted differs"),
+            ("bootstrapRequired", False, "bootstrapRequired must remain true"),
+            ("bootstrapRequired", 1, "bootstrapRequired must remain true"),
+            ("fileCount", False, "manifest fileCount differs"),
+        )
+        for index, (key, replacement, message) in enumerate(manifest_cases):
+            with self.subTest(manifest=key, replacement=replacement):
+                carrier = self.build(f"resigned-manifest-{index}")
+                manifest_path = carrier / "MANIFEST.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest[key] = replacement
+                body = dict(manifest)
+                body.pop("carrierId")
+                manifest["carrierId"] = TOOL.content_id("axmheadjoincarrier2", body)
+                manifest_path.write_bytes(TOOL.pretty_json_bytes(manifest))
+                with self.assertRaisesRegex(VERIFIER.VerificationError, message):
+                    VERIFIER.verify(carrier)
 
     def test_37_rewritten_profile_refuses_after_resigning(self):
         carrier = self.build()

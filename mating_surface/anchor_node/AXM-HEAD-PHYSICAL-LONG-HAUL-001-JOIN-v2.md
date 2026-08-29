@@ -163,10 +163,10 @@ Unmanifested files, missing members, symlink members, changed bytes, changed row
 
 The carrier embeds a standard-library verifier under `RECOVERY/verify_join.py`. Direct execution reconstructs the canonical prepared state, decision, public status, file denominator, manifest, and carrier identity, while truthfully reporting that it has not authenticated itself.
 
-The external bootstrap hashes the embedded verifier before execution. The admitted verifier digest is:
+The external bootstrap hashes the embedded verifier before execution, invokes it without an authentication channel or output path, requires one canonical direct `PASS` receipt with `bootstrapAuthenticated: false`, validates every physical and authority non-claim, and then constructs the authenticated receipt itself. The admitted verifier digest is:
 
 ```text
-986dc33080352d978992102b8bf2e3b2a1f795a956529983b90eee055cb758f7
+47e72c4a0eec643463e17ba4deb16ab345f06fc5e6a191f7e5124d7f92f249a4
 ```
 
 A substituted verifier is refused before its bytes run. Verdict output inside the measured carrier or hard-linked to a measured member is refused without mutation.
@@ -204,7 +204,7 @@ A successful result is `READY_FOR_HUMAN_REVIEW`, not authorization. The private 
 
 The focused suite contains forty-two permanent witnesses. It proves the exact source graph, canonical profile digest, issue #37 binding, twelve-phase denominator, sixteen-stage packet denominator, prepared zero-activity state, all four terminals, exact checkout requirements, four-header privacy denominator, deterministic card compilation, unauthorized action state, receipt and stop closure, deterministic carrier bytes, direct-verifier honesty, external verifier authentication, and the closed five-member carrier.
 
-Hostile witnesses refuse source drift, dirty or moving checkouts, missing headers, symlink roots, duplicate labels, invalid content references, physical execution, worker or listener activity, authority promotion, forged cards, unmanifested files, missing files, re-signed public claim promotion, re-signed preparation activity, rewritten profile provenance, malicious verifier substitution, verdict output overlap, hard-link aliasing, and symlink members.
+Hostile witnesses refuse source drift, dirty or moving checkouts, missing headers, symlink roots, duplicate labels, invalid content references, physical execution, worker or listener activity, authority promotion, forged cards, unmanifested files, missing files, re-signed public claim promotion, re-signed preparation activity, Boolean/integer JSON type confusion after complete re-signing, forged bootstrap environment variables, rewritten profile provenance, malicious verifier substitution, verdict output overlap, hard-link aliasing, and symlink members.
 
 The workflow qualifies both the exact pull-request head and GitHub's synthesized merge coordinate on Ubuntu and Windows, replays the inherited AXM HEAD and flight-conductor suites, validates the PowerShell surface, and compares the canonical prepared carrier, public status, and authenticated verdict bytes across platforms and coordinates.
 

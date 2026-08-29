@@ -9,8 +9,27 @@ import sys
 from pathlib import Path
 from typing import Any
 
-EXPECTED_VERIFIER_SHA256 = "986dc33080352d978992102b8bf2e3b2a1f795a956529983b90eee055cb758f7"
+EXPECTED_VERIFIER_SHA256 = "47e72c4a0eec643463e17ba4deb16ab345f06fc5e6a191f7e5124d7f92f249a4"
 VERDICT_SCHEMA = "axm-head/physical-long-haul-001-join-verdict@2"
+DIRECT_VERDICT_KEYS = {
+    "schema",
+    "status",
+    "carrierId",
+    "joinContractId",
+    "stateId",
+    "decisionId",
+    "terminal",
+    "fileCount",
+    "profileCanonicalSha256",
+    "standaloneVerifierSha256",
+    "bootstrapAuthenticated",
+    "physicalAuthorizationProduced",
+    "physicalExecutionStarted",
+    "missionVolumeMaterialized",
+    "workersLaunched",
+    "listenersCreated",
+    "authority",
+}
 
 
 class BootstrapError(RuntimeError):
@@ -24,7 +43,15 @@ def fail(code: str, message: str) -> None:
 
 
 def canonical_json_bytes(value: Any) -> bytes:
-    return (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+    try:
+        text = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        fail("NON_CANONICAL_JSON", str(exc))
+    return (text + "\n").encode("utf-8")
+
+
+def type_strict_equal(actual: Any, expected: Any) -> bool:
+    return canonical_json_bytes(actual) == canonical_json_bytes(expected)
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -45,6 +72,36 @@ def ensure_output_safe(carrier: Path, out: Path | None) -> None:
                 stat = member.stat()
                 if stat.st_dev == out_stat.st_dev and stat.st_ino == out_stat.st_ino:
                     fail("OUTPUT_ALIASES_CARRIER", "verdict output aliases a measured carrier file")
+
+
+def validate_direct_verdict(value: Any, verifier_digest: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        fail("DIRECT_VERDICT_INVALID", "direct verifier must emit one JSON object")
+    if set(value) != DIRECT_VERDICT_KEYS:
+        fail("DIRECT_VERDICT_KEYS_INVALID", "direct verifier verdict denominator differs")
+    expected = {
+        "schema": VERDICT_SCHEMA,
+        "status": "PASS",
+        "terminal": "PREPARED_NOT_ARMED",
+        "fileCount": 5,
+        "standaloneVerifierSha256": verifier_digest,
+        "bootstrapAuthenticated": False,
+        "physicalAuthorizationProduced": False,
+        "physicalExecutionStarted": False,
+        "missionVolumeMaterialized": False,
+        "workersLaunched": 0,
+        "listenersCreated": 0,
+        "authority": "none",
+    }
+    for key, expected_value in expected.items():
+        if not type_strict_equal(value[key], expected_value):
+            fail("DIRECT_VERDICT_SEMANTICS_INVALID", f"direct verifier {key} differs")
+    for key in ("carrierId", "joinContractId", "stateId", "decisionId", "profileCanonicalSha256"):
+        if not isinstance(value[key], str) or not value[key]:
+            fail("DIRECT_VERDICT_IDENTITY_INVALID", f"direct verifier {key} is invalid")
+    authenticated = dict(value)
+    authenticated["bootstrapAuthenticated"] = True
+    return authenticated
 
 
 def emit_refusal(code: str, message: str) -> int:
@@ -76,22 +133,41 @@ def main(argv: list[str] | None = None) -> int:
         verifier = carrier / "RECOVERY" / "verify_join.py"
         if not verifier.is_file() or verifier.is_symlink():
             fail("VERIFIER_MEMBER_INVALID", "embedded verifier is missing or symlinked")
-        digest = sha256_bytes(verifier.read_bytes())
-        if digest != EXPECTED_VERIFIER_SHA256:
+        measured_digest = sha256_bytes(verifier.read_bytes())
+        if measured_digest != EXPECTED_VERIFIER_SHA256:
             fail("VERIFIER_SUBSTITUTION_REFUSED", "embedded verifier digest differs; untrusted bytes were not executed")
         ensure_output_safe(carrier, args.out)
-        command = [sys.executable, str(verifier), str(carrier)]
-        if args.out is not None:
-            command.extend(["--out", str(args.out)])
+
         env = os.environ.copy()
-        env["AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED"] = "1"
-        env["AXM_HEAD_JOIN_V2_VERIFIER_SHA256"] = digest
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, check=False)
-        sys.stdout.buffer.write(result.stdout)
+        env.pop("AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED", None)
+        env.pop("AXM_HEAD_JOIN_V2_VERIFIER_SHA256", None)
+        result = subprocess.run(
+            [sys.executable, str(verifier), str(carrier)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            check=False,
+        )
         if result.stderr:
             sys.stderr.buffer.write(result.stderr)
-        return result.returncode
-    except (BootstrapError, OSError) as exc:
+        if result.returncode != 0:
+            sys.stdout.buffer.write(result.stdout)
+            return result.returncode
+        try:
+            direct = json.loads(result.stdout.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            fail("DIRECT_VERDICT_PARSE_FAILED", str(exc))
+        if result.stdout != canonical_json_bytes(direct):
+            fail("DIRECT_VERDICT_NONCANONICAL", "direct verifier verdict bytes are not canonical")
+
+        authenticated = validate_direct_verdict(direct, measured_digest)
+        data = canonical_json_bytes(authenticated)
+        if args.out is not None:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_bytes(data)
+        sys.stdout.buffer.write(data)
+        return 0
+    except (BootstrapError, OSError, TypeError, ValueError) as exc:
         code = exc.code if isinstance(exc, BootstrapError) else "BOOTSTRAP_IO_FAILED"
         return emit_refusal(code, str(exc))
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -67,6 +66,10 @@ def canonical_json_bytes(value: Any) -> bytes:
     except (TypeError, ValueError) as exc:
         fail("NON_CANONICAL_JSON", str(exc))
     return (text + "\n").encode("utf-8")
+
+
+def type_strict_equal(actual: Any, expected: Any) -> bool:
+    return canonical_json_bytes(actual) == canonical_json_bytes(expected)
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -235,11 +238,14 @@ def verify(carrier: Path) -> dict[str, Any]:
     expected_state = prepared_state(profile)
     expected_decision = prepared_decision(profile, expected_state)
     expected_public = public_status(profile, expected_decision)
-    if read_object(state_path) != expected_state:
+    actual_state = read_object(state_path)
+    actual_decision = read_object(decision_path)
+    actual_public = read_object(public_path)
+    if not type_strict_equal(actual_state, expected_state):
         fail("PREPARATION_STATE_MISMATCH", "prepared state is not reconstructed from the admitted profile")
-    if read_object(decision_path) != expected_decision:
+    if not type_strict_equal(actual_decision, expected_decision):
         fail("DECISION_MISMATCH", "decision is not reconstructed from the prepared state")
-    if read_object(public_path) != expected_public:
+    if not type_strict_equal(actual_public, expected_public):
         fail("PUBLIC_STATUS_MISMATCH", "public status is not reconstructed from the decision")
 
     actual_files = sorted(path.relative_to(carrier).as_posix() for path in carrier.rglob("*") if path.is_file())
@@ -283,7 +289,9 @@ def verify(carrier: Path) -> dict[str, Any]:
         fail("MANIFEST_DECISION_BINDING_INVALID", "manifest state or decision binding differs")
     if manifest["terminal"] != "PREPARED_NOT_ARMED":
         fail("MANIFEST_TERMINAL_INVALID", "carrier terminal must remain PREPARED_NOT_ARMED")
-    if manifest["sourceCoordinates"] != profile["sourceCoordinates"] or manifest["physicalFlightIssue"] != profile["physicalFlightIssue"]:
+    if not type_strict_equal(manifest["sourceCoordinates"], profile["sourceCoordinates"]) or not type_strict_equal(
+        manifest["physicalFlightIssue"], profile["physicalFlightIssue"]
+    ):
         fail("MANIFEST_SOURCE_BINDING_INVALID", "manifest source or issue binding differs")
     if manifest["profileCanonicalSha256"] != PROFILE_CANONICAL_SHA256:
         fail("MANIFEST_PROFILE_DIGEST_INVALID", "manifest profile digest differs")
@@ -292,7 +300,7 @@ def verify(carrier: Path) -> dict[str, Any]:
         fail("MANIFEST_VERIFIER_DIGEST_INVALID", "manifest verifier digest differs from embedded bytes")
     if manifest["bootstrapRequired"] is not True:
         fail("MANIFEST_BOOTSTRAP_INVALID", "bootstrapRequired must remain true")
-    if manifest["fileCount"] != len(EXPECTED_RELATIVE_FILES):
+    if type(manifest["fileCount"]) is not int or manifest["fileCount"] != len(EXPECTED_RELATIVE_FILES):
         fail("MANIFEST_FILE_COUNT_INVALID", "manifest fileCount differs")
     rows = manifest["files"]
     if not isinstance(rows, list) or len(rows) != len(EXPECTED_RELATIVE_FILES):
@@ -301,7 +309,7 @@ def verify(carrier: Path) -> dict[str, Any]:
     for relative in EXPECTED_RELATIVE_FILES:
         data = (carrier / Path(*relative.split("/"))).read_bytes()
         expected_rows.append({"path": relative, "bytes": len(data), "sha256": sha256_bytes(data)})
-    if rows != expected_rows:
+    if not type_strict_equal(rows, expected_rows):
         fail("MANIFEST_FILE_ROWS_INVALID", "manifest file rows differ from measured bytes")
     for key, expected in (
         ("physicalAuthorizationProduced", False),
@@ -312,17 +320,13 @@ def verify(carrier: Path) -> dict[str, Any]:
         ("authority", "none"),
         ("claimBoundary", CLAIM_BOUNDARY),
     ):
-        if manifest[key] != expected:
+        if not type_strict_equal(manifest[key], expected):
             fail("MANIFEST_NONCLAIM_INVALID", f"manifest {key} differs")
     body = dict(manifest)
     carrier_id = body.pop("carrierId")
     if carrier_id != content_id("axmheadjoincarrier2", body):
         fail("CARRIER_ID_INVALID", "carrierId does not bind the complete manifest")
 
-    authenticated = (
-        os.environ.get("AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED") == "1"
-        and os.environ.get("AXM_HEAD_JOIN_V2_VERIFIER_SHA256") == verifier_digest
-    )
     return {
         "schema": VERDICT_SCHEMA,
         "status": "PASS",
@@ -334,7 +338,7 @@ def verify(carrier: Path) -> dict[str, Any]:
         "fileCount": len(EXPECTED_RELATIVE_FILES),
         "profileCanonicalSha256": PROFILE_CANONICAL_SHA256,
         "standaloneVerifierSha256": verifier_digest,
-        "bootstrapAuthenticated": authenticated,
+        "bootstrapAuthenticated": False,
         "physicalAuthorizationProduced": False,
         "physicalExecutionStarted": False,
         "missionVolumeMaterialized": False,
