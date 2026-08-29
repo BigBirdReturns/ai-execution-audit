@@ -39,10 +39,6 @@ jobs:
           from pathlib import Path, PurePosixPath
 
           root = Path.cwd()
-          branch = "work/axm-head-physical-long-haul-001-join-v2"
-          if Path(".git").is_dir() is False:
-              raise SystemExit("repository checkout is absent")
-
           chunk_paths = [root / f".join-v2-source.b64.{index:02d}" for index in range(4)]
           for path in chunk_paths:
               if not path.is_file() or path.is_symlink():
@@ -54,11 +50,11 @@ jobs:
           except Exception as exc:
               raise SystemExit(f"source archive base64 is invalid: {exc}") from exc
 
-          archive_sha256 = hashlib.sha256(archive).hexdigest()
           expected_archive_sha256 = "d45551b8f4d6f4079258794f5d52b415f7be2470e6b55fe2af9fc8a6995b3ad9"
-          if archive_sha256 != expected_archive_sha256:
+          observed_archive_sha256 = hashlib.sha256(archive).hexdigest()
+          if observed_archive_sha256 != expected_archive_sha256:
               raise SystemExit(
-                  f"source archive digest mismatch: expected={expected_archive_sha256} observed={archive_sha256}"
+                  f"source archive digest mismatch: expected={expected_archive_sha256} observed={observed_archive_sha256}"
               )
 
           expected = {
@@ -71,6 +67,8 @@ jobs:
               "mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2.py": "986dc33080352d978992102b8bf2e3b2a1f795a956529983b90eee055cb758f7",
               "mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2_bootstrap.py": "6ee5c656863e9b68b4bc9aeabb513e1fe952fba7f4331f999558ebf2f26b98c3",
           }
+          workflow_member = ".github/workflows/axm-head-physical-long-haul-001-join-v2.yml"
+          workflow_staging = root / ".join-v2-permanent-workflow.yml"
 
           with tarfile.open(fileobj=io.BytesIO(archive), mode="r:xz") as handle:
               members = handle.getmembers()
@@ -90,23 +88,25 @@ jobs:
                       raise SystemExit(
                           f"source member digest mismatch: {member.name} expected={expected[member.name]} observed={observed}"
                       )
-                  destination = root.joinpath(*pure.parts)
+                  destination = workflow_staging if member.name == workflow_member else root.joinpath(*pure.parts)
                   destination.parent.mkdir(parents=True, exist_ok=True)
                   destination.write_bytes(data)
 
+          if hashlib.sha256(workflow_staging.read_bytes()).hexdigest() != expected[workflow_member]:
+              raise SystemExit("staged permanent workflow digest mismatch")
           for relative, required_digest in expected.items():
-              data = (root / relative).read_bytes()
-              observed = hashlib.sha256(data).hexdigest()
+              if relative == workflow_member:
+                  continue
+              observed = hashlib.sha256((root / relative).read_bytes()).hexdigest()
               if observed != required_digest:
                   raise SystemExit(f"materialized source drift: {relative}")
 
           for path in chunk_paths:
               path.unlink()
-          Path(".github/workflows/join-v2-source-materializer.yml").unlink()
-          print(f"materialized {len(expected)} authenticated source members for {branch}")
+          print("materialized seven permanent members and one authenticated workflow staging blob")
           PY
 
-      - name: Commit only the authenticated permanent candidate
+      - name: Commit only non-workflow source and authenticated workflow staging bytes
         shell: bash
         run: |
           set -euo pipefail
@@ -114,12 +114,11 @@ jobs:
           git diff --check
           git status --short
           git add -A -- \
-            .github/workflows/axm-head-physical-long-haul-001-join-v2.yml \
-            .github/workflows/join-v2-source-materializer.yml \
             .join-v2-source.b64.00 \
             .join-v2-source.b64.01 \
             .join-v2-source.b64.02 \
             .join-v2-source.b64.03 \
+            .join-v2-permanent-workflow.yml \
             mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-001-JOIN-v2.md \
             mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2-profile.json \
             mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2.ps1 \
@@ -130,5 +129,5 @@ jobs:
           test -n "$(git diff --cached --name-only)"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Materialize complete AXM HEAD JOIN v2 candidate"
+          git commit -m "Materialize authenticated AXM HEAD JOIN v2 source"
           git push origin "HEAD:${GITHUB_REF_NAME}"
