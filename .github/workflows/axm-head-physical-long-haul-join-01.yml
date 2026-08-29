@@ -361,16 +361,17 @@ jobs:
           }
 
           foreach ($coordinate in $coordinates) {
-            git checkout --force --detach $coordinate.Ref
+            $Source = Join-Path $env:RUNNER_TEMP "postflight-join-powershell-source-$($coordinate.Name)"
+            $Archive = Join-Path $env:RUNNER_TEMP "postflight-join-powershell-source-$($coordinate.Name).zip"
+            Remove-Item -LiteralPath $Source -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $Archive -Force -ErrorAction SilentlyContinue
+            git -c core.autocrlf=false archive --format=zip --output=$Archive $coordinate.Ref
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            git clean -ffdx
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            git -c core.autocrlf=false checkout-index --force --all
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Expand-Archive -LiteralPath $Archive -DestinationPath $Source
 
-            $Join = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-join.ps1'
-            $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-join-profile-01.json'
-            $Fixtures = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\fixtures\axm-head-physical-long-haul-join-cases-01.json'
+            $Join = Join-Path $Source 'mating_surface\anchor_node\axm-head-physical-long-haul-join.ps1'
+            $Profile = Join-Path $Source 'mating_surface\anchor_node\axm-head-physical-long-haul-join-profile-01.json'
+            $Fixtures = Join-Path $Source 'mating_surface\anchor_node\fixtures\axm-head-physical-long-haul-join-cases-01.json'
             $Input = Join-Path $env:RUNNER_TEMP "postflight-join-input-$($coordinate.Name).json"
             $Receipt = Join-Path $env:RUNNER_TEMP "postflight-join-receipt-$($coordinate.Name).json"
             Remove-Item -LiteralPath $Input -Force -ErrorAction SilentlyContinue
