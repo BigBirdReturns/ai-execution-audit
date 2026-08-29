@@ -1,0 +1,128 @@
+name: Materialize PR 60 P1 P2 repair
+
+on:
+  push:
+    branches:
+      - ops/pr-60-p1-p2-materialize-20260829
+    paths:
+      - ".join-v2-p1p2.patch.gz.b64"
+      - ".github/workflows/materialize-pr60-p1-p2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: materialize-pr60-p1-p2
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TARGET_BRANCH: work/axm-head-physical-long-haul-join-v2-postflight-final
+      EXPECTED_TARGET_HEAD: 3453cb2fca4d3eef0fee6d89d579396619513a3d
+      PATCH_SHA256: 891e5927aeb343069fa732be17649d2bd6512b266304e14fcc9e091ed9d7ced1
+      PROFILE_SHA256: 4ea4fef34168eafa8e7e64fdd5d4b05725240b7cc12bca5fd068d3cc25cd3bfc
+      FIXTURE_SHA256: db903e2d6e0238161783242b49ad55e105078f4f2f0733f74a30ad697eb1863a
+      VERIFIER_SHA256: 676ac39effb7975b3328cd375930f7db6963e8973cbfc645ff4bcbb7c01f4b55
+
+    steps:
+      - name: Check out materializer carrier
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Recover and authenticate corrective patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d .join-v2-p1p2.patch.gz.b64 | gzip -d > "$RUNNER_TEMP/pr60-p1-p2.patch"
+          echo "$PATCH_SHA256  $RUNNER_TEMP/pr60-p1-p2.patch" | sha256sum -c -
+
+      - name: Apply, qualify, and publish one corrective product commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$TARGET_BRANCH"
+          OBSERVED_HEAD="$(git rev-parse "origin/$TARGET_BRANCH")"
+          test "$OBSERVED_HEAD" = "$EXPECTED_TARGET_HEAD"
+
+          git checkout --force -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          git clean -ffdx
+          test -z "$(git status --porcelain=v1)"
+
+          git apply --check "$RUNNER_TEMP/pr60-p1-p2.patch"
+          git apply "$RUNNER_TEMP/pr60-p1-p2.patch"
+
+          cat > "$RUNNER_TEMP/expected-paths.txt" <<'PATHS'
+          mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md
+          mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json
+          mating_surface/anchor_node/axm_head_physical_long_haul_join.py
+          mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py
+          mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json
+          mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py
+          PATHS
+          git diff --name-only | sort > "$RUNNER_TEMP/observed-paths.txt"
+          sort "$RUNNER_TEMP/expected-paths.txt" -o "$RUNNER_TEMP/expected-paths.txt"
+          diff -u "$RUNNER_TEMP/expected-paths.txt" "$RUNNER_TEMP/observed-paths.txt"
+
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-physical-long-haul-join-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-physical-long-haul-join-cases-01.json"
+          TOOL="$ROOT/axm_head_physical_long_haul_join.py"
+          VERIFIER="$ROOT/verify_axm_head_physical_long_haul_join.py"
+          TESTS="$ROOT/conformance/test_axm_head_physical_long_haul_join.py"
+
+          python -m py_compile "$TOOL" "$VERIFIER" "$TESTS"
+          python "$TOOL" validate-profile "$PROFILE" > "$RUNNER_TEMP/profile-validation.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RUNNER_TEMP/fixture-validation.json"
+
+          python - "$PROFILE" "$FIXTURES" "$VERIFIER" <<'PY'
+          from pathlib import Path
+          import hashlib, json, os, sys
+          profile_path, fixture_path, verifier_path = map(Path, sys.argv[1:])
+          def canonical(path):
+              value = json.loads(path.read_text(encoding='utf-8'))
+              return (json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False) + '\n').encode('utf-8')
+          observed = {
+              'profile': hashlib.sha256(canonical(profile_path)).hexdigest(),
+              'fixtures': hashlib.sha256(canonical(fixture_path)).hexdigest(),
+              'verifier': hashlib.sha256(verifier_path.read_bytes()).hexdigest(),
+          }
+          expected = {
+              'profile': os.environ['PROFILE_SHA256'],
+              'fixtures': os.environ['FIXTURE_SHA256'],
+              'verifier': os.environ['VERIFIER_SHA256'],
+          }
+          if observed != expected:
+              raise SystemExit(f'digest mismatch: observed={observed} expected={expected}')
+          print(json.dumps(observed, sort_keys=True))
+          PY
+
+          python -m unittest discover \
+            -s "$ROOT/conformance" \
+            -p 'test_axm_head_physical_long_haul_join.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/focused-tests.txt"
+          grep -F 'Ran 76 tests' "$RUNNER_TEMP/focused-tests.txt"
+          grep -Fx 'OK' "$RUNNER_TEMP/focused-tests.txt"
+
+          grep -F 'PRIVATE_EVIDENCE_PROVENANCE_REQUIRED' "$TESTS"
+          grep -F 'PRIVATE_EVIDENCE_PROVENANCE_AUTHENTICATION_FAILED' "$TESTS"
+          grep -F 'self.assertEqual(captured.getvalue(), b"")' "$TESTS"
+
+          git diff --check
+          git config user.name BigBirdReturns
+          git config user.email bigbirdreturns@proton.me
+          git add --pathspec-from-file="$RUNNER_TEMP/expected-paths.txt"
+          test -z "$(git diff --name-only)"
+          git commit -m "Authenticate JOIN-v2 private provenance and silence library output"
+          git push origin "HEAD:$TARGET_BRANCH"
+
+          echo "physicalExecutionStarted=false"
+          echo "issue37Advanced=false"
+          echo "missionVolumeMaterialized=false"
+          echo "workersLaunched=0"
+          echo "listenersCreated=0"
+          echo "authority=none"
