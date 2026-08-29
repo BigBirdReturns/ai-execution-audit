@@ -1,0 +1,120 @@
+name: AXM HEAD Physical Long-Haul Join 01
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/axm-head-physical-long-haul-join-01.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1"
+      - "mating_surface/anchor_node/axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/axm-head-physical-long-haul-join-01.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json"
+      - "mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1"
+      - "mating_surface/anchor_node/axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: axm-head-physical-long-haul-join-01-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out complete event history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Qualify exact head and synthesized merge coordinates
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PLATFORM: ${{ matrix.os }}
+          QUALIFICATION_ROOT: ${{ runner.temp }}/axm-head-physical-long-haul-join-01
+        run: |
+          set -euo pipefail
+
+          PRODUCT_PATHS=(
+            ".github/workflows/axm-head-physical-long-haul-join-01.yml"
+            "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-JOIN-01.md"
+            "mating_surface/anchor_node/axm-head-physical-long-haul-join-profile-01.json"
+            "mating_surface/anchor_node/axm-head-physical-long-haul-join.ps1"
+            "mating_surface/anchor_node/axm_head_physical_long_haul_join.py"
+            "mating_surface/anchor_node/verify_axm_head_physical_long_haul_join.py"
+            "mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py"
+            "mating_surface/anchor_node/fixtures/axm-head-physical-long-haul-join-cases-01.json"
+          )
+
+          COORDINATES="$RUNNER_TEMP/physical-long-haul-join-01-coordinates.tsv"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            printf 'head\t%s\nmerge\t%s\n' "$PR_HEAD_SHA" "$EVENT_SHA" > "$COORDINATES"
+          else
+            printf 'source\t%s\n' "$EVENT_SHA" > "$COORDINATES"
+          fi
+
+          REPO_ROOT="$GITHUB_WORKSPACE"
+          while IFS=$'\t' read -r COORDINATE EXPECTED_SHA
+          do
+            [ -n "$COORDINATE" ] || continue
+            OBSERVED_SHA="$(git -C "$REPO_ROOT" rev-parse "$EXPECTED_SHA^{commit}")"
+            OBSERVED_TREE="$(git -C "$REPO_ROOT" rev-parse "$EXPECTED_SHA^{tree}")"
+            [ "$OBSERVED_SHA" = "$EXPECTED_SHA" ]
+            git -C "$REPO_ROOT" merge-base --is-ancestor ec61bc3488cb5ae06ed9db2862a9f6910d310a79 "$OBSERVED_SHA"
+            [ "$(git -C "$REPO_ROOT" rev-parse 'ec61bc3488cb5ae06ed9db2862a9f6910d310a79^{tree}')" = "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67" ]
+            git -C "$REPO_ROOT" diff-tree --check "$OBSERVED_SHA^" "$OBSERVED_SHA"
+
+            SOURCE_ROOT="$RUNNER_TEMP/physical-long-haul-join-01-source-$PLATFORM-$COORDINATE"
+            rm -rf "$SOURCE_ROOT"
+            python - "$REPO_ROOT" "$OBSERVED_SHA" "$SOURCE_ROOT" <<'PY'
+          from __future__ import annotations
+          from pathlib import Path, PurePosixPath
+          import os
+          import subprocess
+          import sys
+
+          repository = Path(sys.argv[1])
+          commit = sys.argv[2]
+          out = Path(sys.argv[3])
+          out.mkdir(parents=True, exist_ok=False)
+          listing = subprocess.run(
+              ["git", "-C", str(repository), "ls-tree", "-r", "-z", "--full-tree", commit],
+              check=True,
+              stdout=subprocess.PIPE,
+          ).stdout
+          for record in listing.split(b"\0"):
+              if not record:
+                  continue
+              metadata, raw_path = record.split(b"\t", 1)
+              mode, object_type, object_id = metadata.decode("ascii").split()
+              if object_type != "blob":
+                  raise SystemExit(f"unexpected tree object type: {object_type}")
+              relative = PurePosixPath(raw_path.decode("utf-8"))
