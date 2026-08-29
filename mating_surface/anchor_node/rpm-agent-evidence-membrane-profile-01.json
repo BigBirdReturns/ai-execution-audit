@@ -1,0 +1,151 @@
+{
+  "schema": "rpm-agent-estate-profile/1",
+  "profileId": "rpm-agent/evidence-membrane/0.1",
+  "status": "candidate_contract_only",
+  "sourceCoordinate": {
+    "repository": "ronit22203/medical-multiturn-assistant",
+    "commit": "a0d32d3dcb1b39567df6bc02268b5452515c7e96",
+    "tree": "c926aa0720fc5d68be959ab502cca17388e7accc",
+    "status": "public_unlicensed_candidate"
+  },
+  "criticalGitBlobs": {
+    "README.md": "d7a69bf39cdababef6aa4b78e85e1522213d89fb",
+    "configs/model.yaml": "4addd2f6f91ef5115e336af42230e12d6ac4c64c",
+    "configs/safety_rules.yaml": "2b7ea16509b6197e6a5650f5bc4412439693017c",
+    "configs/state_graph.yaml": "b35a96baf77c129bbc5f5e3811b4eac19eccb42b",
+    "pyproject.toml": "d90832e91b2ffd998c53f74b5294007e0217ad16",
+    "scripts/03_evaluate.py": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "src/agent/inference.py": "9819dbf083dd00c8ca76763e4612cb785b230159",
+    "src/app.py": "5591170419cbe0f908505f86e858ae58b797b37e",
+    "src/engine/interceptor.py": "9f3ea4a8bb922c4237dca1babe188d845998eedd",
+    "src/engine/state_machine.py": "b4bef5ced0fe81d597078b305dcd17b808a968fc",
+    "src/tools/definitions.py": "4eb236c1a7a289cf09a2cabefe6980555f4e8009",
+    "src/tools/registry.py": "8173a7ffc9146fd5e277703fd4843048a81326d1"
+  },
+  "referenceArtifacts": {
+    "mating_surface/anchor_node/rpm_agent_effects.py": "0e2e2389f2f846e3da7d9dce4c0f890e8c87ded4a7270f3e6722d9bdf339f652",
+    "mating_surface/anchor_node/rpm_agent_estate_qualifier.py": "02d030807bb885765cb7b480f055af40c9c35d9a4f35582afc80e31a40f987ec",
+    "mating_surface/anchor_node/verify_rpm_agent_estate_receipt.py": "b47213ca353a77fb36afb26cd467b28dd85707bdd8171d0cab6a1f5747b2f4ee"
+  },
+  "objectSchemas": [
+    "estate/effect-receipt@1",
+    "estate/telemetry-observation@1",
+    "estate/telemetry-snapshot@1",
+    "estate/transition-receipt@1",
+    "rpm-agent/effect-provenance@1",
+    "rpm-agent/safety-rule-coverage@1",
+    "rpm-agent/clinical-authority-binding@1",
+    "rpm-agent/evaluation-receipt@1",
+    "rpm-agent/estate-qualification-receipt@1",
+    "rpm-agent/estate-public-status@1"
+  ],
+  "effectClasses": [
+    "SIMULATED",
+    "OBSERVED",
+    "REQUESTED",
+    "ACKNOWLEDGED",
+    "REFUSED"
+  ],
+  "toolOperations": [
+    "verify_identity",
+    "check_device_status",
+    "pair_device",
+    "start_measurement",
+    "troubleshoot_step",
+    "escalate_to_nurse"
+  ],
+  "externalEffectOperations": [
+    "verify_identity",
+    "pair_device",
+    "escalate_to_nurse"
+  ],
+  "requiredDevices": [
+    "bp_device",
+    "pulse_oximeter",
+    "scale",
+    "thermometer"
+  ],
+  "telemetrySources": [
+    "DEVICE_OBSERVED",
+    "PATIENT_REPORTED",
+    "SIMULATED",
+    "MODEL_DERIVED"
+  ],
+  "terminalStates": [
+    "READY_FOR_RUNTIME_QUALIFICATION",
+    "HARDENING_REQUIRED",
+    "REFUSED"
+  ],
+  "gates": [
+    {
+      "id": "SOURCE_BOUND",
+      "severity": "REFUSE",
+      "description": "The exact public supplier repository, commit, tree, and critical Git blobs must match the frozen source coordinate before semantic inspection."
+    },
+    {
+      "id": "LICENSE_DECLARED",
+      "severity": "HOLD",
+      "description": "The supplier must declare redistribution and derivative-work terms before source can become an admitted Estate asset."
+    },
+    {
+      "id": "EFFECT_PROVENANCE_TYPED",
+      "severity": "HOLD",
+      "description": "Every tool result must terminate as SIMULATED, OBSERVED, REQUESTED, ACKNOWLEDGED, or REFUSED through estate/effect-receipt@1."
+    },
+    {
+      "id": "EXTERNAL_ACK_REQUIRED",
+      "severity": "HOLD",
+      "description": "Identity verification, pairing, support escalation, nurse notification, and comparable external effects require independently identifiable acknowledgement receipts."
+    },
+    {
+      "id": "REQUIRED_DEVICE_COMPLETION",
+      "severity": "HOLD",
+      "description": "The transition into education must be guarded by the complete declared required-device denominator."
+    },
+    {
+      "id": "TELEMETRY_LINEAGE_CLOSED",
+      "severity": "HOLD",
+      "description": "Simulator values, patient reports, device observations, and model prose must remain distinct provenance lanes without field-level laundering."
+    },
+    {
+      "id": "DECLARED_SAFETY_RULES_EXECUTABLE",
+      "severity": "HOLD",
+      "description": "Every declared safety predicate requires a named evaluator, hostile tests, and a separate clinical-authority reference."
+    },
+    {
+      "id": "EVALUATION_EXECUTABLE",
+      "severity": "HOLD",
+      "description": "Advertised metrics require a committed evaluator that emits a machine-readable evaluation receipt."
+    },
+    {
+      "id": "CLINICAL_AUTHORITY_BOUND",
+      "severity": "HOLD",
+      "description": "Clinical thresholds and patient-facing emergency language must bind to a separately reviewed, versioned authority object."
+    }
+  ],
+  "declaredSafetyPredicates": [
+    "diastolic_bp.max",
+    "diastolic_bp.min",
+    "heart_rate.max",
+    "heart_rate.min",
+    "spo2.max",
+    "spo2.min",
+    "systolic_bp.max",
+    "systolic_bp.min"
+  ],
+  "expectedCurrentAssessment": {
+    "terminal": "HARDENING_REQUIRED",
+    "findingCodes": [
+      "CLINICAL_AUTHORITY_UNBOUND",
+      "EFFECT_PROVENANCE_CONTRACT_MISSING",
+      "EVALUATOR_EMPTY",
+      "EXTERNAL_EFFECT_ACKNOWLEDGEMENT_MISSING",
+      "LICENSE_UNDECLARED",
+      "MODEL_TEXT_ACCEPTED_AS_TELEMETRY",
+      "REQUIRED_DEVICE_COMPLETION_NOT_ENFORCED",
+      "SAFETY_COVERAGE_MANIFEST_MISSING",
+      "SIMULATED_TELEMETRY_UNTYPED"
+    ]
+  },
+  "claimBoundary": "Static, body-free structural preflight of one exact public RPM-Agent source tree for deterministic control ownership, effect provenance, transition integrity, telemetry lineage, declared-rule coverage, and executable evaluation. A positive terminal means only that the source is ready for a separately receipted runtime qualification campaign. The membrane does not execute supplier code, process patient data, qualify the running control plane, validate clinical thresholds or emergency language, prove clinical safety or efficacy, observe an external effect, qualify a physical Estate, or grant clinical, operational, medical, mission, command, targeting, engagement, effector, or weapons authority."
+}
