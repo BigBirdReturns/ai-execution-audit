@@ -59,7 +59,7 @@ jobs:
           EVENT_SHA: ${{ github.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PLATFORM: ${{ matrix.os }}
-          QUALIFICATION_ROOT: ${{ runner.temp }}/axm-head-physical-flight-preflight-preflight-review-card-01
+          QUALIFICATION_ROOT: ${{ runner.temp }}/axm-head-physical-flight-preflight-review-card-01
         run: |
           set -euo pipefail
 
@@ -222,10 +222,15 @@ jobs:
               -s mating_surface/anchor_node/conformance \
               -p 'test_axm_head_edge_demo.py' \
               -v 2>&1 | tee "$DEST/inherited-axm-head-tests.txt"
+            grep -F "Ran 38 tests" "$DEST/inherited-axm-head-tests.txt"
+            grep -Fx "OK" "$DEST/inherited-axm-head-tests.txt"
+
             python -m unittest discover \
               -s mating_surface/anchor_node/conformance \
               -p 'test_stc_mary_flight_conductor.py' \
               -v 2>&1 | tee "$DEST/inherited-conductor-tests.txt"
+            grep -F "Ran 25 tests" "$DEST/inherited-conductor-tests.txt"
+            grep -Fx "OK" "$DEST/inherited-conductor-tests.txt"
 
             CARRIER="$RUNNER_TEMP/preflight-review-card-01-carrier-$PLATFORM-$COORDINATE"
             rm -rf "$CARRIER"
@@ -358,8 +363,8 @@ jobs:
       - name: Upload exact-coordinate receipts
         uses: actions/upload-artifact@v4
         with:
-          name: axm-head-physical-flight-preflight-preflight-review-card-01-${{ matrix.os }}-${{ github.sha }}
-          path: ${{ runner.temp }}/axm-head-physical-flight-preflight-preflight-review-card-01/
+          name: axm-head-physical-flight-preflight-review-card-01-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ runner.temp }}/axm-head-physical-flight-preflight-review-card-01/
           if-no-files-found: error
           retention-days: 14
 
@@ -486,13 +491,13 @@ jobs:
       - name: Download Ubuntu receipts
         uses: actions/download-artifact@v4
         with:
-          name: axm-head-physical-flight-preflight-preflight-review-card-01-ubuntu-latest-${{ github.sha }}
+          name: axm-head-physical-flight-preflight-review-card-01-ubuntu-latest-${{ github.sha }}
           path: qualification/ubuntu
 
       - name: Download Windows receipts
         uses: actions/download-artifact@v4
         with:
-          name: axm-head-physical-flight-preflight-preflight-review-card-01-windows-latest-${{ github.sha }}
+          name: axm-head-physical-flight-preflight-review-card-01-windows-latest-${{ github.sha }}
           path: qualification/windows
 
       - name: Require platform and head-to-merge byte identity
@@ -563,7 +568,7 @@ jobs:
       - name: Upload cross-coordinate receipt
         uses: actions/upload-artifact@v4
         with:
-          name: axm-head-physical-flight-preflight-preflight-review-card-01-cross-coordinate-${{ github.sha }}
+          name: axm-head-physical-flight-preflight-review-card-01-cross-coordinate-${{ github.sha }}
           path: qualification/cross-coordinate-receipt.json
           if-no-files-found: error
           retention-days: 14
