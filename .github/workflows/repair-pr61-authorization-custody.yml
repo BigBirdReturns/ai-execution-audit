@@ -49,6 +49,46 @@ jobs:
           python .github/repair-pr61-authorization-custody.py | tee /tmp/repair-receipt.json
           python -m json.tool /tmp/repair-receipt.json >/dev/null
 
+      - name: Preserve canonical signature-mutation witness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_join.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''        forged = copy.deepcopy(value)
+          provenance = forged["privateEvidenceProvenance"]
+          replacement = "A" if provenance["signatureBase64Url"][-1] != "A" else "B"
+          provenance["signatureBase64Url"] = provenance["signatureBase64Url"][:-1] + replacement
+          provenance["provenanceId"] = mod.content_id(
+              "axmheadprivateevidenceprovenance2",
+              mod.body_without(provenance, "provenanceId"),
+          )
+          forged_result = self.evaluate_with_test_trust_root(forged)
+          '''
+          new = '''        forged = copy.deepcopy(value)
+          provenance = forged["privateEvidenceProvenance"]
+          signature_bytes = bytearray(
+              mod.base64url_decode(
+                  provenance["signatureBase64Url"],
+                  "privateEvidenceProvenance.signatureBase64Url",
+              )
+          )
+          signature_bytes[0] ^= 1
+          provenance["signatureBase64Url"] = mod.base64url_encode(bytes(signature_bytes))
+          provenance["provenanceId"] = mod.content_id(
+              "axmheadprivateevidenceprovenance2",
+              mod.body_without(provenance, "provenanceId"),
+          )
+          forged_result = self.evaluate_with_test_trust_root(forged)
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f"signature witness anchor count differs: {text.count(old)}")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+          PY
+
       - name: Qualify corrective product
         shell: bash
         run: |
