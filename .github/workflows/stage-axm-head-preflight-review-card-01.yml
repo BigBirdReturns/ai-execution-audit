@@ -1,0 +1,179 @@
+name: Stage AXM HEAD Preflight Review Card 01
+
+on:
+  push:
+    branches:
+      - work/axm-head-physical-flight-preflight-review-card-01
+    paths:
+      - ".github/workflows/stage-axm-head-preflight-review-card-01.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stage-axm-head-preflight-review-card-01
+  cancel-in-progress: true
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the exact work branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: work/axm-head-physical-flight-preflight-review-card-01
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Reclassify the exact held product
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "work/axm-head-physical-flight-preflight-review-card-01"
+          git merge-base --is-ancestor 6dd91e8b48a24907655e11cc624279f93bd81801 HEAD
+          test -f .github/reclassify_axm_head_preflight_review_card_01.py
+          test -f .github/bind_preflight_claim_boundary_01.py
+          test -f .github/run_preflight_reclassification_01.py
+          test -f mating_surface/anchor_node/axm_head_physical_long_haul_001_join_v2.py
+          test ! -e mating_surface/anchor_node/axm_head_physical_flight_preflight_review_card_01.py
+
+          python .github/run_preflight_reclassification_01.py | tee "$RUNNER_TEMP/reclassification.json"
+          python .github/bind_preflight_claim_boundary_01.py | tee "$RUNNER_TEMP/claim-binding.txt"
+          git diff --check
+
+      - name: Qualify the transformed bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOL="mating_surface/anchor_node/axm_head_physical_flight_preflight_review_card_01.py"
+          PROFILE="mating_surface/anchor_node/axm-head-physical-flight-preflight-review-card-01-profile.json"
+          VERIFIER="mating_surface/anchor_node/verify_axm_head_physical_flight_preflight_review_card_01.py"
+          BOOTSTRAP="mating_surface/anchor_node/verify_axm_head_physical_flight_preflight_review_card_01_bootstrap.py"
+          TESTS="mating_surface/anchor_node/conformance/test_axm_head_physical_flight_preflight_review_card_01.py"
+
+          python -m py_compile "$TOOL" "$VERIFIER" "$BOOTSTRAP" "$TESTS"
+          python "$TOOL" validate-profile "$PROFILE" | tee "$RUNNER_TEMP/profile-validation.json"
+
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_axm_head_physical_flight_preflight_review_card_01.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/preflight-tests.txt"
+          grep -F "Ran 49 tests" "$RUNNER_TEMP/preflight-tests.txt"
+          grep -Fx "OK" "$RUNNER_TEMP/preflight-tests.txt"
+
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_axm_head_edge_demo.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/inherited-axm-head-tests.txt"
+          grep -F "Ran 38 tests" "$RUNNER_TEMP/inherited-axm-head-tests.txt"
+          grep -Fx "OK" "$RUNNER_TEMP/inherited-axm-head-tests.txt"
+
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_flight_conductor.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/inherited-conductor-tests.txt"
+          grep -F "Ran 25 tests" "$RUNNER_TEMP/inherited-conductor-tests.txt"
+          grep -Fx "OK" "$RUNNER_TEMP/inherited-conductor-tests.txt"
+
+          CARRIER="$RUNNER_TEMP/axm-head-preflight-review-card-01-carrier"
+          VERDICT="$RUNNER_TEMP/axm-head-preflight-review-card-01-verdict.json"
+          rm -rf "$CARRIER" "$VERDICT"
+          python "$TOOL" build-carrier "$PROFILE" --out "$CARRIER" > "$RUNNER_TEMP/build.json"
+          python "$TOOL" verify-carrier "$CARRIER" --out "$VERDICT" > "$RUNNER_TEMP/verdict-stdout.json"
+          cmp "$VERDICT" "$RUNNER_TEMP/verdict-stdout.json"
+
+          python - "$PROFILE" "$TOOL" "$VERIFIER" "$BOOTSTRAP" "$CARRIER" "$VERDICT" <<'PY'
+          from pathlib import Path
+          import ast
+          import hashlib
+          import json
+          import sys
+
+          profile_path, tool_path, verifier_path, bootstrap_path, carrier_path, verdict_path = map(Path, sys.argv[1:])
+          profile = json.loads(profile_path.read_text(encoding="utf-8"))
+          manifest = json.loads((carrier_path / "MANIFEST.json").read_text(encoding="utf-8"))
+          verdict = json.loads(verdict_path.read_text(encoding="utf-8"))
+
+          def assignment(path: Path, name: str):
+              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              for node in tree.body:
+                  if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == name for target in node.targets):
+                      return ast.literal_eval(node.value)
+              raise SystemExit(f"assignment absent: {path}:{name}")
+
+          verifier_digest = hashlib.sha256(verifier_path.read_bytes()).hexdigest()
+          if assignment(tool_path, "STANDALONE_VERIFIER_SHA256") != verifier_digest:
+              raise SystemExit("builder verifier digest differs")
+          if assignment(bootstrap_path, "EXPECTED_VERIFIER_SHA256") != verifier_digest:
+              raise SystemExit("bootstrap verifier digest differs")
+          if profile["profileId"] != "axm-head/physical-flight-preflight-review-card@1":
+              raise SystemExit("profile identity differs")
+          if [row["path"] for row in manifest["files"]] != [
+              "PREFLIGHT/preparation-state.json",
+              "PREFLIGHT/decision.json",
+              "PUBLIC/status.json",
+              "RECOVERY/profile.json",
+              "RECOVERY/verify_preflight.py",
+          ]:
+              raise SystemExit("carrier member denominator differs")
+          if verdict["status"] != "PASS" or verdict["terminal"] != "PREPARED_NOT_ARMED":
+              raise SystemExit("verdict terminal differs")
+          if verdict["bootstrapAuthenticated"] is not True:
+              raise SystemExit("verifier authentication differs")
+          if verdict["physicalAuthorizationProduced"] is not False or verdict["physicalExecutionStarted"] is not False:
+              raise SystemExit("physical claim promoted")
+          if verdict["workersLaunched"] != 0 or verdict["listenersCreated"] != 0 or verdict["authority"] != "none":
+              raise SystemExit("runtime or authority claim promoted")
+          PY
+
+      - name: Push seven permanent members and one inert workflow payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="work/axm-head-physical-flight-preflight-review-card-01"
+          PAYLOAD=".github/axm-head-physical-flight-preflight-review-card-01.workflow-payload.yml"
+          FINAL_WORKFLOW=".github/workflows/axm-head-physical-flight-preflight-review-card-01.yml"
+          OLD_WORKFLOW=".github/workflows/axm-head-physical-long-haul-001-join-v2.yml"
+
+          cp "$FINAL_WORKFLOW" "$PAYLOAD"
+          git checkout HEAD -- "$OLD_WORKFLOW"
+          rm -f "$FINAL_WORKFLOW"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "$PAYLOAD" \
+            mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-001-JOIN-v2.md \
+            mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2-profile.json \
+            mating_surface/anchor_node/axm-head-physical-long-haul-001-join-v2.ps1 \
+            mating_surface/anchor_node/axm_head_physical_long_haul_001_join_v2.py \
+            mating_surface/anchor_node/conformance/test_axm_head_physical_long_haul_001_join_v2.py \
+            mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2.py \
+            mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2_bootstrap.py \
+            mating_surface/anchor_node/AXM-HEAD-PHYSICAL-FLIGHT-PREFLIGHT-REVIEW-CARD-01.md \
+            mating_surface/anchor_node/axm-head-physical-flight-preflight-review-card-01-profile.json \
+            mating_surface/anchor_node/axm-head-physical-flight-preflight-review-card-01.ps1 \
+            mating_surface/anchor_node/axm_head_physical_flight_preflight_review_card_01.py \
+            mating_surface/anchor_node/conformance/test_axm_head_physical_flight_preflight_review_card_01.py \
+            mating_surface/anchor_node/verify_axm_head_physical_flight_preflight_review_card_01.py \
+            mating_surface/anchor_node/verify_axm_head_physical_flight_preflight_review_card_01_bootstrap.py
+
+          git diff --cached --check
+          if git diff --cached --name-only | grep -q '^.github/workflows/'; then
+            echo "workflow mutation entered the Actions-authenticated staging commit" >&2
+            exit 1
+          fi
+          test -f "$PAYLOAD"
+          test -f mating_surface/anchor_node/axm_head_physical_flight_preflight_review_card_01.py
+          test ! -e mating_surface/anchor_node/axm_head_physical_long_haul_001_join_v2.py
+
+          git commit -m "Stage seven preflight members and inert workflow payload"
+          git push origin "HEAD:refs/heads/$BRANCH"
+          printf 'staging_commit=%s\n' "$(git rev-parse HEAD)"
+          printf 'staging_tree=%s\n' "$(git rev-parse 'HEAD^{tree}')"
