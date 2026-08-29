@@ -208,6 +208,17 @@ class JoinV2Tests(unittest.TestCase):
     def test_action_before_authorization_holds(self):
         v=private_input(); v["privateDisposition"]["stageReceipts"][0]["previousReceiptId"]="sha256:"+"0"*64
         self.assertEqual(tool.build_objects(self.profile,v)["join"]["terminal"],"HOLD")
+    def test_authorization_receipt_identity_reuse_holds_after_complete_resigning(self):
+        value = private_input()
+        authorization_id = value["privateDisposition"]["authorization"]["receiptId"]
+        receipts = value["privateDisposition"]["stageReceipts"]
+        receipts[0]["receiptId"] = authorization_id
+        receipts[1]["previousReceiptId"] = authorization_id
+        value = resign_private_input(value)
+        result = tool.build_objects(self.profile, value, TEST_PROOF_ROOT)
+        self.assertEqual(result["join"]["terminal"], "HOLD")
+        self.assertIn("NAMED_HUMAN_AUTHORIZATION_INVALID", result["join"]["reasonCodes"])
+
     def test_public_evidence_body_holds(self):
         v=private_input(); v["privateDisposition"]["publicEvidenceBodyCount"]=1
         self.assertEqual(tool.build_objects(self.profile,v)["join"]["terminal"],"HOLD")

@@ -183,7 +183,7 @@
     "preflightStandaloneVerifierSha256": "c483507c0246fdcc502e21f60937f0ff81df020871120ab56abd619131ef49d2",
     "privatePacketProfileCanonicalSha256": "9208b6c28556ee2ba04a1bfdbc792dba457891fa9a8394aa80913a8e66dcd65c"
   },
-  "standaloneVerifierSha256": "e959925c27579c228e75c3753f99955070835192b358d900fd87253f2240978e",
+  "standaloneVerifierSha256": "133415014164e66ab5db7d4065ba84b845082dcc035d1aa7a82b4f3c0f301e0e",
   "status": "candidate_contract_only",
   "strongerClaims": {
     "commandAuthorityGranted": false,

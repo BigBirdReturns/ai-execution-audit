@@ -93,7 +93,12 @@ $Join = '.\mating_surface\anchor_node\axm-head-physical-long-haul-join.ps1'
 Creating the authentication root does not authorize or start physical work. The root becomes useful only after issue #37 separately produces a complete body-free private receipt graph. Qualification uses an ephemeral root entirely inside the test process, captures focused-test stdout as empty, and publishes only the `PREPARED_NOT_ARMED` fixture.
 
 ```text
-profile canonical SHA-256: fa4cacd185f3ca87297fef64a87af68da4aacfffb8cadfa34403f9e0de98f97b
+profile canonical SHA-256: 86bd2322f7bfc8dce2f211aef806b831b8b69076fdcd52491f6bfd45108a7485
 fixture catalog canonical SHA-256: e5ad2cfcf55c8f75c49177f289668be7b6f84b69030ea6fa24ac9566e7dd11f5
-standalone verifier SHA-256: e959925c27579c228e75c3753f99955070835192b358d900fd87253f2240978e
+standalone verifier SHA-256: 133415014164e66ab5db7d4065ba84b845082dcc035d1aa7a82b4f3c0f301e0e
 ```
+
+
+## Authorization receipt identity closure
+
+Named-human authorization and physical execution are separate transactions. The authorization receipt identity must therefore differ from every one of the sixteen physical packet-stage receipt identities. The first stage must point back to the authorization receipt, while the second stage must point to the first stage receipt. Reusing the authorization identity as the first physical receipt is refused even when the complete graph is re-authenticated with the valid private proof root.

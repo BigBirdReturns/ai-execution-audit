@@ -431,7 +431,7 @@ def evaluate_disposition(value: dict[str, Any], campaign: str) -> dict[str, Any]
     predicates = {"present": value["present"], "privateTier": value["evidenceTier"] == "private_local_attested", "authorizationDistinctAndPrior": False, "completeStageDenominator": False, "requiredTerminalsRetained": False, "receiptChainComplete": False, "privateEvidencePresent": value["privateEvidenceBodyCount"] > 0, "publicEvidenceAbsent": value["publicEvidenceBodyCount"] == 0, "canonicalStateUnchanged": False, "sealedVerificationPassed": value["sealedVerificationTerminal"] == "PASS", "privateMaterialScanPassed": value["privateMaterialScanTerminal"] == "PASS", "privateFlightCompleted": value["privatePhysicalFlightCompleted"] is True, "selfAttestationOnly": value["selfAttestationOnly"] is True, "strongerClaimsAbsent": strict_equal(value["strongerClaims"], STRONGER_CLAIMS) and value["authority"] == "none"}
     reasons: list[str] = []
     if value["present"]:
-        predicates["authorizationDistinctAndPrior"] = auth["present"] is True and auth["evidenceTier"] == "private_local_attested" and auth["terminal"] == "AUTHORIZED" and auth["authorizationSequence"] == 0 and auth["firstPhysicalReceiptSequence"] == 1 and auth["namedHumanAuthorityClass"] == "GRACE" and bool(receipts) and receipts[0]["previousReceiptId"] == auth["receiptId"]
+        predicates["authorizationDistinctAndPrior"] = auth["present"] is True and auth["evidenceTier"] == "private_local_attested" and auth["terminal"] == "AUTHORIZED" and auth["authorizationSequence"] == 0 and auth["firstPhysicalReceiptSequence"] == 1 and auth["namedHumanAuthorityClass"] == "GRACE" and bool(receipts) and auth["receiptId"] not in {row["receiptId"] for row in receipts} and receipts[0]["previousReceiptId"] == auth["receiptId"]
         predicates["completeStageDenominator"] = len(receipts) == len(STAGES) and [row["stage"] for row in receipts] == list(STAGES) and [row["sequence"] for row in receipts] == list(range(1, len(STAGES)+1)) and len({row["receiptId"] for row in receipts}) == len(receipts)
         predicates["requiredTerminalsRetained"] = predicates["completeStageDenominator"] and all(row["terminal"] == STAGE_TERMINALS[row["stage"]] for row in receipts)
         predicates["receiptChainComplete"] = predicates["completeStageDenominator"] and all(receipts[index]["previousReceiptId"] == (auth["receiptId"] if index == 0 else receipts[index-1]["receiptId"]) for index in range(len(receipts)))
@@ -483,9 +483,9 @@ import subprocess
 import sys
 import tempfile
 
-PROFILE_CANONICAL_SHA256 = "fa4cacd185f3ca87297fef64a87af68da4aacfffb8cadfa34403f9e0de98f97b"
+PROFILE_CANONICAL_SHA256 = "86bd2322f7bfc8dce2f211aef806b831b8b69076fdcd52491f6bfd45108a7485"
 FIXTURE_CATALOG_CANONICAL_SHA256 = "e5ad2cfcf55c8f75c49177f289668be7b6f84b69030ea6fa24ac9566e7dd11f5"
-STANDALONE_VERIFIER_SHA256 = "e959925c27579c228e75c3753f99955070835192b358d900fd87253f2240978e"
+STANDALONE_VERIFIER_SHA256 = "133415014164e66ab5db7d4065ba84b845082dcc035d1aa7a82b4f3c0f301e0e"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PROFILE = Path(__file__).with_name("axm-head-physical-long-haul-join-profile-01.json")
 DEFAULT_FIXTURES = Path(__file__).with_name("fixtures") / "axm-head-physical-long-haul-join-cases-01.json"
