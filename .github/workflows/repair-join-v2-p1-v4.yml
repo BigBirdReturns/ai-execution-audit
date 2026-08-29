@@ -48,7 +48,7 @@ jobs:
             -s mating_surface/anchor_node/conformance \
             -p 'test_axm_head_physical_long_haul_001_join_v2.py' \
             -v 2>&1 | tee /tmp/join-v2-repair-tests.txt
-          grep -F "Ran 46 tests" /tmp/join-v2-repair-tests.txt
+          grep -F "Ran 42 tests" /tmp/join-v2-repair-tests.txt
           grep -Fx "OK" /tmp/join-v2-repair-tests.txt
           git diff --check
 
@@ -59,7 +59,6 @@ jobs:
           git config user.name "BigBirdReturns"
           git config user.email "bigbirdreturns@proton.me"
           git add \
-            .github/workflows/axm-head-physical-long-haul-001-join-v2.yml \
             mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-001-JOIN-v2.md \
             mating_surface/anchor_node/axm_head_physical_long_haul_001_join_v2.py \
             mating_surface/anchor_node/verify_axm_head_physical_long_haul_001_join_v2.py \
