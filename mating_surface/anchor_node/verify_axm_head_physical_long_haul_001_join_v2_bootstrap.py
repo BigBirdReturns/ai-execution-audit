@@ -33,6 +33,15 @@ DIRECT_VERDICT_KEYS = {
 }
 
 
+MEASURED_VERIFIER_LAUNCHER = (
+    "import sys\n"
+    "source = sys.stdin.buffer.read()\n"
+    "name = '<authenticated-join-v2-verifier>'\n"
+    "namespace = {'__name__': '__main__', '__file__': name}\n"
+    "exec(compile(source, name, 'exec'), namespace, namespace)\n"
+)
+
+
 class BootstrapError(RuntimeError):
     def __init__(self, code: str, message: str):
         super().__init__(message)
@@ -125,6 +134,17 @@ def emit_refusal(code: str, message: str) -> int:
     return 2
 
 
+def invoke_measured_verifier(verifier_bytes: bytes, carrier: Path, env: dict[str, str]) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        [sys.executable, "-I", "-c", MEASURED_VERIFIER_LAUNCHER, str(carrier)],
+        input=verifier_bytes,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+        check=False,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Authenticate and invoke the JOIN-v2 standalone verifier")
     parser.add_argument("carrier", type=Path)
@@ -137,7 +157,8 @@ def main(argv: list[str] | None = None) -> int:
         verifier = carrier / "RECOVERY" / "verify_join.py"
         if not verifier.is_file() or verifier.is_symlink():
             fail("VERIFIER_MEMBER_INVALID", "embedded verifier is missing or symlinked")
-        measured_digest = sha256_bytes(verifier.read_bytes())
+        verifier_bytes = verifier.read_bytes()
+        measured_digest = sha256_bytes(verifier_bytes)
         if measured_digest != EXPECTED_VERIFIER_SHA256:
             fail("VERIFIER_SUBSTITUTION_REFUSED", "embedded verifier digest differs; untrusted bytes were not executed")
         ensure_output_safe(carrier, args.out)
@@ -145,13 +166,7 @@ def main(argv: list[str] | None = None) -> int:
         env = os.environ.copy()
         env.pop("AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED", None)
         env.pop("AXM_HEAD_JOIN_V2_VERIFIER_SHA256", None)
-        result = subprocess.run(
-            [sys.executable, str(verifier), str(carrier)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env,
-            check=False,
-        )
+        result = invoke_measured_verifier(verifier_bytes, carrier, env)
         if result.stderr:
             sys.stderr.buffer.write(result.stderr)
         if result.returncode != 0:

@@ -551,5 +551,27 @@ class JoinV2Tests(unittest.TestCase):
                 inside_file.unlink()
 
 
+    def test_47_bootstrap_executes_measured_bytes_not_reopened_path(self):
+        carrier = self.build("measured-verifier-race")
+        verifier_path = carrier / "RECOVERY/verify_join.py"
+        measured_bytes = verifier_path.read_bytes()
+        marker = self.root / "malicious-verifier-executed.txt"
+        verifier_path.write_text(
+            "from pathlib import Path\n"
+            f"Path({str(marker)!r}).write_text('executed', encoding='utf-8')\n",
+            encoding="utf-8",
+        )
+        env = os.environ.copy()
+        env.pop("AXM_HEAD_JOIN_V2_BOOTSTRAP_AUTHENTICATED", None)
+        env.pop("AXM_HEAD_JOIN_V2_VERIFIER_SHA256", None)
+        result = BOOTSTRAP.invoke_measured_verifier(measured_bytes, carrier, env)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stderr, b"")
+        self.assertFalse(marker.exists())
+        refusal = json.loads(result.stdout)
+        self.assertEqual(refusal["status"], "REFUSED")
+        self.assertFalse(refusal["bootstrapAuthenticated"])
+
+
 if __name__ == "__main__":
     unittest.main()
