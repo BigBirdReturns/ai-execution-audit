@@ -1,0 +1,160 @@
+name: Publish clean operator-flight single-action candidate
+
+on:
+  push:
+    branches:
+      - work/operator-flight-single-action-01
+    paths:
+      - ".github/workflows/clean-operator-flight-single-action-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: clean-operator-flight-single-action-01
+  cancel-in-progress: false
+
+jobs:
+  publish-clean-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out staging branch
+        uses: actions/checkout@v6
+        with:
+          ref: work/operator-flight-single-action-01
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Materialize product if the first carrier has not completed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! grep -q 'OPERATOR_ACTIONS' mating_surface/anchor_node/stc_mary_flight_conductor.py || \
+             [ ! -f .operator-flight-repair/final-workflow.yml ]; then
+            python - <<'PY'
+          from pathlib import Path
+          import base64
+          import hashlib
+
+          root = Path('.operator-flight-repair')
+          parts = [root / f'part-{index:02d}' for index in range(5)]
+          if not all(path.is_file() for path in parts):
+              raise SystemExit('neither materialized product nor complete repair payload is present')
+          encoded = ''.join(''.join(path.read_text(encoding='ascii').split()) for path in parts)
+          data = base64.b64decode(encoded, validate=True)
+          if len(data) != 26168:
+              raise SystemExit(f'repair program byte count differs: {len(data)}')
+          digest = hashlib.sha256(data).hexdigest()
+          if digest != '47974ce051317a44b3571163cb9f9dc83c718aaecd5e7223d1b43bd1bfe90725':
+              raise SystemExit(f'repair program digest differs: {digest}')
+          (root / 'apply.py').write_bytes(data)
+          PY
+            python .operator-flight-repair/apply.py
+          fi
+
+      - name: Qualify staged product
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_flight_conductor.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py
+          python mating_surface/anchor_node/stc_mary_flight_conductor.py validate-profile \
+            mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_flight_conductor.py' -v 2>&1 | tee /tmp/conductor-tests.txt
+          grep -F 'Ran 31 tests' /tmp/conductor-tests.txt
+          grep -Fx 'OK' /tmp/conductor-tests.txt
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_local_toolchain.py' -v
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_offline_carrier.py' -v
+          git diff --check
+
+      - name: Preserve exact four-file product
+        shell: bash
+        run: |
+          set -euo pipefail
+          product="$RUNNER_TEMP/operator-product"
+          mkdir -p "$product/.github/workflows"
+          mkdir -p "$product/mating_surface/anchor_node/conformance"
+          cp .operator-flight-repair/final-workflow.yml \
+             "$product/.github/workflows/stc-mary-flight-conductor-01.yml"
+          cp mating_surface/anchor_node/stc_mary_flight_conductor.py \
+             "$product/mating_surface/anchor_node/stc_mary_flight_conductor.py"
+          cp mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py \
+             "$product/mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py"
+          cp mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md \
+             "$product/mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md"
+
+      - name: Rebuild clean candidate directly above admitted main
+        shell: bash
+        run: |
+          set -euo pipefail
+          product="$RUNNER_TEMP/operator-product"
+          git fetch origin main
+          git switch --force-create admission/operator-flight-single-action-01 origin/main
+          cp "$product/.github/workflows/stc-mary-flight-conductor-01.yml" \
+             .github/workflows/stc-mary-flight-conductor-01.yml
+          cp "$product/mating_surface/anchor_node/stc_mary_flight_conductor.py" \
+             mating_surface/anchor_node/stc_mary_flight_conductor.py
+          cp "$product/mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py" \
+             mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py
+          cp "$product/mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md" \
+             mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md
+          git add \
+            .github/workflows/stc-mary-flight-conductor-01.yml \
+            mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md \
+            mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py \
+            mating_surface/anchor_node/stc_mary_flight_conductor.py
+          python - <<'PY'
+          import subprocess
+          expected = {
+              '.github/workflows/stc-mary-flight-conductor-01.yml',
+              'mating_surface/anchor_node/STC-MARY-FLIGHT-CONDUCTOR-RUNBOOK.md',
+              'mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py',
+              'mating_surface/anchor_node/stc_mary_flight_conductor.py',
+          }
+          actual = set(subprocess.check_output(['git', 'diff', '--cached', '--name-only'], text=True).splitlines())
+          if actual != expected:
+              raise SystemExit(f'clean product denominator differs: {sorted(actual)}')
+          PY
+          git diff --cached --check
+
+      - name: Requalify clean candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_flight_conductor.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_flight_conductor.py' -v 2>&1 | tee /tmp/clean-conductor-tests.txt
+          grep -F 'Ran 31 tests' /tmp/clean-conductor-tests.txt
+          grep -Fx 'OK' /tmp/clean-conductor-tests.txt
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_local_toolchain.py' -v
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_offline_carrier.py' -v
+
+      - name: Commit and publish clean candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name BigBirdReturns
+          git config user.email bigbirdreturns@proton.me
+          git commit -m "Make operator-flight single-action and fail-closed"
+          git push --force-with-lease origin HEAD:refs/heads/admission/operator-flight-single-action-01
