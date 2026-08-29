@@ -1,0 +1,96 @@
+          }
+
+          foreach ($coordinate in $coordinates) {
+            git checkout --force --detach $coordinate.Ref
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git clean -ffdx
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            $Join = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-join.ps1'
+            $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\axm-head-physical-long-haul-join-profile-01.json'
+            $Fixtures = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\fixtures\axm-head-physical-long-haul-join-cases-01.json'
+            $Input = Join-Path $env:RUNNER_TEMP "postflight-join-input-$($coordinate.Name).json"
+            $Receipt = Join-Path $env:RUNNER_TEMP "postflight-join-receipt-$($coordinate.Name).json"
+            Remove-Item -LiteralPath $Input -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $Receipt -Force -ErrorAction SilentlyContinue
+
+            & $Join validate-profile $Profile
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Join validate-fixtures $Profile $Fixtures
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Join emit-fixture prepared-exact-public-sources-no-private-flight --profile $Profile --fixtures $Fixtures --out $Input
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $Join verify $Input --profile $Profile --out $Receipt
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            $Value = Get-Content -LiteralPath $Receipt -Raw | ConvertFrom-Json
+            if ($Value.bootstrapAuthenticated -ne $true) { throw 'bootstrap authentication absent' }
+            if ($Value.join.terminal -ne 'PREPARED_NOT_ARMED') { throw 'prepared terminal differs' }
+            if ($Value.publicStatus.privatePhysicalFlightCompleted -ne $false) { throw 'physical completion promoted' }
+            if ($Value.publicStatus.authority -ne 'none') { throw 'authority promoted' }
+          }
+
+      - name: Preserve exact-coordinate qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-01-${{ matrix.os }}
+          path: ${{ runner.temp }}/axm-head-physical-long-haul-join-01
+          if-no-files-found: error
+          retention-days: 30
+
+  compare-platforms:
+    needs: qualify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download Ubuntu receipts
+        uses: actions/download-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-01-ubuntu-latest
+          path: ${{ runner.temp }}/ubuntu
+
+      - name: Download Windows receipts
+        uses: actions/download-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-01-windows-latest
+          path: ${{ runner.temp }}/windows
+
+      - name: Require exact platform byte identity
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          OUT: ${{ runner.temp }}/cross-platform.json
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            for coordinate in head merge
+            do
+              diff -r "$RUNNER_TEMP/ubuntu/$coordinate/comparison" "$RUNNER_TEMP/windows/$coordinate/comparison"
+            done
+          else
+            diff -r "$RUNNER_TEMP/ubuntu/source/comparison" "$RUNNER_TEMP/windows/source/comparison"
+          fi
+          python - "$OUT" <<'PY'
+          from pathlib import Path
+          import json
+          import sys
+          value = {
+              "schema": "axm-head/physical-long-haul-cross-platform-qualification@2",
+              "status": "PASS",
+              "platformByteIdentity": True,
+              "headToMergeByteIdentity": True,
+              "physicalExecutionStarted": False,
+              "workersLaunched": 0,
+              "listenersCreated": 0,
+              "authority": "none",
+          }
+          Path(sys.argv[1]).write_bytes((json.dumps(value, sort_keys=True, indent=2) + "\n").encode("utf-8"))
+          PY
+
+      - name: Preserve cross-platform receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-head-physical-long-haul-join-01-cross-platform
+          path: ${{ runner.temp }}/cross-platform.json
+          if-no-files-found: error
+          retention-days: 30
