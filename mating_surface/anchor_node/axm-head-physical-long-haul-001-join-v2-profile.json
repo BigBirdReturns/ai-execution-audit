@@ -1,0 +1,254 @@
+{
+  "schema": "axm-head-physical-long-haul-001-join-v2-profile/2",
+  "profileId": "axm-head/physical-long-haul-001/join-v2",
+  "status": "candidate_contract_only",
+  "owningProject": "Estate",
+  "owningRepository": "BigBirdReturns/ai-execution-audit",
+  "sourceCoordinates": {
+    "admittedAxmHeadSupplier": {
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "commit": "b452bb32e26249deab90db124f157bc62ad0850d",
+      "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951",
+      "status": "admitted"
+    },
+    "supplierConstructionRecord": {
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "commit": "e185b3de109b0fb9be1dddcc33c3d410b8f1fc46",
+      "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951",
+      "status": "qualified_then_squash_admitted"
+    },
+    "admittedConductor": {
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "commit": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2",
+      "tree": "3f708c52782784e687cf1f0b68fd7d37a507ef4c",
+      "status": "admitted"
+    },
+    "physicalFlightFloor": {
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+      "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126",
+      "status": "admitted_not_executed"
+    }
+  },
+  "physicalFlightIssue": {
+    "repository": "BigBirdReturns/ai-execution-audit",
+    "issueNumber": 37,
+    "role": "sole_private_physical_flight_execution_coordinate"
+  },
+  "terminalStates": [
+    "PREPARED_NOT_ARMED",
+    "HOLD",
+    "READY_FOR_HUMAN_REVIEW",
+    "REFUSED"
+  ],
+  "artifactLabels": [
+    "cartridge",
+    "model",
+    "verifier",
+    "storage"
+  ],
+  "phaseSequence": [
+    "admitted_checkout",
+    "artifact_coordinates",
+    "readiness",
+    "feed",
+    "personal_floor",
+    "halo3",
+    "post_halo3_continuity",
+    "two_cell_partition",
+    "successor_head",
+    "flight_plan",
+    "private_packet",
+    "sealed_flight"
+  ],
+  "flightPlanGates": [
+    "admitted_checkout",
+    "personal_floor",
+    "halo3",
+    "post_halo3_continuity",
+    "lattice_absence",
+    "two_cell_partition",
+    "successor_head",
+    "private_evidence_root"
+  ],
+  "packetStageSequence": [
+    "VERIFY_INPUTS",
+    "MOUNT_PERSONAL_FLOOR",
+    "BIND_GRACE",
+    "RUN_PERSONAL_FLOOR_BASELINE",
+    "ATTACH_HALO3",
+    "RUN_HALO3_ACCELERATED",
+    "REMOVE_HALO3",
+    "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+    "REMOVE_LATTICE",
+    "VERIFY_LOCAL_CONTINUITY",
+    "PARTITION_TWO_CELLS",
+    "RESTORE_LINK_HOLD_CONFLICT",
+    "REPLACE_HEAD",
+    "REBUILD_PROJECTIONS",
+    "COLD_SUCCESSOR_VERIFY",
+    "SEAL_PRIVATE_EVIDENCE"
+  ],
+  "phasePlans": [
+    {
+      "phase": "admitted_checkout",
+      "actionClass": "software_preflight",
+      "commandSurface": "stc-mary-flight-conductor.ps1 validate-profile",
+      "operatorAction": "Verify the admitted conductor source and frozen physical-flight floor before any private workstation is created.",
+      "receiptClasses": [
+        "conductor_source_receipt"
+      ],
+      "humanRequired": false,
+      "physicalAction": false
+    },
+    {
+      "phase": "artifact_coordinates",
+      "actionClass": "software_preflight",
+      "commandSurface": "stc-mary-flight-conductor.ps1 init",
+      "operatorAction": "Bind exactly four existing private artifact coordinates and initialize one new private workstation outside every repository.",
+      "receiptClasses": [
+        "conductor_artifact_coordinate"
+      ],
+      "humanRequired": false,
+      "physicalAction": false
+    },
+    {
+      "phase": "readiness",
+      "actionClass": "local_observation",
+      "commandSurface": "operator-flight.ps1 readiness",
+      "operatorAction": "Run the admitted readiness census and hash the four declared private artifacts without widening authority.",
+      "receiptClasses": [
+        "stc-mary-local-readiness-private/1"
+      ],
+      "humanRequired": false,
+      "physicalAction": false
+    },
+    {
+      "phase": "feed",
+      "actionClass": "software_preparation",
+      "commandSurface": "operator-flight.ps1 feed",
+      "operatorAction": "Generate and validate the admitted deterministic invented feed at the frozen dimensions and seed.",
+      "receiptClasses": [
+        "stc-mary-invented-aperture-feed/1"
+      ],
+      "humanRequired": false,
+      "physicalAction": false
+    },
+    {
+      "phase": "personal_floor",
+      "actionClass": "bounded_compute",
+      "commandSurface": "operator-flight.ps1 personal-floor",
+      "operatorAction": "Run and independently verify the workload on the resident personal floor before optional accelerator capacity is used.",
+      "receiptClasses": [
+        "stc-mary-aperture-workload-result/1",
+        "stc-mary-aperture-workload-verification/1"
+      ],
+      "humanRequired": true,
+      "physicalAction": true
+    },
+    {
+      "phase": "halo3",
+      "actionClass": "human_physical",
+      "commandSurface": "operator-flight.ps1 halo3",
+      "operatorAction": "Attach or select HALO3 as optional capacity, run the same workload, and independently verify semantic identity and acceleration.",
+      "receiptClasses": [
+        "stc-mary-aperture-workload-result/1",
+        "stc-mary-aperture-workload-verification/1"
+      ],
+      "humanRequired": true,
+      "physicalAction": true
+    },
+    {
+      "phase": "post_halo3_continuity",
+      "actionClass": "human_physical",
+      "commandSurface": "operator-flight.ps1 post-halo3-continuity",
+      "operatorAction": "Perform the declared reversible HALO3 interruption and prove resident-floor continuity against the same accepted output.",
+      "receiptClasses": [
+        "stc-mary-aperture-workload-result/1",
+        "stc-mary-aperture-workload-verification/1",
+        "stc-mary-aperture-workload-comparison/1"
+      ],
+      "humanRequired": true,
+      "physicalAction": true
+    },
+    {
+      "phase": "two_cell_partition",
+      "actionClass": "human_physical",
+      "commandSurface": "operator-flight.ps1 two-cell",
+      "operatorAction": "Construct two complete cells, verify them on distinct actual host classes, and reunite them while preserving both branches and HUMAN_REQUIRED disposition.",
+      "receiptClasses": [
+        "stc-mary-offline-two-cell-verification/1"
+      ],
+      "humanRequired": true,
+      "physicalAction": true
+    },
+    {
+      "phase": "successor_head",
+      "actionClass": "human_physical",
+      "commandSurface": "operator-flight.ps1 successor-head",
+      "operatorAction": "Build the cold-successor bundle and verify it on a replacement HEAD class without the original host or repository history.",
+      "receiptClasses": [
+        "stc-mary-offline-successor-verification/1"
+      ],
+      "humanRequired": true,
+      "physicalAction": true
+    },
+    {
+      "phase": "flight_plan",
+      "actionClass": "software_compilation",
+      "commandSurface": "operator-flight.ps1 compile-plan",
+      "operatorAction": "Compile the eight-gate flight plan from exact private receipts and bind the generated packet configuration.",
+      "receiptClasses": [
+        "stc-mary-local-flight-plan/1",
+        "stc-mary-private-flight-packet-config/1"
+      ],
+      "humanRequired": false,
+      "physicalAction": false
+    },
+    {
+      "phase": "private_packet",
+      "actionClass": "human_controlled_sequence",
+      "commandSurface": "packet-handoff.ps1",
+      "operatorAction": "Record only the packet runtime's next admitted stage with named-human confirmation and local evidence until all sixteen stages close.",
+      "receiptClasses": [
+        "stc-mary-private-flight-packet-status/1",
+        "stc-mary-private-flight-packet-state/1"
+      ],
+      "humanRequired": true,
+      "physicalAction": true
+    },
+    {
+      "phase": "sealed_flight",
+      "actionClass": "human_controlled_seal",
+      "commandSurface": "operator-flight.ps1 seal",
+      "operatorAction": "Seal and independently verify the complete private denominator, then retain only the body-free disposition for public review.",
+      "receiptClasses": [
+        "stc-mary-private-flight-sealed-verification/1",
+        "stc-mary-physical-flight-public-disposition/1"
+      ],
+      "humanRequired": true,
+      "physicalAction": true
+    }
+  ],
+  "stopConditions": [
+    "source_coordinate_drift",
+    "dirty_or_moving_checkout",
+    "private_coordinate_mismatch",
+    "unexpected_worker_or_listener",
+    "authorization_field_present",
+    "authority_not_none",
+    "receipt_refusal",
+    "physical_action_before_separate_authorization"
+  ],
+  "bootstrapRequired": true,
+  "repositoryOutputAllowed": false,
+  "networkRequired": false,
+  "externalServiceCalls": 0,
+  "operationalCredentials": 0,
+  "privateEvidenceBodiesPublic": 0,
+  "physicalAuthorizationProduced": false,
+  "workersLaunched": 0,
+  "listenersCreated": 0,
+  "authority": "none",
+  "claimBoundary": "Public preflight join binding the admitted AXM HEAD mission-volume contract to the admitted STC MARY conductor, frozen physical-flight floor, and sole issue #37 execution coordinate. It may validate body-free private coordinate headers and compile an exact operator card, but it performs no physical action, materializes no mission volume, launches no worker, creates no listener, grants no authorization, and establishes no physical Estate, representative operator, field network, operational C2, production Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority."
+}
