@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-EXPECTED_VERIFIER_SHA256 = "ab7d043faf7155880bd025ac2b9bd03400ce8c0b11df2fb5c49e4fb521074289"
+EXPECTED_VERIFIER_SHA256 = "8ba7f39f512a4f683bf6780ff0ac3a128d10d83dd07b59f4e7e62946f41b5761"
 TRUSTED_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 VERDICT_SCHEMA = "axm-head/physical-long-haul-001-join-verdict@2"
 DIRECT_VERDICT_KEYS = {

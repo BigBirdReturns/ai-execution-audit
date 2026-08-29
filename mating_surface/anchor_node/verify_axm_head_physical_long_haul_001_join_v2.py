@@ -204,10 +204,22 @@ def validate_profile(profile: dict[str, Any]) -> None:
         fail("PROFILE_CANONICAL_DIGEST_INVALID", "profile canonical digest differs from the admitted candidate")
 
 
-def containing_git_repository(path: Path) -> Path | None:
+REPOSITORY_SENTINELS = (
+    ".github/workflows/axm-head-physical-long-haul-001-join-v2.yml",
+    "mating_surface/anchor_node/AXM-HEAD-PHYSICAL-LONG-HAUL-001-JOIN-v2.md",
+)
+
+
+def is_join_repository_root(path: Path) -> bool:
+    if (path / ".git").exists():
+        return True
+    return all((path / Path(*relative.split("/"))).is_file() for relative in REPOSITORY_SENTINELS)
+
+
+def containing_join_repository(path: Path) -> Path | None:
     candidate = path if path.is_dir() else path.parent
     for ancestor in (candidate, *candidate.parents):
-        if (ancestor / ".git").exists():
+        if is_join_repository_root(ancestor):
             return ancestor.resolve()
     return None
 
@@ -218,11 +230,11 @@ def ensure_output_safe(carrier: Path, out: Path | None) -> None:
     carrier_resolved = carrier.resolve()
     out_resolved = out.resolve(strict=False)
     source_repository = Path(__file__).resolve().parents[2]
-    if (source_repository / ".git").exists() and (
+    if is_join_repository_root(source_repository) and (
         out_resolved == source_repository or source_repository in out_resolved.parents
     ):
         fail("REPOSITORY_OUTPUT_REFUSED", "verdict output may not be written inside the trusted repository")
-    output_repository = containing_git_repository(out_resolved)
+    output_repository = containing_join_repository(out_resolved)
     if output_repository is not None:
         fail("REPOSITORY_OUTPUT_REFUSED", "verdict output may not be written inside a Git repository")
     if out_resolved == carrier_resolved or carrier_resolved in out_resolved.parents:
