@@ -89,7 +89,7 @@ def validate_cartridge_coordinate(path: Path) -> Path:
 
 '''
 
-old_bootstrap_coordinate_helpers = old_coordinate_helpers.replace("    return absolute\n", "    return supplied\n")
+old_supplied_coordinate_helpers = old_coordinate_helpers.replace("    return absolute\n", "    return supplied\n")
 
 verifier = VERIFIER.read_text(encoding="utf-8")
 verifier = replace_once(
@@ -112,7 +112,7 @@ verifier = replace_once(
 ''' + version_helpers,
     "verifier Python floor",
 )
-verifier = replace_once(verifier, old_coordinate_helpers, coordinate_helpers, "verifier coordinate custody")
+verifier = replace_once(verifier, old_supplied_coordinate_helpers, coordinate_helpers, "verifier coordinate custody")
 verifier = replace_once(
     verifier,
     '''def read_member(root: Path, relative: str) -> bytes:
@@ -171,7 +171,7 @@ bootstrap = replace_once(
 )
 bootstrap = replace_once(
     bootstrap,
-    old_bootstrap_coordinate_helpers,
+    old_supplied_coordinate_helpers,
     coordinate_helpers,
     "bootstrap coordinate custody",
 )
