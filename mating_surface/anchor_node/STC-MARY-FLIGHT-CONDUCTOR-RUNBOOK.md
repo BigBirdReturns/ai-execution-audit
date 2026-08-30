@@ -249,7 +249,9 @@ seal
 
 Every action first reconstructs the workstation ledger and requires the exact current conductor phase. The script then invokes only the selected bounded transaction, checks each tool exit code, and terminates. It cannot continue into a later phase merely because later commands exist in the generated file.
 
-Before `readiness`, `STC_MARY_PYTHON` must resolve to one exact Python 3.11-or-later file whose Torch probe reports `torch.cuda.is_available() == true` and includes the selected CUDA index. `readiness` invokes only `doctor` and stops before feed generation.
+Before `readiness`, `STC_MARY_PYTHON` must resolve to one exact Python 3.11-or-later file whose Torch probe reports `torch.cuda.is_available() == true` and includes the selected CUDA index. The operator starts that interpreter through `System.Diagnostics.Process` with shell execution disabled, both native streams redirected independently, and no window. Stdout and stderr are each limited to 64 KiB. A start failure, nonzero exit, empty stdout, oversized stream, malformed or multiple JSON stdout, unsupported Python, unavailable CUDA, or absent selected index refuses before `doctor`.
+
+Only stdout is parsed as the single Torch-probe JSON object. Bounded stderr is accepted as local diagnostic output and is never merged into the JSON input, included in an exception body, copied to a public projection, or treated as authority. After the precheck accepts, `readiness` invokes only `doctor` and stops before feed generation.
 
 `two-cell` advances at most one locally executable subtransaction per invocation:
 
