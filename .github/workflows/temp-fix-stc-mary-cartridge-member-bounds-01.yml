@@ -1,4 +1,4 @@
-name: TEMP fix STC MARY cartridge member bounds
+name: TEMP fix STC MARY cartridge member bounds retry
 
 on:
   push:
