@@ -389,6 +389,46 @@ class CartridgeTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertTrue(verdict["bootstrapAuthenticated"])
 
+        relative_parent = self.parent / "relative-base"
+        relative_parent.mkdir()
+        relative_root = relative_parent / "cartridge"
+        shutil.copytree(self.root, relative_root)
+        relative_root_argument = Path("relative-base") / "cartridge"
+        relative_output_argument = Path("relative-verdict.json")
+        relative_output = self.parent / relative_output_argument
+        misplaced_output = relative_parent / relative_output_argument
+
+        relative_verify = subprocess.run(
+            [
+                sys.executable,
+                str(MAIN_TOOL),
+                "verify",
+                str(relative_root_argument),
+                "--out",
+                str(relative_output_argument),
+            ],
+            cwd=str(self.parent),
+            check=False,
+            capture_output=True,
+        )
+        self.assertEqual(relative_verify.returncode, 0, relative_verify.stdout.decode("utf-8", errors="replace"))
+        self.assertTrue(relative_output.is_file())
+        relative_verdict = load_json(relative_output)
+        self.assertEqual(relative_verdict["status"], "PASS")
+        self.assertTrue(relative_verdict["bootstrapAuthenticated"])
+        self.assertFalse(misplaced_output.exists())
+
+        relative_projection = subprocess.run(
+            [sys.executable, str(MAIN_TOOL), "public-projection", str(relative_root_argument)],
+            cwd=str(self.parent),
+            check=False,
+            capture_output=True,
+        )
+        self.assertEqual(relative_projection.returncode, 0, relative_projection.stdout.decode("utf-8", errors="replace"))
+        relative_projection_value = json.loads(relative_projection.stdout.decode("utf-8"))
+        self.assertEqual(relative_projection_value["authority"], "none")
+        self.assertEqual(relative_projection_value["publicEvidenceBodies"], 0)
+
     def test_24_public_projection_is_body_free(self) -> None:
         projection = tool.public_projection(self.root)
         encoded = json.dumps(projection, sort_keys=True)

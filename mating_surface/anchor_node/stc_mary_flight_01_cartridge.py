@@ -92,7 +92,7 @@ def validate_cartridge_coordinate(path: Path) -> Path:
         current = current / part
         if coordinate_component_is_link(current):
             fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
-    return supplied
+    return absolute
 
 
 def validate_output_root(out: Path) -> Path:
@@ -193,15 +193,16 @@ def build_cartridge(profile_path: Path, out: Path) -> dict[str, Any]:
 
 
 def run_bootstrap(root: Path, out: Path | None = None) -> dict[str, Any]:
-    supplied_root = validate_cartridge_coordinate(root)
+    absolute_root = validate_cartridge_coordinate(root)
+    absolute_out = None if out is None else Path(os.path.abspath(os.fspath(out.expanduser())))
     bootstrap = source_file(BOOTSTRAP_FILENAME)
-    command = [sys.executable, str(bootstrap), str(supplied_root)]
-    if out is not None:
-        command.extend(["--out", str(out)])
-    completed = subprocess.run(command, cwd=str(supplied_root.parent), check=False, capture_output=True)
-    if out is not None and completed.returncode == 0:
+    command = [sys.executable, str(bootstrap), str(absolute_root)]
+    if absolute_out is not None:
+        command.extend(["--out", str(absolute_out)])
+    completed = subprocess.run(command, cwd=str(absolute_root.parent), check=False, capture_output=True)
+    if absolute_out is not None and completed.returncode == 0:
         try:
-            return json.loads(out.read_text(encoding="utf-8"))
+            return json.loads(absolute_out.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             fail("BOOTSTRAP_VERDICT_READ_FAILED", str(exc))
     try:
