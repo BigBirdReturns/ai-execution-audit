@@ -58,11 +58,22 @@ def mutate_json_and_resign(root: Path, relative: str, mutation) -> None:
     resign_manifest(root)
 
 
-def run_bootstrap(root: Path, out: Path | None = None, cwd: Path | None = None) -> tuple[int, dict]:
+def run_bootstrap(
+    root: Path,
+    out: Path | None = None,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> tuple[int, dict]:
     command = [sys.executable, str(BOOTSTRAP), str(root)]
     if out is not None:
         command.extend(["--out", str(out)])
-    completed = subprocess.run(command, cwd=str(cwd or root.parent), check=False, capture_output=True)
+    completed = subprocess.run(
+        command,
+        cwd=str(cwd or root.parent),
+        check=False,
+        capture_output=True,
+        env=env,
+    )
     payload = out.read_bytes() if out is not None and out.exists() and completed.returncode == 0 else completed.stdout
     return completed.returncode, json.loads(payload.decode("utf-8"))
 
@@ -193,6 +204,27 @@ class CartridgeTest(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertEqual(verdict["code"], "EMBEDDED_VERIFIER_UNTRUSTED")
         self.assertFalse(verdict["embeddedVerifierExecuted"])
+
+        hijack = self.parent / "cartridge-import-hijack"
+        tool.build_cartridge(PROFILE, hijack)
+        marker = self.parent / "import-hijack-executed.txt"
+        malicious_module = "\n".join(
+            (
+                "import os",
+                "with open(os.environ['STC_MARY_IMPORT_HIJACK_MARKER'], 'w', encoding='utf-8') as handle:",
+                "    handle.write('executed')",
+                "print('{\"status\":\"PASS\",\"bootstrapAuthenticated\":false,\"authority\":\"none\"}')",
+                "raise SystemExit(0)",
+                "",
+            )
+        )
+        (hijack / "RECOVERY/hashlib.py").write_text(malicious_module, encoding="utf-8", newline="\n")
+        environment = os.environ.copy()
+        environment["STC_MARY_IMPORT_HIJACK_MARKER"] = str(marker)
+        code, verdict = run_bootstrap(hijack, env=environment)
+        self.assertNotEqual(code, 0)
+        self.assertEqual(verdict["code"], "FILE_DENOMINATOR_INVALID")
+        self.assertFalse(marker.exists())
 
     def test_17_profile_substitution_refused_after_resign(self) -> None:
         mutate_json_and_resign(self.root, "RECOVERY/profile.json", lambda value: value.__setitem__("claimBoundary", "promoted"))
