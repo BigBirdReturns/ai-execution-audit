@@ -269,6 +269,47 @@ class CartridgeTest(unittest.TestCase):
         self.assertEqual(verify_code, 0)
         self.assertEqual(verify_verdict["status"], "PASS")
 
+        symlink_root = self.parent / "cartridge-root-symlink"
+        try:
+            symlink_root.symlink_to(self.root, target_is_directory=True)
+        except OSError as exc:
+            if os.name == "nt":
+                self.skipTest(f"Windows runner cannot create directory symlink: {exc}")
+            raise
+
+        symlink_verdict_out = self.parent / "symlink-verdict.json"
+        code, symlink_verdict = run_bootstrap(symlink_root, symlink_verdict_out)
+        self.assertNotEqual(code, 0)
+        self.assertEqual(symlink_verdict["code"], "CARTRIDGE_ROOT_INVALID")
+        self.assertFalse(symlink_verdict_out.exists())
+
+        direct = subprocess.run(
+            [sys.executable, str(EMBEDDED_VERIFIER_SOURCE), str(symlink_root)],
+            check=False,
+            capture_output=True,
+        )
+        direct_verdict = json.loads(direct.stdout.decode("utf-8"))
+        self.assertNotEqual(direct.returncode, 0)
+        self.assertEqual(direct_verdict["code"], "CARTRIDGE_ROOT_INVALID")
+
+        symlink_projection_out = self.parent / "symlink-projection.json"
+        projected = subprocess.run(
+            [sys.executable, str(MAIN_TOOL), "public-projection", str(symlink_root), "--out", str(symlink_projection_out)],
+            check=False,
+            capture_output=True,
+        )
+        projected_verdict = json.loads(projected.stdout.decode("utf-8"))
+        self.assertNotEqual(projected.returncode, 0)
+        self.assertEqual(projected_verdict["code"], "CARTRIDGE_ROOT_INVALID")
+        self.assertFalse(symlink_projection_out.exists())
+
+        with self.assertRaises(tool.BuildError) as library_projection:
+            tool.public_projection(symlink_root)
+        self.assertEqual(library_projection.exception.code, "CARTRIDGE_ROOT_INVALID")
+        with self.assertRaises(verifier.CartridgeError) as library_verification:
+            verifier.verify_cartridge(symlink_root)
+        self.assertEqual(library_verification.exception.code, "CARTRIDGE_ROOT_INVALID")
+
     def test_21_existing_output_refused(self) -> None:
         out = self.parent / "verdict.json"
         out.write_text("existing\n", encoding="utf-8")

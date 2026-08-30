@@ -29,7 +29,7 @@ from verify_stc_mary_flight_01_cartridge import (
     verify_cartridge,
 )
 
-EXPECTED_VERIFIER_SHA256 = "41fbcad8073c3c5e203e100d8f1841272c507519e83e2a5eef473c2a1782d9fb"
+EXPECTED_VERIFIER_SHA256 = "f91d2f26f3c5cf141005433ae6aeb9d4ef072b49ec8258bc312cc629135156c9"
 PROFILE_FILENAME = "stc-mary-flight-01-cartridge-profile-01.json"
 VERIFIER_FILENAME = "verify_stc_mary_flight_01_cartridge.py"
 BOOTSTRAP_FILENAME = "verify_stc_mary_flight_01_cartridge_bootstrap.py"
@@ -188,7 +188,11 @@ def run_bootstrap(root: Path, out: Path | None = None) -> dict[str, Any]:
 
 
 def public_projection(root: Path) -> dict[str, Any]:
-    verdict = run_bootstrap(root)
+    supplied_root = root.expanduser()
+    if supplied_root.is_symlink():
+        fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
+    root = supplied_root.resolve(strict=True)
+    verdict = run_bootstrap(supplied_root)
     if verdict.get("status") != "PASS" or verdict.get("bootstrapAuthenticated") is not True:
         fail("AUTHENTICATED_VERIFICATION_REQUIRED", "cartridge must pass the external bootstrap")
     status_path = root / "PUBLIC" / "status.json"
@@ -251,9 +255,12 @@ def main(argv: list[str] | None = None) -> int:
             if args.out is None:
                 emit(verdict)
         elif args.command == "public-projection":
-            root = args.cartridge.resolve(strict=True)
+            supplied_root = args.cartridge.expanduser()
+            if supplied_root.is_symlink():
+                fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
+            root = supplied_root.resolve(strict=True)
             validate_projection_output(root, args.out)
-            emit(public_projection(root), args.out)
+            emit(public_projection(supplied_root), args.out)
         else:
             fail("COMMAND_INVALID", args.command)
         return 0

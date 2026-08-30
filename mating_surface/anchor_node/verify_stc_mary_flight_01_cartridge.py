@@ -414,7 +414,10 @@ def expected_objects(profile: dict[str, Any]) -> tuple[dict[str, Any], dict[str,
 
 
 def verify_cartridge(root: Path) -> dict[str, Any]:
-    root = root.resolve(strict=True)
+    supplied_root = root.expanduser()
+    if supplied_root.is_symlink():
+        fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
+    root = supplied_root.resolve(strict=True)
     validate_tree(root)
 
     member_bytes = {relative: read_member(root, relative) for relative in EXPECTED_FILES}
@@ -529,9 +532,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        root = args.cartridge.resolve(strict=True)
+        supplied_root = args.cartridge.expanduser()
+        if supplied_root.is_symlink():
+            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
+        root = supplied_root.resolve(strict=True)
         validate_output_path(root, args.out)
-        verdict = verify_cartridge(root)
+        verdict = verify_cartridge(supplied_root)
         data = canonical_json_bytes(verdict)
         if args.out is None:
             sys.stdout.buffer.write(data)

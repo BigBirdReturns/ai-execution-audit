@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-EXPECTED_EMBEDDED_VERIFIER_SHA256 = "41fbcad8073c3c5e203e100d8f1841272c507519e83e2a5eef473c2a1782d9fb"
+EXPECTED_EMBEDDED_VERIFIER_SHA256 = "f91d2f26f3c5cf141005433ae6aeb9d4ef072b49ec8258bc312cc629135156c9"
 AUTHORITY = "none"
 ISOLATED_VERIFIER_LAUNCHER = """import sys
 source = sys.stdin.buffer.read()
@@ -61,9 +61,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        root = args.cartridge.resolve(strict=True)
-        if not root.is_dir() or root.is_symlink():
-            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular directory")
+        supplied_root = args.cartridge.expanduser()
+        if supplied_root.is_symlink():
+            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
+        root = supplied_root.resolve(strict=True)
+        if not root.is_dir():
+            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
         if args.out is not None:
             if is_within(args.out.resolve(strict=False), root):
                 fail("VERDICT_INSIDE_CARTRIDGE", "bootstrap verdict may not be written inside the measured cartridge")
