@@ -58,6 +58,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_SHA: ${{ github.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PLATFORM: ${{ matrix.os }}
           QUALIFICATION_ROOT: ${{ runner.temp }}/axm-head-physical-long-haul-join-01
         run: |
@@ -77,8 +78,10 @@ jobs:
           COORDINATES="$RUNNER_TEMP/physical-long-haul-join-01-coordinates.tsv"
           if [ "$EVENT_NAME" = "pull_request" ]; then
             printf 'head\t%s\nmerge\t%s\n' "$PR_HEAD_SHA" "$EVENT_SHA" > "$COORDINATES"
+            PRODUCT_BASE_SHA="$PR_BASE_SHA"
           else
             printf 'source\t%s\n' "$EVENT_SHA" > "$COORDINATES"
+            PRODUCT_BASE_SHA="$(git -C "$GITHUB_WORKSPACE" rev-parse "$EVENT_SHA^1")"
           fi
 
           REPO_ROOT="$GITHUB_WORKSPACE"
@@ -164,7 +167,7 @@ jobs:
               raise SystemExit(2)
           PY
 
-            python - "$REPO_ROOT" "$OBSERVED_SHA" "${PRODUCT_PATHS[@]}" <<'PY'
+            python - "$REPO_ROOT" "$PRODUCT_BASE_SHA" "$OBSERVED_SHA" "${PRODUCT_PATHS[@]}" <<'PY'
           from pathlib import Path
           import ast
           import re
@@ -172,8 +175,9 @@ jobs:
           import sys
 
           repository = Path(sys.argv[1])
-          observed_sha = sys.argv[2]
-          product_paths = [Path(value) for value in sys.argv[3:]]
+          product_base_sha = sys.argv[2]
+          observed_sha = sys.argv[3]
+          product_paths = [Path(value) for value in sys.argv[4:]]
           for path in product_paths:
               if not path.is_file():
                   raise SystemExit(f"missing permanent product path: {path}")
@@ -182,7 +186,7 @@ jobs:
           observed = sorted(subprocess.check_output(
               [
                   "git", "-C", str(repository), "diff", "--name-only",
-                  "ec61bc3488cb5ae06ed9db2862a9f6910d310a79", observed_sha,
+                  product_base_sha, observed_sha,
               ],
               text=True,
           ).splitlines())
@@ -257,7 +261,7 @@ jobs:
               -s mating_surface/anchor_node/conformance \
               -p 'test_stc_mary_flight_conductor.py' \
               -v 2>&1 | tee "$DEST/inherited-conductor-tests.txt"
-            grep -F "Ran 25 tests" "$DEST/inherited-conductor-tests.txt"
+            grep -F "Ran 32 tests" "$DEST/inherited-conductor-tests.txt"
             grep -Fx "OK" "$DEST/inherited-conductor-tests.txt"
 
             python - "$PROFILE" <<'PY'
