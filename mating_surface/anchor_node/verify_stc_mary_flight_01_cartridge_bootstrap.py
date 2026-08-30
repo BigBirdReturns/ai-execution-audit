@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-EXPECTED_EMBEDDED_VERIFIER_SHA256 = "c3ba0d6a051ff4610f4ed5c95032a5d4e0d8c8257d9f50830483a1e6f1469d9b"
-EXPECTED_EMBEDDED_VERIFIER_BYTES = 25059
+EXPECTED_EMBEDDED_VERIFIER_SHA256 = "af3969dfe068266d692341f1580773c5d049a7e9cb4026afcbe21ccd41418a75"
+EXPECTED_EMBEDDED_VERIFIER_BYTES = 26107
 AUTHORITY = "none"
 ISOLATED_VERIFIER_LAUNCHER = """import sys
 source = sys.stdin.buffer.read()
@@ -37,6 +37,17 @@ def fail(code: str, message: str) -> None:
     raise BootstrapError(code, message)
 
 
+MINIMUM_PYTHON = (3, 12)
+
+
+def require_supported_python() -> None:
+    if sys.version_info < MINIMUM_PYTHON:
+        fail(
+            "PYTHON_VERSION_UNSUPPORTED",
+            f"Python {MINIMUM_PYTHON[0]}.{MINIMUM_PYTHON[1]} or newer is required for junction-safe cartridge custody",
+        )
+
+
 def canonical_json_bytes(value: Any) -> bytes:
     text = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
     return (text + "\n").encode("utf-8")
@@ -55,17 +66,19 @@ def is_within(path: Path, parent: Path) -> bool:
 
 
 def coordinate_component_is_link(path: Path) -> bool:
+    require_supported_python()
     try:
-        if path.is_symlink():
-            return True
-        junction_probe = getattr(path, "is_junction", None)
-        return bool(callable(junction_probe) and junction_probe())
+        return path.is_symlink() or path.is_junction()
     except OSError as exc:
         fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate component could not be inspected: {path}: {exc}")
 
 
 def validate_cartridge_coordinate(path: Path) -> Path:
-    supplied = path.expanduser()
+    require_supported_python()
+    try:
+        supplied = path.expanduser()
+    except RuntimeError as exc:
+        fail("CARTRIDGE_PATH_EXPANSION_FAILED", f"cartridge coordinate user expansion failed: {exc}")
     absolute = Path(os.path.abspath(os.fspath(supplied)))
     parts = absolute.parts
     if not parts:
@@ -77,7 +90,7 @@ def validate_cartridge_coordinate(path: Path) -> Path:
         current = current / part
         if coordinate_component_is_link(current):
             fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
-    return supplied
+    return absolute
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:

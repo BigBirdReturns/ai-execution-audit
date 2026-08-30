@@ -276,6 +276,19 @@ class CartridgeTest(unittest.TestCase):
         self.assertEqual(oversized_verdict["code"], "EMBEDDED_VERIFIER_SIZE_INVALID")
         self.assertFalse(oversized_verdict["embeddedVerifierExecuted"])
 
+        for relative in ("PUBLIC/status.json", "MANIFEST.json"):
+            with self.subTest(oversized_member=relative):
+                bounded = self.parent / ("cartridge-oversized-" + relative.replace("/", "-"))
+                tool.build_cartridge(PROFILE, bounded)
+                member = bounded / relative
+                with member.open("wb") as handle:
+                    handle.seek(verifier.MAX_MEMBER_BYTES)
+                    handle.write(b"x")
+                self.assertEqual(member.stat().st_size, verifier.MAX_MEMBER_BYTES + 1)
+                code, bounded_verdict = run_bootstrap(bounded)
+                self.assertNotEqual(code, 0)
+                self.assertEqual(bounded_verdict["code"], "MEMBER_SIZE_INVALID")
+
     def test_17_profile_substitution_refused_after_resign(self) -> None:
         mutate_json_and_resign(self.root, "RECOVERY/profile.json", lambda value: value.__setitem__("claimBoundary", "promoted"))
         code, verdict = run_bootstrap(self.root)
@@ -415,6 +428,28 @@ class CartridgeTest(unittest.TestCase):
         with self.assertRaises(verifier.CartridgeError) as nested_library_verification:
             verifier.verify_cartridge(nested_symlink_root)
         self.assertEqual(nested_library_verification.exception.code, "CARTRIDGE_ROOT_INVALID")
+
+        with patch.object(Path, "expanduser", side_effect=RuntimeError("unknown user")):
+            with self.assertRaises(tool.BuildError) as tool_expansion:
+                tool.validate_cartridge_coordinate(Path("~missing-user/cartridge"))
+            self.assertEqual(tool_expansion.exception.code, "CARTRIDGE_PATH_EXPANSION_FAILED")
+            with self.assertRaises(verifier.CartridgeError) as verifier_expansion:
+                verifier.validate_cartridge_coordinate(Path("~missing-user/cartridge"))
+            self.assertEqual(verifier_expansion.exception.code, "CARTRIDGE_PATH_EXPANSION_FAILED")
+            with self.assertRaises(bootstrap.BootstrapError) as bootstrap_expansion:
+                bootstrap.validate_cartridge_coordinate(Path("~missing-user/cartridge"))
+            self.assertEqual(bootstrap_expansion.exception.code, "CARTRIDGE_PATH_EXPANSION_FAILED")
+
+        with patch.object(sys, "version_info", (3, 11, 9)):
+            with self.assertRaises(tool.BuildError) as tool_version:
+                tool.validate_cartridge_coordinate(self.root)
+            self.assertEqual(tool_version.exception.code, "PYTHON_VERSION_UNSUPPORTED")
+            with self.assertRaises(verifier.CartridgeError) as verifier_version:
+                verifier.validate_cartridge_coordinate(self.root)
+            self.assertEqual(verifier_version.exception.code, "PYTHON_VERSION_UNSUPPORTED")
+            with self.assertRaises(bootstrap.BootstrapError) as bootstrap_version:
+                bootstrap.validate_cartridge_coordinate(self.root)
+            self.assertEqual(bootstrap_version.exception.code, "PYTHON_VERSION_UNSUPPORTED")
 
     def test_21_existing_output_refused(self) -> None:
         out = self.parent / "verdict.json"
