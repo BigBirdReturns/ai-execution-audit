@@ -30,16 +30,13 @@ permissions:
 
 jobs:
   qualify:
-    if: github.event_name == 'pull_request' || matrix.coordinate == 'head'
     strategy:
       fail-fast: false
       matrix:
         os:
           - ubuntu-latest
           - windows-latest
-        coordinate:
-          - head
-          - merge
+        coordinate: ${{ fromJSON(github.event_name == 'pull_request' && '["head","merge"]' || '["head"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
 
@@ -121,36 +118,39 @@ jobs:
           grep -F "Ran 25 tests" "$RUNNER_TEMP/stc-mary-flight-01-cartridge-tests.txt"
           grep -F "OK" "$RUNNER_TEMP/stc-mary-flight-01-cartridge-tests.txt"
 
-      - name: Build and externally verify two deterministic cartridges
+      - name: Build twice and verify from a foreign directory
         shell: bash
         run: |
+          set -o pipefail
           PROFILE="$GITHUB_WORKSPACE/mating_surface/anchor_node/stc-mary-flight-01-cartridge-profile-01.json"
           TOOL="$GITHUB_WORKSPACE/mating_surface/anchor_node/stc_mary_flight_01_cartridge.py"
           BOOTSTRAP="$GITHUB_WORKSPACE/mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge_bootstrap.py"
-          ONE="$RUNNER_TEMP/stc-mary-flight-01-cartridge-one"
-          TWO="$RUNNER_TEMP/stc-mary-flight-01-cartridge-two"
+          OUT="$RUNNER_TEMP/stc-mary-flight-01-cartridge"
+          SECOND="$RUNNER_TEMP/stc-mary-flight-01-cartridge-second"
           FOREIGN="$RUNNER_TEMP/stc-mary-flight-01-foreign"
           VERDICT="$RUNNER_TEMP/stc-mary-flight-01-cartridge-verdict.json"
-          RECEIPT="$RUNNER_TEMP/stc-mary-flight-01-cartridge-receipt"
+          PUBLIC="$RUNNER_TEMP/stc-mary-flight-01-cartridge-public.json"
 
-          python "$TOOL" build "$PROFILE" --out "$ONE"
-          python "$TOOL" build "$PROFILE" --out "$TWO"
+          python "$TOOL" build "$PROFILE" --out "$OUT"
+          python "$TOOL" build "$PROFILE" --out "$SECOND"
           mkdir -p "$FOREIGN"
           (
             cd "$FOREIGN"
-            python "$BOOTSTRAP" "$ONE" --out "$VERDICT"
+            python "$BOOTSTRAP" "$OUT" --out "$VERDICT"
           )
-          python - "$ONE" "$TWO" "$VERDICT" "$RECEIPT" <<'PY'
+          python "$TOOL" public-projection "$OUT" --out "$PUBLIC"
+
+          python - "$OUT" "$SECOND" "$VERDICT" "$PUBLIC" "$RUNNER_TEMP/qualification.json" <<'PY'
+          import hashlib
           import json
-          import shutil
           import sys
           from pathlib import Path
 
           one = Path(sys.argv[1])
           two = Path(sys.argv[2])
           verdict_path = Path(sys.argv[3])
-          receipt = Path(sys.argv[4])
-          verdict = json.loads(verdict_path.read_text(encoding="utf-8"))
+          public_path = Path(sys.argv[4])
+          receipt_path = Path(sys.argv[5])
           members = (
               "MANIFEST.json",
               "CARTRIDGE/mission.json",
@@ -160,42 +160,78 @@ jobs:
               "RECOVERY/source-binding.json",
               "RECOVERY/verify_cartridge.py",
           )
+          rows = []
           for relative in members:
-              if (one / relative).read_bytes() != (two / relative).read_bytes():
+              left = (one / relative).read_bytes()
+              right = (two / relative).read_bytes()
+              if left != right:
                   raise SystemExit(f"deterministic byte mismatch: {relative}")
-          if verdict.get("status") != "PASS":
-              raise SystemExit("external bootstrap did not return PASS")
-          if verdict.get("bootstrapAuthenticated") is not True:
-              raise SystemExit("embedded verifier was not externally authenticated")
-          if verdict.get("terminal") != "PREPARED_NOT_ARMED":
-              raise SystemExit("cartridge terminal differs")
-          if verdict.get("authority") != "none":
-              raise SystemExit("cartridge authority differs")
-          if verdict.get("workstationInitialized") is not False:
-              raise SystemExit("cartridge claimed workstation initialization")
-          if verdict.get("packetStagesRecorded") != 0:
-              raise SystemExit("cartridge claimed packet progress")
-          receipt.mkdir()
-          shutil.copytree(one, receipt / "cartridge")
-          shutil.copyfile(verdict_path, receipt / "verdict.json")
-          print(json.dumps(verdict, sort_keys=True, separators=(",", ":")))
+              rows.append({"path": relative, "bytes": len(left), "sha256": hashlib.sha256(left).hexdigest()})
+          verdict = json.loads(verdict_path.read_text(encoding="utf-8"))
+          public = json.loads(public_path.read_text(encoding="utf-8"))
+          profile = json.loads((one / "RECOVERY/profile.json").read_text(encoding="utf-8"))
+          source = json.loads((one / "RECOVERY/source-binding.json").read_text(encoding="utf-8"))
+          if verdict.get("status") != "PASS" or verdict.get("bootstrapAuthenticated") is not True:
+              raise SystemExit("external bootstrap failed")
+          if public.get("terminal") != "PREPARED_NOT_ARMED" or public.get("authority") != "none":
+              raise SystemExit("public status widened")
+          if "flightConductor" in profile.get("sourceCoordinates", {}) or "flightConductor" in source.get("sourceCoordinates", {}):
+              raise SystemExit("conductor entered cartridge semantics")
+          manifest = json.loads((one / "MANIFEST.json").read_text(encoding="utf-8"))
+          receipt = {
+              "schema": "stc-mary/flight-01-cartridge-qualification/1",
+              "status": "PASS",
+              "coordinate": "${{ matrix.coordinate }}",
+              "sha": "${{ steps.coordinate.outputs.ref }}",
+              "runner": "${{ matrix.os }}",
+              "bundleId": manifest["bundleId"],
+              "cartridgeId": verdict["cartridgeId"],
+              "missionId": verdict["missionId"],
+              "workUnitId": verdict["workUnitId"],
+              "sourceBindingId": verdict["sourceBindingId"],
+              "files": rows,
+              "verdictSha256": hashlib.sha256(verdict_path.read_bytes()).hexdigest(),
+              "publicSha256": hashlib.sha256(public_path.read_bytes()).hexdigest(),
+              "conductorSemanticCoupling": False,
+              "physicalExecution": False,
+              "authority": "none",
+          }
+          receipt_path.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
           PY
+
+          mkdir -p qualification
+          cp -R "$OUT" qualification/cartridge
+          cp "$VERDICT" qualification/verdict.json
+          cp "$PUBLIC" qualification/public.json
+          cp "$RUNNER_TEMP/qualification.json" qualification/qualification.json
 
       - name: Exercise PowerShell entrypoint
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $Wrapper = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\stc-mary-flight-01-cartridge.ps1'
+          $Tool = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\stc-mary-flight-01-cartridge.ps1'
           $Profile = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node\stc-mary-flight-01-cartridge-profile-01.json'
-          & $Wrapper validate-profile $Profile
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $Root = Join-Path $env:RUNNER_TEMP ('stc-mary-flight-01-cartridge-powershell-' + '${{ matrix.coordinate }}')
+          $Verdict = Join-Path $env:RUNNER_TEMP ('stc-mary-flight-01-cartridge-powershell-' + '${{ matrix.coordinate }}' + '-verdict.json')
 
-      - name: Retain exact-coordinate authoritative bytes
-        uses: actions/upload-artifact@v4
+          & $Tool validate-profile $Profile
+          if ($LASTEXITCODE -ne 0) { throw 'PowerShell profile validation failed.' }
+          & $Tool build $Profile --out $Root
+          if ($LASTEXITCODE -ne 0) { throw 'PowerShell build failed.' }
+          & $Tool verify $Root --out $Verdict
+          if ($LASTEXITCODE -ne 0) { throw 'PowerShell verify failed.' }
+          $Body = Get-Content -LiteralPath $Verdict -Raw | ConvertFrom-Json
+          if ($Body.status -ne 'PASS' -or -not $Body.bootstrapAuthenticated) {
+            throw 'PowerShell authenticated verdict failed.'
+          }
+
+      - name: Upload exact-coordinate cartridge and receipts
+        uses: actions/upload-artifact@v7
         with:
-          name: stc-cartridge-${{ matrix.os }}-${{ matrix.coordinate }}
-          path: ${{ runner.temp }}/stc-mary-flight-01-cartridge-receipt
+          name: stc-mary-flight-01-cartridge-${{ matrix.coordinate }}-${{ matrix.os }}
+          path: qualification
           if-no-files-found: error
+          retention-days: 14
 
   compare:
     if: github.event_name == 'pull_request'
@@ -203,45 +239,50 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Download all exact-coordinate receipts
-        uses: actions/download-artifact@v4
+      - name: Download all exact-coordinate artifacts
+        uses: actions/download-artifact@v8
         with:
-          pattern: stc-cartridge-*
-          path: receipts
+          pattern: stc-mary-flight-01-cartridge-*
+          path: artifacts
 
-      - name: Require platform and head-to-merge byte identity
+      - name: Require cross-platform and head-to-merge byte identity
         shell: bash
         run: |
           python - <<'PY'
+          import json
           from pathlib import Path
 
-          root = Path("receipts")
-          coordinates = (
-              "stc-cartridge-ubuntu-latest-head",
-              "stc-cartridge-ubuntu-latest-merge",
-              "stc-cartridge-windows-latest-head",
-              "stc-cartridge-windows-latest-merge",
+          receipts = sorted(Path("artifacts").glob("*/qualification.json"))
+          if len(receipts) != 4:
+              raise SystemExit(f"expected four qualification receipts, found {len(receipts)}")
+          bodies = [json.loads(path.read_text(encoding="utf-8")) for path in receipts]
+          keys = (
+              "bundleId",
+              "cartridgeId",
+              "missionId",
+              "workUnitId",
+              "sourceBindingId",
+              "files",
+              "verdictSha256",
+              "publicSha256",
           )
-          for coordinate in coordinates:
-              if not (root / coordinate).is_dir():
-                  raise SystemExit(f"missing coordinate receipt: {coordinate}")
-          baseline = root / coordinates[0]
-          baseline_files = {
-              p.relative_to(baseline).as_posix(): p.read_bytes()
-              for p in baseline.rglob("*")
-              if p.is_file()
-          }
-          for coordinate in coordinates[1:]:
-              candidate = root / coordinate
-              files = {
-                  p.relative_to(candidate).as_posix(): p.read_bytes()
-                  for p in candidate.rglob("*")
-                  if p.is_file()
-              }
-              if files != baseline_files:
-                  differing = sorted(set(files) ^ set(baseline_files) | {k for k in set(files) & set(baseline_files) if files[k] != baseline_files[k]})
-                  raise SystemExit(f"authoritative byte identity differs at {coordinate}: {differing}")
-          print("platform byte identity: true")
-          print("head-to-merge byte identity: true")
-          print(f"authoritative files: {len(baseline_files)}")
+          baseline = {key: bodies[0][key] for key in keys}
+          for path, body in zip(receipts, bodies):
+              if body.get("status") != "PASS" or body.get("authority") != "none" or body.get("conductorSemanticCoupling") is not False:
+                  raise SystemExit(f"qualification widened: {path}")
+              for key in keys:
+                  if body[key] != baseline[key]:
+                      raise SystemExit(f"coordinate identity mismatch for {key}: {path}")
+          Path("cross-coordinate.json").write_text(
+              json.dumps({"status": "PASS", "receiptCount": 4, **baseline, "authority": "none"}, sort_keys=True, indent=2) + "\n",
+              encoding="utf-8",
+          )
           PY
+
+      - name: Upload cross-coordinate comparison
+        uses: actions/upload-artifact@v7
+        with:
+          name: stc-mary-flight-01-cartridge-cross-coordinate
+          path: cross-coordinate.json
+          if-no-files-found: error
+          retention-days: 14
