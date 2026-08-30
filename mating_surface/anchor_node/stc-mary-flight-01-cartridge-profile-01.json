@@ -1,0 +1,135 @@
+{
+  "artifactLabels": [
+    "cartridge",
+    "model",
+    "verifier",
+    "storage"
+  ],
+  "claimBoundary": "Immutable public mission-law cartridge for STC MARY private physical flight 01. It binds the admitted MARY tenant, AXM supplier, preflight contract, frozen execution floor, mission denominator, work-unit law, named-human boundary, and authority-none invariants. Compatible conductor implementations and their repair lineage are non-authoritative operator provenance outside the cartridge semantic identity. The cartridge contains no private coordinate, evidence body, observation, telemetry, authorization, host identity, model bytes, verifier bytes, storage identity, execution result, physical qualification, representative-operator qualification, field-network qualification, operational-C2 qualification, production-Lattice qualification, mission authority, command authority, targeting, engagement, effector, or weapons capability.",
+  "feed": {
+    "classes": 8,
+    "features": 32,
+    "records": 262144,
+    "seed": 20260827
+  },
+  "flightPlanGates": [
+    "admitted_checkout",
+    "personal_floor",
+    "halo3",
+    "post_halo3_continuity",
+    "lattice_absence",
+    "two_cell_partition",
+    "successor_head",
+    "private_evidence_root"
+  ],
+  "issueBindings": {
+    "postflightJoin": 49,
+    "privateFlight": 37
+  },
+  "missionLaw": {
+    "campaignLabel": "PRIVATE-STC-MARY-FLIGHT-01",
+    "humanAuthorizationRequired": true,
+    "invariantRefs": [
+      "invariant:resident-floor-mission-closure@1",
+      "invariant:optional-halo3-removal@1",
+      "invariant:lattice-non-ownership@1",
+      "invariant:two-cell-branch-retention@1",
+      "invariant:human-required-reunion@1",
+      "invariant:cold-successor-reconstruction@1",
+      "invariant:private-evidence-custody@1",
+      "invariant:authority-none@1"
+    ],
+    "missionName": "STC Mission Cartridge 01",
+    "namedHumanBind": "GRACE",
+    "nextSafeAction": "Compile the admitted body-free preflight card and obtain separate named-human authorization only for INITIALIZE_CONDUCTOR_WORKSTATION.",
+    "systemAuthority": "none"
+  },
+  "packetStageSequence": [
+    "VERIFY_INPUTS",
+    "MOUNT_PERSONAL_FLOOR",
+    "BIND_GRACE",
+    "RUN_PERSONAL_FLOOR_BASELINE",
+    "ATTACH_HALO3",
+    "RUN_HALO3_ACCELERATED",
+    "REMOVE_HALO3",
+    "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+    "REMOVE_LATTICE",
+    "VERIFY_LOCAL_CONTINUITY",
+    "PARTITION_TWO_CELLS",
+    "RESTORE_LINK_HOLD_CONFLICT",
+    "REPLACE_HEAD",
+    "REBUILD_PROJECTIONS",
+    "COLD_SUCCESSOR_VERIFY",
+    "SEAL_PRIVATE_EVIDENCE"
+  ],
+  "phaseSequence": [
+    "admitted_checkout",
+    "artifact_coordinates",
+    "readiness",
+    "feed",
+    "personal_floor",
+    "halo3",
+    "post_halo3_continuity",
+    "two_cell_partition",
+    "successor_head",
+    "flight_plan",
+    "private_packet",
+    "sealed_flight"
+  ],
+  "profileId": "stc-mary/flight-01-cartridge@1",
+  "schema": "stc-mary/flight-01-cartridge-profile/1",
+  "sourceCoordinates": {
+    "axmHeadSupplier": {
+      "commit": "b452bb32e26249deab90db124f157bc62ad0850d",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted_synthetic_contract",
+      "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951"
+    },
+    "maryPortable": {
+      "commit": "f382633d7349a5d748d2f0b6092f96570f6e5d26",
+      "release": "v0.2.0",
+      "releaseArchiveSha256": "bd67c865032ae0977d8c2ada1c07b5e7564fe2ddf6e65f19b63ad41749359009",
+      "repository": "BigBirdReturns/mary-portable",
+      "status": "admitted_tenant_instrument",
+      "tree": "a18f6612b8119beac68292ef4d7f8a5b35e1b0fa"
+    },
+    "physicalFlightExecutionFloor": {
+      "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted_not_executed",
+      "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126"
+    },
+    "physicalFlightPreflight": {
+      "commit": "ec61bc3488cb5ae06ed9db2862a9f6910d310a79",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted_preflight_contract",
+      "tree": "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67"
+    }
+  },
+  "status": "candidate_contract_only",
+  "terminalStates": [
+    "PREPARED_NOT_ARMED",
+    "REFUSED"
+  ],
+  "workUnitLaw": {
+    "authorityClass": "compute-only",
+    "kind": "deterministic-integer-linear-aperture",
+    "optionalAcceleratorBackend": "torch-cuda",
+    "privacyLane": "private-local",
+    "requiredCapabilities": [
+      "deterministic-feed",
+      "resident-cpu-execution",
+      "independent-stdlib-verification",
+      "structured-result",
+      "sha256-content-addressing"
+    ],
+    "residentFloorBackend": "python",
+    "resultRequirements": [
+      "one accepted semantic identity across resident baseline optional accelerator and post-removal continuity",
+      "one accepted classification identity across all three runs",
+      "optional accelerator throughput exceeds resident baseline",
+      "resident floor reproduces the accepted output after accelerator removal",
+      "no network service provider credential or remote model is required"
+    ]
+  }
+}
