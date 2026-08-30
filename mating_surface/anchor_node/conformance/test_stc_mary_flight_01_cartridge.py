@@ -83,7 +83,7 @@ def run_bootstrap(
 def make_directory_link(link: Path, target: Path) -> None:
     if os.name == "nt":
         completed = subprocess.run(
-            ["cmd.exe", "/d", "/c", f'mklink /J "{link}" "{target}"'],
+            ["cmd.exe", "/d", "/c", "mklink", "/J", str(link), str(target)],
             check=False,
             capture_output=True,
             text=True,
