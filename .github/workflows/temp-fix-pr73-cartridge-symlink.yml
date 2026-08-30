@@ -1,0 +1,163 @@
+name: TEMP fix PR73 cartridge symlink custody
+
+on:
+  push:
+    branches:
+      - work/stc-mary-flight-01-cartridge-02
+    paths:
+      - ".github/workflows/temp-fix-pr73-cartridge-symlink.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-fix-pr73-cartridge-symlink
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact branch
+        uses: actions/checkout@v6
+        with:
+          ref: work/stc-mary-flight-01-cartridge-02
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Repair cartridge root custody across every entrypoint
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          root = Path('mating_surface/anchor_node')
+          bootstrap_path = root / 'verify_stc_mary_flight_01_cartridge_bootstrap.py'
+          verifier_path = root / 'verify_stc_mary_flight_01_cartridge.py'
+          tool_path = root / 'stc_mary_flight_01_cartridge.py'
+          test_path = root / 'conformance/test_stc_mary_flight_01_cartridge.py'
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one anchor, found {count}')
+              return text.replace(old, new, 1)
+
+          bootstrap = bootstrap_path.read_text(encoding='utf-8')
+          bootstrap = replace_once(
+              bootstrap,
+              '''        root = args.cartridge.resolve(strict=True)\n        if not root.is_dir() or root.is_symlink():\n            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular directory")''',
+              '''        supplied_root = args.cartridge.expanduser()\n        if supplied_root.is_symlink():\n            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")\n        root = supplied_root.resolve(strict=True)\n        if not root.is_dir():\n            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")''',
+              'bootstrap root custody',
+          )
+          bootstrap_path.write_text(bootstrap, encoding='utf-8', newline='\n')
+
+          verifier = verifier_path.read_text(encoding='utf-8')
+          verifier = replace_once(
+              verifier,
+              '''def verify_cartridge(root: Path) -> dict[str, Any]:\n    root = root.resolve(strict=True)\n    validate_tree(root)''',
+              '''def verify_cartridge(root: Path) -> dict[str, Any]:\n    supplied_root = root.expanduser()\n    if supplied_root.is_symlink():\n        fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")\n    root = supplied_root.resolve(strict=True)\n    validate_tree(root)''',
+              'library root custody',
+          )
+          verifier = replace_once(
+              verifier,
+              '''        root = args.cartridge.resolve(strict=True)\n        validate_output_path(root, args.out)\n        verdict = verify_cartridge(root)''',
+              '''        supplied_root = args.cartridge.expanduser()\n        if supplied_root.is_symlink():\n            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")\n        root = supplied_root.resolve(strict=True)\n        validate_output_path(root, args.out)\n        verdict = verify_cartridge(supplied_root)''',
+              'direct verifier root custody',
+          )
+          verifier_path.write_text(verifier, encoding='utf-8', newline='\n')
+          verifier_sha = hashlib.sha256(verifier_path.read_bytes()).hexdigest()
+
+          tool = tool_path.read_text(encoding='utf-8')
+          old_digest = None
+          for line in tool.splitlines():
+              if line.startswith('EXPECTED_VERIFIER_SHA256 = '):
+                  old_digest = line
+                  break
+          if old_digest is None:
+              raise SystemExit('builder verifier digest anchor absent')
+          tool = tool.replace(old_digest, f'EXPECTED_VERIFIER_SHA256 = "{verifier_sha}"', 1)
+          tool = replace_once(
+              tool,
+              '''def public_projection(root: Path) -> dict[str, Any]:\n    verdict = run_bootstrap(root)''',
+              '''def public_projection(root: Path) -> dict[str, Any]:\n    supplied_root = root.expanduser()\n    if supplied_root.is_symlink():\n        fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")\n    root = supplied_root.resolve(strict=True)\n    verdict = run_bootstrap(supplied_root)''',
+              'library projection root custody',
+          )
+          tool = replace_once(
+              tool,
+              '''        elif args.command == "public-projection":\n            root = args.cartridge.resolve(strict=True)\n            validate_projection_output(root, args.out)\n            emit(public_projection(root), args.out)''',
+              '''        elif args.command == "public-projection":\n            supplied_root = args.cartridge.expanduser()\n            if supplied_root.is_symlink():\n                fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")\n            root = supplied_root.resolve(strict=True)\n            validate_projection_output(root, args.out)\n            emit(public_projection(supplied_root), args.out)''',
+              'projection dispatcher root custody',
+          )
+          tool_path.write_text(tool, encoding='utf-8', newline='\n')
+
+          bootstrap = bootstrap_path.read_text(encoding='utf-8')
+          digest_line = None
+          for line in bootstrap.splitlines():
+              if line.startswith('EXPECTED_EMBEDDED_VERIFIER_SHA256 = '):
+                  digest_line = line
+                  break
+          if digest_line is None:
+              raise SystemExit('bootstrap verifier digest anchor absent')
+          bootstrap = bootstrap.replace(digest_line, f'EXPECTED_EMBEDDED_VERIFIER_SHA256 = "{verifier_sha}"', 1)
+          bootstrap_path.write_text(bootstrap, encoding='utf-8', newline='\n')
+
+          tests = test_path.read_text(encoding='utf-8')
+          anchor = '''        verify_code, verify_verdict = run_bootstrap(self.root)\n        self.assertEqual(verify_code, 0)\n        self.assertEqual(verify_verdict["status"], "PASS")\n'''
+          addition = anchor + '''\n        symlink_root = self.parent / "cartridge-root-symlink"\n        try:\n            symlink_root.symlink_to(self.root, target_is_directory=True)\n        except OSError as exc:\n            if os.name == "nt":\n                self.skipTest(f"Windows runner cannot create directory symlink: {exc}")\n            raise\n\n        symlink_verdict_out = self.parent / "symlink-verdict.json"\n        code, symlink_verdict = run_bootstrap(symlink_root, symlink_verdict_out)\n        self.assertNotEqual(code, 0)\n        self.assertEqual(symlink_verdict["code"], "CARTRIDGE_ROOT_INVALID")\n        self.assertFalse(symlink_verdict_out.exists())\n\n        direct = subprocess.run(\n            [sys.executable, str(EMBEDDED_VERIFIER_SOURCE), str(symlink_root)],\n            check=False,\n            capture_output=True,\n        )\n        direct_verdict = json.loads(direct.stdout.decode("utf-8"))\n        self.assertNotEqual(direct.returncode, 0)\n        self.assertEqual(direct_verdict["code"], "CARTRIDGE_ROOT_INVALID")\n\n        symlink_projection_out = self.parent / "symlink-projection.json"\n        projected = subprocess.run(\n            [sys.executable, str(MAIN_TOOL), "public-projection", str(symlink_root), "--out", str(symlink_projection_out)],\n            check=False,\n            capture_output=True,\n        )\n        projected_verdict = json.loads(projected.stdout.decode("utf-8"))\n        self.assertNotEqual(projected.returncode, 0)\n        self.assertEqual(projected_verdict["code"], "CARTRIDGE_ROOT_INVALID")\n        self.assertFalse(symlink_projection_out.exists())\n\n        with self.assertRaises(tool.BuildError) as library_projection:\n            tool.public_projection(symlink_root)\n        self.assertEqual(library_projection.exception.code, "CARTRIDGE_ROOT_INVALID")\n        with self.assertRaises(verifier.CartridgeError) as library_verification:\n            verifier.verify_cartridge(symlink_root)\n        self.assertEqual(library_verification.exception.code, "CARTRIDGE_ROOT_INVALID")\n'''
+          tests = replace_once(tests, anchor, addition, 'symlink witness')
+          test_path.write_text(tests, encoding='utf-8', newline='\n')
+
+          print(verifier_sha)
+          PY
+
+      - name: Qualify repaired cartridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_flight_01_cartridge.py \
+            mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge.py \
+            mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge_bootstrap.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_flight_01_cartridge.py
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_flight_01_cartridge.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/tests.txt"
+          grep -F "Ran 25 tests" "$RUNNER_TEMP/tests.txt"
+          grep -F "OK" "$RUNNER_TEMP/tests.txt"
+
+      - name: Commit permanent repair and delete temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/temp-fix-pr73-cartridge-symlink.yml
+          git add -A
+          git diff --cached --check
+          python - <<'PY'
+          import subprocess
+          expected = {
+              '.github/workflows/stc-mary-flight-01-cartridge-01.yml',
+              'mating_surface/anchor_node/STC-MARY-FLIGHT-01-CARTRIDGE-01.md',
+              'mating_surface/anchor_node/conformance/test_stc_mary_flight_01_cartridge.py',
+              'mating_surface/anchor_node/stc-mary-flight-01-cartridge-profile-01.json',
+              'mating_surface/anchor_node/stc-mary-flight-01-cartridge.ps1',
+              'mating_surface/anchor_node/stc_mary_flight_01_cartridge.py',
+              'mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge.py',
+              'mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge_bootstrap.py',
+          }
+          actual = set(subprocess.check_output(['git', 'diff', '--name-only', 'dd486472a8c610a20ee062dd6746c86fe8ede4b4'], text=True).splitlines())
+          if actual != expected:
+              raise SystemExit(f'final path denominator differs: expected={sorted(expected)} observed={sorted(actual)}')
+          PY
+          git commit -m "Refuse symlinked cartridge roots before resolution"
+          git push origin HEAD:refs/heads/work/stc-mary-flight-01-cartridge-02
