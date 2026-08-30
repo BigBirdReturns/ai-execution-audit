@@ -34,152 +34,84 @@ jobs:
       - name: Bind public projection to the authenticated in-memory status
         shell: bash
         run: |
-          python - <<'PY'
-          from __future__ import annotations
-
-          import hashlib
-          from pathlib import Path
-
-          anchor = Path("mating_surface/anchor_node")
-          verifier_path = anchor / "verify_stc_mary_flight_01_cartridge.py"
-          builder_path = anchor / "stc_mary_flight_01_cartridge.py"
-          bootstrap_path = anchor / "verify_stc_mary_flight_01_cartridge_bootstrap.py"
-          tests_path = anchor / "conformance/test_stc_mary_flight_01_cartridge.py"
-          runbook_path = anchor / "STC-MARY-FLIGHT-01-CARTRIDGE-01.md"
-
-          old_verifier_sha = "f91d2f26f3c5cf141005433ae6aeb9d4ef072b49ec8258bc312cc629135156c9"
-
-          def replace_once(path: Path, old: str, new: str, label: str) -> None:
-              text = path.read_text(encoding="utf-8")
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"{label}: expected one replacement anchor, found {count}")
-              path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
-
-          replace_once(
-              verifier_path,
-              '''        "sourceBindingId": source["sourceBindingId"],
-        "checks": checks,
-        "bootstrapAuthenticated": False,
-''',
-              '''        "sourceBindingId": source["sourceBindingId"],
-        "publicStatus": status,
-        "checks": checks,
-        "bootstrapAuthenticated": False,
-''',
-              "authenticated public-status verdict",
-          )
-
-          replace_once(
-              builder_path,
-              '''    root = supplied_root.resolve(strict=True)
-    verdict = run_bootstrap(supplied_root)
-    if verdict.get("status") != "PASS" or verdict.get("bootstrapAuthenticated") is not True:
-        fail("AUTHENTICATED_VERIFICATION_REQUIRED", "cartridge must pass the external bootstrap")
-    status_path = root / "PUBLIC" / "status.json"
-    return parse_json_bytes(status_path.read_bytes(), str(status_path))
-''',
-              '''    supplied_root.resolve(strict=True)
-    verdict = run_bootstrap(supplied_root)
-    if verdict.get("status") != "PASS" or verdict.get("bootstrapAuthenticated") is not True:
-        fail("AUTHENTICATED_VERIFICATION_REQUIRED", "cartridge must pass the external bootstrap")
-    projection = verdict.get("publicStatus")
-    if not isinstance(projection, dict):
-        fail("AUTHENTICATED_PUBLIC_STATUS_REQUIRED", "authenticated verdict omitted the reconstructed public status")
-    return projection
-''',
-              "projection post-authentication reopen removal",
-          )
-
-          replace_once(
-              tests_path,
-              '''from pathlib import Path
-
-ANCHOR = Path(__file__).resolve().parents[1]
-''',
-              '''from pathlib import Path
-from unittest.mock import patch
-
-ANCHOR = Path(__file__).resolve().parents[1]
-''',
-              "mock import",
-          )
-
-          replace_once(
-              tests_path,
-              '''    def test_24_public_projection_is_body_free(self) -> None:
-        projection = tool.public_projection(self.root)
-        encoded = json.dumps(projection, sort_keys=True)
-        self.assertNotIn("privatePath", encoded)
-        self.assertNotIn("hostname", encoded)
-        self.assertNotIn("credential", encoded)
-        self.assertEqual(projection["publicEvidenceBodies"], 0)
-        self.assertEqual(projection["authority"], "none")
-''',
-              '''    def test_24_public_projection_is_body_free(self) -> None:
-        projection = tool.public_projection(self.root)
-        encoded = json.dumps(projection, sort_keys=True)
-        self.assertNotIn("privatePath", encoded)
-        self.assertNotIn("hostname", encoded)
-        self.assertNotIn("credential", encoded)
-        self.assertEqual(projection["publicEvidenceBodies"], 0)
-        self.assertEqual(projection["authority"], "none")
-
-        authenticated_projection = dict(projection)
-        original_bootstrap = tool.run_bootstrap
-
-        def mutate_status_after_authentication(root: Path, out: Path | None = None) -> dict:
-            verdict = original_bootstrap(root, out)
-            (self.root / "PUBLIC/status.json").write_text(
-                json.dumps(
-                    {
-                        "privatePath": "unverified-post-authentication-substitution",
-                        "authority": "mission",
-                    },
-                    sort_keys=True,
-                    indent=2,
-                )
-                + "\n",
-                encoding="utf-8",
-                newline="\n",
-            )
-            return verdict
-
-        with patch.object(tool, "run_bootstrap", side_effect=mutate_status_after_authentication):
-            projection_after_disk_mutation = tool.public_projection(self.root)
-
-        self.assertEqual(projection_after_disk_mutation, authenticated_projection)
-        self.assertNotIn("privatePath", projection_after_disk_mutation)
-        self.assertEqual(projection_after_disk_mutation["authority"], "none")
-''',
-              "post-authentication projection mutation witness",
-          )
-
-          replace_once(
-              runbook_path,
-              '''`verify` uses the external bootstrap. The bootstrap hashes `RECOVERY/verify_cartridge.py` before execution and refuses substitution without running the untrusted file. The embedded verifier then reconstructs the profile, source binding, work-unit, mission, public status, member rows, manifest, cartridge identity, mission identity, work-unit identity, source-binding identity, and bundle identity. Stored semantics are compared through canonical JSON bytes so JSON Boolean and integer substitutions cannot pass through Python equality.
-''',
-              '''`verify` uses the external bootstrap. The bootstrap hashes `RECOVERY/verify_cartridge.py` before execution and refuses substitution without running the untrusted file. The embedded verifier then reconstructs the profile, source binding, work-unit, mission, public status, member rows, manifest, cartridge identity, mission identity, work-unit identity, source-binding identity, and bundle identity. Stored semantics are compared through canonical JSON bytes so JSON Boolean and integer substitutions cannot pass through Python equality. The authenticated verdict carries the reconstructed public status in memory, and `public-projection` emits that object without reopening `PUBLIC/status.json`; a concurrent post-verification member replacement therefore cannot enter the projection.
-''',
-              "runbook authenticated projection custody",
-          )
-
-          verifier_sha = hashlib.sha256(verifier_path.read_bytes()).hexdigest()
-          replace_once(
-              builder_path,
-              f'EXPECTED_VERIFIER_SHA256 = "{old_verifier_sha}"',
-              f'EXPECTED_VERIFIER_SHA256 = "{verifier_sha}"',
-              "builder frozen verifier digest",
-          )
-          replace_once(
-              bootstrap_path,
-              f'EXPECTED_EMBEDDED_VERIFIER_SHA256 = "{old_verifier_sha}"',
-              f'EXPECTED_EMBEDDED_VERIFIER_SHA256 = "{verifier_sha}"',
-              "bootstrap frozen verifier digest",
-          )
-
-          print(f"embedded verifier sha256: {verifier_sha}")
-          PY
+          cat > "$RUNNER_TEMP/repair.py.b64" <<'EOF'
+          ZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGhhc2hsaWIKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgphbmNob3IgPSBQYXRo
+          KCJtYXRpbmdfc3VyZmFjZS9hbmNob3Jfbm9kZSIpCnZlcmlmaWVyX3BhdGggPSBhbmNob3IgLyAidmVyaWZ5X3N0Y19tYXJ5X2ZsaWdodF8wMV9jYXJ0cmlk
+          Z2UucHkiCmJ1aWxkZXJfcGF0aCA9IGFuY2hvciAvICJzdGNfbWFyeV9mbGlnaHRfMDFfY2FydHJpZGdlLnB5Igpib290c3RyYXBfcGF0aCA9IGFuY2hvciAv
+          ICJ2ZXJpZnlfc3RjX21hcnlfZmxpZ2h0XzAxX2NhcnRyaWRnZV9ib290c3RyYXAucHkiCnRlc3RzX3BhdGggPSBhbmNob3IgLyAiY29uZm9ybWFuY2UvdGVz
+          dF9zdGNfbWFyeV9mbGlnaHRfMDFfY2FydHJpZGdlLnB5IgpydW5ib29rX3BhdGggPSBhbmNob3IgLyAiU1RDLU1BUlktRkxJR0hULTAxLUNBUlRSSURHRS0w
+          MS5tZCIKCm9sZF92ZXJpZmllcl9zaGEgPSAiZjkxZDJmMjZmM2M1Y2YxNDEwMDU0MzNhZTZhZWI5ZDRlZjA3MmI0OWVjODI1OGJjMzEyY2M2MjkxMzUxNTZj
+          OSIKCgpkZWYgcmVwbGFjZV9vbmNlKHBhdGg6IFBhdGgsIG9sZDogc3RyLCBuZXc6IHN0ciwgbGFiZWw6IHN0cikgLT4gTm9uZToKICAgIHRleHQgPSBwYXRo
+          LnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQogICAgY291bnQgPSB0ZXh0LmNvdW50KG9sZCkKICAgIGlmIGNvdW50ICE9IDE6CiAgICAgICAgcmFpc2Ug
+          U3lzdGVtRXhpdChmIntsYWJlbH06IGV4cGVjdGVkIG9uZSByZXBsYWNlbWVudCBhbmNob3IsIGZvdW5kIHtjb3VudH0iKQogICAgcGF0aC53cml0ZV90ZXh0
+          KHRleHQucmVwbGFjZShvbGQsIG5ldywgMSksIGVuY29kaW5nPSJ1dGYtOCIsIG5ld2xpbmU9IlxuIikKCgpyZXBsYWNlX29uY2UoCiAgICB2ZXJpZmllcl9w
+          YXRoLAogICAgJycnICAgICAgICAic291cmNlQmluZGluZ0lkIjogc291cmNlWyJzb3VyY2VCaW5kaW5nSWQiXSwKICAgICAgICAiY2hlY2tzIjogY2hlY2tz
+          LAogICAgICAgICJib290c3RyYXBBdXRoZW50aWNhdGVkIjogRmFsc2UsCicnJywKICAgICcnJyAgICAgICAgInNvdXJjZUJpbmRpbmdJZCI6IHNvdXJjZVsi
+          c291cmNlQmluZGluZ0lkIl0sCiAgICAgICAgInB1YmxpY1N0YXR1cyI6IHN0YXR1cywKICAgICAgICAiY2hlY2tzIjogY2hlY2tzLAogICAgICAgICJib290
+          c3RyYXBBdXRoZW50aWNhdGVkIjogRmFsc2UsCicnJywKICAgICJhdXRoZW50aWNhdGVkIHB1YmxpYy1zdGF0dXMgdmVyZGljdCIsCikKCnJlcGxhY2Vfb25j
+          ZSgKICAgIGJ1aWxkZXJfcGF0aCwKICAgICcnJyAgICByb290ID0gc3VwcGxpZWRfcm9vdC5yZXNvbHZlKHN0cmljdD1UcnVlKQogICAgdmVyZGljdCA9IHJ1
+          bl9ib290c3RyYXAoc3VwcGxpZWRfcm9vdCkKICAgIGlmIHZlcmRpY3QuZ2V0KCJzdGF0dXMiKSAhPSAiUEFTUyIgb3IgdmVyZGljdC5nZXQoImJvb3RzdHJh
+          cEF1dGhlbnRpY2F0ZWQiKSBpcyBub3QgVHJ1ZToKICAgICAgICBmYWlsKCJBVVRIRU5USUNBVEVEX1ZFUklGSUNBVElPTl9SRVFVSVJFRCIsICJjYXJ0cmlk
+          Z2UgbXVzdCBwYXNzIHRoZSBleHRlcm5hbCBib290c3RyYXAiKQogICAgc3RhdHVzX3BhdGggPSByb290IC8gIlBVQkxJQyIgLyAic3RhdHVzLmpzb24iCiAg
+          ICByZXR1cm4gcGFyc2VfanNvbl9ieXRlcyhzdGF0dXNfcGF0aC5yZWFkX2J5dGVzKCksIHN0cihzdGF0dXNfcGF0aCkpCicnJywKICAgICcnJyAgICBzdXBw
+          bGllZF9yb290LnJlc29sdmUoc3RyaWN0PVRydWUpCiAgICB2ZXJkaWN0ID0gcnVuX2Jvb3RzdHJhcChzdXBwbGllZF9yb290KQogICAgaWYgdmVyZGljdC5n
+          ZXQoInN0YXR1cyIpICE9ICJQQVNTIiBvciB2ZXJkaWN0LmdldCgiYm9vdHN0cmFwQXV0aGVudGljYXRlZCIpIGlzIG5vdCBUcnVlOgogICAgICAgIGZhaWwo
+          IkFVVEhFTlRJQ0FURURfVkVSSUZJQ0FUSU9OX1JFUVVJUkVEIiwgImNhcnRyaWRnZSBtdXN0IHBhc3MgdGhlIGV4dGVybmFsIGJvb3RzdHJhcCIpCiAgICBw
+          cm9qZWN0aW9uID0gdmVyZGljdC5nZXQoInB1YmxpY1N0YXR1cyIpCiAgICBpZiBub3QgaXNpbnN0YW5jZShwcm9qZWN0aW9uLCBkaWN0KToKICAgICAgICBm
+          YWlsKCJBVVRIRU5USUNBVEVEX1BVQkxJQ19TVEFUVVNfUkVRVUlSRUQiLCAiYXV0aGVudGljYXRlZCB2ZXJkaWN0IG9taXR0ZWQgdGhlIHJlY29uc3RydWN0
+          ZWQgcHVibGljIHN0YXR1cyIpCiAgICByZXR1cm4gcHJvamVjdGlvbgonJycsCiAgICAicHJvamVjdGlvbiBwb3N0LWF1dGhlbnRpY2F0aW9uIHJlb3BlbiBy
+          ZW1vdmFsIiwKKQoKcmVwbGFjZV9vbmNlKAogICAgdGVzdHNfcGF0aCwKICAgICcnJ2Zyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKQU5DSE9SID0gUGF0aChf
+          X2ZpbGVfXykucmVzb2x2ZSgpLnBhcmVudHNbMV0KJycnLAogICAgJycnZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmZyb20gdW5pdHRlc3QubW9jayBpbXBv
+          cnQgcGF0Y2gKCkFOQ0hPUiA9IFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzFdCicnJywKICAgICJtb2NrIGltcG9ydCIsCikKCnJlcGxhY2Vf
+          b25jZSgKICAgIHRlc3RzX3BhdGgsCiAgICAnJycgICAgZGVmIHRlc3RfMjRfcHVibGljX3Byb2plY3Rpb25faXNfYm9keV9mcmVlKHNlbGYpIC0+IE5vbmU6
+          CiAgICAgICAgcHJvamVjdGlvbiA9IHRvb2wucHVibGljX3Byb2plY3Rpb24oc2VsZi5yb290KQogICAgICAgIGVuY29kZWQgPSBqc29uLmR1bXBzKHByb2pl
+          Y3Rpb24sIHNvcnRfa2V5cz1UcnVlKQogICAgICAgIHNlbGYuYXNzZXJ0Tm90SW4oInByaXZhdGVQYXRoIiwgZW5jb2RlZCkKICAgICAgICBzZWxmLmFzc2Vy
+          dE5vdEluKCJob3N0bmFtZSIsIGVuY29kZWQpCiAgICAgICAgc2VsZi5hc3NlcnROb3RJbigiY3JlZGVudGlhbCIsIGVuY29kZWQpCiAgICAgICAgc2VsZi5h
+          c3NlcnRFcXVhbChwcm9qZWN0aW9uWyJwdWJsaWNFdmlkZW5jZUJvZGllcyJdLCAwKQogICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwocHJvamVjdGlvblsiYXV0
+          aG9yaXR5Il0sICJub25lIikKJycnLAogICAgJycnICAgIGRlZiB0ZXN0XzI0X3B1YmxpY19wcm9qZWN0aW9uX2lzX2JvZHlfZnJlZShzZWxmKSAtPiBOb25l
+          OgogICAgICAgIHByb2plY3Rpb24gPSB0b29sLnB1YmxpY19wcm9qZWN0aW9uKHNlbGYucm9vdCkKICAgICAgICBlbmNvZGVkID0ganNvbi5kdW1wcyhwcm9q
+          ZWN0aW9uLCBzb3J0X2tleXM9VHJ1ZSkKICAgICAgICBzZWxmLmFzc2VydE5vdEluKCJwcml2YXRlUGF0aCIsIGVuY29kZWQpCiAgICAgICAgc2VsZi5hc3Nl
+          cnROb3RJbigiaG9zdG5hbWUiLCBlbmNvZGVkKQogICAgICAgIHNlbGYuYXNzZXJ0Tm90SW4oImNyZWRlbnRpYWwiLCBlbmNvZGVkKQogICAgICAgIHNlbGYu
+          YXNzZXJ0RXF1YWwocHJvamVjdGlvblsicHVibGljRXZpZGVuY2VCb2RpZXMiXSwgMCkKICAgICAgICBzZWxmLmFzc2VydEVxdWFsKHByb2plY3Rpb25bImF1
+          dGhvcml0eSJdLCAibm9uZSIpCgogICAgICAgIGF1dGhlbnRpY2F0ZWRfcHJvamVjdGlvbiA9IGRpY3QocHJvamVjdGlvbikKICAgICAgICBvcmlnaW5hbF9i
+          b290c3RyYXAgPSB0b29sLnJ1bl9ib290c3RyYXAKCiAgICAgICAgZGVmIG11dGF0ZV9zdGF0dXNfYWZ0ZXJfYXV0aGVudGljYXRpb24ocm9vdDogUGF0aCwg
+          b3V0OiBQYXRoIHwgTm9uZSA9IE5vbmUpIC0+IGRpY3Q6CiAgICAgICAgICAgIHZlcmRpY3QgPSBvcmlnaW5hbF9ib290c3RyYXAocm9vdCwgb3V0KQogICAg
+          ICAgICAgICAoc2VsZi5yb290IC8gIlBVQkxJQy9zdGF0dXMuanNvbiIpLndyaXRlX3RleHQoCiAgICAgICAgICAgICAgICBqc29uLmR1bXBzKAogICAgICAg
+          ICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAgICAgInByaXZhdGVQYXRoIjogInVudmVyaWZpZWQtcG9zdC1hdXRoZW50aWNhdGlvbi1zdWJz
+          dGl0dXRpb24iLAogICAgICAgICAgICAgICAgICAgICAgICAiYXV0aG9yaXR5IjogIm1pc3Npb24iLAogICAgICAgICAgICAgICAgICAgIH0sCiAgICAgICAg
+          ICAgICAgICAgICAgc29ydF9rZXlzPVRydWUsCiAgICAgICAgICAgICAgICAgICAgaW5kZW50PTIsCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAg
+          ICArICJcbiIsCiAgICAgICAgICAgICAgICBlbmNvZGluZz0idXRmLTgiLAogICAgICAgICAgICAgICAgbmV3bGluZT0iXG4iLAogICAgICAgICAgICApCiAg
+          ICAgICAgICAgIHJldHVybiB2ZXJkaWN0CgogICAgICAgIHdpdGggcGF0Y2gub2JqZWN0KHRvb2wsICJydW5fYm9vdHN0cmFwIiwgc2lkZV9lZmZlY3Q9bXV0
+          YXRlX3N0YXR1c19hZnRlcl9hdXRoZW50aWNhdGlvbik6CiAgICAgICAgICAgIHByb2plY3Rpb25fYWZ0ZXJfZGlza19tdXRhdGlvbiA9IHRvb2wucHVibGlj
+          X3Byb2plY3Rpb24oc2VsZi5yb290KQoKICAgICAgICBzZWxmLmFzc2VydEVxdWFsKHByb2plY3Rpb25fYWZ0ZXJfZGlza19tdXRhdGlvbiwgYXV0aGVudGlj
+          YXRlZF9wcm9qZWN0aW9uKQogICAgICAgIHNlbGYuYXNzZXJ0Tm90SW4oInByaXZhdGVQYXRoIiwgcHJvamVjdGlvbl9hZnRlcl9kaXNrX211dGF0aW9uKQog
+          ICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwocHJvamVjdGlvbl9hZnRlcl9kaXNrX211dGF0aW9uWyJhdXRob3JpdHkiXSwgIm5vbmUiKQonJycsCiAgICAicG9z
+          dC1hdXRoZW50aWNhdGlvbiBwcm9qZWN0aW9uIG11dGF0aW9uIHdpdG5lc3MiLAopCgpyZXBsYWNlX29uY2UoCiAgICBydW5ib29rX3BhdGgsCiAgICAnJydg
+          dmVyaWZ5YCB1c2VzIHRoZSBleHRlcm5hbCBib290c3RyYXAuIFRoZSBib290c3RyYXAgaGFzaGVzIGBSRUNPVkVSWS92ZXJpZnlfY2FydHJpZGdlLnB5YCBi
+          ZWZvcmUgZXhlY3V0aW9uIGFuZCByZWZ1c2VzIHN1YnN0aXR1dGlvbiB3aXRob3V0IHJ1bm5pbmcgdGhlIHVudHJ1c3RlZCBmaWxlLiBUaGUgZW1iZWRkZWQg
+          dmVyaWZpZXIgdGhlbiByZWNvbnN0cnVjdHMgdGhlIHByb2ZpbGUsIHNvdXJjZSBiaW5kaW5nLCB3b3JrLXVuaXQsIG1pc3Npb24sIHB1YmxpYyBzdGF0dXMs
+          IG1lbWJlciByb3dzLCBtYW5pZmVzdCwgY2FydHJpZGdlIGlkZW50aXR5LCBtaXNzaW9uIGlkZW50aXR5LCB3b3JrLXVuaXQgaWRlbnRpdHksIHNvdXJjZS1i
+          aW5kaW5nIGlkZW50aXR5LCBhbmQgYnVuZGxlIGlkZW50aXR5LiBTdG9yZWQgc2VtYW50aWNzIGFyZSBjb21wYXJlZCB0aHJvdWdoIGNhbm9uaWNhbCBKU09O
+          IGJ5dGVzIHNvIEpTT04gQm9vbGVhbiBhbmQgaW50ZWdlciBzdWJzdGl0dXRpb25zIGNhbm5vdCBwYXNzIHRocm91Z2ggUHl0aG9uIGVxdWFsaXR5LgonJycs
+          CiAgICAnJydgdmVyaWZ5YCB1c2VzIHRoZSBleHRlcm5hbCBib290c3RyYXAuIFRoZSBib290c3RyYXAgaGFzaGVzIGBSRUNPVkVSWS92ZXJpZnlfY2FydHJp
+          ZGdlLnB5YCBiZWZvcmUgZXhlY3V0aW9uIGFuZCByZWZ1c2VzIHN1YnN0aXR1dGlvbiB3aXRob3V0IHJ1bm5pbmcgdGhlIHVudHJ1c3RlZCBmaWxlLiBUaGUg
+          ZW1iZWRkZWQgdmVyaWZpZXIgdGhlbiByZWNvbnN0cnVjdHMgdGhlIHByb2ZpbGUsIHNvdXJjZSBiaW5kaW5nLCB3b3JrLXVuaXQsIG1pc3Npb24sIHB1Ymxp
+          YyBzdGF0dXMsIG1lbWJlciByb3dzLCBtYW5pZmVzdCwgY2FydHJpZGdlIGlkZW50aXR5LCBtaXNzaW9uIGlkZW50aXR5LCB3b3JrLXVuaXQgaWRlbnRpdHks
+          IHNvdXJjZS1iaW5kaW5nIGlkZW50aXR5LCBhbmQgYnVuZGxlIGlkZW50aXR5LiBTdG9yZWQgc2VtYW50aWNzIGFyZSBjb21wYXJlZCB0aHJvdWdoIGNhbm9u
+          aWNhbCBKU09OIGJ5dGVzIHNvIEpTT04gQm9vbGVhbiBhbmQgaW50ZWdlciBzdWJzdGl0dXRpb25zIGNhbm5vdCBwYXNzIHRocm91Z2ggUHl0aG9uIGVxdWFs
+          aXR5LiBUaGUgYXV0aGVudGljYXRlZCB2ZXJkaWN0IGNhcnJpZXMgdGhlIHJlY29uc3RydWN0ZWQgcHVibGljIHN0YXR1cyBpbiBtZW1vcnksIGFuZCBgcHVi
+          bGljLXByb2plY3Rpb25gIGVtaXRzIHRoYXQgb2JqZWN0IHdpdGhvdXQgcmVvcGVuaW5nIGBQVUJMSUMvc3RhdHVzLmpzb25gOyBhIGNvbmN1cnJlbnQgcG9z
+          dC12ZXJpZmljYXRpb24gbWVtYmVyIHJlcGxhY2VtZW50IHRoZXJlZm9yZSBjYW5ub3QgZW50ZXIgdGhlIHByb2plY3Rpb24uCicnJywKICAgICJydW5ib29r
+          IGF1dGhlbnRpY2F0ZWQgcHJvamVjdGlvbiBjdXN0b2R5IiwKKQoKdmVyaWZpZXJfc2hhID0gaGFzaGxpYi5zaGEyNTYodmVyaWZpZXJfcGF0aC5yZWFkX2J5
+          dGVzKCkpLmhleGRpZ2VzdCgpCnJlcGxhY2Vfb25jZSgKICAgIGJ1aWxkZXJfcGF0aCwKICAgIGYnRVhQRUNURURfVkVSSUZJRVJfU0hBMjU2ID0gIntvbGRf
+          dmVyaWZpZXJfc2hhfSInLAogICAgZidFWFBFQ1RFRF9WRVJJRklFUl9TSEEyNTYgPSAie3ZlcmlmaWVyX3NoYX0iJywKICAgICJidWlsZGVyIGZyb3plbiB2
+          ZXJpZmllciBkaWdlc3QiLAopCnJlcGxhY2Vfb25jZSgKICAgIGJvb3RzdHJhcF9wYXRoLAogICAgZidFWFBFQ1RFRF9FTUJFRERFRF9WRVJJRklFUl9TSEEy
+          NTYgPSAie29sZF92ZXJpZmllcl9zaGF9IicsCiAgICBmJ0VYUEVDVEVEX0VNQkVEREVEX1ZFUklGSUVSX1NIQTI1NiA9ICJ7dmVyaWZpZXJfc2hhfSInLAog
+          ICAgImJvb3RzdHJhcCBmcm96ZW4gdmVyaWZpZXIgZGlnZXN0IiwKKQoKcHJpbnQoZiJlbWJlZGRlZCB2ZXJpZmllciBzaGEyNTY6IHt2ZXJpZmllcl9zaGF9
+          IikK
+          EOF
+          base64 --decode "$RUNNER_TEMP/repair.py.b64" > "$RUNNER_TEMP/repair.py"
+          python "$RUNNER_TEMP/repair.py"
 
       - name: Qualify repaired source locally
         shell: bash
