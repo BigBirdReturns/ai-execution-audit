@@ -61,6 +61,14 @@ def has_git_ancestor(path: Path) -> bool:
     return False
 
 
+def is_within(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(parent.resolve(strict=False))
+        return True
+    except ValueError:
+        return False
+
+
 def validate_output_root(out: Path) -> Path:
     resolved = out.resolve(strict=False)
     if out.exists():
@@ -72,6 +80,11 @@ def validate_output_root(out: Path) -> Path:
     if has_git_ancestor(out.parent):
         fail("REPOSITORY_LOCAL_OUTPUT_REFUSED", "cartridge output must remain outside every Git repository")
     return resolved
+
+
+def validate_projection_output(root: Path, out: Path | None) -> None:
+    if out is not None and is_within(out, root):
+        fail("PROJECTION_INSIDE_CARTRIDGE", "public projection may not be written inside the measured cartridge")
 
 
 def source_file(name: str) -> Path:
@@ -133,7 +146,6 @@ def build_cartridge(profile_path: Path, out: Path) -> dict[str, Any]:
             target.write_bytes(data)
         (out / "MANIFEST.json").write_bytes(pretty_json_bytes(manifest))
     except OSError:
-        # Preserve partial output for diagnosis; never rewrite it into compliance.
         raise
 
     verdict = verify_cartridge(out)
@@ -180,8 +192,7 @@ def public_projection(root: Path) -> dict[str, Any]:
     if verdict.get("status") != "PASS" or verdict.get("bootstrapAuthenticated") is not True:
         fail("AUTHENTICATED_VERIFICATION_REQUIRED", "cartridge must pass the external bootstrap")
     status_path = root / "PUBLIC" / "status.json"
-    status = parse_json_bytes(status_path.read_bytes(), str(status_path))
-    return status
+    return parse_json_bytes(status_path.read_bytes(), str(status_path))
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -240,7 +251,9 @@ def main(argv: list[str] | None = None) -> int:
             if args.out is None:
                 emit(verdict)
         elif args.command == "public-projection":
-            emit(public_projection(args.cartridge), args.out)
+            root = args.cartridge.resolve(strict=True)
+            validate_projection_output(root, args.out)
+            emit(public_projection(root), args.out)
         else:
             fail("COMMAND_INVALID", args.command)
         return 0
