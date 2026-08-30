@@ -1,0 +1,125 @@
+name: TEMP fix PR75 junction coverage
+
+on:
+  push:
+    branches:
+      - fix/stc-mary-cartridge-post-merge-cleanup-01
+    paths:
+      - ".github/workflows/temp-fix-pr75-junction-coverage.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-fix-pr75-junction-coverage
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact repair branch
+        uses: actions/checkout@v6
+        with:
+          ref: fix/stc-mary-cartridge-post-merge-cleanup-01
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Use the native directory-link helper for root and ancestor witnesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('mating_surface/anchor_node/conformance/test_stc_mary_flight_01_cartridge.py')
+          text = path.read_text(encoding='utf-8')
+
+          root_old = '''        symlink_root = self.parent / "cartridge-root-symlink"
+        try:
+            symlink_root.symlink_to(self.root, target_is_directory=True)
+        except OSError as exc:
+            if os.name == "nt":
+                self.skipTest(f"Windows runner cannot create directory symlink: {exc}")
+            raise
+'''
+          root_new = '''        symlink_root = self.parent / "cartridge-root-symlink"
+        make_directory_link(symlink_root, self.root)
+        self.addCleanup(remove_directory_link, symlink_root)
+'''
+          if text.count(root_old) != 1:
+              raise SystemExit(f'root link witness anchor differs: {text.count(root_old)}')
+          text = text.replace(root_old, root_new, 1)
+
+          ancestor_old = '''        ancestor_link = self.parent / "cartridge-parent-symlink"
+        ancestor_link.symlink_to(self.root.parent, target_is_directory=True)
+        nested_symlink_root = ancestor_link / self.root.name
+'''
+          ancestor_new = '''        ancestor_link = self.parent / "cartridge-parent-symlink"
+        make_directory_link(ancestor_link, self.root.parent)
+        self.addCleanup(remove_directory_link, ancestor_link)
+        nested_symlink_root = ancestor_link / self.root.name
+'''
+          if text.count(ancestor_old) != 1:
+              raise SystemExit(f'ancestor link witness anchor differs: {text.count(ancestor_old)}')
+          text = text.replace(ancestor_old, ancestor_new, 1)
+
+          if 'self.skipTest(' in text:
+              raise SystemExit('junction custody witness still contains a skipTest escape')
+
+          path.write_text(text, encoding='utf-8', newline='\n')
+          PY
+
+      - name: Qualify repaired witness locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_flight_01_cartridge.py \
+            mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge.py \
+            mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge_bootstrap.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_flight_01_cartridge.py
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_flight_01_cartridge.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/cartridge-tests.txt"
+          grep -F 'Ran 25 tests' "$RUNNER_TEMP/cartridge-tests.txt"
+          grep -F 'OK' "$RUNNER_TEMP/cartridge-tests.txt"
+          git diff --check
+
+      - name: Commit the permanent witness repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm .github/workflows/temp-fix-pr75-junction-coverage.yml
+          git add -A
+          git diff --cached --check
+          python - <<'PY'
+          import subprocess
+
+          expected = {
+              '.github/workflows/temp-fix-pr73-windows-junction-witness.yml',
+              'mating_surface/anchor_node/STC-MARY-FLIGHT-01-CARTRIDGE-01.md',
+              'mating_surface/anchor_node/conformance/test_stc_mary_flight_01_cartridge.py',
+          }
+          actual = set(
+              subprocess.check_output(
+                  ['git', 'diff', '--name-only', '8b72a20fdab38c1a5dbc0c9e2d28adbd66076b40'],
+                  text=True,
+              ).splitlines()
+          )
+          if actual != expected:
+              raise SystemExit(
+                  f'final cleanup denominator differs: expected={sorted(expected)} observed={sorted(actual)}'
+              )
+          PY
+          git commit -m 'Exercise root and ancestor junction custody on Windows'
+          git push origin HEAD:refs/heads/fix/stc-mary-cartridge-post-merge-cleanup-01
