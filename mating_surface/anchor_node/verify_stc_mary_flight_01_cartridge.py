@@ -145,6 +145,32 @@ def is_within(path: Path, parent: Path) -> bool:
         return False
 
 
+def coordinate_component_is_link(path: Path) -> bool:
+    try:
+        if path.is_symlink():
+            return True
+        junction_probe = getattr(path, "is_junction", None)
+        return bool(callable(junction_probe) and junction_probe())
+    except OSError as exc:
+        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate component could not be inspected: {path}: {exc}")
+
+
+def validate_cartridge_coordinate(path: Path) -> Path:
+    supplied = path.expanduser()
+    absolute = Path(os.path.abspath(os.fspath(supplied)))
+    parts = absolute.parts
+    if not parts:
+        fail("CARTRIDGE_ROOT_INVALID", "cartridge coordinate is empty")
+    current = Path(parts[0])
+    if coordinate_component_is_link(current):
+        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+    for part in parts[1:]:
+        current = current / part
+        if coordinate_component_is_link(current):
+            fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+    return supplied
+
+
 def validate_output_path(root: Path, out: Path | None) -> None:
     if out is None:
         return
@@ -414,9 +440,7 @@ def expected_objects(profile: dict[str, Any]) -> tuple[dict[str, Any], dict[str,
 
 
 def verify_cartridge(root: Path) -> dict[str, Any]:
-    supplied_root = root.expanduser()
-    if supplied_root.is_symlink():
-        fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
+    supplied_root = validate_cartridge_coordinate(root)
     root = supplied_root.resolve(strict=True)
     validate_tree(root)
 
@@ -533,9 +557,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        supplied_root = args.cartridge.expanduser()
-        if supplied_root.is_symlink():
-            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
+        supplied_root = validate_cartridge_coordinate(args.cartridge)
         root = supplied_root.resolve(strict=True)
         validate_output_path(root, args.out)
         verdict = verify_cartridge(supplied_root)

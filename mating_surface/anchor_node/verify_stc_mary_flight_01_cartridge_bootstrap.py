@@ -3,12 +3,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
-EXPECTED_EMBEDDED_VERIFIER_SHA256 = "28f85f84591761394e278477b6a6e683b5d9a94194e58ceb8aaf65bbec1dd158"
+EXPECTED_EMBEDDED_VERIFIER_SHA256 = "35208fc39b454bc3b2d621c847f163a583dff14ded29a95223ac6bfd64f709cd"
 AUTHORITY = "none"
 ISOLATED_VERIFIER_LAUNCHER = """import sys
 source = sys.stdin.buffer.read()
@@ -51,6 +52,32 @@ def is_within(path: Path, parent: Path) -> bool:
         return False
 
 
+def coordinate_component_is_link(path: Path) -> bool:
+    try:
+        if path.is_symlink():
+            return True
+        junction_probe = getattr(path, "is_junction", None)
+        return bool(callable(junction_probe) and junction_probe())
+    except OSError as exc:
+        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate component could not be inspected: {path}: {exc}")
+
+
+def validate_cartridge_coordinate(path: Path) -> Path:
+    supplied = path.expanduser()
+    absolute = Path(os.path.abspath(os.fspath(supplied)))
+    parts = absolute.parts
+    if not parts:
+        fail("CARTRIDGE_ROOT_INVALID", "cartridge coordinate is empty")
+    current = Path(parts[0])
+    if coordinate_component_is_link(current):
+        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+    for part in parts[1:]:
+        current = current / part
+        if coordinate_component_is_link(current):
+            fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+    return supplied
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Authenticate and execute the embedded STC MARY Flight 01 cartridge verifier")
     parser.add_argument("cartridge", type=Path)
@@ -61,9 +88,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        supplied_root = args.cartridge.expanduser()
-        if supplied_root.is_symlink():
-            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
+        supplied_root = validate_cartridge_coordinate(args.cartridge)
         root = supplied_root.resolve(strict=True)
         if not root.is_dir():
             fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")

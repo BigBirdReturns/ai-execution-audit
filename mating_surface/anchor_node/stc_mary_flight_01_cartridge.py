@@ -29,7 +29,7 @@ from verify_stc_mary_flight_01_cartridge import (
     verify_cartridge,
 )
 
-EXPECTED_VERIFIER_SHA256 = "28f85f84591761394e278477b6a6e683b5d9a94194e58ceb8aaf65bbec1dd158"
+EXPECTED_VERIFIER_SHA256 = "35208fc39b454bc3b2d621c847f163a583dff14ded29a95223ac6bfd64f709cd"
 PROFILE_FILENAME = "stc-mary-flight-01-cartridge-profile-01.json"
 VERIFIER_FILENAME = "verify_stc_mary_flight_01_cartridge.py"
 BOOTSTRAP_FILENAME = "verify_stc_mary_flight_01_cartridge_bootstrap.py"
@@ -67,6 +67,32 @@ def is_within(path: Path, parent: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def coordinate_component_is_link(path: Path) -> bool:
+    try:
+        if path.is_symlink():
+            return True
+        junction_probe = getattr(path, "is_junction", None)
+        return bool(callable(junction_probe) and junction_probe())
+    except OSError as exc:
+        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate component could not be inspected: {path}: {exc}")
+
+
+def validate_cartridge_coordinate(path: Path) -> Path:
+    supplied = path.expanduser()
+    absolute = Path(os.path.abspath(os.fspath(supplied)))
+    parts = absolute.parts
+    if not parts:
+        fail("CARTRIDGE_ROOT_INVALID", "cartridge coordinate is empty")
+    current = Path(parts[0])
+    if coordinate_component_is_link(current):
+        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+    for part in parts[1:]:
+        current = current / part
+        if coordinate_component_is_link(current):
+            fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+    return supplied
 
 
 def validate_output_root(out: Path) -> Path:
@@ -167,11 +193,12 @@ def build_cartridge(profile_path: Path, out: Path) -> dict[str, Any]:
 
 
 def run_bootstrap(root: Path, out: Path | None = None) -> dict[str, Any]:
+    supplied_root = validate_cartridge_coordinate(root)
     bootstrap = source_file(BOOTSTRAP_FILENAME)
-    command = [sys.executable, str(bootstrap), str(root)]
+    command = [sys.executable, str(bootstrap), str(supplied_root)]
     if out is not None:
         command.extend(["--out", str(out)])
-    completed = subprocess.run(command, cwd=str(root.parent), check=False, capture_output=True)
+    completed = subprocess.run(command, cwd=str(supplied_root.parent), check=False, capture_output=True)
     if out is not None and completed.returncode == 0:
         try:
             return json.loads(out.read_text(encoding="utf-8"))
@@ -188,9 +215,7 @@ def run_bootstrap(root: Path, out: Path | None = None) -> dict[str, Any]:
 
 
 def public_projection(root: Path) -> dict[str, Any]:
-    supplied_root = root.expanduser()
-    if supplied_root.is_symlink():
-        fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
+    supplied_root = validate_cartridge_coordinate(root)
     supplied_root.resolve(strict=True)
     verdict = run_bootstrap(supplied_root)
     if verdict.get("status") != "PASS" or verdict.get("bootstrapAuthenticated") is not True:
@@ -257,9 +282,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.out is None:
                 emit(verdict)
         elif args.command == "public-projection":
-            supplied_root = args.cartridge.expanduser()
-            if supplied_root.is_symlink():
-                fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
+            supplied_root = validate_cartridge_coordinate(args.cartridge)
             root = supplied_root.resolve(strict=True)
             validate_projection_output(root, args.out)
             emit(public_projection(supplied_root), args.out)

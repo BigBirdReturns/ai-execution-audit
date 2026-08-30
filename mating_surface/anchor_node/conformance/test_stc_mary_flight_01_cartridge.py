@@ -311,6 +311,62 @@ class CartridgeTest(unittest.TestCase):
             verifier.verify_cartridge(symlink_root)
         self.assertEqual(library_verification.exception.code, "CARTRIDGE_ROOT_INVALID")
 
+        ancestor_link = self.parent / "cartridge-parent-symlink"
+        ancestor_link.symlink_to(self.root.parent, target_is_directory=True)
+        nested_symlink_root = ancestor_link / self.root.name
+
+        nested_bootstrap_out = self.parent / "nested-symlink-bootstrap-verdict.json"
+        code, nested_bootstrap = run_bootstrap(nested_symlink_root, nested_bootstrap_out)
+        self.assertNotEqual(code, 0)
+        self.assertEqual(nested_bootstrap["code"], "CARTRIDGE_ROOT_INVALID")
+        self.assertFalse(nested_bootstrap_out.exists())
+
+        nested_direct_out = self.parent / "nested-symlink-direct-verdict.json"
+        nested_direct = subprocess.run(
+            [sys.executable, str(EMBEDDED_VERIFIER_SOURCE), str(nested_symlink_root), "--out", str(nested_direct_out)],
+            check=False,
+            capture_output=True,
+        )
+        nested_direct_verdict = json.loads(nested_direct.stdout.decode("utf-8"))
+        self.assertNotEqual(nested_direct.returncode, 0)
+        self.assertEqual(nested_direct_verdict["code"], "CARTRIDGE_ROOT_INVALID")
+        self.assertFalse(nested_direct_out.exists())
+
+        nested_tool_verify_out = self.parent / "nested-symlink-tool-verdict.json"
+        nested_tool_verify = subprocess.run(
+            [sys.executable, str(MAIN_TOOL), "verify", str(nested_symlink_root), "--out", str(nested_tool_verify_out)],
+            check=False,
+            capture_output=True,
+        )
+        nested_tool_verify_verdict = json.loads(nested_tool_verify.stdout.decode("utf-8"))
+        self.assertNotEqual(nested_tool_verify.returncode, 0)
+        self.assertEqual(nested_tool_verify_verdict["code"], "CARTRIDGE_ROOT_INVALID")
+        self.assertFalse(nested_tool_verify_out.exists())
+
+        nested_projection_out = self.parent / "nested-symlink-projection.json"
+        nested_projected = subprocess.run(
+            [sys.executable, str(MAIN_TOOL), "public-projection", str(nested_symlink_root), "--out", str(nested_projection_out)],
+            check=False,
+            capture_output=True,
+        )
+        nested_projected_verdict = json.loads(nested_projected.stdout.decode("utf-8"))
+        self.assertNotEqual(nested_projected.returncode, 0)
+        self.assertEqual(nested_projected_verdict["code"], "CARTRIDGE_ROOT_INVALID")
+        self.assertFalse(nested_projection_out.exists())
+
+        nested_library_bootstrap_out = self.parent / "nested-symlink-library-bootstrap.json"
+        with self.assertRaises(tool.BuildError) as nested_library_bootstrap:
+            tool.run_bootstrap(nested_symlink_root, nested_library_bootstrap_out)
+        self.assertEqual(nested_library_bootstrap.exception.code, "CARTRIDGE_ROOT_INVALID")
+        self.assertFalse(nested_library_bootstrap_out.exists())
+
+        with self.assertRaises(tool.BuildError) as nested_library_projection:
+            tool.public_projection(nested_symlink_root)
+        self.assertEqual(nested_library_projection.exception.code, "CARTRIDGE_ROOT_INVALID")
+        with self.assertRaises(verifier.CartridgeError) as nested_library_verification:
+            verifier.verify_cartridge(nested_symlink_root)
+        self.assertEqual(nested_library_verification.exception.code, "CARTRIDGE_ROOT_INVALID")
+
     def test_21_existing_output_refused(self) -> None:
         out = self.parent / "verdict.json"
         out.write_text("existing\n", encoding="utf-8")
