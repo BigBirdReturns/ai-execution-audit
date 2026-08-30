@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-EXPECTED_EMBEDDED_VERIFIER_SHA256 = "af3969dfe068266d692341f1580773c5d049a7e9cb4026afcbe21ccd41418a75"
-EXPECTED_EMBEDDED_VERIFIER_BYTES = 26107
+EXPECTED_EMBEDDED_VERIFIER_SHA256 = "36a97c016b8fd44b2a355a02eb7735aeee262643f737b87d980eb1e08e7e5c61"
+EXPECTED_EMBEDDED_VERIFIER_BYTES = 27837
 AUTHORITY = "none"
 ISOLATED_VERIFIER_LAUNCHER = """import sys
 source = sys.stdin.buffer.read()
@@ -65,32 +65,63 @@ def is_within(path: Path, parent: Path) -> bool:
         return False
 
 
-def coordinate_component_is_link(path: Path) -> bool:
+def coordinate_component_is_link(path: Path, *, code: str, label: str) -> bool:
     require_supported_python()
     try:
         return path.is_symlink() or path.is_junction()
     except OSError as exc:
-        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate component could not be inspected: {path}: {exc}")
+        fail(code, f"{label} component could not be inspected: {path}: {exc}")
 
 
-def validate_cartridge_coordinate(path: Path) -> Path:
+def validate_lexical_coordinate(
+    path: Path,
+    *,
+    label: str,
+    expansion_code: str,
+    invalid_code: str,
+) -> Path:
     require_supported_python()
+    if any(part == os.pardir for part in path.parts):
+        fail(invalid_code, f"{label} may not contain a parent-directory segment")
     try:
         supplied = path.expanduser()
     except RuntimeError as exc:
-        fail("CARTRIDGE_PATH_EXPANSION_FAILED", f"cartridge coordinate user expansion failed: {exc}")
-    absolute = Path(os.path.abspath(os.fspath(supplied)))
+        fail(expansion_code, f"{label} user expansion failed: {exc}")
+    if any(part == os.pardir for part in supplied.parts):
+        fail(invalid_code, f"{label} may not contain a parent-directory segment")
+    try:
+        absolute = Path(os.path.abspath(os.fspath(supplied)))
+    except (OSError, ValueError) as exc:
+        fail(invalid_code, f"{label} could not be made absolute: {exc}")
     parts = absolute.parts
     if not parts:
-        fail("CARTRIDGE_ROOT_INVALID", "cartridge coordinate is empty")
+        fail(invalid_code, f"{label} is empty")
     current = Path(parts[0])
-    if coordinate_component_is_link(current):
-        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+    if coordinate_component_is_link(current, code=invalid_code, label=label):
+        fail(invalid_code, f"{label} contains a symlink or junction component: {current}")
     for part in parts[1:]:
         current = current / part
-        if coordinate_component_is_link(current):
-            fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+        if coordinate_component_is_link(current, code=invalid_code, label=label):
+            fail(invalid_code, f"{label} contains a symlink or junction component: {current}")
     return absolute
+
+
+def validate_cartridge_coordinate(path: Path) -> Path:
+    return validate_lexical_coordinate(
+        path,
+        label="cartridge coordinate",
+        expansion_code="CARTRIDGE_PATH_EXPANSION_FAILED",
+        invalid_code="CARTRIDGE_ROOT_INVALID",
+    )
+
+
+def validate_output_coordinate(path: Path) -> Path:
+    return validate_lexical_coordinate(
+        path,
+        label="verdict output coordinate",
+        expansion_code="VERDICT_PATH_EXPANSION_FAILED",
+        invalid_code="VERDICT_PATH_INVALID",
+    )
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -106,15 +137,19 @@ def main(argv: list[str] | None = None) -> int:
         supplied_root = validate_cartridge_coordinate(args.cartridge)
         root = supplied_root.resolve(strict=True)
         if not root.is_dir():
-            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
-        if args.out is not None:
-            if is_within(args.out.resolve(strict=False), root):
+            fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-linked directory")
+        output = None if args.out is None else validate_output_coordinate(args.out)
+        if output is not None:
+            if is_within(output.resolve(strict=False), root):
                 fail("VERDICT_INSIDE_CARTRIDGE", "bootstrap verdict may not be written inside the measured cartridge")
-            if args.out.exists():
+            if output.exists():
                 fail("VERDICT_OUTPUT_EXISTS", "bootstrap verdict output must not already exist")
-        verifier = root / "RECOVERY" / "verify_cartridge.py"
-        if not verifier.is_file() or verifier.is_symlink():
-            fail("EMBEDDED_VERIFIER_MISSING", "embedded verifier is missing or not regular")
+        recovery = root / "RECOVERY"
+        if coordinate_component_is_link(recovery, code="EMBEDDED_VERIFIER_MISSING", label="embedded verifier parent") or not recovery.is_dir():
+            fail("EMBEDDED_VERIFIER_MISSING", "embedded verifier parent is missing, linked, or not regular")
+        verifier = recovery / "verify_cartridge.py"
+        if coordinate_component_is_link(verifier, code="EMBEDDED_VERIFIER_MISSING", label="embedded verifier") or not verifier.is_file():
+            fail("EMBEDDED_VERIFIER_MISSING", "embedded verifier is missing, linked, or not regular")
         verifier_size = verifier.stat().st_size
         if verifier_size != EXPECTED_EMBEDDED_VERIFIER_BYTES:
             fail(
@@ -166,11 +201,11 @@ def main(argv: list[str] | None = None) -> int:
         verdict["embeddedVerifierSha256"] = observed
         verdict["bootstrapVerifier"] = "external-measured-bytes-isolated-before-execution"
         data = canonical_json_bytes(verdict)
-        if args.out is None:
+        if output is None:
             sys.stdout.buffer.write(data)
         else:
-            args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_bytes(data)
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(data)
         return 0
     except BootstrapError as exc:
         refusal = {

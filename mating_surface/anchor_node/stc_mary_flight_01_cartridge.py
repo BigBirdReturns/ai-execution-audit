@@ -29,7 +29,7 @@ from verify_stc_mary_flight_01_cartridge import (
     verify_cartridge,
 )
 
-EXPECTED_VERIFIER_SHA256 = "af3969dfe068266d692341f1580773c5d049a7e9cb4026afcbe21ccd41418a75"
+EXPECTED_VERIFIER_SHA256 = "36a97c016b8fd44b2a355a02eb7735aeee262643f737b87d980eb1e08e7e5c61"
 PROFILE_FILENAME = "stc-mary-flight-01-cartridge-profile-01.json"
 VERIFIER_FILENAME = "verify_stc_mary_flight_01_cartridge.py"
 BOOTSTRAP_FILENAME = "verify_stc_mary_flight_01_cartridge_bootstrap.py"
@@ -80,43 +80,75 @@ def is_within(path: Path, parent: Path) -> bool:
         return False
 
 
-def coordinate_component_is_link(path: Path) -> bool:
+def coordinate_component_is_link(path: Path, *, code: str, label: str) -> bool:
     require_supported_python()
     try:
         return path.is_symlink() or path.is_junction()
     except OSError as exc:
-        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate component could not be inspected: {path}: {exc}")
+        fail(code, f"{label} component could not be inspected: {path}: {exc}")
 
 
-def validate_cartridge_coordinate(path: Path) -> Path:
+def validate_lexical_coordinate(
+    path: Path,
+    *,
+    label: str,
+    expansion_code: str,
+    invalid_code: str,
+) -> Path:
     require_supported_python()
+    if any(part == os.pardir for part in path.parts):
+        fail(invalid_code, f"{label} may not contain a parent-directory segment")
     try:
         supplied = path.expanduser()
     except RuntimeError as exc:
-        fail("CARTRIDGE_PATH_EXPANSION_FAILED", f"cartridge coordinate user expansion failed: {exc}")
-    absolute = Path(os.path.abspath(os.fspath(supplied)))
+        fail(expansion_code, f"{label} user expansion failed: {exc}")
+    if any(part == os.pardir for part in supplied.parts):
+        fail(invalid_code, f"{label} may not contain a parent-directory segment")
+    try:
+        absolute = Path(os.path.abspath(os.fspath(supplied)))
+    except (OSError, ValueError) as exc:
+        fail(invalid_code, f"{label} could not be made absolute: {exc}")
     parts = absolute.parts
     if not parts:
-        fail("CARTRIDGE_ROOT_INVALID", "cartridge coordinate is empty")
+        fail(invalid_code, f"{label} is empty")
     current = Path(parts[0])
-    if coordinate_component_is_link(current):
-        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+    if coordinate_component_is_link(current, code=invalid_code, label=label):
+        fail(invalid_code, f"{label} contains a symlink or junction component: {current}")
     for part in parts[1:]:
         current = current / part
-        if coordinate_component_is_link(current):
-            fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+        if coordinate_component_is_link(current, code=invalid_code, label=label):
+            fail(invalid_code, f"{label} contains a symlink or junction component: {current}")
     return absolute
 
 
+def validate_cartridge_coordinate(path: Path) -> Path:
+    return validate_lexical_coordinate(
+        path,
+        label="cartridge coordinate",
+        expansion_code="CARTRIDGE_PATH_EXPANSION_FAILED",
+        invalid_code="CARTRIDGE_ROOT_INVALID",
+    )
+
+
+def validate_output_coordinate(path: Path, *, label: str = "output coordinate") -> Path:
+    return validate_lexical_coordinate(
+        path,
+        label=label,
+        expansion_code="OUTPUT_PATH_EXPANSION_FAILED",
+        invalid_code="OUTPUT_PATH_INVALID",
+    )
+
+
 def validate_output_root(out: Path) -> Path:
-    resolved = out.resolve(strict=False)
-    if out.exists():
+    absolute = validate_output_coordinate(out, label="cartridge build output coordinate")
+    resolved = absolute.resolve(strict=False)
+    if absolute.exists():
         fail("OUTPUT_EXISTS", "cartridge output must not already exist")
-    if not out.parent.exists() or not out.parent.is_dir() or out.parent.is_symlink():
+    if not absolute.parent.exists() or not absolute.parent.is_dir():
         fail("OUTPUT_PARENT_INVALID", "cartridge output parent must be an existing regular directory")
     if resolved == Path(resolved.anchor) or resolved == Path.home().resolve() or resolved == Path.cwd().resolve():
         fail("OUTPUT_ROOT_UNSAFE", "cartridge output may not be a filesystem root, home, or current directory")
-    if has_git_ancestor(out.parent):
+    if has_git_ancestor(resolved.parent):
         fail("REPOSITORY_LOCAL_OUTPUT_REFUSED", "cartridge output must remain outside every Git repository")
     return resolved
 
@@ -128,7 +160,7 @@ def validate_projection_output(root: Path, out: Path | None) -> None:
 
 def source_file(name: str) -> Path:
     path = Path(__file__).resolve().parent / name
-    if not path.is_file() or path.is_symlink():
+    if coordinate_component_is_link(path, code="SOURCE_MEMBER_MISSING", label="source member") or not path.is_file():
         fail("SOURCE_MEMBER_MISSING", name)
     return path
 
@@ -207,7 +239,7 @@ def build_cartridge(profile_path: Path, out: Path) -> dict[str, Any]:
 
 def run_bootstrap(root: Path, out: Path | None = None) -> dict[str, Any]:
     absolute_root = validate_cartridge_coordinate(root)
-    absolute_out = None if out is None else Path(os.path.abspath(os.fspath(out.expanduser())))
+    absolute_out = None if out is None else validate_output_coordinate(out, label="bootstrap verdict output coordinate")
     bootstrap = source_file(BOOTSTRAP_FILENAME)
     command = [sys.executable, str(bootstrap), str(absolute_root)]
     if absolute_out is not None:
@@ -298,8 +330,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "public-projection":
             supplied_root = validate_cartridge_coordinate(args.cartridge)
             root = supplied_root.resolve(strict=True)
-            validate_projection_output(root, args.out)
-            emit(public_projection(supplied_root), args.out)
+            output = None if args.out is None else validate_output_coordinate(args.out, label="public projection output coordinate")
+            validate_projection_output(root, output)
+            emit(public_projection(supplied_root), output)
         else:
             fail("COMMAND_INVALID", args.command)
         return 0

@@ -124,6 +124,12 @@ PREPARED_NOT_ARMED
 
 The public status always reports that the private coordinate is unbound, the private preflight is uncompiled, human review is incomplete, authorization is absent, the workstation is uninitialized, physical execution has not started, packet progress is `0 / 16`, evidence-body counts are zero, and authority is `none`.
 
+## Coordinate and member custody
+
+All cartridge verification, projection, verdict-output, and build-output coordinates require standard-library Python 3.12 or newer. Each entrypoint rejects a parent-directory segment before normalization and inspects every lexical absolute component before resolution. A symlink or Windows junction in the final component or any existing ancestor terminates structured refusal. Build, verdict, and projection outputs therefore cannot be redirected through a linked ancestor.
+
+The verifier walks the cartridge tree without following links. A symlink or junction at the root, in any expected directory, or at any member path is refused before classification or reading. Every authoritative member, including `MANIFEST.json`, is limited to 1 MiB and read through a bounded `maximum + 1` operation after a size precondition. The embedded verifier retains its stricter exact-size, exact-digest, measured-byte, and stored-member binding.
+
 ## Build and verification
 
 From the admitted source checkout:

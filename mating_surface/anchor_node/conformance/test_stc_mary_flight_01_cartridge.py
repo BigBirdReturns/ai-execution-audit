@@ -80,6 +80,28 @@ def run_bootstrap(
     return completed.returncode, json.loads(payload.decode("utf-8"))
 
 
+def make_directory_link(link: Path, target: Path) -> None:
+    if os.name == "nt":
+        completed = subprocess.run(
+            ["cmd.exe", "/d", "/c", f'mklink /J "{link}" "{target}"'],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            raise OSError(f"junction creation failed: {completed.stdout} {completed.stderr}")
+    else:
+        link.symlink_to(target, target_is_directory=True)
+
+
+def remove_directory_link(link: Path) -> None:
+    if os.name == "nt":
+        if link.exists():
+            link.rmdir()
+    elif link.is_symlink():
+        link.unlink()
+
+
 class CartridgeTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="stc-mary-cartridge-test-")
@@ -451,12 +473,114 @@ class CartridgeTest(unittest.TestCase):
                 bootstrap.validate_cartridge_coordinate(self.root)
             self.assertEqual(bootstrap_version.exception.code, "PYTHON_VERSION_UNSUPPORTED")
 
+        dotdot_safe = self.parent / "dotdot-safe"
+        dotdot_safe.mkdir()
+        normalized_cartridge = dotdot_safe / "cartridge"
+        shutil.copytree(self.root, normalized_cartridge)
+        dotdot_target = self.parent / "dotdot-target"
+        dotdot_target.mkdir()
+        dotdot_link = dotdot_safe / "link"
+        make_directory_link(dotdot_link, dotdot_target)
+        dotdot_coordinate = dotdot_link / ".." / "cartridge"
+        self.assertIn("..", dotdot_coordinate.parts)
+        try:
+            code, dotdot_bootstrap = run_bootstrap(dotdot_coordinate, cwd=self.parent)
+            self.assertNotEqual(code, 0)
+            self.assertEqual(dotdot_bootstrap["code"], "CARTRIDGE_ROOT_INVALID")
+
+            dotdot_direct = subprocess.run(
+                [sys.executable, str(EMBEDDED_VERIFIER_SOURCE), str(dotdot_coordinate)],
+                cwd=str(self.parent),
+                check=False,
+                capture_output=True,
+            )
+            self.assertNotEqual(dotdot_direct.returncode, 0)
+            self.assertEqual(json.loads(dotdot_direct.stdout.decode("utf-8"))["code"], "CARTRIDGE_ROOT_INVALID")
+
+            dotdot_tool = subprocess.run(
+                [sys.executable, str(MAIN_TOOL), "verify", str(dotdot_coordinate)],
+                cwd=str(self.parent),
+                check=False,
+                capture_output=True,
+            )
+            self.assertNotEqual(dotdot_tool.returncode, 0)
+            self.assertEqual(json.loads(dotdot_tool.stdout.decode("utf-8"))["code"], "CARTRIDGE_ROOT_INVALID")
+
+            with self.assertRaises(tool.BuildError) as dotdot_tool_library:
+                tool.validate_cartridge_coordinate(dotdot_coordinate)
+            self.assertEqual(dotdot_tool_library.exception.code, "CARTRIDGE_ROOT_INVALID")
+            with self.assertRaises(verifier.CartridgeError) as dotdot_verifier_library:
+                verifier.validate_cartridge_coordinate(dotdot_coordinate)
+            self.assertEqual(dotdot_verifier_library.exception.code, "CARTRIDGE_ROOT_INVALID")
+            with self.assertRaises(bootstrap.BootstrapError) as dotdot_bootstrap_library:
+                bootstrap.validate_cartridge_coordinate(dotdot_coordinate)
+            self.assertEqual(dotdot_bootstrap_library.exception.code, "CARTRIDGE_ROOT_INVALID")
+        finally:
+            remove_directory_link(dotdot_link)
+
+        linked_member_root = self.parent / "cartridge-linked-public"
+        tool.build_cartridge(PROFILE, linked_member_root)
+        external_public = self.parent / "external-public"
+        (linked_member_root / "PUBLIC").rename(external_public)
+        linked_public = linked_member_root / "PUBLIC"
+        make_directory_link(linked_public, external_public)
+        try:
+            code, linked_member_verdict = run_bootstrap(linked_member_root)
+            self.assertNotEqual(code, 0)
+            self.assertEqual(linked_member_verdict["code"], "SYMLINK_MEMBER_REFUSED")
+
+            linked_member_direct = subprocess.run(
+                [sys.executable, str(EMBEDDED_VERIFIER_SOURCE), str(linked_member_root)],
+                check=False,
+                capture_output=True,
+            )
+            self.assertNotEqual(linked_member_direct.returncode, 0)
+            self.assertEqual(
+                json.loads(linked_member_direct.stdout.decode("utf-8"))["code"],
+                "SYMLINK_MEMBER_REFUSED",
+            )
+        finally:
+            remove_directory_link(linked_public)
+
     def test_21_existing_output_refused(self) -> None:
         out = self.parent / "verdict.json"
         out.write_text("existing\n", encoding="utf-8")
         code, verdict = run_bootstrap(self.root, out)
         self.assertNotEqual(code, 0)
         self.assertEqual(verdict["code"], "VERDICT_OUTPUT_EXISTS")
+
+        physical_output_parent = self.parent / "physical-verdict-parent"
+        (physical_output_parent / "nested").mkdir(parents=True)
+        linked_output_parent = self.parent / "linked-verdict-parent"
+        make_directory_link(linked_output_parent, physical_output_parent)
+        try:
+            linked_verdict = linked_output_parent / "nested" / "verdict.json"
+            code, linked_output_verdict = run_bootstrap(self.root, linked_verdict)
+            self.assertNotEqual(code, 0)
+            self.assertEqual(linked_output_verdict["code"], "VERDICT_PATH_INVALID")
+            self.assertFalse((physical_output_parent / "nested" / "verdict.json").exists())
+
+            tool_linked_verdict = linked_output_parent / "nested" / "tool-verdict.json"
+            tool_verify = subprocess.run(
+                [sys.executable, str(MAIN_TOOL), "verify", str(self.root), "--out", str(tool_linked_verdict)],
+                check=False,
+                capture_output=True,
+            )
+            self.assertNotEqual(tool_verify.returncode, 0)
+            self.assertEqual(json.loads(tool_verify.stdout.decode("utf-8"))["code"], "OUTPUT_PATH_INVALID")
+            self.assertFalse((physical_output_parent / "nested" / "tool-verdict.json").exists())
+
+            linked_projection = linked_output_parent / "nested" / "projection.json"
+            projected = subprocess.run(
+                [sys.executable, str(MAIN_TOOL), "public-projection", str(self.root), "--out", str(linked_projection)],
+                check=False,
+                capture_output=True,
+            )
+            self.assertNotEqual(projected.returncode, 0)
+            self.assertEqual(json.loads(projected.stdout.decode("utf-8"))["code"], "OUTPUT_PATH_INVALID")
+            self.assertFalse((physical_output_parent / "nested" / "projection.json").exists())
+        finally:
+            remove_directory_link(linked_output_parent)
 
     def test_22_repository_local_build_refused(self) -> None:
         repo = self.parent / "repo"
@@ -465,6 +589,28 @@ class CartridgeTest(unittest.TestCase):
         with self.assertRaises(tool.BuildError) as caught:
             tool.build_cartridge(PROFILE, repo / "product")
         self.assertEqual(caught.exception.code, "REPOSITORY_LOCAL_OUTPUT_REFUSED")
+
+        physical_build_parent = self.parent / "physical-build-parent"
+        (physical_build_parent / "nested").mkdir(parents=True)
+        linked_build_parent = self.parent / "linked-build-parent"
+        make_directory_link(linked_build_parent, physical_build_parent)
+        try:
+            linked_build_output = linked_build_parent / "nested" / "product"
+            with self.assertRaises(tool.BuildError) as linked_build:
+                tool.build_cartridge(PROFILE, linked_build_output)
+            self.assertEqual(linked_build.exception.code, "OUTPUT_PATH_INVALID")
+            self.assertFalse((physical_build_parent / "nested" / "product").exists())
+        finally:
+            remove_directory_link(linked_build_parent)
+
+        dotdot_parent = self.parent / "build-dotdot-safe"
+        dotdot_parent.mkdir()
+        dotdot_output = dotdot_parent / ".." / "build-dotdot-product"
+        self.assertIn("..", dotdot_output.parts)
+        with self.assertRaises(tool.BuildError) as dotdot_build:
+            tool.build_cartridge(PROFILE, dotdot_output)
+        self.assertEqual(dotdot_build.exception.code, "OUTPUT_PATH_INVALID")
+        self.assertFalse((self.parent / "build-dotdot-product").exists())
 
     def test_23_foreign_working_directory_bootstrap(self) -> None:
         foreign = self.parent / "foreign"

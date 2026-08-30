@@ -157,32 +157,63 @@ def is_within(path: Path, parent: Path) -> bool:
         return False
 
 
-def coordinate_component_is_link(path: Path) -> bool:
+def coordinate_component_is_link(path: Path, *, code: str, label: str) -> bool:
     require_supported_python()
     try:
         return path.is_symlink() or path.is_junction()
     except OSError as exc:
-        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate component could not be inspected: {path}: {exc}")
+        fail(code, f"{label} component could not be inspected: {path}: {exc}")
 
 
-def validate_cartridge_coordinate(path: Path) -> Path:
+def validate_lexical_coordinate(
+    path: Path,
+    *,
+    label: str,
+    expansion_code: str,
+    invalid_code: str,
+) -> Path:
     require_supported_python()
+    if any(part == os.pardir for part in path.parts):
+        fail(invalid_code, f"{label} may not contain a parent-directory segment")
     try:
         supplied = path.expanduser()
     except RuntimeError as exc:
-        fail("CARTRIDGE_PATH_EXPANSION_FAILED", f"cartridge coordinate user expansion failed: {exc}")
-    absolute = Path(os.path.abspath(os.fspath(supplied)))
+        fail(expansion_code, f"{label} user expansion failed: {exc}")
+    if any(part == os.pardir for part in supplied.parts):
+        fail(invalid_code, f"{label} may not contain a parent-directory segment")
+    try:
+        absolute = Path(os.path.abspath(os.fspath(supplied)))
+    except (OSError, ValueError) as exc:
+        fail(invalid_code, f"{label} could not be made absolute: {exc}")
     parts = absolute.parts
     if not parts:
-        fail("CARTRIDGE_ROOT_INVALID", "cartridge coordinate is empty")
+        fail(invalid_code, f"{label} is empty")
     current = Path(parts[0])
-    if coordinate_component_is_link(current):
-        fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+    if coordinate_component_is_link(current, code=invalid_code, label=label):
+        fail(invalid_code, f"{label} contains a symlink or junction component: {current}")
     for part in parts[1:]:
         current = current / part
-        if coordinate_component_is_link(current):
-            fail("CARTRIDGE_ROOT_INVALID", f"cartridge coordinate contains a symlink or junction component: {current}")
+        if coordinate_component_is_link(current, code=invalid_code, label=label):
+            fail(invalid_code, f"{label} contains a symlink or junction component: {current}")
     return absolute
+
+
+def validate_cartridge_coordinate(path: Path) -> Path:
+    return validate_lexical_coordinate(
+        path,
+        label="cartridge coordinate",
+        expansion_code="CARTRIDGE_PATH_EXPANSION_FAILED",
+        invalid_code="CARTRIDGE_ROOT_INVALID",
+    )
+
+
+def validate_output_coordinate(path: Path) -> Path:
+    return validate_lexical_coordinate(
+        path,
+        label="verdict output coordinate",
+        expansion_code="VERDICT_PATH_EXPANSION_FAILED",
+        invalid_code="VERDICT_PATH_INVALID",
+    )
 
 
 def validate_output_path(root: Path, out: Path | None) -> None:
@@ -198,23 +229,34 @@ def validate_output_path(root: Path, out: Path | None) -> None:
 
 
 def validate_tree(root: Path) -> None:
-    if not root.is_dir() or root.is_symlink():
-        fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular directory")
+    if coordinate_component_is_link(root, code="CARTRIDGE_ROOT_INVALID", label="cartridge root") or not root.is_dir():
+        fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-linked directory")
     files: set[str] = set()
     directories: set[str] = set()
-    for path in root.rglob("*"):
-        relative = path.relative_to(root).as_posix()
-        pure = PurePosixPath(relative)
-        if pure.is_absolute() or ".." in pure.parts or "\\" in relative:
-            fail("UNSAFE_MEMBER_PATH", relative)
-        if path.is_symlink():
-            fail("SYMLINK_MEMBER_REFUSED", relative)
-        if path.is_dir():
-            directories.add(relative)
-        elif path.is_file():
-            files.add(relative)
-        else:
-            fail("NON_REGULAR_MEMBER_REFUSED", relative)
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        try:
+            entries = tuple(directory.iterdir())
+        except OSError as exc:
+            fail("CARTRIDGE_TREE_READ_FAILED", f"{directory}: {exc}")
+        for path in entries:
+            relative = path.relative_to(root).as_posix()
+            pure = PurePosixPath(relative)
+            if pure.is_absolute() or ".." in pure.parts or "\\" in relative:
+                fail("UNSAFE_MEMBER_PATH", relative)
+            if coordinate_component_is_link(path, code="SYMLINK_MEMBER_REFUSED", label="cartridge member"):
+                fail("SYMLINK_MEMBER_REFUSED", relative)
+            try:
+                if path.is_dir():
+                    directories.add(relative)
+                    pending.append(path)
+                elif path.is_file():
+                    files.add(relative)
+                else:
+                    fail("NON_REGULAR_MEMBER_REFUSED", relative)
+            except OSError as exc:
+                fail("NON_REGULAR_MEMBER_REFUSED", f"{relative}: {exc}")
     expected_files = {"MANIFEST.json", *EXPECTED_FILES}
     if files != expected_files:
         fail("FILE_DENOMINATOR_INVALID", f"missing={sorted(expected_files - files)} unknown={sorted(files - expected_files)}")
@@ -224,7 +266,7 @@ def validate_tree(root: Path) -> None:
 
 def read_member(root: Path, relative: str) -> bytes:
     path = root / PurePosixPath(relative)
-    if not path.is_file() or path.is_symlink():
+    if coordinate_component_is_link(path, code="MEMBER_INVALID", label=f"cartridge member {relative}") or not path.is_file():
         fail("MEMBER_INVALID", relative)
     size = path.stat().st_size
     if size < 0 or size > MAX_MEMBER_BYTES:
@@ -601,15 +643,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         supplied_root = validate_cartridge_coordinate(args.cartridge)
         root = supplied_root.resolve(strict=True)
-        validate_output_path(root, args.out)
+        output = None if args.out is None else validate_output_coordinate(args.out)
+        validate_output_path(root, output)
         measured_verifier_bytes = globals().get("_STC_MARY_BOOTSTRAP_MEASURED_VERIFIER_BYTES")
         verdict = verify_cartridge(supplied_root, measured_verifier_bytes=measured_verifier_bytes)
         data = canonical_json_bytes(verdict)
-        if args.out is None:
+        if output is None:
             sys.stdout.buffer.write(data)
         else:
-            args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_bytes(data)
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(data)
         return 0
     except CartridgeError as exc:
         refusal = {
