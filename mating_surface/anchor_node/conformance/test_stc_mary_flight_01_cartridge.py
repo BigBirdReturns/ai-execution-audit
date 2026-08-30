@@ -83,7 +83,7 @@ def run_bootstrap(
 def make_directory_link(link: Path, target: Path) -> None:
     if os.name == "nt":
         completed = subprocess.run(
-            ["cmd.exe", "/d", "/c", f'mklink /J "{link}" "{target}"'],
+            ["cmd.exe", "/d", "/c", "mklink", "/J", str(link), str(target)],
             check=False,
             capture_output=True,
             text=True,
@@ -355,12 +355,8 @@ class CartridgeTest(unittest.TestCase):
         self.assertEqual(verify_verdict["status"], "PASS")
 
         symlink_root = self.parent / "cartridge-root-symlink"
-        try:
-            symlink_root.symlink_to(self.root, target_is_directory=True)
-        except OSError as exc:
-            if os.name == "nt":
-                self.skipTest(f"Windows runner cannot create directory symlink: {exc}")
-            raise
+        make_directory_link(symlink_root, self.root)
+        self.addCleanup(remove_directory_link, symlink_root)
 
         symlink_verdict_out = self.parent / "symlink-verdict.json"
         code, symlink_verdict = run_bootstrap(symlink_root, symlink_verdict_out)
@@ -396,7 +392,8 @@ class CartridgeTest(unittest.TestCase):
         self.assertEqual(library_verification.exception.code, "CARTRIDGE_ROOT_INVALID")
 
         ancestor_link = self.parent / "cartridge-parent-symlink"
-        ancestor_link.symlink_to(self.root.parent, target_is_directory=True)
+        make_directory_link(ancestor_link, self.root.parent)
+        self.addCleanup(remove_directory_link, ancestor_link)
         nested_symlink_root = ancestor_link / self.root.name
 
         nested_bootstrap_out = self.parent / "nested-symlink-bootstrap-verdict.json"
