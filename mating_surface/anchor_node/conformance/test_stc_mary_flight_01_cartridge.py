@@ -202,7 +202,12 @@ class CartridgeTest(unittest.TestCase):
 
     def test_16_verifier_substitution_refused_before_execution(self) -> None:
         embedded = self.root / "RECOVERY/verify_cartridge.py"
-        embedded.write_text("raise SystemExit('MALICIOUS EXECUTED')\n", encoding="utf-8")
+        malicious_verifier = b"raise SystemExit('MALICIOUS EXECUTED')\n"
+        self.assertLess(len(malicious_verifier), bootstrap.EXPECTED_EMBEDDED_VERIFIER_BYTES)
+        embedded.write_bytes(
+            malicious_verifier
+            + b"#" * (bootstrap.EXPECTED_EMBEDDED_VERIFIER_BYTES - len(malicious_verifier))
+        )
         resign_manifest(self.root)
         code, verdict = run_bootstrap(self.root)
         self.assertNotEqual(code, 0)
@@ -255,6 +260,21 @@ class CartridgeTest(unittest.TestCase):
         raced_verdict = json.loads(raced.stdout.decode("utf-8"))
         self.assertNotEqual(raced.returncode, 0)
         self.assertEqual(raced_verdict["code"], "MEASURED_VERIFIER_MEMBER_MISMATCH")
+
+        oversized = self.parent / "cartridge-oversized-verifier"
+        tool.build_cartridge(PROFILE, oversized)
+        oversized_verifier = oversized / "RECOVERY/verify_cartridge.py"
+        with oversized_verifier.open("wb") as handle:
+            handle.seek(bootstrap.EXPECTED_EMBEDDED_VERIFIER_BYTES)
+            handle.write(b"x")
+        self.assertEqual(
+            oversized_verifier.stat().st_size,
+            bootstrap.EXPECTED_EMBEDDED_VERIFIER_BYTES + 1,
+        )
+        code, oversized_verdict = run_bootstrap(oversized)
+        self.assertNotEqual(code, 0)
+        self.assertEqual(oversized_verdict["code"], "EMBEDDED_VERIFIER_SIZE_INVALID")
+        self.assertFalse(oversized_verdict["embeddedVerifierExecuted"])
 
     def test_17_profile_substitution_refused_after_resign(self) -> None:
         mutate_json_and_resign(self.root, "RECOVERY/profile.json", lambda value: value.__setitem__("claimBoundary", "promoted"))

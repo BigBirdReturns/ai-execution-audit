@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 EXPECTED_EMBEDDED_VERIFIER_SHA256 = "c3ba0d6a051ff4610f4ed5c95032a5d4e0d8c8257d9f50830483a1e6f1469d9b"
+EXPECTED_EMBEDDED_VERIFIER_BYTES = 25059
 AUTHORITY = "none"
 ISOLATED_VERIFIER_LAUNCHER = """import sys
 source = sys.stdin.buffer.read()
@@ -101,7 +102,22 @@ def main(argv: list[str] | None = None) -> int:
         verifier = root / "RECOVERY" / "verify_cartridge.py"
         if not verifier.is_file() or verifier.is_symlink():
             fail("EMBEDDED_VERIFIER_MISSING", "embedded verifier is missing or not regular")
-        verifier_bytes = verifier.read_bytes()
+        verifier_size = verifier.stat().st_size
+        if verifier_size != EXPECTED_EMBEDDED_VERIFIER_BYTES:
+            fail(
+                "EMBEDDED_VERIFIER_SIZE_INVALID",
+                f"embedded verifier size differs: expected={EXPECTED_EMBEDDED_VERIFIER_BYTES} observed={verifier_size}",
+            )
+        try:
+            with verifier.open("rb") as handle:
+                verifier_bytes = handle.read(EXPECTED_EMBEDDED_VERIFIER_BYTES + 1)
+        except MemoryError:
+            fail("EMBEDDED_VERIFIER_SIZE_INVALID", "embedded verifier exceeded the bounded read allocation")
+        if len(verifier_bytes) != EXPECTED_EMBEDDED_VERIFIER_BYTES:
+            fail(
+                "EMBEDDED_VERIFIER_SIZE_INVALID",
+                f"embedded verifier changed during bounded read: expected={EXPECTED_EMBEDDED_VERIFIER_BYTES} observed={len(verifier_bytes)}",
+            )
         observed = sha256_bytes(verifier_bytes)
         if observed != EXPECTED_EMBEDDED_VERIFIER_SHA256:
             fail("EMBEDDED_VERIFIER_UNTRUSTED", "embedded verifier digest differs; untrusted code was not executed")
@@ -149,7 +165,9 @@ def main(argv: list[str] | None = None) -> int:
             "status": "REFUSED",
             "code": exc.code,
             "message": str(exc),
-            "embeddedVerifierExecuted": False if exc.code == "EMBEDDED_VERIFIER_UNTRUSTED" else None,
+            "embeddedVerifierExecuted": False
+            if exc.code in {"EMBEDDED_VERIFIER_UNTRUSTED", "EMBEDDED_VERIFIER_SIZE_INVALID"}
+            else None,
             "authority": AUTHORITY,
         }
         sys.stdout.buffer.write(canonical_json_bytes(refusal))
