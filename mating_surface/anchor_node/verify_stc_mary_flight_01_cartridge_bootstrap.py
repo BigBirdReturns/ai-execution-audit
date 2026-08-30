@@ -10,6 +10,18 @@ from typing import Any
 
 EXPECTED_EMBEDDED_VERIFIER_SHA256 = "41fbcad8073c3c5e203e100d8f1841272c507519e83e2a5eef473c2a1782d9fb"
 AUTHORITY = "none"
+ISOLATED_VERIFIER_LAUNCHER = """import sys
+source = sys.stdin.buffer.read()
+namespace = {
+    "__name__": "__main__",
+    "__file__": "<measured-stc-mary-flight-01-cartridge-verifier>",
+}
+exec(
+    compile(source, "<measured-stc-mary-flight-01-cartridge-verifier>", "exec"),
+    namespace,
+    namespace,
+)
+"""
 
 
 class BootstrapError(RuntimeError):
@@ -65,8 +77,16 @@ def main(argv: list[str] | None = None) -> int:
         if observed != EXPECTED_EMBEDDED_VERIFIER_SHA256:
             fail("EMBEDDED_VERIFIER_UNTRUSTED", "embedded verifier digest differs; untrusted code was not executed")
         completed = subprocess.run(
-            [sys.executable, str(verifier), str(root)],
+            [
+                sys.executable,
+                "-I",
+                "-S",
+                "-c",
+                ISOLATED_VERIFIER_LAUNCHER,
+                str(root),
+            ],
             cwd=str(root.parent),
+            input=verifier_bytes,
             check=False,
             capture_output=True,
         )
@@ -81,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
             fail("EMBEDDED_VERDICT_BOOTSTRAP_STATE_INVALID", "embedded verifier may not self-assert bootstrap authentication")
         verdict["bootstrapAuthenticated"] = True
         verdict["embeddedVerifierSha256"] = observed
-        verdict["bootstrapVerifier"] = "external-measured-before-execution"
+        verdict["bootstrapVerifier"] = "external-measured-bytes-isolated-before-execution"
         data = canonical_json_bytes(verdict)
         if args.out is None:
             sys.stdout.buffer.write(data)
