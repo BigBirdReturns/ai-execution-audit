@@ -1,0 +1,82 @@
+{
+  "schema": "stc-mary/flight-01-public-admission-status/1",
+  "generatedAt": "2026-08-30T08:01:52.319Z",
+  "repository": "BigBirdReturns/ai-execution-audit",
+  "production": {
+    "commit": "8ccdc834e894c588f95878ada813247d84f2e146",
+    "tree": "ca71a47fd99b750240bfa83d96170fc999c6c3fe"
+  },
+  "cartridge": {
+    "pullRequest": 73,
+    "candidateHead": "2308bf41cec6e4ebf35dc9260558ad8e83b506e5",
+    "mergeCommit": "8b72a20fdab38c1a5dbc0c9e2d28adbd66076b40",
+    "mergedAt": "2026-08-30T07:54:33Z",
+    "headBranch": "work/stc-mary-flight-01-cartridge-02"
+  },
+  "postflightJoin": {
+    "pullRequest": 74,
+    "candidateHead": "5cf029afc863911d3a950f3bf205ff1da7775538",
+    "mergeCommit": "8ccdc834e894c588f95878ada813247d84f2e146",
+    "mergedAt": "2026-08-30T08:01:37Z",
+    "headBranch": "work/axm-head-postflight-join-final-conductor-01"
+  },
+  "issues": {
+    "37": {
+      "state": "open",
+      "state_reason": null,
+      "title": "Execute STC MARY private physical flight 01 through the admitted stream-separated conductor",
+      "updated_at": "2026-08-30T06:41:56Z"
+    },
+    "49": {
+      "state": "open",
+      "state_reason": null,
+      "title": "Admit the final AXM HEAD postflight join after Flight 01 source stabilization",
+      "updated_at": "2026-08-30T05:16:37Z"
+    },
+    "57": {
+      "state": "closed",
+      "state_reason": "not_planned",
+      "title": "Superseded: formal public STC Mission Cartridge 01 bundle",
+      "updated_at": "2026-08-30T05:15:54Z"
+    },
+    "69": {
+      "state": "closed",
+      "state_reason": "completed",
+      "title": "Completed: eliminate stale Flight 01 public source bindings",
+      "updated_at": "2026-08-30T05:16:54Z"
+    }
+  },
+  "remainingHeadBranches": {
+    "work/stc-mary-flight-01-cartridge-02": "e05e2dae4b8a38a1c95db3357a125e9894fcbc7a",
+    "work/axm-head-postflight-join-final-conductor-01": "5cf029afc863911d3a950f3bf205ff1da7775538"
+  },
+  "gates": {
+    "sourceReadiness": "PASS",
+    "finalPublicationSource": "PASS",
+    "privatePhysicalCampaign": "HOLD"
+  },
+  "physicalLedger": {
+    "fourthSuccessorInitialized": false,
+    "readinessClosed": false,
+    "feedPresent": false,
+    "baselinePresent": false,
+    "packetStagesRecorded": 0,
+    "packetStageDenominator": 16,
+    "physicalExecutionCompleted": false,
+    "privateSelfAttested": false
+  },
+  "nextPrivateTransaction": [
+    "validate-profile",
+    "init",
+    "status",
+    "render",
+    "verify",
+    "operator-flight.ps1 readiness",
+    "status",
+    "render",
+    "public-projection",
+    "verify",
+    "STOP BEFORE feed"
+  ],
+  "authority": "none"
+}
