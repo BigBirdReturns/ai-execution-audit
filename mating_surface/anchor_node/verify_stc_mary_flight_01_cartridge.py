@@ -439,12 +439,22 @@ def expected_objects(profile: dict[str, Any]) -> tuple[dict[str, Any], dict[str,
     return source, work, mission, status
 
 
-def verify_cartridge(root: Path) -> dict[str, Any]:
+def verify_cartridge(root: Path, measured_verifier_bytes: bytes | None = None) -> dict[str, Any]:
     supplied_root = validate_cartridge_coordinate(root)
     root = supplied_root.resolve(strict=True)
     validate_tree(root)
 
     member_bytes = {relative: read_member(root, relative) for relative in EXPECTED_FILES}
+    measured_verifier_sha256: str | None = None
+    if measured_verifier_bytes is not None:
+        if type(measured_verifier_bytes) is not bytes:
+            fail("MEASURED_VERIFIER_BYTES_INVALID", "bootstrap measured verifier bytes must be one immutable byte string")
+        measured_verifier_sha256 = sha256_bytes(measured_verifier_bytes)
+        if member_bytes["RECOVERY/verify_cartridge.py"] != measured_verifier_bytes:
+            fail(
+                "MEASURED_VERIFIER_MEMBER_MISMATCH",
+                "stored verifier member differs from the verifier bytes measured and executed by the bootstrap",
+            )
     profile = validate_profile(parse_json_bytes(member_bytes["RECOVERY/profile.json"], "RECOVERY/profile.json"))
     source, work, mission, status = expected_objects(profile)
 
@@ -526,6 +536,8 @@ def verify_cartridge(root: Path) -> dict[str, Any]:
         "private-public-field-refusal",
         "authority-none",
     ]
+    if measured_verifier_sha256 is not None:
+        checks.append("measured-verifier-member-binding")
     return {
         "schema": "stc-mary/flight-01-cartridge-verdict/1",
         "status": "PASS",
@@ -537,6 +549,7 @@ def verify_cartridge(root: Path) -> dict[str, Any]:
         "sourceBindingId": source["sourceBindingId"],
         "publicStatus": status,
         "checks": checks,
+        "measuredVerifierSha256": measured_verifier_sha256,
         "bootstrapAuthenticated": False,
         "physicalExecutionStarted": False,
         "workstationInitialized": False,
@@ -560,7 +573,8 @@ def main(argv: list[str] | None = None) -> int:
         supplied_root = validate_cartridge_coordinate(args.cartridge)
         root = supplied_root.resolve(strict=True)
         validate_output_path(root, args.out)
-        verdict = verify_cartridge(supplied_root)
+        measured_verifier_bytes = globals().get("_STC_MARY_BOOTSTRAP_MEASURED_VERIFIER_BYTES")
+        verdict = verify_cartridge(supplied_root, measured_verifier_bytes=measured_verifier_bytes)
         data = canonical_json_bytes(verdict)
         if args.out is None:
             sys.stdout.buffer.write(data)

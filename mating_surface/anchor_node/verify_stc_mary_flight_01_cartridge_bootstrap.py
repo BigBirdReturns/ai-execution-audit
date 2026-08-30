@@ -9,13 +9,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-EXPECTED_EMBEDDED_VERIFIER_SHA256 = "35208fc39b454bc3b2d621c847f163a583dff14ded29a95223ac6bfd64f709cd"
+EXPECTED_EMBEDDED_VERIFIER_SHA256 = "c3ba0d6a051ff4610f4ed5c95032a5d4e0d8c8257d9f50830483a1e6f1469d9b"
 AUTHORITY = "none"
 ISOLATED_VERIFIER_LAUNCHER = """import sys
 source = sys.stdin.buffer.read()
 namespace = {
     "__name__": "__main__",
     "__file__": "<measured-stc-mary-flight-01-cartridge-verifier>",
+    "_STC_MARY_BOOTSTRAP_MEASURED_VERIFIER_BYTES": source,
 }
 exec(
     compile(source, "<measured-stc-mary-flight-01-cartridge-verifier>", "exec"),
@@ -127,6 +128,11 @@ def main(argv: list[str] | None = None) -> int:
             fail(str(code), "embedded verifier refused the cartridge")
         if verdict.get("bootstrapAuthenticated") is not False:
             fail("EMBEDDED_VERDICT_BOOTSTRAP_STATE_INVALID", "embedded verifier may not self-assert bootstrap authentication")
+        if verdict.get("measuredVerifierSha256") != observed:
+            fail(
+                "EMBEDDED_VERIFIER_MEMBER_BINDING_INVALID",
+                "embedded verifier did not bind the stored verifier member to the measured execution bytes",
+            )
         verdict["bootstrapAuthenticated"] = True
         verdict["embeddedVerifierSha256"] = observed
         verdict["bootstrapVerifier"] = "external-measured-bytes-isolated-before-execution"

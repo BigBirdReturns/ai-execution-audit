@@ -16,6 +16,7 @@ sys.path.insert(0, str(ANCHOR))
 
 import stc_mary_flight_01_cartridge as tool
 import verify_stc_mary_flight_01_cartridge as verifier
+import verify_stc_mary_flight_01_cartridge_bootstrap as bootstrap
 
 PROFILE = ANCHOR / "stc-mary-flight-01-cartridge-profile-01.json"
 BOOTSTRAP = ANCHOR / "verify_stc_mary_flight_01_cartridge_bootstrap.py"
@@ -99,6 +100,8 @@ class CartridgeTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(verdict["status"], "PASS")
         self.assertTrue(verdict["bootstrapAuthenticated"])
+        self.assertEqual(verdict["measuredVerifierSha256"], tool.EXPECTED_VERIFIER_SHA256)
+        self.assertIn("measured-verifier-member-binding", verdict["checks"])
         self.assertEqual(verdict["authority"], "none")
 
     def test_03_deterministic_authoritative_bytes(self) -> None:
@@ -226,6 +229,32 @@ class CartridgeTest(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertEqual(verdict["code"], "FILE_DENOMINATOR_INVALID")
         self.assertFalse(marker.exists())
+
+        member_race = self.parent / "cartridge-verifier-member-race"
+        tool.build_cartridge(PROFILE, member_race)
+        measured_bytes = (member_race / "RECOVERY/verify_cartridge.py").read_bytes()
+        (member_race / "RECOVERY/verify_cartridge.py").write_text(
+            "# substituted after bootstrap measurement\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        resign_manifest(member_race)
+        raced = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-S",
+                "-c",
+                bootstrap.ISOLATED_VERIFIER_LAUNCHER,
+                str(member_race),
+            ],
+            input=measured_bytes,
+            check=False,
+            capture_output=True,
+        )
+        raced_verdict = json.loads(raced.stdout.decode("utf-8"))
+        self.assertNotEqual(raced.returncode, 0)
+        self.assertEqual(raced_verdict["code"], "MEASURED_VERIFIER_MEMBER_MISMATCH")
 
     def test_17_profile_substitution_refused_after_resign(self) -> None:
         mutate_json_and_resign(self.root, "RECOVERY/profile.json", lambda value: value.__setitem__("claimBoundary", "promoted"))
