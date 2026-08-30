@@ -62,8 +62,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          rm .github/workflows/temp-fix-stc-mary-cartridge-projection-auth-01.yml
-          rm .github/temp-fix-stc-mary-cartridge-projection-auth-01.py
+          rm -f .github/workflows/temp-fix-stc-mary-cartridge-projection-auth-01.yml
+          rm -f .github/temp-fix-stc-mary-cartridge-projection-auth-01.py
+          rm -f .github/workflows/temp-final-cartridge-coordinate-custody.yml
+          rm -rf .cartridge-final2 .cartridge-final3
           git add -A
           git diff --cached --check
 
