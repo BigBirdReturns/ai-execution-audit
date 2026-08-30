@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -287,6 +288,10 @@ exit 0
                 "",
                 "mode = os.environ.get('STC_MARY_FAKE_TORCH_MODE', 'warning')",
                 "warning = 'STC_MARY_NUMPY_WARNING: Failed to initialize NumPy'",
+                "if mode == 'unbounded_stderr':",
+                "    while True:",
+                "        sys.stderr.write('x' * 4096)",
+                "        sys.stderr.flush()",
                 "if mode == 'nonzero':",
                 "    sys.stderr.write(warning + '\\n')",
                 "    raise SystemExit(23)",
@@ -671,6 +676,7 @@ exit 0
             "multiple_json",
             "oversized_stdout",
             "oversized_stderr",
+            "unbounded_stderr",
             "cuda_unavailable",
             "missing_index",
         )
@@ -681,8 +687,12 @@ exit 0
                     fixture_id=f"readiness-probe-{mode}",
                 )
                 refused_env["STC_MARY_FAKE_TORCH_MODE"] = mode
+                started = time.monotonic()
                 refused = self.run_operator(refused_root / conductor.OPERATOR_SCRIPT_FILE, ["readiness"], refused_env)
+                elapsed = time.monotonic() - started
                 self.assertNotEqual(refused.returncode, 0)
+                if mode == "unbounded_stderr":
+                    self.assertLess(elapsed, 15.0, elapsed)
                 refused_output = refused.stdout + refused.stderr
                 self.assertNotIn(b"STC_MARY_NUMPY_WARNING", refused_output)
                 if refused_log.exists():
