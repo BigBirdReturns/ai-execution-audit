@@ -48,6 +48,36 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Materialize authoritative source from exact Git blobs
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.coordinate.outputs.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import subprocess
+
+          paths = (
+              '.github/workflows/stc-mary-flight-01-cartridge-01.yml',
+              'mating_surface/anchor_node/STC-MARY-FLIGHT-01-CARTRIDGE-01.md',
+              'mating_surface/anchor_node/stc-mary-flight-01-cartridge-profile-01.json',
+              'mating_surface/anchor_node/stc-mary-flight-01-cartridge.ps1',
+              'mating_surface/anchor_node/stc_mary_flight_01_cartridge.py',
+              'mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge.py',
+              'mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge_bootstrap.py',
+              'mating_surface/anchor_node/conformance/test_stc_mary_flight_01_cartridge.py',
+          )
+          ref = os.environ['SOURCE_REF']
+          for relative in paths:
+              data = subprocess.check_output(['git', 'cat-file', 'blob', f'{ref}:{relative}'])
+              path = pathlib.Path(relative)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+              if b'\r' in data:
+                  raise SystemExit(f'authoritative source contains CR bytes: {relative}')
+          PY
+
       - name: Run exact cartridge qualification
         shell: bash
         run: |
