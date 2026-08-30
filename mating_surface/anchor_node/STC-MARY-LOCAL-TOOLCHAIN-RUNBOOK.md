@@ -14,6 +14,7 @@ From PowerShell:
 $Repo = 'PATH_TO_EXACT_ADMITTED_CHECKOUT'
 $Tool = Join-Path $Repo 'mating_surface\anchor_node\stc-mary-local-toolchain.ps1'
 $Private = 'PATH_TO_PRIVATE_EVIDENCE_PARENT'
+$CampaignConfig = 'PATH_TO_IMMUTABLE_CAMPAIGN_CONFIG'
 ```
 
 Set `STC_MARY_PYTHON` to an exact interpreter path when more than one Python installation exists.
@@ -30,10 +31,11 @@ $Prep = Join-Path $Private 'stc-mary-local-prep-flight-01'
   --artifact "cartridge=PATH_TO_STC_CARTRIDGE" `
   --artifact "model=PATH_TO_MODEL_OR_EXECUTABLE" `
   --artifact "verifier=PATH_TO_INDEPENDENT_VERIFIER" `
-  --artifact "storage=PATH_TO_STORAGE_SUBSTRATE"
+  --artifact "storage=PATH_TO_STORAGE_SUBSTRATE" `
+  --halo3-seat-config $CampaignConfig
 ```
 
-The private readiness record includes the actual host, user, repository, runtimes, Windows inventory, display and NPU devices, NVIDIA seats, volumes, adapters, listeners, power scheme, Lattice-shaped process and service probes, Python backend availability, and declared artifact manifests. `readiness-public-projection.json` removes the local paths and host identity.
+The private readiness record includes the actual host, user, repository, runtimes, Windows inventory, display and NPU devices, NVIDIA seats, volumes, adapters, listeners, power scheme, Lattice-shaped process and service probes, Python backend availability, declared artifact manifests, and the exact HALO3 Seat resolution. The Seat is bound by GPU UUID, PCI bus, PnP instance, product identity, transport class, and Thunderbolt ancestry. CUDA index is retained only as a current observation. `readiness-public-projection.json` removes the local paths and host identity.
 
 ## 2. Generate the invented local feed
 
@@ -67,13 +69,13 @@ A locally available NumPy or Torch CPU route may also be measured, but the perso
 
 ## 4. Audition HALO3
 
-The HALO3 gate accepts only `torch-cuda`. A faster CPU library does not qualify the accelerator. Use the exact CUDA device index selected by the private NVIDIA and Torch census.
+The HALO3 gate accepts only `torch-cuda`. A faster CPU library does not qualify the accelerator. The workload resolves the immutable HALO3 Seat again immediately before execution and uses the CUDA index currently observed for that exact GPU. It refuses an ambiguous, absent, renamed, readdressed, wrong-transport, or wrong-PnP device rather than falling back to CUDA index zero.
 
 ```powershell
 $Accelerated = Join-Path $Private 'halo3-accelerated.json'
 $AcceleratedVerification = Join-Path $Private 'halo3-accelerated-verification.json'
 
-& $Tool run-workload --feed $Feed --backend torch-cuda --device-index 0 --out $Accelerated
+& $Tool run-workload --feed $Feed --backend torch-cuda --halo3-seat-config $CampaignConfig --out $Accelerated
 & $Tool verify-workload --feed $Feed --result $Accelerated --out $AcceleratedVerification
 ```
 

@@ -18,12 +18,12 @@ from stc_mary_local.halo3_seat import halo3_seat_record, validate_halo3_seat
 HERE = Path(__file__).resolve().parent
 SOURCE_ROOT = HERE.parent.parent
 DEFAULT_PROFILE = HERE / "stc-mary-flight-conductor-profile-01.json"
-PROFILE_FILE_SHA256 = "c36d51c52ba0d1d01ea97a0a5b4a251a7e27ccfb636e761e818cb1603e7168f0"
+PROFILE_FILE_SHA256 = "938b53cd75604b913264bbc38122ddd5f4a796fe1493fec62abb14443ec25890"
 PROFILE_ID = "stc-mary/private-flight-conductor/0.1"
 PROFILE_SCHEMA = "stc-mary-flight-conductor-profile/1"
 REQUIRED_REPOSITORY = "BigBirdReturns/ai-execution-audit"
-REQUIRED_COMMIT = "d31e59f5fd30e57b1917c00832b189ee2ea3e12f"
-REQUIRED_TREE = "2a6a155e9615eb847781f87566bac32d4c9dc126"
+REQUIRED_COMMIT = "6fc1753b436757aefef200d6bdb2262eeb00f393"
+REQUIRED_TREE = "53f8d73ebadb4a69a8a7683deed5334a5e042c20"
 TOOLCHAIN_PROFILE_ID = "stc-mary/local-toolchain/0.1"
 PHASE_SEQUENCE = (
     "admitted_checkout",
