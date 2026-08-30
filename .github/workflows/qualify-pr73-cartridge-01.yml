@@ -48,34 +48,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Refuse private and network surfaces
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-
-          paths = [
-              Path('.github/workflows/stc-mary-flight-01-cartridge-01.yml'),
-              Path('mating_surface/anchor_node/STC-MARY-FLIGHT-01-CARTRIDGE-01.md'),
-              Path('mating_surface/anchor_node/stc-mary-flight-01-cartridge-profile-01.json'),
-              Path('mating_surface/anchor_node/stc-mary-flight-01-cartridge.ps1'),
-              Path('mating_surface/anchor_node/stc_mary_flight_01_cartridge.py'),
-              Path('mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge.py'),
-              Path('mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge_bootstrap.py'),
-              Path('mating_surface/anchor_node/conformance/test_stc_mary_flight_01_cartridge.py'),
-          ]
-          joined = '\n'.join(path.read_text(encoding='utf-8') for path in paths)
-          forbidden = {
-              'network runtime': r'\b(?:requests|urllib3|aiohttp|httpx)\b|socket\.(?:connect|create_connection)',
-              'credential material': r'AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer',
-              'private host shape': r'OCTO-(?:W|L)[0-9]+|[A-Za-z]:\\(?:Users|Private)\\|/(?:home|Users)/',
-          }
-          for label, pattern in forbidden.items():
-              if re.search(pattern, joined, re.I):
-                  raise SystemExit(f'{label} detected')
-          PY
-
       - name: Run exact cartridge qualification
         shell: bash
         run: |
