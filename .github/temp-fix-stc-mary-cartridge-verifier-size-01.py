@@ -75,6 +75,21 @@ BOOTSTRAP.write_text(bootstrap, encoding="utf-8", newline="\n")
 tests = TESTS.read_text(encoding="utf-8")
 tests = replace_once(
     tests,
+    '''        embedded = self.root / "RECOVERY/verify_cartridge.py"
+        embedded.write_text("raise SystemExit('MALICIOUS EXECUTED')\\n", encoding="utf-8")
+''',
+    '''        embedded = self.root / "RECOVERY/verify_cartridge.py"
+        malicious_verifier = b"raise SystemExit('MALICIOUS EXECUTED')\\n"
+        self.assertLess(len(malicious_verifier), bootstrap.EXPECTED_EMBEDDED_VERIFIER_BYTES)
+        embedded.write_bytes(
+            malicious_verifier
+            + b"#" * (bootstrap.EXPECTED_EMBEDDED_VERIFIER_BYTES - len(malicious_verifier))
+        )
+''',
+    "same-size digest substitution witness",
+)
+tests = replace_once(
+    tests,
     '''        self.assertNotEqual(raced.returncode, 0)
         self.assertEqual(raced_verdict["code"], "MEASURED_VERIFIER_MEMBER_MISMATCH")
 ''',
