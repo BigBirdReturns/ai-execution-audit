@@ -2,11 +2,11 @@
 
 This product is the immutable public mission-law cartridge for the first private STC MARY physical flight governed by issue #37 and constructed under issue #57. It gives the conductor one exact `cartridge` artifact without selecting the private model, verifier, storage substrate, host, evidence path, or operator record. It is a source object and portable bundle. It is not a physical receipt, authorization, mutable save, execution result, or qualification claim.
 
-MARY Portable and the cartridge are separate actors. MARY Portable v0.2.0 is the admitted tenant instrument that performs bounded machine interlocution and emits independently verifiable campaign packets under named-human authority. STC Mission Cartridge 01 states the mission identity, work-unit law, source graph, stage and gate denominators, invariants, and authority boundary that the conductor is allowed to bind. MARY may carry the cartridge. MARY does not become the cartridge, and the cartridge does not inherit MARY's runtime role.
+MARY Portable and the cartridge are separate actors. MARY Portable v0.2.0 is the admitted tenant instrument that performs bounded machine interlocution and emits independently verifiable campaign packets under named-human authority. STC Mission Cartridge 01 states the mission identity, work-unit law, semantic source graph, stage and gate denominators, invariants, and authority boundary that a compatible conductor may bind. MARY may carry the cartridge. MARY does not become the cartridge, and the cartridge does not inherit MARY's runtime role.
 
-## Exact source graph
+## Semantic source graph
 
-The profile freezes the following public identities:
+The cartridge semantic identity freezes exactly four public source roles:
 
 ```text
 MARY Portable tenant:
@@ -24,17 +24,31 @@ physical-flight preflight review card:
 commit ec61bc3488cb5ae06ed9db2862a9f6910d310a79
 tree   d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67
 
-flight conductor:
-commit 772ce582e1b19b7a2060c50be8ebf40c1f8723b2
-tree   3f708c52782784e687cf1f0b68fd7d37a507ef4c
-source archive sha256 88ebac8db2e1107faf3a9aa6f0f543149c308212e2d113da6b060d4047d2f241
-
 physical-flight execution floor:
 commit d31e59f5fd30e57b1917c00832b189ee2ea3e12f
 tree   2a6a155e9615eb847781f87566bac32d4c9dc126
 ```
 
-Issue #37 remains the sole private physical-flight execution coordinate. Issue #49 remains the postflight public join coordinate. A moving branch, later `main`, draft supplier, synthetic fixture, or issue citation does not replace any frozen source.
+The executable conductor is deliberately excluded from the profile, source binding, cartridge identity, mission identity, work-unit identity, public status, manifest, and bundle identity. Compatible conductor repair lineage is non-authoritative operator provenance, retained outside the portable cartridge:
+
+```text
+772ce582e1b19b7a2060c50be8ebf40c1f8723b2
+original admitted conductor
+
+ccc6f1bb817614d0948900499c80f4f91e8bade0
+readiness artifact-identity compatibility
+
+1047b90d2c2077cff297b9d5e24e333fe7dcf8cc
+single-action authorization containment
+
+a99c1c76daf383edd31ada2e3a8f8bf5c57a7888
+native stdout/stderr separation
+
+dd486472a8c610a20ee062dd6746c86fe8ede4b4
+bounded incremental streams and finite timeout
+```
+
+Updating this compatible operator provenance cannot alter cartridge semantics, authorize execution, or promote a physical or authority claim. Issue #37 remains the sole private execution coordinate. Issue #49 remains the postflight join coordinate.
 
 ## Cartridge law
 

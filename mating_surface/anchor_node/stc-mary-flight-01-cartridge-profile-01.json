@@ -1,70 +1,17 @@
 {
-  "schema": "stc-mary/flight-01-cartridge-profile/1",
-  "profileId": "stc-mary/flight-01-cartridge@1",
-  "status": "candidate_contract_only",
-  "sourceCoordinates": {
-    "maryPortable": {
-      "repository": "BigBirdReturns/mary-portable",
-      "commit": "f382633d7349a5d748d2f0b6092f96570f6e5d26",
-      "tree": "a18f6612b8119beac68292ef4d7f8a5b35e1b0fa",
-      "release": "v0.2.0",
-      "releaseArchiveSha256": "bd67c865032ae0977d8c2ada1c07b5e7564fe2ddf6e65f19b63ad41749359009",
-      "status": "admitted_tenant_instrument"
-    },
-    "axmHeadSupplier": {
-      "repository": "BigBirdReturns/ai-execution-audit",
-      "commit": "b452bb32e26249deab90db124f157bc62ad0850d",
-      "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951",
-      "status": "admitted_synthetic_contract"
-    },
-    "physicalFlightPreflight": {
-      "repository": "BigBirdReturns/ai-execution-audit",
-      "commit": "ec61bc3488cb5ae06ed9db2862a9f6910d310a79",
-      "tree": "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67",
-      "status": "admitted_preflight_contract"
-    },
-    "flightConductor": {
-      "repository": "BigBirdReturns/ai-execution-audit",
-      "commit": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2",
-      "tree": "3f708c52782784e687cf1f0b68fd7d37a507ef4c",
-      "sourceArchiveSha256": "88ebac8db2e1107faf3a9aa6f0f543149c308212e2d113da6b060d4047d2f241",
-      "status": "admitted_operator_layer"
-    },
-    "physicalFlightExecutionFloor": {
-      "repository": "BigBirdReturns/ai-execution-audit",
-      "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
-      "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126",
-      "status": "admitted_not_executed"
-    }
-  },
-  "issueBindings": {
-    "privateFlight": 37,
-    "postflightJoin": 49
-  },
   "artifactLabels": [
     "cartridge",
     "model",
     "verifier",
     "storage"
   ],
-  "terminalStates": [
-    "PREPARED_NOT_ARMED",
-    "REFUSED"
-  ],
-  "phaseSequence": [
-    "admitted_checkout",
-    "artifact_coordinates",
-    "readiness",
-    "feed",
-    "personal_floor",
-    "halo3",
-    "post_halo3_continuity",
-    "two_cell_partition",
-    "successor_head",
-    "flight_plan",
-    "private_packet",
-    "sealed_flight"
-  ],
+  "claimBoundary": "Immutable public mission-law cartridge for STC MARY private physical flight 01. It binds the admitted MARY tenant, AXM supplier, preflight contract, frozen execution floor, mission denominator, work-unit law, named-human boundary, and authority-none invariants. Compatible conductor implementations and their repair lineage are non-authoritative operator provenance outside the cartridge semantic identity. The cartridge contains no private coordinate, evidence body, observation, telemetry, authorization, host identity, model bytes, verifier bytes, storage identity, execution result, physical qualification, representative-operator qualification, field-network qualification, operational-C2 qualification, production-Lattice qualification, mission authority, command authority, targeting, engagement, effector, or weapons capability.",
+  "feed": {
+    "classes": 8,
+    "features": 32,
+    "records": 262144,
+    "seed": 20260827
+  },
   "flightPlanGates": [
     "admitted_checkout",
     "personal_floor",
@@ -75,6 +22,28 @@
     "successor_head",
     "private_evidence_root"
   ],
+  "issueBindings": {
+    "postflightJoin": 49,
+    "privateFlight": 37
+  },
+  "missionLaw": {
+    "campaignLabel": "PRIVATE-STC-MARY-FLIGHT-01",
+    "humanAuthorizationRequired": true,
+    "invariantRefs": [
+      "invariant:resident-floor-mission-closure@1",
+      "invariant:optional-halo3-removal@1",
+      "invariant:lattice-non-ownership@1",
+      "invariant:two-cell-branch-retention@1",
+      "invariant:human-required-reunion@1",
+      "invariant:cold-successor-reconstruction@1",
+      "invariant:private-evidence-custody@1",
+      "invariant:authority-none@1"
+    ],
+    "missionName": "STC Mission Cartridge 01",
+    "namedHumanBind": "GRACE",
+    "nextSafeAction": "Compile the admitted body-free preflight card and obtain separate named-human authorization only for INITIALIZE_CONDUCTOR_WORKSTATION.",
+    "systemAuthority": "none"
+  },
   "packetStageSequence": [
     "VERIFY_INPUTS",
     "MOUNT_PERSONAL_FLOOR",
@@ -93,34 +62,60 @@
     "COLD_SUCCESSOR_VERIFY",
     "SEAL_PRIVATE_EVIDENCE"
   ],
-  "feed": {
-    "records": 262144,
-    "features": 32,
-    "classes": 8,
-    "seed": 20260827
+  "phaseSequence": [
+    "admitted_checkout",
+    "artifact_coordinates",
+    "readiness",
+    "feed",
+    "personal_floor",
+    "halo3",
+    "post_halo3_continuity",
+    "two_cell_partition",
+    "successor_head",
+    "flight_plan",
+    "private_packet",
+    "sealed_flight"
+  ],
+  "profileId": "stc-mary/flight-01-cartridge@1",
+  "schema": "stc-mary/flight-01-cartridge-profile/1",
+  "sourceCoordinates": {
+    "axmHeadSupplier": {
+      "commit": "b452bb32e26249deab90db124f157bc62ad0850d",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted_synthetic_contract",
+      "tree": "c557bddc17ad62f6ad36bac5a6ef57338429a951"
+    },
+    "maryPortable": {
+      "commit": "f382633d7349a5d748d2f0b6092f96570f6e5d26",
+      "release": "v0.2.0",
+      "releaseArchiveSha256": "bd67c865032ae0977d8c2ada1c07b5e7564fe2ddf6e65f19b63ad41749359009",
+      "repository": "BigBirdReturns/mary-portable",
+      "status": "admitted_tenant_instrument",
+      "tree": "a18f6612b8119beac68292ef4d7f8a5b35e1b0fa"
+    },
+    "physicalFlightExecutionFloor": {
+      "commit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted_not_executed",
+      "tree": "2a6a155e9615eb847781f87566bac32d4c9dc126"
+    },
+    "physicalFlightPreflight": {
+      "commit": "ec61bc3488cb5ae06ed9db2862a9f6910d310a79",
+      "repository": "BigBirdReturns/ai-execution-audit",
+      "status": "admitted_preflight_contract",
+      "tree": "d2daba1d32a8de744b8b90f6cd42f7c4bff4fa67"
+    }
   },
-  "missionLaw": {
-    "missionName": "STC Mission Cartridge 01",
-    "campaignLabel": "PRIVATE-STC-MARY-FLIGHT-01",
-    "namedHumanBind": "GRACE",
-    "humanAuthorizationRequired": true,
-    "systemAuthority": "none",
-    "invariantRefs": [
-      "invariant:resident-floor-mission-closure@1",
-      "invariant:optional-halo3-removal@1",
-      "invariant:lattice-non-ownership@1",
-      "invariant:two-cell-branch-retention@1",
-      "invariant:human-required-reunion@1",
-      "invariant:cold-successor-reconstruction@1",
-      "invariant:private-evidence-custody@1",
-      "invariant:authority-none@1"
-    ],
-    "nextSafeAction": "Compile the admitted body-free preflight card and obtain separate named-human authorization only for INITIALIZE_CONDUCTOR_WORKSTATION."
-  },
+  "status": "candidate_contract_only",
+  "terminalStates": [
+    "PREPARED_NOT_ARMED",
+    "REFUSED"
+  ],
   "workUnitLaw": {
-    "kind": "deterministic-integer-linear-aperture",
-    "privacyLane": "private-local",
     "authorityClass": "compute-only",
+    "kind": "deterministic-integer-linear-aperture",
+    "optionalAcceleratorBackend": "torch-cuda",
+    "privacyLane": "private-local",
     "requiredCapabilities": [
       "deterministic-feed",
       "resident-cpu-execution",
@@ -129,7 +124,6 @@
       "sha256-content-addressing"
     ],
     "residentFloorBackend": "python",
-    "optionalAcceleratorBackend": "torch-cuda",
     "resultRequirements": [
       "one accepted semantic identity across resident baseline optional accelerator and post-removal continuity",
       "one accepted classification identity across all three runs",
@@ -137,6 +131,5 @@
       "resident floor reproduces the accepted output after accelerator removal",
       "no network service provider credential or remote model is required"
     ]
-  },
-  "claimBoundary": "Immutable public mission-law cartridge for STC MARY private physical flight 01. It binds the admitted MARY tenant, AXM supplier, preflight contract, conductor, frozen execution floor, mission denominator, work-unit law, named-human boundary, and authority-none invariants. It contains no private coordinate, evidence body, observation, telemetry, authorization, host identity, model bytes, verifier bytes, storage identity, execution result, physical qualification, representative-operator qualification, field-network qualification, operational-C2 qualification, production-Lattice qualification, mission authority, command authority, targeting, engagement, effector, or weapons capability."
+  }
 }

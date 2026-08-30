@@ -29,7 +29,7 @@ from verify_stc_mary_flight_01_cartridge import (
     verify_cartridge,
 )
 
-EXPECTED_VERIFIER_SHA256 = "8b05e211911ee30204ff0d4a07a3448d27228a9e1920380ca4df5a43049e0f5d"
+EXPECTED_VERIFIER_SHA256 = "41fbcad8073c3c5e203e100d8f1841272c507519e83e2a5eef473c2a1782d9fb"
 PROFILE_FILENAME = "stc-mary-flight-01-cartridge-profile-01.json"
 VERIFIER_FILENAME = "verify_stc_mary_flight_01_cartridge.py"
 BOOTSTRAP_FILENAME = "verify_stc_mary_flight_01_cartridge_bootstrap.py"

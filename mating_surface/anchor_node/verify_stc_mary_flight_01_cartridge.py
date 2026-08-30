@@ -11,7 +11,7 @@ from typing import Any
 
 PROFILE_SCHEMA = "stc-mary/flight-01-cartridge-profile/1"
 PROFILE_ID = "stc-mary/flight-01-cartridge@1"
-PROFILE_CANONICAL_SHA256 = "b6bccd589208dee38beb9b9a499b40f819de558efbae7b3e722d32b607478385"
+PROFILE_CANONICAL_SHA256 = "c3f4f7a2ca45a9cfd08cc4d19cd48b5c0c4fbf013f6783e092cb8a3701902b50"
 MANIFEST_SCHEMA = "stc-mary/flight-01-cartridge-manifest/1"
 SOURCE_BINDING_SCHEMA = "stc-mary/flight-01-source-binding/1"
 MISSION_SCHEMA = "stc-mary/flight-01-mission/1"
@@ -225,6 +225,19 @@ def validate_profile(profile: dict[str, Any]) -> dict[str, Any]:
         fail("ARTIFACT_LABEL_DENOMINATOR_INVALID", "artifact label denominator differs")
     if profile["issueBindings"] != {"privateFlight": 37, "postflightJoin": 49}:
         fail("ISSUE_BINDING_INVALID", "issue bindings differ")
+    source_coordinates = profile["sourceCoordinates"]
+    require_exact_keys(
+        source_coordinates,
+        {
+            "maryPortable",
+            "axmHeadSupplier",
+            "physicalFlightPreflight",
+            "physicalFlightExecutionFloor",
+        },
+        "profile.sourceCoordinates",
+    )
+    if "flightConductor" in source_coordinates:
+        fail("CONDUCTOR_SEMANTIC_COUPLING_REFUSED", "operator provenance may not enter cartridge semantic identity")
     if len(profile["phaseSequence"]) != 12 or len(profile["flightPlanGates"]) != 8 or len(profile["packetStageSequence"]) != 16:
         fail("MISSION_DENOMINATOR_INVALID", "phase, gate, or stage denominator differs")
     feed = profile["feed"]

@@ -80,7 +80,7 @@ class CartridgeTest(unittest.TestCase):
     def test_01_profile_validates(self) -> None:
         profile = tool.load_profile(PROFILE)
         self.assertEqual(profile["profileId"], verifier.PROFILE_ID)
-        self.assertEqual(verifier.PROFILE_CANONICAL_SHA256, "b6bccd589208dee38beb9b9a499b40f819de558efbae7b3e722d32b607478385")
+        self.assertEqual(verifier.PROFILE_CANONICAL_SHA256, "c3f4f7a2ca45a9cfd08cc4d19cd48b5c0c4fbf013f6783e092cb8a3701902b50")
 
     def test_02_build_and_authenticated_verify(self) -> None:
         code, verdict = run_bootstrap(self.root)
@@ -115,6 +115,19 @@ class CartridgeTest(unittest.TestCase):
         self.assertEqual(mission["workUnitId"], work["workUnitId"])
         self.assertEqual(mission["sourceBindingId"], source["sourceBindingId"])
         self.assertEqual(self.build["cartridgeId"], mission["cartridgeId"])
+        profile = load_json(PROFILE)
+        self.assertNotIn("flightConductor", profile["sourceCoordinates"])
+        self.assertNotIn("flightConductor", source["sourceCoordinates"])
+        provenance_before = {"activeConductor": "772ce582e1b19b7a2060c50be8ebf40c1f8723b2"}
+        provenance_after = {"activeConductor": "dd486472a8c610a20ee062dd6746c86fe8ede4b4"}
+        self.assertNotEqual(provenance_before, provenance_after)
+        other = self.parent / "cartridge-provenance-independent"
+        rebuilt = tool.build_cartridge(PROFILE, other)
+        self.assertEqual(self.build["bundleId"], rebuilt["bundleId"])
+        self.assertEqual(self.build["cartridgeId"], rebuilt["cartridgeId"])
+        self.assertEqual(self.build["missionId"], rebuilt["missionId"])
+        self.assertEqual(self.build["workUnitId"], rebuilt["workUnitId"])
+        self.assertEqual(self.build["sourceBindingId"], rebuilt["sourceBindingId"])
 
     def test_07_mission_authority_promotion_refused_after_resign(self) -> None:
         mutate_json_and_resign(self.root, "CARTRIDGE/mission.json", lambda value: value.__setitem__("systemAuthority", "mission"))
@@ -130,7 +143,7 @@ class CartridgeTest(unittest.TestCase):
 
     def test_09_source_coordinate_mutation_refused_after_resign(self) -> None:
         def change(value: dict) -> None:
-            value["sourceCoordinates"]["flightConductor"]["commit"] = "0" * 40
+            value["sourceCoordinates"]["axmHeadSupplier"]["commit"] = "0" * 40
         mutate_json_and_resign(self.root, "RECOVERY/source-binding.json", change)
         code, verdict = run_bootstrap(self.root)
         self.assertNotEqual(code, 0)
