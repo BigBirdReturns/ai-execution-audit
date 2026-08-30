@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_PROFILE = HERE / "axm-head-physical-long-haul-join-profile-01.json"
 DEFAULT_FIXTURES = HERE / "fixtures" / "axm-head-physical-long-haul-join-cases-01.json"
 DEFAULT_VERIFIER = HERE / "verify_axm_head_physical_long_haul_join.py"
-STANDALONE_VERIFIER_SHA256 = "71f76869120b89ca577fd5c2f85867ab98674a13c640608f596fff96a72a5c68"
+STANDALONE_VERIFIER_SHA256 = "06d9d18445d3b3069d0a841af1a9469adba880ae0ef3dcb91a5cfe5a9265450c"
 ENVELOPE_SCHEMA = "axm-head/physical-long-haul-verifier-envelope@2"
 MAX_JSON_BYTES = 32 * 1024 * 1024
 MAX_VERIFIER_BYTES = 4 * 1024 * 1024
@@ -26,6 +26,15 @@ MAX_SIGNING_KEY_BYTES = 64 * 1024
 PRIVATE_SIGNING_KEY_SCHEMA = "axm-head/private-evidence-provenance-signing-key@1"
 
 WINDOWS_PATH_RE = re.compile(r"(?i)(?:^|[\s\"'])(?:[a-z]:[\\/]|\\\\[^\\/]+[\\/])")
+POSIX_ABSOLUTE_PATH_RE = re.compile(r"(?:^|[\s\"'(=])(?:/|~/)[^\s\"'<>|]+")
+POSIX_RELATIVE_PATH_RE = re.compile(
+    r"(?<![A-Za-z0-9._~+@-])(?:"
+    r"(?:\.{1,2}|~)/(?:[A-Za-z0-9._~+@-]+)(?:/[A-Za-z0-9._~+@-]+)*"
+    r"|(?:[A-Za-z0-9._~+@-]+/){3,}[A-Za-z0-9._~+@-]+"
+    r"|(?:[A-Za-z0-9._~+@-]+/){2,}[A-Za-z0-9_~+@-][A-Za-z0-9._~+@-]*\.[A-Za-z0-9][A-Za-z0-9._-]*"
+    r")(?![A-Za-z0-9._~+@-])",
+    re.I,
+)
 IPV4_RE = re.compile(r"(?<![0-9])(?:25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})){3}(?![0-9])")
 URI_RE = re.compile(r"(?i)\b(?:https?|ssh|tcp|udp|ws|wss)://")
 CREDENTIAL_RE = re.compile(r"AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer|SYNTHETIC-CREDENTIAL-[A-Za-z0-9._-]+", re.I)
@@ -210,6 +219,8 @@ def scan_forbidden_private_material(value: Any, label: str = "receipt") -> None:
         elif isinstance(node, str):
             if WINDOWS_PATH_RE.search(node):
                 fail("PRIVATE_PATH_DETECTED", f"{path} contains a Windows or UNC path")
+            if POSIX_ABSOLUTE_PATH_RE.search(node) or POSIX_RELATIVE_PATH_RE.search(node):
+                fail("PRIVATE_PATH_DETECTED", f"{path} contains a POSIX absolute or path-shaped relative value")
             if PRIVATE_HOST_RE.search(node):
                 fail("PRIVATE_HOST_DETECTED", f"{path} contains a private Estate host identity")
             if IPV4_RE.search(node) or URI_RE.search(node):

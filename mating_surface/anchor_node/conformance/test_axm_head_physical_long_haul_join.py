@@ -804,12 +804,43 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
         self.assertIn("STRONGER_QUALIFICATION_PROMOTED", self.evaluate(value)["join"]["reasonCodes"])
 
     def test_private_path_in_allowlisted_string_is_refused(self) -> None:
-        value = self.complete()
-        value["privateFlightDispositionBinding"]["cartridge"]["nextSafeAction"] = "Read C:\\private\\evidence.json"
-        self.refresh_top(value, "privateFlightDispositionBinding", "dispositionBindingId", "axmheadprivateflightdispositionbinding2")
+        candidates = (
+            "Read C:\\private\\evidence.json",
+            "Read /home/alice/private/evidence.json",
+            "Read /Users/alice/private/evidence.json",
+            "home/alice/private/evidence.json",
+            "Read home/alice/private/evidence.json",
+            "./private/evidence.json",
+            "../private/evidence.json",
+            "~/private/evidence.json",
+        )
+        for candidate in candidates:
+            with self.subTest(candidate=candidate):
+                value = self.complete()
+                value["privateFlightDispositionBinding"]["cartridge"]["nextSafeAction"] = candidate
+                self.refresh_top(
+                    value,
+                    "privateFlightDispositionBinding",
+                    "dispositionBindingId",
+                    "axmheadprivateflightdispositionbinding2",
+                )
+                with self.assertRaises(mod.JoinError) as context:
+                    mod.validate_input_value(value)
+                self.assertEqual(context.exception.code, "PRIVATE_PATH_DETECTED")
+                with self.assertRaises(bootstrap.BootstrapError) as bootstrap_context:
+                    bootstrap.scan_forbidden_private_material(value)
+                self.assertEqual(bootstrap_context.exception.code, "PRIVATE_PATH_DETECTED")
+
+        path_shaped_id = self.complete()
+        path_shaped_id["privateFlightDispositionBinding"]["cartridge"]["cartridgeId"] = (
+            "home/alice/private/evidence.json"
+        )
         with self.assertRaises(mod.JoinError) as context:
-            mod.validate_input_value(value)
+            mod.validate_input_value(path_shaped_id)
         self.assertEqual(context.exception.code, "PRIVATE_PATH_DETECTED")
+        with self.assertRaises(bootstrap.BootstrapError) as bootstrap_context:
+            bootstrap.scan_forbidden_private_material(path_shaped_id)
+        self.assertEqual(bootstrap_context.exception.code, "PRIVATE_PATH_DETECTED")
 
     def test_private_host_identity_is_refused(self) -> None:
         value = self.complete()
@@ -836,11 +867,17 @@ class AxmHeadPhysicalLongHaulJoinTests(unittest.TestCase):
         self.assertEqual(context.exception.code, "CREDENTIAL_MATERIAL_DETECTED")
 
     def test_unknown_field_is_refused(self) -> None:
-        value = self.complete()
-        value["routeAttestation"]["hostname"] = "redacted"
+        generic = self.complete()
+        generic["routeAttestation"]["unknownField"] = "redacted"
         with self.assertRaises(mod.JoinError) as context:
-            mod.validate_input_value(value)
+            mod.validate_input_value(generic)
         self.assertEqual(context.exception.code, "OBJECT_KEYS_INVALID")
+
+        forbidden = self.complete()
+        forbidden["routeAttestation"]["hostname"] = "redacted"
+        with self.assertRaises(mod.JoinError) as context:
+            mod.validate_input_value(forbidden)
+        self.assertEqual(context.exception.code, "PRIVATE_MATERIAL_KEY_FORBIDDEN")
 
     def test_content_identity_forgery_is_refused(self) -> None:
         value = self.complete()

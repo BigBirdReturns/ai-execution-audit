@@ -230,6 +230,15 @@ BASE64URL = re.compile(r"^[A-Za-z0-9_-]+$")
 BOUNDED_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@-]{2,255}$")
 HOST_CLASS = re.compile(r"^[a-z0-9][a-z0-9._-]{2,63}$")
 WINDOWS_PATH_RE = re.compile(r"(?i)(?:^|[\s\"'])(?:[a-z]:[\\/]|\\\\[^\\/]+[\\/])")
+POSIX_ABSOLUTE_PATH_RE = re.compile(r"(?:^|[\s\"'(=])(?:/|~/)[^\s\"'<>|]+")
+POSIX_RELATIVE_PATH_RE = re.compile(
+    r"(?<![A-Za-z0-9._~+@-])(?:"
+    r"(?:\.{1,2}|~)/(?:[A-Za-z0-9._~+@-]+)(?:/[A-Za-z0-9._~+@-]+)*"
+    r"|(?:[A-Za-z0-9._~+@-]+/){3,}[A-Za-z0-9._~+@-]+"
+    r"|(?:[A-Za-z0-9._~+@-]+/){2,}[A-Za-z0-9_~+@-][A-Za-z0-9._~+@-]*\.[A-Za-z0-9][A-Za-z0-9._-]*"
+    r")(?![A-Za-z0-9._~+@-])",
+    re.I,
+)
 IPV4_RE = re.compile(r"(?<![0-9])(?:25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})){3}(?![0-9])")
 URI_RE = re.compile(r"(?i)\b(?:https?|ssh|tcp|udp|ws|wss)://")
 CREDENTIAL_RE = re.compile(r"AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer|SYNTHETIC-CREDENTIAL-[A-Za-z0-9._-]+", re.I)
@@ -490,6 +499,8 @@ def scan_forbidden_private_material(value: Any, label: str = "input") -> None:
         elif isinstance(node, str):
             if WINDOWS_PATH_RE.search(node):
                 fail("PRIVATE_PATH_DETECTED", f"{path} contains a Windows or UNC path")
+            if POSIX_ABSOLUTE_PATH_RE.search(node) or POSIX_RELATIVE_PATH_RE.search(node):
+                fail("PRIVATE_PATH_DETECTED", f"{path} contains a POSIX absolute or path-shaped relative value")
             if PRIVATE_HOST_RE.search(node):
                 fail("PRIVATE_HOST_DETECTED", f"{path} contains a private Estate host identity")
             if IPV4_RE.search(node):
@@ -1137,6 +1148,7 @@ def private_evidence_provenance_payload(value: Mapping[str, Any]) -> dict[str, A
 
 
 def validate_input_value(value: dict[str, Any]) -> dict[str, Any]:
+    scan_forbidden_private_material(value)
     item = dict(
         require_exact_keys(
             value,
@@ -1171,7 +1183,6 @@ def validate_input_value(value: dict[str, Any]) -> dict[str, Any]:
         validate_disposition_binding(item["privateFlightDispositionBinding"])
     if item["privateEvidenceProvenance"] is not None:
         validate_private_evidence_provenance(item["privateEvidenceProvenance"])
-    scan_forbidden_private_material(item)
     return item
 
 
