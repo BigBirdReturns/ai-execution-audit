@@ -1,0 +1,144 @@
+name: TEMP materialize STC MARY Flight 01 cartridge 02
+
+on:
+  push:
+    branches:
+      - work/stc-mary-flight-01-cartridge-02
+    paths:
+      - ".github/workflows/temp-materialize-stc-mary-flight-01-cartridge-02.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-materialize-stc-mary-flight-01-cartridge-02
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact branch
+        uses: actions/checkout@v6
+        with:
+          ref: work/stc-mary-flight-01-cartridge-02
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Separate immutable cartridge law from operator provenance
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/repair.py.b64" <<'EOF'
+            ZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGhhc2hsaWIKaW1wb3J0IGpzb24KaW1wb3J0IHJlCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKQU5DSE9SID0gUGF0aCgibWF0aW5nX3N1cmZhY2UvYW5jaG9yX25vZGUiKQpQUk9GSUxFID0gQU5DSE9SIC8gInN0Yy1tYXJ5LWZsaWdodC0wMS1jYXJ0cmlkZ2UtcHJvZmlsZS0wMS5qc29uIgpWRVJJRklFUiA9IEFOQ0hPUiAvICJ2ZXJpZnlfc3RjX21hcnlfZmxpZ2h0XzAxX2NhcnRyaWRnZS5weSIKQlVJTERFUiA9IEFOQ0hPUiAvICJzdGNfbWFyeV9mbGlnaHRfMDFfY2FydHJpZGdlLnB5IgpCT09UU1RSQVAgPSBBTkNIT1IgLyAidmVyaWZ5X3N0Y19tYXJ5X2ZsaWdodF8wMV9jYXJ0cmlkZ2VfYm9vdHN0cmFwLnB5IgpURVNUUyA9IEFOQ0hPUiAvICJjb25mb3JtYW5jZS90ZXN0X3N0Y19tYXJ5X2ZsaWdodF8wMV9jYXJ0cmlkZ2UucHkiClJVTkJPT0sgPSBBTkNIT1IgLyAiU1RDLU1BUlktRkxJR0hULTAxLUNBUlRSSURHRS0wMS5tZCIKCk9MRF9QUk9GSUxFID0gImI2YmNjZDU4OTIwOGRlZTM4YmViOWI5YTQ5OWI0MGY4MTlkZTU1OGVmYmFlN2IzZTcyMmQzMmI2MDc0NzgzODUiCk9MRF9WRVJJRklFUiA9ICI4YjA1ZTIxMTkxMWVlMzAyMDRmZjBkNGEwN2EzNDQ4ZDI3MjI4YTllMTkyMDM4MGNhNGRmNWE0MzA0OWUwZjVkIgoKCmRlZiBjYW5vbmljYWxfanNvbl9ieXRlcyh2YWx1ZSk6CiAgICByZXR1cm4gKAogICAgICAgIGpzb24uZHVtcHMoCiAgICAgICAgICAgIHZhbHVlLAogICAgICAgICAgICBzb3J0X2tleXM9VHJ1ZSwKICAgICAgICAgICAgc2VwYXJhdG9ycz0oIiwiLCAiOiIpLAogICAgICAgICAgICBlbnN1cmVfYXNjaWk9RmFsc2UsCiAgICAgICAgICAgIGFsbG93X25hbj1GYWxzZSwKICAgICAgICApCiAgICAgICAgKyAiXG4iCiAgICApLmVuY29kZSgidXRmLTgiKQoKCmRlZiByZXBsYWNlX29uY2UodGV4dDogc3RyLCBvbGQ6IHN0ciwgbmV3OiBzdHIsIGxhYmVsOiBzdHIpIC0+IHN0cjoKICAgIGNvdW50ID0gdGV4dC5jb3VudChvbGQpCiAgICBpZiBjb3VudCAhPSAxOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJ7bGFiZWx9OiBleHBlY3RlZCBvbmUgcmVwbGFjZW1lbnQgYW5jaG9yLCBmb3VuZCB7Y291bnR9IikKICAgIHJldHVybiB0ZXh0LnJlcGxhY2Uob2xkLCBuZXcsIDEpCgoKcHJvZmlsZSA9IGpzb24ubG9hZHMoUFJPRklMRS5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikpCnNvdXJjZV9jb29yZGluYXRlcyA9IHByb2ZpbGUuZ2V0KCJzb3VyY2VDb29yZGluYXRlcyIpCmlmIG5vdCBpc2luc3RhbmNlKHNvdXJjZV9jb29yZGluYXRlcywgZGljdCk6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCJwcm9maWxlIHNvdXJjZUNvb3JkaW5hdGVzIG1pc3NpbmciKQpyZW1vdmVkID0gc291cmNlX2Nvb3JkaW5hdGVzLnBvcCgiZmxpZ2h0Q29uZHVjdG9yIiwgTm9uZSkKaWYgbm90IGlzaW5zdGFuY2UocmVtb3ZlZCwgZGljdCk6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCJmbGlnaHRDb25kdWN0b3Igc2VtYW50aWMgc291cmNlIHdhcyBub3QgcHJlc2VudCBleGFjdGx5IG9uY2UiKQpwcm9maWxlWyJjbGFpbUJvdW5kYXJ5Il0gPSAoCiAgICAiSW1tdXRhYmxlIHB1YmxpYyBtaXNzaW9uLWxhdyBjYXJ0cmlkZ2UgZm9yIFNUQyBNQVJZIHByaXZhdGUgcGh5c2ljYWwgZmxpZ2h0IDAxLiAiCiAgICAiSXQgYmluZHMgdGhlIGFkbWl0dGVkIE1BUlkgdGVuYW50LCBBWFMgc3VwcGxpZXIsIHByZWZsaWdodCBjb250cmFjdCwgZnJvemVuIGV4ZWN1dGlvbiAiCiAgICAiZmxvb3IsIG1pc3Npb24gZGVub21pbmF0b3IsIHdvcmstdW5pdCBsYXcsIG5hbWVkLWh1bWFuIGJvdW5kYXJ5LCBhbmQgYXV0aG9yaXR5LW5vbmUgIgogICAgImludmFyaWFudHMuIENvbXBhdGlibGUgY29uZHVjdG9yIGltcGxlbWVudGF0aW9ucyBhbmQgdGhlaXIgcmVwYWlyIGxpbmVhZ2UgYXJlICIKICAgICJub24tYXV0aG9yaXRhdGl2ZSBvcGVyYXRvciBwcm92ZW5hbmNlIG91dHNpZGUgdGhlIGNhcnRyaWRnZSBzZW1hbnRpYyBpZGVudGl0eS4gIgogICAgIlRoZSBjYXJ0cmlkZ2UgY29udGFpbnMgbm8gcHJpdmF0ZSBjb29yZGluYXRlLCBldmlkZW5jZSBib2R5LCBvYnNlcnZhdGlvbiwgdGVsZW1ldHJ5LCAiCiAgICAiYXV0aG9yaXphdGlvbiwgaG9zdCBpZGVudGl0eSwgbW9kZWwgYnl0ZXMsIHZlcmlmaWVyIGJ5dGVzLCBzdG9yYWdlIGlkZW50aXR5LCBleGVjdXRpb24gIgogICAgInJlc3VsdCwgcGh5c2ljYWwgcXVhbGlmaWNhdGlvbiwgcmVwcmVzZW50YXRpdmUtb3BlcmF0b3IgcXVhbGlmaWNhdGlvbiwgZmllbGQtbmV0d29yayAiCiAgICAicXVhbGlmaWNhdGlvbiwgb3BlcmF0aW9uYWwtQzIgcXVhbGlmaWNhdGlvbiwgcHJvZHVjdGlvbi1MYXR0aWNlIHF1YWxpZmljYXRpb24sIG1pc3Npb24gIgogICAgImF1dGhvcml0eSwgY29tbWFuZCBhdXRob3JpdHksIHRhcmdldGluZywgZW5nYWdlbWVudCwgZWZmZWN0b3IsIG9yIHdlYXBvbnMgY2FwYWJpbGl0eS4iCikKUFJPRklMRS53cml0ZV90ZXh0KAogICAganNvbi5kdW1wcyhwcm9maWxlLCBzb3J0X2tleXM9VHJ1ZSwgaW5kZW50PTIsIGVuc3VyZV9hc2NpaT1GYWxzZSkgKyAiXG4iLAogICAgZW5jb2Rpbmc9InV0Zi04IiwKICAgIG5ld2xpbmU9IlxuIiwKKQpwcm9maWxlX3NoYSA9IGhhc2hsaWIuc2hhMjU2KGNhbm9uaWNhbF9qc29uX2J5dGVzKHByb2ZpbGUpKS5oZXhkaWdlc3QoKQoKdmVyaWZpZXIgPSBWRVJJRklFUi5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKdmVyaWZpZXIgPSByZXBsYWNlX29uY2UoCiAgICB2ZXJpZmllciwKICAgIGYnUFJPRklMRV9DQU5PTklDQUxfU0hBMjU2ID0gIntPTERfUFJPRklMRX0iJywKICAgIGYnUFJPRklMRV9DQU5PTklDQUxfU0hBMjU2ID0gIntwcm9maWxlX3NoYX0iJywKICAgICJ2ZXJpZmllciBwcm9maWxlIGRpZ2VzdCIsCikKaXNzdWVfYW5jaG9yID0gKAogICAgJyAgICBpZiBwcm9maWxlWyJpc3N1ZUJpbmRpbmdzIl0gIT0geyJwcml2YXRlRmxpZ2h0IjogMzcsICJwb3N0ZmxpZ2h0Sm9pbiI6IDQ5fTpcbicKICAgICcgICAgICAgIGZhaWwoIklTU1VFX0JJTkRJTkdfSU5WQUxJRCIsICJpc3N1ZSBiaW5kaW5ncyBkaWZmZXIiKVxuJwopCnNvdXJjZV92YWxpZGF0aW9uID0gaXNzdWVfYW5jaG9yICsgKAogICAgJyAgICBzb3VyY2VfY29vcmRpbmF0ZXMgPSBwcm9maWxlWyJzb3VyY2VDb29yZGluYXRlcyJdXG4nCiAgICAnICAgIHJlcXVpcmVfZXhhY3Rfa2V5cyhc bicICAgIGlmICJmbGlnaHRDb25kdWN0b3IiIGluIHNvdXJjZV9jb29yZGluYXRlc1xuJwogICAgJyAgICAgICAgZmFpbCgiQ09ORFVDVE9SX1NFTUFO VElDX0NPVVBMSU5HX1JFRlVTRUQiLCAib3BlcmF0b3IgcHJvdmVuYW5jZSBtYXkgbm90IGVudGVyIGNhcnRyaWRnZSBzZW1hbnRpYyBpZGVudGl0eSIpXG4nCikKdmVyaWZpZXIgPSByZXBsYWNlX29uY2UoCiAgICB2ZXJpZmllciwKICAgIGlzc3VlX2FuY2hvciwKICAgIHNvdXJjZV92YWxpZGF0aW9uLAogICAgInNvdXJjZS1jb29yZGluYXRlIHZhbGlkYXRpb24iLAopClZFUklGSUVSLndyaXRlX3RleHQodmVyaWZpZXIsIGVuY29kaW5nPSJ1dGYtOCIsIG5ld2xpbmU9IlxuIikKdmVyaWZpZXJfc2hhID0gaGFzaGxpYi5zaGEyNTYoVkVSSUZJRVIucmVhZF9ieXRlcygpKS5oZXhkaWdlc3QoKQoKYnVpbGRlciA9IEJVSUxERVIucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCmJ1aWxkZXIgPSByZXBsYWNlX29uY2UoCiAgICBidWlsZGVyLAogICAgZidFWFBFQ1RFRF9WRVJJRklFUl9TSEEyNTYgPSAie09MRF9WRVJJRklFUn0iJywKICAgIGYnRVhQRUNURURfVkVSSUZJRVJfU0hBMjU2ID0gInt2ZXJpZmllcl9zaGF9IicsCiAgICAiYnVpbGRlciB2ZXJpZmllciBkaWdlc3QiLAopCkJVSUxERVIud3JpdGVfdGV4dChidWlsZGVyLCBlbmNvZGluZz0idXRmLTgiLCBuZXdsaW5lPSJcbiIpCgpi b290c3RyYXAgPSBCT09UU1RSQVAucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCmJvb3RzdHJhcCA9IHJlcGxhY2Vfb25jZSgKICAgIGJvb3RzdHJhcCwKICAgIGYnRVhQRUNURURfRU1CRURERURfVkVSSUZJRVJfU0hBMjU2ID0gIntPTERfVkVSSUZJRVJ9IicsCiAgICBmJ0VYUEVDVEVEX0VNQkVEREVEX1ZFUklGSUVSX1NIQTI1NiA9ICJ7dmVyaWZpZXJfc2hhfSInLAogICAgImJvb3RzdHJhcCB2ZXJpZmllciBkaWdlc3QiLAopCkJPT1RTVFJBUC53cml0ZV90ZXh0KGJvb3RzdHJhcCwgZW5jb2Rpbmc9InV0Zi04IiwgbmV3bGluZT0iXG4iKQoKdGVzdHMgPSBURVNUUy5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKdGVzdHMgPSByZXBsYWNlX29uY2UoCiAgICB0ZXN0cywKICAgIGYnc2VsZi5hc3NlcnRFcXVhbCh2ZXJpZmllci5QUk9GSUxFX0NBTk9OSUNBTF9TSEEyNTYsICJ7T0xEX1BST0ZJTEV9IiksCiAgICBmJ3NlbGYuYXNzZXJ0RXF1YWwodmVyaWZpZXIuUFJPRklMRV9DQU5PTklDQUxfU0hBMjU2LCAie3Byb2ZpbGVfc2hhfSIpJywKICAgICJ0ZXN0IHByb2ZpbGUgZGlnZXN0IiwKKQp0ZXN0cyA9IHJlcGxhY2Vfb25jZSgKICAgIHRlc3RzLAogICAgJyAgICAgICAgICAgIHZhbHVlWyJzb3VyY2VDb29yZGluYXRlcyJdWyJmbGlnaHRDb25kdWN0b3IiXVsiY29tbWl0Il0gPSAiMCIgKiA0MCcsCiAgICAnICAgICAgICAgICAgdmFsdWVbInNvdXJjZUNvb3JkaW5hdGVzIl1bImF4bUhlYWRTdXBwbGllciJdWyJjb21taXQiXSA9ICIwIiAqIDQwJywKICAgICJzZW1hbnRpYyBzb3VyY2UgbXV0YXRpb24gd2l0bmVzcyIsCikKdGVzdDA2X2FuY2hvciA9ICgKICAgICcgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwobWlzc2lvblsid29ya1VuaXRJZCJdLCB3b3JrWyJ3b3JrVW5pdElkIl0pXG4nCiAgICAnICAgICAgICBzZWxmLmFzc2VydEVxdWFsKG1pc3Npb25bInNvdXJjZUJpbmRpbmdJZCJdLCBzb3VyY2VbInNvdXJjZUJpbmRpbmdJZCJdKVxuJwogICAgJyAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZWxmLmJ1aWxkWyJjYXJ0cmlkZ2VJZCJdLCBtaXNzaW9uWyJjYXJ0cmlkZ2VJZCJdKVxuJwopCnRlc3QwNl9leHBhbmRlZCA9IHRlc3QwNl9hbmNob3IgKyAoCiAgICAnICAgICAgICBwcm9maWxlID0gbG9hZF9qc29uKFBST0ZJTEUpXG4nCiAgICAnICAgICAgICBzZWxmLmFzc2VydE5vdEluKCJmbGlnaHRDb25kdWN0b3IiLCBwcm9maWxlWyJzb3VyY2VDb29yZGluYXRlcyJdKVxuJwogICAgJyAgICAgICAgc2VsZi5hc3NlcnROb3RJbigiZmxpZ2h0Q29uZHVjdG9yIiwgc291cmNlWyJzb3VyY2VDb29yZGluYXRlcyJdKVxuJwogICAgJyAgICAgICAgcHJvdmVuYW5jZV9iZWZvcmUgPSB7ImFjdGl2ZUNvbmR1Y3RvciI6ICI3NzJjZTU4MmUxYjE5YjdlMWY4NzZjNDllOGViZjQwYzFmODcyM2IyIn1cbicKICAgICcgICAgICAgIHByb3ZlbmFuY2VfYWZ0ZXIgPSB7ImFjdGl2ZUNvbmR1Y3RvciI6ICJkZDQ4NjQ3MmE4YzYxMGEyMGVlMDYyZGQ2NzQ2Yzg2ZmU4ZWRlNGI0In1cbicKICAgICcgICAgICAgIHNlbGYuYXNzZXJ0Tm90RXF1YWwocHJvdmVuYW5jZV9iZWZvcmUsIHByb3ZlbmFuY2VfYWZ0ZXIpXG4nCiAgICAnICAgICAgICBvdGhlciA9IHNlbGYucGFyZW50IC8gImNhcnRyaWRnZS1wcm92ZW5hbmNlLWluZGVwZW5kZW50IlxuJwogICAgJyAgICAgICAgcmVidWlsdCA9IHRvb2wuYnVpbGRfY2FydHJpZGdlKFBST0ZJTEUsIG90aGVyKVxuJwogICAgJyAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZWxmLmJ1aWxkWyJidW5kbGVJZCJdLCByZWJ1aWx0WyJidW5kbGVJZCJdKVxuJwogICAgJyAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZWxmLmJ1aWxkWyJjYXJ0cmlkZ2VJZCJdLCByZWJ1aWx0WyJjYXJ0cmlkZ2VJZCJdKVxuJwogICAgJyAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZWxmLmJ1aWxkWyJtaXNzaW9uSWQiXSwgcmVidWlsdFsibWlzc2lvbklkIl0pXG4nCiAgICAnICAgICAgICBzZWxmLmFzc2VydEVxdWFsKHNlbGYuYnVpbGRbIndvcmtVbml0SWQiXSwgcmVidWlsdFsid29ya1VuaXRJZCJdKVxuJwogICAgJyAgICAgICAgc2VsZi5hc3NlcnRFcXVhbChzZWxmLmJ1aWxkWyJzb3VyY2VCaW5kaW5nSWQiXSwgcmVidWlsdFsic291cmNlQmluZGluZ0lkIl0pXG4nCikKdGVzdHMgPSByZXBsYWNlX29uY2UoCiAgICB0ZXN0cywKICAgIHRlc3QwNl9hbmNob3IsCiAgICB0ZXN0MDZfZXhwYW5kZWQsCiAgICAib3BlcmF0b3ItcHJvdmVuYW5jZSBpbmRlcGVuZGVuY2Ugd2l0bmVzcyIsCikKVEVTVFMud3JpdGVfdGV4dCh0ZXN0cywgZW5jb2Rpbmc9InV0Zi04IiwgbmV3bGluZT0iXG4iKQoKcnVuYm9vayA9IFJVTkJPT0sucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCnNvdXJjZV9zZWN0aW9uID0gcmUuY29tcGlsZShyIiMjIEV4YWN0IHNvdXJjZSBncmFwaFxuXG4uKj9cbiMjIENhcnRyaWRnZSBsYXdcbiIsIHJlLlMpCnJlcGxhY2VtZW50ID0gIiIiIyMgU2VtYW50aWMgc291cmNlIGdyYXBoCgpUaGUgY2FydHJpZGdlIHNlbWFudGljIGlkZW50aXR5IGZyZWV6ZXMgZXhhY3RseSBmb3VyIHB1YmxpYyBzb3VyY2Ugcm9sZXM6CgpgYGB0ZXh0Ck1BUlkgUG9ydGFibGUgdGVuYW50OgpCaWdCaXJkUmV0dXJucy9tYXJ5LXBvcnRhYmxlCmNvbW1pdCBmMzgyNjMzZDczNDlhNWQ3NDhkMmYwYjYwOTJmOTY1NzBmNmU1ZDI2CnRyZWUgICBhMThmNjYxMmI4MTE5YmVhYzY4MjkyZWY0ZDdmOGE1YjM1ZTFiMGZhCnJlbGVhc2UgdjAuMi4wCmFyY2hpdmUgc2hhMjU2IGJkNjdjODY1MDMyYWUwOTc3ZDhjMmFkYTFjMDdiNWU3NTY0ZmUyZGRmNmU2NWYxOWI2M2FkNDE3NDkzNTkwMDkKCkFYTSByZW1vdmFibGUgbWlzc2lvbi12b2x1bWUgc3VwcGxpZXI6CmNvbW1pdCBiNDUyYmIzMmUyNjI0OWRlYWI5MGRiMTI0ZjE1N2JjNjJhZDA4NTBkCnRyZWUgICBjNTU3YmRkYzE3YWQ2MmY2YWQzNmJhYzVhNmVmNTczMzg0MjlhOTUxCgpwaHlzaWNhbC1mbGlnaHQgcHJlZmxpZ2h0IHJldmlldyBjYXJkOgpjb21taXQgZWM2MWJjMzQ4OGNiNWFlMDZlZDlkYjI4NjJhOWY2OTEwZDMxMGE3OQp0cmVlICAgZDJkYWJhMWQzMmE4ZGU3NDRiOGI5MGY2Y2Q0MmY3YzRiZmY0ZmE2NwoKcGh5c2ljYWwtZmxpZ2h0IGV4ZWN1dGlvbiBmbG9vcjoKY29tbWl0IGQzMWU1OWY1ZmQzMGU1N2IxOTE3YzAwODMyYjE4OWVlMmVhM2UxMmYKdHJlZSAgIDJhNmExNTVlOTYxNWViODQ3NzgxZjg3NTY2YmFjMzJkNGM5ZGMxMjYKYGluCnByaW50Cg==
+          EOF
+          base64 --decode "$RUNNER_TEMP/repair.py.b64" > "$RUNNER_TEMP/repair.py"
+          python "$RUNNER_TEMP/repair.py"
+
+      - name: Qualify repaired cartridge law
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_flight_01_cartridge.py \
+            mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge.py \
+            mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge_bootstrap.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_flight_01_cartridge.py
+          python mating_surface/anchor_node/stc_mary_flight_01_cartridge.py validate-profile \
+            mating_surface/anchor_node/stc-mary-flight-01-cartridge-profile-01.json
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_flight_01_cartridge.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/cartridge-tests.txt"
+          grep -F "Ran 25 tests" "$RUNNER_TEMP/cartridge-tests.txt"
+          grep -F "OK" "$RUNNER_TEMP/cartridge-tests.txt"
+
+          PROFILE="$GITHUB_WORKSPACE/mating_surface/anchor_node/stc-mary-flight-01-cartridge-profile-01.json"
+          TOOL="$GITHUB_WORKSPACE/mating_surface/anchor_node/stc_mary_flight_01_cartridge.py"
+          BOOTSTRAP="$GITHUB_WORKSPACE/mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge_bootstrap.py"
+          ONE="$RUNNER_TEMP/cartridge-one"
+          TWO="$RUNNER_TEMP/cartridge-two"
+          FOREIGN="$RUNNER_TEMP/foreign"
+          VERDICT="$RUNNER_TEMP/verdict.json"
+
+          python "$TOOL" build "$PROFILE" --out "$ONE"
+          python "$TOOL" build "$PROFILE" --out "$TWO"
+          mkdir -p "$FOREIGN"
+          (
+            cd "$FOREIGN"
+            python "$BOOTSTRAP" "$ONE" --out "$VERDICT"
+          )
+          python - "$ONE" "$TWO" "$VERDICT" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          one = Path(sys.argv[1])
+          two = Path(sys.argv[2])
+          verdict = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+          members = (
+              "MANIFEST.json",
+              "CARTRIDGE/mission.json",
+              "CARTRIDGE/work-unit.json",
+              "PUBLIC/status.json",
+              "RECOVERY/profile.json",
+              "RECOVERY/source-binding.json",
+              "RECOVERY/verify_cartridge.py",
+          )
+          for relative in members:
+              if (one / relative).read_bytes() != (two / relative).read_bytes():
+                  raise SystemExit(f"deterministic byte mismatch: {relative}")
+          if verdict.get("status") != "PASS" or verdict.get("bootstrapAuthenticated") is not True:
+              raise SystemExit("external bootstrap failed")
+          source = json.loads((one / "RECOVERY/source-binding.json").read_text(encoding="utf-8"))
+          profile = json.loads((one / "RECOVERY/profile.json").read_text(encoding="utf-8"))
+          if "flightConductor" in source.get("sourceCoordinates", {}):
+              raise SystemExit("conductor leaked into source binding")
+          if "flightConductor" in profile.get("sourceCoordinates", {}):
+              raise SystemExit("conductor leaked into profile")
+          print(json.dumps(verdict, sort_keys=True))
+          PY
+
+      - name: Replace materializer with permanent product
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          rm .github/workflows/temp-materialize-stc-mary-flight-01-cartridge-02.yml
+          git add -A
+          git diff --cached --check
+
+          python - <<'PY'
+          import subprocess
+
+          expected = {
+              ".github/workflows/stc-mary-flight-01-cartridge-01.yml",
+              "mating_surface/anchor_node/STC-MARY-FLIGHT-01-CARTRIDGE-01.md",
+              "mating_surface/anchor_node/stc-mary-flight-01-cartridge-profile-01.json",
+              "mating_surface/anchor_node/stc-mary-flight-01-cartridge.ps1",
+              "mating_surface/anchor_node/stc_mary_flight_01_cartridge.py",
+              "mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge.py",
+              "mating_surface/anchor_node/verify_stc_mary_flight_01_cartridge_bootstrap.py",
+              "mating_surface/anchor_node/conformance/test_stc_mary_flight_01_cartridge.py",
+          }
+          actual = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", "dd486472a8c610a20ee062dd6746c86fe8ede4b4"],
+                  text=True,
+              ).splitlines()
+          )
+          if actual != expected:
+              raise SystemExit(
+                  f"branch product denominator differs: expected={sorted(expected)} observed={sorted(actual)}"
+              )
+          PY
+
+          git commit -m "Separate STC Mission Cartridge law from conductor provenance"
+          git push origin HEAD:refs/heads/work/stc-mary-flight-01-cartridge-02
