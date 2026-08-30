@@ -6,7 +6,7 @@
   "requiredCommit": "d31e59f5fd30e57b1917c00832b189ee2ea3e12f",
   "requiredTree": "2a6a155e9615eb847781f87566bac32d4c9dc126",
   "queueIssue": 37,
-  "workItemIssue": 44,
+  "workItemIssue": 77,
   "workspaceDirectoryPattern": "^stc-mary-flight-conductor-[a-z0-9][a-z0-9._-]*$",
   "repositoryOutputAllowed": false,
   "networkRequired": false,
@@ -21,6 +21,9 @@
   "selectedCudaIndexRange": [
     0,
     31
+  ],
+  "halo3TransportClasses": [
+    "thunderbolt_egpu"
   ],
   "feed": {
     "records": 262144,
