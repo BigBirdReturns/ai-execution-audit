@@ -146,6 +146,30 @@ tests = replace_once(
 ''',
     "POSIX path witnesses",
 )
+tests = replace_once(
+    tests,
+    '''    def test_unknown_field_is_refused(self) -> None:
+        value = self.complete()
+        value["routeAttestation"]["hostname"] = "redacted"
+        with self.assertRaises(mod.JoinError) as context:
+            mod.validate_input_value(value)
+        self.assertEqual(context.exception.code, "OBJECT_KEYS_INVALID")
+''',
+    '''    def test_unknown_field_is_refused(self) -> None:
+        generic = self.complete()
+        generic["routeAttestation"]["unknownField"] = "redacted"
+        with self.assertRaises(mod.JoinError) as context:
+            mod.validate_input_value(generic)
+        self.assertEqual(context.exception.code, "OBJECT_KEYS_INVALID")
+
+        forbidden = self.complete()
+        forbidden["routeAttestation"]["hostname"] = "redacted"
+        with self.assertRaises(mod.JoinError) as context:
+            mod.validate_input_value(forbidden)
+        self.assertEqual(context.exception.code, "PRIVATE_MATERIAL_KEY_FORBIDDEN")
+''',
+    "separate schema and private-key witnesses",
+)
 TESTS.write_text(tests, encoding="utf-8", newline="\n")
 
 doc = DOC.read_text(encoding="utf-8")
@@ -153,7 +177,7 @@ doc = replace_once(
     doc,
     '''The local input may carry body-free content references, counts, route classes, host classes, bounded performance units, timestamps, terminal states, and content identities. It may not carry a private path, evidence filename, hostname, seat identity, hardware serial, network endpoint, credential, environment value, operator record, stdout, stderr, telemetry body, evidence body, or sealed package body.
 ''',
-    '''The local input may carry body-free content references, counts, route classes, host classes, bounded performance units, timestamps, terminal states, and content identities. It may not carry a private path, evidence filename, hostname, seat identity, hardware serial, network endpoint, credential, environment value, operator record, stdout, stderr, telemetry body, evidence body, or sealed package body. Both the standalone verifier and external bootstrap reject Windows drive and UNC paths, POSIX absolute paths including `/home/...` and `/Users/...`, dot-relative and home-relative paths, and path-shaped relative values such as `home/alice/private/evidence.json`, even when placed in an otherwise allowlisted identifier or free-form field. The private-material membrane runs before content-identity and semantic validation, so a path-shaped identifier cannot be downgraded into a generic schema or digest refusal.
+    '''The local input may carry body-free content references, counts, route classes, host classes, bounded performance units, timestamps, terminal states, and content identities. It may not carry a private path, evidence filename, hostname, seat identity, hardware serial, network endpoint, credential, environment value, operator record, stdout, stderr, telemetry body, evidence body, or sealed package body. Both the standalone verifier and external bootstrap reject Windows drive and UNC paths, POSIX absolute paths including `/home/...` and `/Users/...`, dot-relative and home-relative paths, and path-shaped relative values such as `home/alice/private/evidence.json`, even when placed in an otherwise allowlisted identifier or free-form field. The private-material membrane runs before content-identity and semantic validation, so a path-shaped identifier or forbidden private key cannot be downgraded into a generic schema or digest refusal.
 ''',
     "POSIX path membrane documentation",
 )
