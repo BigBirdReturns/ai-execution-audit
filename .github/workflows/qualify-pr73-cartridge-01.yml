@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  HEAD_COORDINATE: c4b03fbe94c87d86903fffc546173959e1130e89
-  MERGE_COORDINATE: d0ab522fa781d6c6471b3cb33dad08bdcde71b27
+  HEAD_COORDINATE: eb461ad22d86f88fae709c550670266f179c5759
+  MERGE_COORDINATE: 14a2e76b2003fcf461d78965d8ed7f956c72d5f2
 
 jobs:
   qualify:
