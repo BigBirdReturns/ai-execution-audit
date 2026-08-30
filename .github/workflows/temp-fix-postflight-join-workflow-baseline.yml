@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: temp-fix-postflight-join-workflow-baseline
@@ -84,7 +84,7 @@ jobs:
           grep -F 'Ran 32 tests' .github/workflows/axm-head-physical-long-haul-join-01.yml
           git diff --check
 
-      - name: Create exact permanent dangling commit
+      - name: Commit permanent repair and push branch
         shell: bash
         run: |
           set -euo pipefail
@@ -122,5 +122,4 @@ jobs:
           PY
 
           git commit -m "Qualify postflight JOIN against the event base"
-          printf 'DANGLING_COMMIT=%s\n' "$(git rev-parse HEAD)"
-          printf 'DANGLING_TREE=%s\n' "$(git rev-parse HEAD^{tree})"
+          git push origin HEAD:refs/heads/work/axm-head-postflight-join-final-conductor-01
