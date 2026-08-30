@@ -47,6 +47,30 @@ verifier = replace_once(
 ''',
     "verifier POSIX path scan",
 )
+verifier = replace_once(
+    verifier,
+    '''def validate_input_value(value: dict[str, Any]) -> dict[str, Any]:
+    item = dict(
+''',
+    '''def validate_input_value(value: dict[str, Any]) -> dict[str, Any]:
+    scan_forbidden_private_material(value)
+    item = dict(
+''',
+    "private membrane before semantic validation",
+)
+verifier = replace_once(
+    verifier,
+    '''    if item["privateEvidenceProvenance"] is not None:
+        validate_private_evidence_provenance(item["privateEvidenceProvenance"])
+    scan_forbidden_private_material(item)
+    return item
+''',
+    '''    if item["privateEvidenceProvenance"] is not None:
+        validate_private_evidence_provenance(item["privateEvidenceProvenance"])
+    return item
+''',
+    "remove late duplicate private scan",
+)
 VERIFIER.write_text(verifier, encoding="utf-8", newline="\n")
 verifier_sha = hashlib.sha256(VERIFIER.read_bytes()).hexdigest()
 
@@ -129,7 +153,7 @@ doc = replace_once(
     doc,
     '''The local input may carry body-free content references, counts, route classes, host classes, bounded performance units, timestamps, terminal states, and content identities. It may not carry a private path, evidence filename, hostname, seat identity, hardware serial, network endpoint, credential, environment value, operator record, stdout, stderr, telemetry body, evidence body, or sealed package body.
 ''',
-    '''The local input may carry body-free content references, counts, route classes, host classes, bounded performance units, timestamps, terminal states, and content identities. It may not carry a private path, evidence filename, hostname, seat identity, hardware serial, network endpoint, credential, environment value, operator record, stdout, stderr, telemetry body, evidence body, or sealed package body. Both the standalone verifier and external bootstrap reject Windows drive and UNC paths, POSIX absolute paths including `/home/...` and `/Users/...`, dot-relative and home-relative paths, and path-shaped relative values such as `home/alice/private/evidence.json`, even when placed in an otherwise allowlisted identifier or free-form field.
+    '''The local input may carry body-free content references, counts, route classes, host classes, bounded performance units, timestamps, terminal states, and content identities. It may not carry a private path, evidence filename, hostname, seat identity, hardware serial, network endpoint, credential, environment value, operator record, stdout, stderr, telemetry body, evidence body, or sealed package body. Both the standalone verifier and external bootstrap reject Windows drive and UNC paths, POSIX absolute paths including `/home/...` and `/Users/...`, dot-relative and home-relative paths, and path-shaped relative values such as `home/alice/private/evidence.json`, even when placed in an otherwise allowlisted identifier or free-form field. The private-material membrane runs before content-identity and semantic validation, so a path-shaped identifier cannot be downgraded into a generic schema or digest refusal.
 ''',
     "POSIX path membrane documentation",
 )
