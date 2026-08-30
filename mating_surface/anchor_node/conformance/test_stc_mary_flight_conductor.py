@@ -207,7 +207,8 @@ class StcMaryFlightConductorWitnesses(unittest.TestCase):
             self.skipTest("PowerShell is unavailable on this runner")
         return candidate
 
-    def operator_fixture(self, *, phase: str = "readiness", fail_command: str | None = None) -> tuple[Path, dict[str, str], Path]:
+    def operator_fixture(self, *, phase: str = "readiness", fail_command: str | None = None, fixture_id: str | None = None) -> tuple[Path, dict[str, str], Path]:
+        fixture_name = (fixture_id or phase).replace("_", "-")
         stub_anchor = self.root / "operator-conductor"
         stub_anchor.mkdir(exist_ok=True)
         conductor_stub = stub_anchor / "stc-mary-flight-conductor.ps1"
@@ -277,7 +278,46 @@ exit 0
             )
             python_proxy.chmod(0o755)
 
-        arguments = self.init_arguments(out=self.private_parent / f"stc-mary-flight-conductor-operator-{phase.replace('_', '-')}")
+        fake_module_root = self.root / f"fake-python-modules-{fixture_name}"
+        fake_module_root.mkdir()
+        (fake_module_root / "torch.py").write_text(
+            "\n".join([
+                "import os",
+                "import sys",
+                "",
+                "mode = os.environ.get('STC_MARY_FAKE_TORCH_MODE', 'warning')",
+                "warning = 'STC_MARY_NUMPY_WARNING: Failed to initialize NumPy'",
+                "if mode == 'nonzero':",
+                "    sys.stderr.write(warning + '\\n')",
+                "    raise SystemExit(23)",
+                "if mode == 'empty_stdout':",
+                "    raise SystemExit(0)",
+                "if mode == 'malformed_stdout':",
+                "    sys.stdout.write('not-json\\n')",
+                "elif mode == 'multiple_json':",
+                "    sys.stdout.write('{}\\n')",
+                "elif mode == 'oversized_stdout':",
+                "    sys.stdout.write('x' * 65537)",
+                "if mode == 'oversized_stderr':",
+                "    sys.stderr.write(warning + '\\n' + ('x' * 65537))",
+                "else:",
+                "    sys.stderr.write(warning + '\\n')",
+                "",
+                "class FakeCuda:",
+                "    def is_available(self):",
+                "        return mode != 'cuda_unavailable'",
+                "    def device_count(self):",
+                "        return 0 if mode == 'missing_index' else 1",
+                "",
+                "cuda = FakeCuda()",
+                "",
+            ]),
+            encoding="utf-8",
+            newline="\n",
+        )
+        python_proxy = Path(sys.executable).resolve()
+
+        arguments = self.init_arguments(out=self.private_parent / f"stc-mary-flight-conductor-operator-{fixture_name}")
         ledger = {"currentPhase": "admitted_checkout"}
         with (
             patch.object(conductor, "HERE", stub_anchor),
@@ -287,7 +327,7 @@ exit 0
         ):
             conductor.initialize_workstation(arguments)
 
-        log = self.root / f"operator-{phase}.log"
+        log = self.root / f"operator-{fixture_name}.log"
         env = os.environ.copy()
         env.update(
             {
@@ -296,6 +336,8 @@ exit 0
                 "STC_MARY_PYTHON": str(python_proxy),
             }
         )
+        inherited_pythonpath = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = str(fake_module_root) + (os.pathsep + inherited_pythonpath if inherited_pythonpath else "")
         if fail_command is not None:
             env["STC_MARY_STUB_FAIL_COMMAND"] = fail_command
         return Path(arguments.out).resolve(), env, log
@@ -599,6 +641,8 @@ exit 0
         root, env, log = self.operator_fixture(phase="readiness")
         result = self.run_operator(root / conductor.OPERATOR_SCRIPT_FILE, ["readiness"], env)
         self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", errors="replace"))
+        combined_output = result.stdout + result.stderr
+        self.assertNotIn(b"STC_MARY_NUMPY_WARNING", combined_output)
         lines = log.read_text(encoding="utf-8").splitlines()
         self.assertEqual([line for line in lines if line.startswith(("tool:", "carrier:", "packet:"))], ["tool:doctor"])
         ws_paths = conductor.read_json(root / conductor.PATH_MAP_FILE)["paths"]
@@ -619,6 +663,34 @@ exit 0
             "sealed",
         ):
             self.assertFalse(Path(ws_paths[key]).exists(), key)
+
+        refusal_modes = (
+            "nonzero",
+            "empty_stdout",
+            "malformed_stdout",
+            "multiple_json",
+            "oversized_stdout",
+            "oversized_stderr",
+            "cuda_unavailable",
+            "missing_index",
+        )
+        for mode in refusal_modes:
+            with self.subTest(mode=mode):
+                refused_root, refused_env, refused_log = self.operator_fixture(
+                    phase="readiness",
+                    fixture_id=f"readiness-probe-{mode}",
+                )
+                refused_env["STC_MARY_FAKE_TORCH_MODE"] = mode
+                refused = self.run_operator(refused_root / conductor.OPERATOR_SCRIPT_FILE, ["readiness"], refused_env)
+                self.assertNotEqual(refused.returncode, 0)
+                refused_output = refused.stdout + refused.stderr
+                self.assertNotIn(b"STC_MARY_NUMPY_WARNING", refused_output)
+                if refused_log.exists():
+                    refused_lines = refused_log.read_text(encoding="utf-8").splitlines()
+                    self.assertFalse(
+                        any(line.startswith(("tool:", "carrier:", "packet:")) for line in refused_lines),
+                        mode,
+                    )
 
     def test_29_tool_refusal_stops_without_crossing_action_boundary(self) -> None:
         root, env, log = self.operator_fixture(phase="readiness", fail_command="doctor")
