@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-EXPECTED_EMBEDDED_VERIFIER_SHA256 = "f91d2f26f3c5cf141005433ae6aeb9d4ef072b49ec8258bc312cc629135156c9"
+EXPECTED_EMBEDDED_VERIFIER_SHA256 = "28f85f84591761394e278477b6a6e683b5d9a94194e58ceb8aaf65bbec1dd158"
 AUTHORITY = "none"
 ISOLATED_VERIFIER_LAUNCHER = """import sys
 source = sys.stdin.buffer.read()

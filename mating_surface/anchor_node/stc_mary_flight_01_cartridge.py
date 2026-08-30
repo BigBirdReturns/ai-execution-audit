@@ -29,7 +29,7 @@ from verify_stc_mary_flight_01_cartridge import (
     verify_cartridge,
 )
 
-EXPECTED_VERIFIER_SHA256 = "f91d2f26f3c5cf141005433ae6aeb9d4ef072b49ec8258bc312cc629135156c9"
+EXPECTED_VERIFIER_SHA256 = "28f85f84591761394e278477b6a6e683b5d9a94194e58ceb8aaf65bbec1dd158"
 PROFILE_FILENAME = "stc-mary-flight-01-cartridge-profile-01.json"
 VERIFIER_FILENAME = "verify_stc_mary_flight_01_cartridge.py"
 BOOTSTRAP_FILENAME = "verify_stc_mary_flight_01_cartridge_bootstrap.py"
@@ -191,12 +191,14 @@ def public_projection(root: Path) -> dict[str, Any]:
     supplied_root = root.expanduser()
     if supplied_root.is_symlink():
         fail("CARTRIDGE_ROOT_INVALID", "cartridge root must be a regular non-symlink directory")
-    root = supplied_root.resolve(strict=True)
+    supplied_root.resolve(strict=True)
     verdict = run_bootstrap(supplied_root)
     if verdict.get("status") != "PASS" or verdict.get("bootstrapAuthenticated") is not True:
         fail("AUTHENTICATED_VERIFICATION_REQUIRED", "cartridge must pass the external bootstrap")
-    status_path = root / "PUBLIC" / "status.json"
-    return parse_json_bytes(status_path.read_bytes(), str(status_path))
+    projection = verdict.get("publicStatus")
+    if not isinstance(projection, dict):
+        fail("AUTHENTICATED_PUBLIC_STATUS_REQUIRED", "authenticated verdict omitted the reconstructed public status")
+    return projection
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:

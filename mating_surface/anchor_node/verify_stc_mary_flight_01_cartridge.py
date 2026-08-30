@@ -511,6 +511,7 @@ def verify_cartridge(root: Path) -> dict[str, Any]:
         "missionId": mission["missionId"],
         "workUnitId": work["workUnitId"],
         "sourceBindingId": source["sourceBindingId"],
+        "publicStatus": status,
         "checks": checks,
         "bootstrapAuthenticated": False,
         "physicalExecutionStarted": False,

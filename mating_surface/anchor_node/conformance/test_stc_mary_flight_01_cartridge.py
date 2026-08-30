@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ANCHOR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ANCHOR))
@@ -340,6 +341,33 @@ class CartridgeTest(unittest.TestCase):
         self.assertNotIn("credential", encoded)
         self.assertEqual(projection["publicEvidenceBodies"], 0)
         self.assertEqual(projection["authority"], "none")
+
+        authenticated_projection = dict(projection)
+        original_bootstrap = tool.run_bootstrap
+
+        def mutate_status_after_authentication(root: Path, out: Path | None = None) -> dict:
+            verdict = original_bootstrap(root, out)
+            (self.root / "PUBLIC/status.json").write_text(
+                json.dumps(
+                    {
+                        "privatePath": "unverified-post-authentication-substitution",
+                        "authority": "mission",
+                    },
+                    sort_keys=True,
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            return verdict
+
+        with patch.object(tool, "run_bootstrap", side_effect=mutate_status_after_authentication):
+            projection_after_disk_mutation = tool.public_projection(self.root)
+
+        self.assertEqual(projection_after_disk_mutation, authenticated_projection)
+        self.assertNotIn("privatePath", projection_after_disk_mutation)
+        self.assertEqual(projection_after_disk_mutation["authority"], "none")
 
     def test_25_lf_only_and_no_network_clients(self) -> None:
         for relative in ("MANIFEST.json", *verifier.EXPECTED_FILES):
