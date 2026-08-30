@@ -1,0 +1,145 @@
+name: OPS export Flight 01 public admission status
+
+on:
+  push:
+    branches:
+      - ops/flight01-public-status-export-01
+    paths:
+      - ".github/workflows/ops-flight01-public-status-export-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: ops-flight01-public-status-export-01
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Wait for final public admission and export exact state
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const owner = 'BigBirdReturns';
+            const repo = 'ai-execution-audit';
+            const branch = 'ops/flight01-public-status-export-01';
+            const path = 'status/flight01-public-admission-status.json';
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            let cartridge;
+            let join;
+            for (let attempt = 0; attempt < 300; attempt += 1) {
+              cartridge = (await github.rest.pulls.get({owner, repo, pull_number: 73})).data;
+              join = (await github.rest.pulls.get({owner, repo, pull_number: 74})).data;
+              if (cartridge.merged && join.merged) break;
+              core.info(JSON.stringify({
+                attempt,
+                cartridge: {state: cartridge.state, merged: cartridge.merged},
+                join: {state: join.state, merged: join.merged},
+              }));
+              await sleep(15000);
+            }
+            if (!cartridge?.merged || !join?.merged) {
+              throw new Error('Both public admission pull requests did not merge before timeout');
+            }
+
+            const main = (await github.rest.repos.getBranch({owner, repo, branch: 'main'})).data;
+            const issues = {};
+            for (const number of [37, 49, 57, 69]) {
+              const issue = (await github.rest.issues.get({owner, repo, issue_number: number})).data;
+              issues[number] = {
+                state: issue.state,
+                state_reason: issue.state_reason,
+                title: issue.title,
+                updated_at: issue.updated_at,
+              };
+            }
+
+            const remainingHeads = {};
+            for (const candidate of [cartridge.head.ref, join.head.ref]) {
+              try {
+                const ref = await github.rest.git.getRef({owner, repo, ref: `heads/${candidate}`});
+                remainingHeads[candidate] = ref.data.object.sha;
+              } catch (error) {
+                if (error.status === 404) remainingHeads[candidate] = null;
+                else throw error;
+              }
+            }
+
+            const status = {
+              schema: 'stc-mary/flight-01-public-admission-status/1',
+              generatedAt: new Date().toISOString(),
+              repository: `${owner}/${repo}`,
+              production: {
+                commit: main.commit.sha,
+                tree: main.commit.commit.tree.sha,
+              },
+              cartridge: {
+                pullRequest: 73,
+                candidateHead: cartridge.head.sha,
+                mergeCommit: cartridge.merge_commit_sha,
+                mergedAt: cartridge.merged_at,
+                headBranch: cartridge.head.ref,
+              },
+              postflightJoin: {
+                pullRequest: 74,
+                candidateHead: join.head.sha,
+                mergeCommit: join.merge_commit_sha,
+                mergedAt: join.merged_at,
+                headBranch: join.head.ref,
+              },
+              issues,
+              remainingHeadBranches: remainingHeads,
+              gates: {
+                sourceReadiness: 'PASS',
+                finalPublicationSource: 'PASS',
+                privatePhysicalCampaign: 'HOLD',
+              },
+              physicalLedger: {
+                fourthSuccessorInitialized: false,
+                readinessClosed: false,
+                feedPresent: false,
+                baselinePresent: false,
+                packetStagesRecorded: 0,
+                packetStageDenominator: 16,
+                physicalExecutionCompleted: false,
+                privateSelfAttested: false,
+              },
+              nextPrivateTransaction: [
+                'validate-profile',
+                'init',
+                'status',
+                'render',
+                'verify',
+                'operator-flight.ps1 readiness',
+                'status',
+                'render',
+                'public-projection',
+                'verify',
+                'STOP BEFORE feed',
+              ],
+              authority: 'none',
+            };
+            const content = Buffer.from(JSON.stringify(status, null, 2) + '\n').toString('base64');
+            let sha;
+            try {
+              const existing = await github.rest.repos.getContent({owner, repo, path, ref: branch});
+              sha = existing.data.sha;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            await github.rest.repos.createOrUpdateFileContents({
+              owner,
+              repo,
+              path,
+              message: 'Export final Flight 01 public admission state',
+              content,
+              branch,
+              ...(sha ? {sha} : {}),
+            });
