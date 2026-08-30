@@ -249,9 +249,25 @@ class CartridgeTest(unittest.TestCase):
         self.assertEqual(verdict["code"], "BUNDLE_ID_INVALID")
 
     def test_20_output_inside_cartridge_refused(self) -> None:
-        code, verdict = run_bootstrap(self.root, self.root / "verdict.json")
+        verdict_output = self.root / "verdict.json"
+        code, verdict = run_bootstrap(self.root, verdict_output)
         self.assertNotEqual(code, 0)
         self.assertEqual(verdict["code"], "VERDICT_INSIDE_CARTRIDGE")
+        self.assertFalse(verdict_output.exists())
+
+        projection_output = self.root / "projection.json"
+        completed = subprocess.run(
+            [sys.executable, str(MAIN_TOOL), "public-projection", str(self.root), "--out", str(projection_output)],
+            check=False,
+            capture_output=True,
+        )
+        projection_verdict = json.loads(completed.stdout.decode("utf-8"))
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual(projection_verdict["code"], "PROJECTION_INSIDE_CARTRIDGE")
+        self.assertFalse(projection_output.exists())
+        verify_code, verify_verdict = run_bootstrap(self.root)
+        self.assertEqual(verify_code, 0)
+        self.assertEqual(verify_verdict["status"], "PASS")
 
     def test_21_existing_output_refused(self) -> None:
         out = self.parent / "verdict.json"
