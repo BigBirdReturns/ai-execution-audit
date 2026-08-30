@@ -35,6 +35,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/temp-fix-pr73-final-custody.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'updated, count = pattern.subn(replacement, text, count=1)'
+          new = 'updated, count = pattern.subn(lambda _match: replacement, text, count=1)'
+          if text.count(old) != 1:
+              raise SystemExit('replace_range implementation anchor differs')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
+          PY
           python -m py_compile .github/temp-fix-pr73-final-custody.py
           python .github/temp-fix-pr73-final-custody.py
 
