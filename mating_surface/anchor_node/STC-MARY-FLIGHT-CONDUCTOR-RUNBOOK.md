@@ -5,11 +5,11 @@ The conductor binds the admitted local toolchain, offline carrier, flight-plan c
 The execution floor remains the detached checkout admitted at:
 
 ```text
-commit: 6fc1753b436757aefef200d6bdb2262eeb00f393
-tree:   53f8d73ebadb4a69a8a7683deed5334a5e042c20
+commit: c9f4f96ebcc790ffbcc779a1c1f8f32543a8962f
+tree:   8e6335cdcc196931d4fbf911ae2d1f6fd2352c29
 ```
 
-The conductor itself is a later source layer. Run it from its admitted repository checkout or from the exact seven-member source archive produced by qualification, and point `--repository` at a separate detached `6fc1753...` execution checkout. This separation preserves the frozen physical-flight toolchain while allowing the operator workstation to be admitted afterward.
+The conductor itself is a later source layer. Run it from its admitted repository checkout or from the exact seven-member source archive produced by qualification, and point `--repository` at a separate detached `c9f4f96...` execution checkout. This separation preserves the frozen physical-flight toolchain while allowing the operator workstation to be admitted afterward.
 
 ## Permanent source set
 
@@ -31,7 +31,7 @@ Every workstation records the ordered member denominator, member byte counts, me
 
 Prepare two local coordinates:
 
-1. An exact detached, clean checkout of `6fc1753b436757aefef200d6bdb2262eeb00f393` for the admitted execution tools.
+1. An exact detached, clean checkout of `c9f4f96ebcc790ffbcc779a1c1f8f32543a8962f` for the admitted execution tools.
 2. A private evidence parent outside both repositories. It must already exist and may not be a filesystem root, the user home, the current directory, or any path overlapping the execution checkout.
 
 Declare exactly four private artifact coordinates:
