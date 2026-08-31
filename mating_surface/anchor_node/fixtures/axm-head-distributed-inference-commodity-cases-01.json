@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "caseId": "qualified-synthetic-swarmllm-composite-route",
+      "expectedSelectedRouteId": "route:swarmllm-synthetic@fixture",
+      "expectedTerminal": "QUALIFIED_ASSEMBLY"
+    },
+    {
+      "caseId": "plan-public-swarmllm-observation-only",
+      "expectedSelectedRouteId": null,
+      "expectedTerminal": "QUALIFICATION_PLAN"
+    },
+    {
+      "caseId": "plan-independent-route-memory-does-not-pool",
+      "expectedSelectedRouteId": null,
+      "expectedTerminal": "QUALIFICATION_PLAN"
+    },
+    {
+      "caseId": "qualified-measured-composite-formation",
+      "expectedSelectedRouteId": "route:generic-pipeline@fixture",
+      "expectedTerminal": "QUALIFIED_ASSEMBLY"
+    },
+    {
+      "caseId": "plan-member-loss-invalidates-formation",
+      "expectedSelectedRouteId": null,
+      "expectedTerminal": "QUALIFICATION_PLAN"
+    },
+    {
+      "caseId": "hold-forged-aggregate-capacity",
+      "expectedSelectedRouteId": null,
+      "expectedTerminal": "HOLD"
+    },
+    {
+      "caseId": "qualified-supplier-substitution",
+      "expectedSelectedRouteId": "route:swarmllm-substitutable@fixture",
+      "expectedTerminal": "QUALIFIED_ASSEMBLY"
+    },
+    {
+      "caseId": "hold-work-unit-pins-swarmllm",
+      "expectedSelectedRouteId": null,
+      "expectedTerminal": "HOLD"
+    },
+    {
+      "caseId": "hold-duplicate-seat-membership",
+      "expectedSelectedRouteId": null,
+      "expectedTerminal": "HOLD"
+    },
+    {
+      "caseId": "hold-public-claim-promotion",
+      "expectedSelectedRouteId": null,
+      "expectedTerminal": "HOLD"
+    },
+    {
+      "caseId": "qualified-local-route-beats-slow-composite",
+      "expectedSelectedRouteId": "route:local-fast@fixture",
+      "expectedTerminal": "QUALIFIED_ASSEMBLY"
+    },
+    {
+      "caseId": "qualified-local-fallback-after-distributed-removal",
+      "expectedSelectedRouteId": "route:local-fallback@fixture",
+      "expectedTerminal": "QUALIFIED_ASSEMBLY"
+    }
+  ],
+  "schema": "axm-head/distributed-inference-fixture-catalog@1"
+}

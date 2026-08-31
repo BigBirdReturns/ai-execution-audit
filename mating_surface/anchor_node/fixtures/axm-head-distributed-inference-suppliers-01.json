@@ -1,0 +1,73 @@
+{
+  "schema": "axm-head/distributed-inference-supplier-catalog@1",
+  "suppliers": [
+    {
+      "actor": "Nehanth Narendrula",
+      "claimBoundary": "This row records public claims and source lineage. It does not establish that the current SwarmLLM implementation is available, source-complete, privacy-qualified, output-equivalent, failure-tolerant, or admitted for Estate execution.",
+      "commodityInterface": "axm/distributed-model-inference@1",
+      "evidence": [
+        {
+          "coordinate": "observed-2026-08-31",
+          "kind": "public-product-surface",
+          "locator": "https://swarmllm.ai/",
+          "supports": [
+            "browser-room product surface",
+            "distributed model inference claim",
+            "device memory contribution claim"
+          ]
+        },
+        {
+          "coordinate": "848db64eb05f15851ec03ba4a77e4e1184987ddd",
+          "kind": "public-lineage-source",
+          "locator": "https://github.com/Nehanth/llm_p2p",
+          "supports": [
+            "layer-wise sharding lineage",
+            "two-node direct shard communication",
+            "no-master-node design claim"
+          ]
+        },
+        {
+          "coordinate": "author-post",
+          "kind": "public-demo-claim",
+          "locator": "linkedin:nehanth:swarmllm-demo:2026-08-30",
+          "supports": [
+            "Qwen3.8-27B claim",
+            "MacBook and iPhone claim",
+            "WebGPU and WebRTC claim",
+            "approximately 2.5 decode tokens per second claim"
+          ]
+        }
+      ],
+      "evidenceTier": "public-demo-plus-public-lineage-source",
+      "missingProperties": [
+        "current-availability-observation",
+        "executable-adapter-artifact",
+        "formation-capacity-receipt",
+        "formation-topology-receipt",
+        "member-drop-behavior-receipt",
+        "model-output-equivalence-validator",
+        "performance-receipt",
+        "privacy-declaration",
+        "supplier-admission-receipt"
+      ],
+      "observedAt": "2026-08-31",
+      "observedClaims": {
+        "clientSurface": "browser-tab",
+        "computeApi": "WebGPU",
+        "deviceClasses": [
+          "MacBook",
+          "iPhone"
+        ],
+        "model": "Qwen3.8-27B",
+        "partitionMode": "pipeline-layer",
+        "reportedDecodeTokensPerSecond": 2.5,
+        "shardedDownloads": true,
+        "transport": "WebRTC"
+      },
+      "product": "SwarmLLM",
+      "schema": "axm-head/distributed-inference-supplier-observation@1",
+      "status": "OBSERVED_CANDIDATE",
+      "supplierId": "supplier:swarmllm@public-observation-2026-08-31"
+    }
+  ]
+}
