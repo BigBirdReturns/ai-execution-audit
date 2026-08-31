@@ -349,6 +349,10 @@ function Get-NvidiaComputeProcesses {
         }
     }
 
+
+    return @($Rows)
+}
+
 function Get-AuthorizedBraveGpuHelper {
     param([Parameter(Mandatory = $true)][int] $ProcessId)
 
@@ -375,9 +379,6 @@ function Get-AuthorizedBraveGpuHelper {
     }
 
     return $null
-}
-
-    return @($Rows)
 }
 
 function Convert-PciBusId {
