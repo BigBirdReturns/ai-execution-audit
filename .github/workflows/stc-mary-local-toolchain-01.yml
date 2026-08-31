@@ -113,26 +113,13 @@ jobs:
           cp "$RESULT" qualification/stc-mary-local-toolchain-01/personal-floor-result-${{ matrix.os }}.json
           cp "$VERIFY" qualification/stc-mary-local-toolchain-01/personal-floor-verification-${{ matrix.os }}.json
 
-      - name: Capture a private readiness record and retain only its body-free projection
+      - name: Prove exact-seat readiness contract without fabricating physical evidence
         shell: bash
         run: |
-          PREP="$RUNNER_TEMP/stc-mary-local-prep-ci"
-          python mating_surface/anchor_node/stc_mary_local_toolchain.py doctor \
-            --repository "$GITHUB_WORKSPACE" \
-            --out "$PREP" \
-            --artifact "toolchain=mating_surface/anchor_node/stc_mary_local_toolchain.py"
-          python - <<'PY'
-          import json, os, pathlib, re
-          prep = pathlib.Path(os.environ['RUNNER_TEMP']) / 'stc-mary-local-prep-ci'
-          projection = json.loads((prep / 'readiness-public-projection.json').read_text(encoding='utf-8'))
-          encoded = json.dumps(projection, sort_keys=True)
-          forbidden = [r'[A-Za-z]:\\\\', r'/home/', r'"privatePath"\s*:', r'Authorization:\s*Bearer', r'OCTO-(?:W|L)[0-9]+']
-          for pattern in forbidden:
-              if re.search(pattern, encoded, re.I):
-                  raise SystemExit(f'body-free projection contains forbidden material: {pattern}')
-          destination = pathlib.Path('qualification/stc-mary-local-toolchain-01/readiness-public-projection-${{ matrix.os }}.json')
-          destination.write_text(json.dumps(projection, indent=2) + '\n', encoding='utf-8')
-          PY
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_halo3_exact_seat.py' \
+            -v 2>&1 | tee qualification/stc-mary-local-toolchain-01/exact-halo3-seat-tests.txt
 
       - name: Preserve provider-free qualification receipts
         uses: actions/upload-artifact@v4

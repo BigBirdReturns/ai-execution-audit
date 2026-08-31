@@ -12,16 +12,18 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
+from stc_mary_local.halo3_seat import halo3_seat_record, validate_halo3_seat
+
 
 HERE = Path(__file__).resolve().parent
 SOURCE_ROOT = HERE.parent.parent
 DEFAULT_PROFILE = HERE / "stc-mary-flight-conductor-profile-01.json"
-PROFILE_FILE_SHA256 = "ca1fa71c7168dbcca9ff3e77930d06621350f5509ca922968eb3b40e709cadeb"
+PROFILE_FILE_SHA256 = "46d9e1a686951038049be413a77a6d4e2cafc00fe5b63be8e494e18c1b85b70f"
 PROFILE_ID = "stc-mary/private-flight-conductor/0.1"
 PROFILE_SCHEMA = "stc-mary-flight-conductor-profile/1"
 REQUIRED_REPOSITORY = "BigBirdReturns/ai-execution-audit"
-REQUIRED_COMMIT = "d31e59f5fd30e57b1917c00832b189ee2ea3e12f"
-REQUIRED_TREE = "2a6a155e9615eb847781f87566bac32d4c9dc126"
+REQUIRED_COMMIT = "c9f4f96ebcc790ffbcc779a1c1f8f32543a8962f"
+REQUIRED_TREE = "8e6335cdcc196931d4fbf911ae2d1f6fd2352c29"
 TOOLCHAIN_PROFILE_ID = "stc-mary/local-toolchain/0.1"
 PHASE_SEQUENCE = (
     "admitted_checkout",
@@ -67,6 +69,7 @@ SOURCE_MEMBERS = (
     "mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json",
     "mating_surface/anchor_node/stc-mary-flight-conductor.ps1",
     "mating_surface/anchor_node/stc_mary_flight_conductor.py",
+    "mating_surface/anchor_node/stc_mary_local/halo3_seat.py",
 )
 WORKSPACE_PATTERN = re.compile(r"^stc-mary-flight-conductor-[a-z0-9][a-z0-9._-]*$", re.I)
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -298,7 +301,7 @@ def source_set_receipt() -> dict[str, Any]:
         "memberCount": len(members),
         "totalBytes": sum(row["bytes"] for row in members),
         "authority": "none",
-        "claimBoundary": "Exact six-member conductor source set. It identifies source bytes and grants no authority.",
+        "claimBoundary": "Exact conductor source set. It identifies source bytes and grants no authority.",
     }
     return {**body, "sourceSetId": content_id("stcmaryflightconductorsourceset1", body)}
 
@@ -307,19 +310,20 @@ def validate_profile_structure(profile: Any) -> Mapping[str, Any]:
     exact_keys(profile, [
         "schema", "profileId", "status", "repository", "requiredCommit", "requiredTree", "queueIssue",
         "workItemIssue", "workspaceDirectoryPattern", "repositoryOutputAllowed", "networkRequired",
-        "externalServiceCalls", "operationalCredentials", "artifactLabels", "selectedCudaIndexRange", "feed",
+        "externalServiceCalls", "operationalCredentials", "artifactLabels", "selectedCudaIndexRange", "halo3TransportClasses", "feed",
         "phaseSequence", "phases", "authority", "claimBoundary",
     ], "CONDUCTOR_PROFILE_INVALID", "conductor profile")
     require(profile["schema"] == PROFILE_SCHEMA and profile["profileId"] == PROFILE_ID, "CONDUCTOR_PROFILE_INVALID", "profile identity differs")
     require(profile["status"] == "candidate_design_only", "CONDUCTOR_PROFILE_INVALID", "profile status differs")
     require(profile["repository"] == REQUIRED_REPOSITORY, "CONDUCTOR_PROFILE_INVALID", "profile repository differs")
     require(profile["requiredCommit"] == REQUIRED_COMMIT and profile["requiredTree"] == REQUIRED_TREE, "CONDUCTOR_PROFILE_INVALID", "profile predecessor differs")
-    require(profile["queueIssue"] == 37 and profile["workItemIssue"] == 44, "CONDUCTOR_PROFILE_INVALID", "profile issue binding differs")
+    require(profile["queueIssue"] == 37 and profile["workItemIssue"] == 77, "CONDUCTOR_PROFILE_INVALID", "profile issue binding differs")
     require(profile["workspaceDirectoryPattern"] == WORKSPACE_PATTERN.pattern, "CONDUCTOR_PROFILE_INVALID", "workspace pattern differs")
     require(profile["repositoryOutputAllowed"] is False and profile["networkRequired"] is False, "CONDUCTOR_PROFILE_INVALID", "profile widens repository or network surface")
     require(profile["externalServiceCalls"] == 0 and profile["operationalCredentials"] == 0 and profile["authority"] == "none", "CONDUCTOR_PROFILE_INVALID", "profile widens service, credential, or authority surface")
     require(profile["artifactLabels"] == list(ARTIFACT_LABELS), "CONDUCTOR_PROFILE_INVALID", "artifact denominator differs")
     require(profile["selectedCudaIndexRange"] == [0, 31], "CONDUCTOR_PROFILE_INVALID", "CUDA index range differs")
+    require(profile["halo3TransportClasses"] == ["thunderbolt_egpu"], "CONDUCTOR_PROFILE_INVALID", "HALO3 transport-role classes differ")
     require(profile["feed"] == {"records": 262144, "features": 32, "classes": 8, "seed": 20260827}, "CONDUCTOR_PROFILE_INVALID", "feed coordinate differs")
     require(profile["phaseSequence"] == list(PHASE_SEQUENCE), "CONDUCTOR_PROFILE_INVALID", "phase sequence differs")
     exact_keys(profile["phases"], PHASE_SEQUENCE, "CONDUCTOR_PROFILE_INVALID", "phase definitions")
@@ -429,7 +433,7 @@ def path_map_record(campaign_id: str, workstation: Path) -> dict[str, Any]:
     return {**body, "pathMapId": content_id("stcmaryflightconductorpathmap1", body)}
 
 
-def campaign_coordinate_id(*, campaign_label: str, repository: Path, private_parent: Path, selected_cuda: int, artifacts: Sequence[Mapping[str, Any]], source_set_id: str) -> str:
+def campaign_coordinate_id(*, campaign_label: str, repository: Path, private_parent: Path, selected_cuda: int, halo3_seat: Mapping[str, Any], artifacts: Sequence[Mapping[str, Any]], source_set_id: str) -> str:
     body = {
         "profileId": PROFILE_ID,
         "campaignLabel": campaign_label,
@@ -439,13 +443,14 @@ def campaign_coordinate_id(*, campaign_label: str, repository: Path, private_par
         "repositoryPath": str(repository.resolve()),
         "privateParent": str(private_parent.resolve()),
         "selectedCudaDeviceIndex": selected_cuda,
+        "halo3SeatId": halo3_seat["seatId"],
         "artifactCoordinateIds": [row["coordinateId"] for row in artifacts],
         "sourceSetId": source_set_id,
     }
     return content_id("stcmaryflightconductorcampaign1", body)
 
 
-def config_record(*, campaign_id: str, campaign_label: str, created_at: int, repository: Path, private_parent: Path, selected_cuda: int, artifacts: Sequence[Mapping[str, Any]], source_receipt: Mapping[str, Any], source_set: Mapping[str, Any], path_map_id: str) -> dict[str, Any]:
+def config_record(*, campaign_id: str, campaign_label: str, created_at: int, repository: Path, private_parent: Path, selected_cuda: int, halo3_seat: Mapping[str, Any], artifacts: Sequence[Mapping[str, Any]], source_receipt: Mapping[str, Any], source_set: Mapping[str, Any], path_map_id: str) -> dict[str, Any]:
     body = {
         "schema": "stc-mary-flight-conductor-config/1",
         "profileId": PROFILE_ID,
@@ -463,6 +468,7 @@ def config_record(*, campaign_id: str, campaign_label: str, created_at: int, rep
         "privateParent": str(private_parent.resolve()),
         "selectedCudaDeviceIndex": selected_cuda,
         "artifacts": list(artifacts),
+        "halo3Seat": dict(halo3_seat),
         "pathMapId": path_map_id,
         "authority": "none",
         "claimBoundary": "Immutable private campaign configuration. Paths remain private and no coordinate grants authority.",
@@ -512,6 +518,7 @@ def render_operator_script(config: Mapping[str, Any], paths: Mapping[str, str]) 
         "",
         f"$Conductor = {ps_quote(conductor)}",
         "$Workstation = $PSScriptRoot",
+        "$CampaignConfig = Join-Path $Workstation 'campaign-config.private.json'",
         f"$Repo = {ps_quote(repo)}",
         f"$Campaign = {ps_quote(config['campaignLabel'])}",
         f"$Tool = Join-Path $Repo {ps_quote('mating_surface\\anchor_node\\stc-mary-local-toolchain.ps1')}",
@@ -536,7 +543,7 @@ def render_operator_script(config: Mapping[str, Any], paths: Mapping[str, str]) 
         f"$Plan = {ps_quote(paths['plan'])}",
         f"$Packet = {ps_quote(paths['packet'])}",
         f"$Sealed = {ps_quote(paths['sealed'])}",
-        f"$CudaDeviceIndex = {config['selectedCudaDeviceIndex']}",
+        f"$Halo3SeatId = {ps_quote(config['halo3Seat']['seatId'])}",
         "",
         "function Invoke-Checked {",
         "    param(",
@@ -737,8 +744,8 @@ def render_operator_script(config: Mapping[str, Any], paths: Mapping[str, str]) 
         "    if ($probe.cudaAvailable -ne $true) {",
         "        throw 'The selected readiness interpreter does not expose torch.cuda.'",
         "    }",
-        "    if ($CudaDeviceIndex -lt 0 -or $CudaDeviceIndex -ge $probe.deviceCount -or $probe.devices -notcontains $CudaDeviceIndex) {",
-        "        throw \"The selected readiness interpreter does not expose CUDA device index $CudaDeviceIndex.\"",
+        "    if ($probe.deviceCount -lt 1) {",
+        "        throw 'The selected readiness interpreter does not expose a CUDA device.'",
         "    }",
         "    $env:STC_MARY_PYTHON = $resolved.Path",
         "}",
@@ -752,7 +759,8 @@ def render_operator_script(config: Mapping[str, Any], paths: Mapping[str, str]) 
         f"              --artifact {ps_quote('cartridge=' + artifacts['cartridge'])} `",
         f"              --artifact {ps_quote('model=' + artifacts['model'])} `",
         f"              --artifact {ps_quote('verifier=' + artifacts['verifier'])} `",
-        f"              --artifact {ps_quote('storage=' + artifacts['storage'])}",
+        f"              --artifact {ps_quote('storage=' + artifacts['storage'])} `",
+        "              --halo3-seat-config $CampaignConfig",
         "        }",
         "        exit 0",
         "    }",
@@ -776,7 +784,7 @@ def render_operator_script(config: Mapping[str, Any], paths: Mapping[str, str]) 
         "    'halo3' {",
         "        Assert-CurrentPhase 'halo3'",
         "        Invoke-Checked 'HALO3 workload' {",
-        "            & $Tool run-workload --feed $Feed --backend torch-cuda --device-index $CudaDeviceIndex --out $Accelerated",
+        "            & $Tool run-workload --feed $Feed --backend torch-cuda --halo3-seat-config $CampaignConfig --out $Accelerated",
         "        }",
         "        Invoke-Checked 'HALO3 verification' {",
         "            & $Tool verify-workload --feed $Feed --result $Accelerated --out $AcceleratedVerification",
@@ -880,6 +888,16 @@ def initialize_workstation(args: argparse.Namespace) -> dict[str, Any]:
     require(CAMPAIGN_LABEL_RE.fullmatch(campaign_label) is not None and not campaign_label.startswith("REPLACE_WITH_"), "CAMPAIGN_LABEL_INVALID", "campaign label is a placeholder or differs from the closed form")
     selected_cuda = safe_int(args.cuda_device_index, profile["selectedCudaIndexRange"][0], profile["selectedCudaIndexRange"][1], "CUDA_DEVICE_INDEX_INVALID", "CUDA device index")
     artifacts = parse_artifacts(args.artifact, repository, private_parent, workstation)
+    halo3_seat = halo3_seat_record(
+        product_name=args.halo3_product_name,
+        gpu_uuid=args.halo3_gpu_uuid,
+        pci_bus_id=args.halo3_pci_bus_id,
+        pnp_instance_id=args.halo3_pnp_instance_id,
+        transport_class=args.halo3_transport_class,
+        transport_anchor_pnp_instance_id=args.halo3_transport_anchor_pnp_instance_id,
+        initial_cuda_device_index=selected_cuda,
+    )
+    require(halo3_seat["transportClass"] in profile["halo3TransportClasses"], "HALO3_ROLE_BINDING_INVALID", "declared HALO3 role resolves to a disallowed transport class")
     source_set = source_set_receipt()
     campaign_id = campaign_coordinate_id(
         campaign_label=campaign_label,
@@ -888,6 +906,7 @@ def initialize_workstation(args: argparse.Namespace) -> dict[str, Any]:
         selected_cuda=selected_cuda,
         artifacts=artifacts,
         source_set_id=source_set["sourceSetId"],
+        halo3_seat=halo3_seat,
     )
     path_map = path_map_record(campaign_id, workstation)
     created_at = time.time_ns()
@@ -900,6 +919,7 @@ def initialize_workstation(args: argparse.Namespace) -> dict[str, Any]:
         selected_cuda=selected_cuda,
         artifacts=artifacts,
         source_receipt=source_receipt,
+        halo3_seat=halo3_seat,
         source_set=source_set,
         path_map_id=path_map["pathMapId"],
     )
@@ -976,7 +996,7 @@ def load_workstation(root: str | Path) -> Workstation:
     assert_identity(marker, "markerId", "stcmaryflightconductorroot1", "WORKSTATION_MARKER_ID_INVALID")
     exact_keys(config, [
         "schema", "configId", "profileId", "campaignId", "campaignLabel", "createdAtUnixNs", "executionSource",
-        "conductorSourceSetId", "privateParent", "selectedCudaDeviceIndex", "artifacts", "pathMapId", "authority", "claimBoundary",
+        "conductorSourceSetId", "privateParent", "selectedCudaDeviceIndex", "halo3Seat", "artifacts", "pathMapId", "authority", "claimBoundary",
     ], "WORKSTATION_CONFIG_INVALID", "workstation config")
     require(config["schema"] == "stc-mary-flight-conductor-config/1" and config["profileId"] == PROFILE_ID and config["authority"] == "none", "WORKSTATION_CONFIG_INVALID", "workstation config identity or authority differs")
     exact_keys(config["executionSource"], ["repository", "requiredCommit", "requiredTree", "repositoryPath", "sourceReceiptId"], "WORKSTATION_CONFIG_INVALID", "execution source")
@@ -987,6 +1007,8 @@ def load_workstation(root: str | Path) -> Workstation:
         validate_artifact_coordinate(row)
     require([row["label"] for row in config["artifacts"]] == list(ARTIFACT_LABELS), "WORKSTATION_CONFIG_INVALID", "artifact coordinate order differs")
     safe_int(config["selectedCudaDeviceIndex"], 0, 31, "WORKSTATION_CONFIG_INVALID", "CUDA device index")
+    halo3_seat = validate_halo3_seat(config["halo3Seat"])
+    require(halo3_seat["initialCudaDeviceIndex"] == config["selectedCudaDeviceIndex"], "WORKSTATION_CONFIG_INVALID", "initial CUDA observation differs from HALO3 seat")
     assert_identity(config, "configId", "stcmaryflightconductorconfig1", "WORKSTATION_CONFIG_ID_INVALID")
     exact_keys(path_map, ["schema", "pathMapId", "campaignId", "paths", "authority", "claimBoundary"], "WORKSTATION_PATH_MAP_INVALID", "path map")
     require(path_map["schema"] == "stc-mary-flight-conductor-path-map/1" and path_map["authority"] == "none", "WORKSTATION_PATH_MAP_INVALID", "path map identity or authority differs")
@@ -1006,6 +1028,7 @@ def load_workstation(root: str | Path) -> Workstation:
         repository=Path(config["executionSource"]["repositoryPath"]),
         private_parent=private_parent,
         selected_cuda=config["selectedCudaDeviceIndex"],
+        halo3_seat=halo3_seat,
         artifacts=config["artifacts"],
         source_set_id=source_set["sourceSetId"],
     )
@@ -1094,7 +1117,7 @@ def import_admitted_validators(repository: Path) -> dict[str, Callable[..., Any]
 def validate_readiness_receipt(value: Any, ws: Workstation) -> Mapping[str, Any]:
     exact_keys(value, [
         "schema", "readinessId", "profileId", "capturedAtUnixNs", "host", "repository", "commands", "pythonModules", "torch",
-        "nvidiaQuery", "nvidiaGpus", "windows", "artifacts", "externalServiceCalls", "operationalCredentials", "authority", "claimBoundary",
+        "nvidiaQuery", "nvidiaGpus", "halo3Seat", "halo3SeatObservation", "windows", "artifacts", "externalServiceCalls", "operationalCredentials", "authority", "claimBoundary",
     ], "READINESS_RECEIPT_INVALID", "readiness receipt")
     require(value["schema"] == "stc-mary-local-readiness-private/1" and value["profileId"] == TOOLCHAIN_PROFILE_ID, "READINESS_RECEIPT_INVALID", "readiness schema or profile differs")
     require(value["externalServiceCalls"] == 0 and value["operationalCredentials"] == 0 and value["authority"] == "none", "READINESS_RECEIPT_INVALID", "readiness widens service, credential, or authority surface")
@@ -1104,6 +1127,24 @@ def validate_readiness_receipt(value: Any, ws: Workstation) -> Mapping[str, Any]
     require(repository["branch"] in {None, ""}, "READINESS_MOVING_BRANCH_REFUSED", "readiness was captured from a moving branch")
     require(Path(repository["root"]).resolve() == Path(ws.config["executionSource"]["repositoryPath"]).resolve(), "READINESS_SOURCE_MISMATCH", "readiness names another repository path")
     assert_sha256(repository["statusSha256"], "READINESS_RECEIPT_INVALID", "readiness status digest")
+    seat = validate_halo3_seat(value["halo3Seat"])
+    require(seat == ws.config["halo3Seat"], "READINESS_HALO3_SEAT_MISMATCH", "readiness names another HALO3 seat")
+    observation = exact_keys(value["halo3SeatObservation"], [
+        "schema", "seatId", "role", "currentCudaDeviceIndex", "gpuUuid", "pciBusId", "pnpInstanceId",
+        "transportClass", "transportAnchorObserved", "authority",
+    ], "READINESS_HALO3_SEAT_INVALID", "HALO3 seat observation")
+    require(
+        observation["schema"] == "stc-mary-halo3-seat-observation/1"
+        and observation["seatId"] == seat["seatId"]
+        and observation["gpuUuid"] == seat["gpuUuid"]
+        and observation["pciBusId"] == seat["pciBusId"]
+        and observation["pnpInstanceId"] == seat["pnpInstanceId"]
+        and observation["transportClass"] == seat["transportClass"]
+        and observation["transportAnchorObserved"] is True
+        and observation["authority"] == "none",
+        "READINESS_HALO3_SEAT_INVALID",
+        "readiness did not bind the exact HALO3 seat",
+    )
     require(isinstance(value["artifacts"], list) and len(value["artifacts"]) == len(ARTIFACT_LABELS), "READINESS_ARTIFACT_DENOMINATOR_INVALID", "readiness artifact denominator differs")
     expected = {row["label"]: row for row in ws.config["artifacts"]}
     seen: set[str] = set()
@@ -1130,22 +1171,24 @@ def validate_readiness_receipt(value: Any, ws: Workstation) -> Mapping[str, Any]
     return value
 
 
-def cuda_device_observed(readiness: Mapping[str, Any], index: int) -> bool:
+def halo3_seat_observed(readiness: Mapping[str, Any], seat_id: str) -> bool:
     torch = readiness.get("torch")
     if not isinstance(torch, Mapping) or torch.get("cudaAvailable") is not True:
         return False
     devices = torch.get("devices")
-    return isinstance(devices, list) and any(isinstance(row, Mapping) and row.get("index") == index for row in devices)
+    observation = readiness.get("halo3SeatObservation")
+    return isinstance(observation, Mapping) and observation.get("seatId") == seat_id and isinstance(devices, list) and any(isinstance(row, Mapping) and row.get("index") == observation.get("currentCudaDeviceIndex") for row in devices)
 
 
 def validate_workload_verification(value: Any, result: Mapping[str, Any], feed_id: str) -> Mapping[str, Any]:
     exact_keys(value, [
         "schema", "verificationId", "feedId", "resultId", "status", "verifier", "recordDenominatorVerified",
         "featureDigestVerified", "classificationDigestVerified", "semanticOutputVerified", "classCountsVerified",
-        "verificationElapsedSeconds", "externalServiceCalls", "operationalCredentials", "authority", "claimBoundary",
+        "halo3SeatId", "verificationElapsedSeconds", "externalServiceCalls", "operationalCredentials", "authority", "claimBoundary",
     ], "WORKLOAD_VERIFICATION_INVALID", "workload verification")
     require(value["schema"] == "stc-mary-aperture-workload-verification/1" and value["status"] == "PASS", "WORKLOAD_VERIFICATION_INVALID", "workload verification schema or status differs")
     require(value["feedId"] == feed_id and value["resultId"] == result["resultId"], "WORKLOAD_VERIFICATION_BINDING_INVALID", "workload verification names another feed or result")
+    require(value["halo3SeatId"] == result["halo3SeatId"], "WORKLOAD_VERIFICATION_BINDING_INVALID", "workload verification names another HALO3 seat")
     require(value["verifier"] == "python-stdlib-independent/1", "WORKLOAD_VERIFICATION_INVALID", "workload verifier differs")
     for key in ("recordDenominatorVerified", "featureDigestVerified", "classificationDigestVerified", "semanticOutputVerified", "classCountsVerified"):
         require(value[key] is True, "WORKLOAD_VERIFICATION_INVALID", f"{key} is not true")
@@ -1158,12 +1201,13 @@ def validate_workload_verification(value: Any, result: Mapping[str, Any], feed_i
 def validate_comparison(value: Any, baseline: Mapping[str, Any], accelerated: Mapping[str, Any], continuity: Mapping[str, Any]) -> Mapping[str, Any]:
     exact_keys(value, [
         "schema", "comparisonId", "feedId", "baselineResultId", "acceleratedResultId", "continuityResultId",
-        "semanticOutputSha256", "sameAcceptedOutput", "halo3AccelerationFactor", "personalFloorContinuity",
+        "halo3SeatId", "semanticOutputSha256", "sameAcceptedOutput", "halo3AccelerationFactor", "personalFloorContinuity",
         "halo3RequiredForContinuity", "externalServiceCalls", "operationalCredentials", "authority", "claimBoundary",
     ], "WORKLOAD_COMPARISON_INVALID", "workload comparison")
     require(value["schema"] == "stc-mary-aperture-workload-comparison/1", "WORKLOAD_COMPARISON_INVALID", "comparison schema differs")
     require(value["feedId"] == baseline["feedId"] == accelerated["feedId"] == continuity["feedId"], "WORKLOAD_COMPARISON_BINDING_INVALID", "comparison feed binding differs")
     require(value["baselineResultId"] == baseline["resultId"] and value["acceleratedResultId"] == accelerated["resultId"] and value["continuityResultId"] == continuity["resultId"], "WORKLOAD_COMPARISON_BINDING_INVALID", "comparison result binding differs")
+    require(value["halo3SeatId"] == accelerated["halo3SeatId"], "WORKLOAD_COMPARISON_BINDING_INVALID", "comparison names another HALO3 seat")
     require(value["semanticOutputSha256"] == baseline["semanticOutputSha256"] == accelerated["semanticOutputSha256"] == continuity["semanticOutputSha256"], "WORKLOAD_COMPARISON_OUTPUT_INVALID", "comparison semantic identity differs")
     require(value["sameAcceptedOutput"] is True and value["personalFloorContinuity"] is True and value["halo3RequiredForContinuity"] is False, "WORKLOAD_COMPARISON_INVALID", "comparison continuity claims differ")
     require(isinstance(value["halo3AccelerationFactor"], (int, float)) and value["halo3AccelerationFactor"] > 1.0, "WORKLOAD_COMPARISON_INVALID", "comparison does not prove acceleration")
@@ -1332,8 +1376,8 @@ def phase_readiness(ws: Workstation, prior: Mapping[str, PhaseResult], __: Mappi
         evidence = [receipt["readinessId"]]
         if prior["admitted_checkout"].state != "CLOSED" or prior["artifact_coordinates"].state != "CLOSED":
             return held("readiness", evidence, "PREDECESSOR_HELD", "source checkout or artifact coordinates are not closed")
-        if not cuda_device_observed(receipt, ws.config["selectedCudaDeviceIndex"]):
-            return held("readiness", evidence, "SELECTED_CUDA_DEVICE_NOT_OBSERVED", "readiness did not observe the selected CUDA device index")
+        if not halo3_seat_observed(receipt, ws.config["halo3Seat"]["seatId"]):
+            return held("readiness", evidence, "HALO3_SEAT_NOT_OBSERVED", "readiness did not observe the exact HALO3 seat")
         return closed("readiness", evidence)
     except Exception as error:
         return refused("readiness", error)
@@ -1390,7 +1434,7 @@ def phase_halo3(ws: Workstation, prior: Mapping[str, PhaseResult], validators: M
             return held("halo3", code="HALO3_RECEIPTS_ABSENT", reason="HALO3 result and verification are absent")
         result, verification = pair
         baseline = read_json(ws.path("baseline"))
-        require(result["backend"] == "torch-cuda" and result["deviceClass"] == f"cuda_accelerator:{ws.config['selectedCudaDeviceIndex']}", "HALO3_DEVICE_INVALID", "HALO3 result names another backend or device")
+        require(result["backend"] == "torch-cuda" and result["deviceClass"] == "cuda_accelerator" and result["halo3SeatId"] == ws.config["halo3Seat"]["seatId"] and verification["halo3SeatId"] == ws.config["halo3Seat"]["seatId"], "HALO3_DEVICE_INVALID", "HALO3 result or verification names another exact seat")
         require(result["semanticOutputSha256"] == baseline["semanticOutputSha256"] and result["classificationStreamSha256"] == baseline["classificationStreamSha256"], "HALO3_OUTPUT_MISMATCH", "HALO3 changed the accepted output")
         require(result["throughputRecordsPerSecond"] > baseline["throughputRecordsPerSecond"], "HALO3_ACCELERATION_NOT_PROVEN", "HALO3 did not exceed baseline throughput")
         evidence = [result["resultId"], verification["verificationId"]]
@@ -1843,6 +1887,12 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--cuda-device-index", type=int, required=True)
     init.add_argument("--artifact", action="append", default=[], required=True)
     init.add_argument("--profile", default=str(DEFAULT_PROFILE))
+    init.add_argument("--halo3-product-name", required=True)
+    init.add_argument("--halo3-gpu-uuid", required=True)
+    init.add_argument("--halo3-pci-bus-id", required=True)
+    init.add_argument("--halo3-pnp-instance-id", required=True)
+    init.add_argument("--halo3-transport-class", required=True)
+    init.add_argument("--halo3-transport-anchor-pnp-instance-id")
     for name in ("status", "render", "verify", "public-projection"):
         command = sub.add_parser(name)
         command.add_argument("--workstation", required=True)

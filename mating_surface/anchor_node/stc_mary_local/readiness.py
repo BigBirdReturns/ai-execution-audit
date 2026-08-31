@@ -26,6 +26,7 @@ from .common import (
     validate_new_private_root,
     write_json,
 )
+from .halo3_seat import load_halo3_seat_config, resolve_halo3_seat
 
 
 def module_version(name: str) -> dict[str, Any]:
@@ -50,9 +51,20 @@ def torch_probe() -> dict[str, Any]:
         if cuda_available:
             for index in range(torch.cuda.device_count()):
                 properties = torch.cuda.get_device_properties(index)
+                uuid_value = str(getattr(properties, "uuid", "")).strip()
+                if uuid_value and not uuid_value.startswith("GPU-"):
+                    uuid_value = f"GPU-{uuid_value}"
+                pci_domain = getattr(properties, "pci_domain_id", None)
+                pci_bus = getattr(properties, "pci_bus_id", None)
+                pci_device = getattr(properties, "pci_device_id", None)
+                pci_bus_id = None
+                if all(isinstance(value, int) for value in (pci_domain, pci_bus, pci_device)):
+                    pci_bus_id = f"{pci_domain:08X}:{pci_bus:02X}:{pci_device:02X}.0"
                 devices.append({
                     "index": index,
                     "name": properties.name,
+                    "uuid": uuid_value or None,
+                    "pciBusId": pci_bus_id,
                     "totalMemoryBytes": int(properties.total_memory),
                     "computeCapability": [int(properties.major), int(properties.minor)],
                     "multiProcessorCount": int(properties.multi_processor_count),
@@ -148,7 +160,11 @@ def git_probe(repository: Path) -> dict[str, Any]:
     }
 
 
-def local_probe(repository: Path, artifacts: Sequence[tuple[str, Path]]) -> dict[str, Any]:
+def local_probe(
+    repository: Path,
+    artifacts: Sequence[tuple[str, Path]],
+    halo3_seat: Mapping[str, Any],
+) -> dict[str, Any]:
     repository = repository.expanduser().resolve()
     require(repository.is_dir(), "REPOSITORY_MISSING", f"repository is absent: {repository}")
     commands = {
@@ -162,6 +178,10 @@ def local_probe(repository: Path, artifacts: Sequence[tuple[str, Path]]) -> dict
     artifact_manifests = [hash_artifact(label, path) for label, path in artifacts]
     windows = windows_inventory()
     torch = torch_probe()
+    halo3_observation = resolve_halo3_seat(
+        halo3_seat,
+        torch_devices=torch.get("devices", []),
+    )
     body = {
         "schema": "stc-mary-local-readiness-private/1",
         "profileId": TOOLCHAIN_PROFILE_ID,
@@ -186,6 +206,8 @@ def local_probe(repository: Path, artifacts: Sequence[tuple[str, Path]]) -> dict
         "torch": torch,
         "nvidiaQuery": nvidia_query.private_record(),
         "nvidiaGpus": gpus,
+        "halo3Seat": dict(halo3_seat),
+        "halo3SeatObservation": halo3_observation,
         "windows": windows,
         "artifacts": artifact_manifests,
         "externalServiceCalls": 0,
@@ -267,7 +289,8 @@ def doctor_command(args: Any) -> dict[str, Any]:
         require("=" in item, "ARTIFACT_ARGUMENT_INVALID", "artifact must be LABEL=PATH")
         label, raw_path = item.split("=", 1)
         artifacts.append((label, Path(raw_path)))
-    private = local_probe(repository, artifacts)
+    halo3_seat = load_halo3_seat_config(args.halo3_seat_config)
+    private = local_probe(repository, artifacts, halo3_seat)
     public = public_readiness_projection(private)
     marker_body = {
         "schema": "stc-mary-local-prep-root/1",

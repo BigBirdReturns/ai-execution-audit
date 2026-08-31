@@ -21,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--repository", required=True)
     doctor.add_argument("--out", required=True)
     doctor.add_argument("--artifact", action="append", default=[], metavar="LABEL=PATH")
+    doctor.add_argument("--halo3-seat-config", required=True)
     doctor.set_defaults(func=doctor_command)
 
     feed = subparsers.add_parser("generate-feed", help="generate a deterministic invented local feed")
@@ -34,7 +35,8 @@ def build_parser() -> argparse.ArgumentParser:
     workload = subparsers.add_parser("run-workload", help="run the deterministic aperture workload")
     workload.add_argument("--feed", required=True)
     workload.add_argument("--backend", choices=BACKENDS, required=True)
-    workload.add_argument("--device-index", type=int, default=0)
+    workload.add_argument("--device-index", type=int)
+    workload.add_argument("--halo3-seat-config")
     workload.add_argument("--out", required=True)
     workload.set_defaults(func=run_workload)
 

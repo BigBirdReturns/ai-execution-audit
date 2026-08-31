@@ -101,13 +101,27 @@ def classify_torch(feature_path: Path, record_count: int, feature_count: int, cl
     return class_ids, counts, total_elapsed, str(torch.__version__), compute_elapsed, device_class
 
 
-def workload_result_body(*, manifest: Mapping[str, Any], backend: str, backend_version: str, device_class: str, class_ids: bytes, counts: Sequence[int], elapsed_seconds: float, compute_seconds: float | None = None) -> dict[str, Any]:
+def workload_result_body(
+    *,
+    manifest: Mapping[str, Any],
+    backend: str,
+    backend_version: str,
+    device_class: str,
+    class_ids: bytes,
+    counts: Sequence[int],
+    elapsed_seconds: float,
+    compute_seconds: float | None = None,
+    halo3_seat_id: str | None = None,
+    observed_cuda_device_index: int | None = None,
+) -> dict[str, Any]:
     return {
         "schema": "stc-mary-aperture-workload-result/1",
         "feedId": manifest["feedId"],
         "backend": backend,
         "backendVersion": backend_version,
         "deviceClass": device_class,
+        "halo3SeatId": halo3_seat_id,
+        "observedCudaDeviceIndex": observed_cuda_device_index,
         "recordCount": manifest["recordCount"],
         "featureCount": manifest["featureCount"],
         "classCount": manifest["classCount"],
@@ -127,12 +141,28 @@ def workload_result_body(*, manifest: Mapping[str, Any], backend: str, backend_v
 
 def validate_workload_result(result: Mapping[str, Any]) -> None:
     stable_keys(result, [
-        "schema", "resultId", "feedId", "backend", "backendVersion", "deviceClass", "recordCount", "featureCount",
+        "schema", "resultId", "feedId", "backend", "backendVersion", "deviceClass", "halo3SeatId",
+        "observedCudaDeviceIndex", "recordCount", "featureCount",
         "classCount", "classCounts", "classificationStreamSha256", "semanticOutputSha256", "elapsedSeconds", "computeSeconds",
         "throughputRecordsPerSecond", "outputBytes", "externalServiceCalls", "operationalCredentials", "authority", "claimBoundary",
     ], "WORKLOAD_RESULT_INVALID", "workload result")
     require(result["schema"] == "stc-mary-aperture-workload-result/1", "WORKLOAD_RESULT_INVALID", "workload result schema differs")
     require(result["backend"] in BACKENDS, "WORKLOAD_RESULT_INVALID", "workload backend differs")
+    if result["backend"] == "torch-cuda":
+        require(
+            isinstance(result["halo3SeatId"], str)
+            and result["halo3SeatId"].startswith("stcmaryhalo3seat1_")
+            and isinstance(result["observedCudaDeviceIndex"], int)
+            and 0 <= result["observedCudaDeviceIndex"] <= 31,
+            "WORKLOAD_RESULT_INVALID",
+            "CUDA workload lacks exact HALO3 seat binding",
+        )
+    else:
+        require(
+            result["halo3SeatId"] is None and result["observedCudaDeviceIndex"] is None,
+            "WORKLOAD_RESULT_INVALID",
+            "resident workload incorrectly names a HALO3 seat",
+        )
     assert_content_id(result["feedId"], "WORKLOAD_RESULT_INVALID", "feed ID")
     assert_sha256(result["classificationStreamSha256"], "WORKLOAD_RESULT_INVALID", "classification digest")
     assert_sha256(result["semanticOutputSha256"], "WORKLOAD_RESULT_INVALID", "semantic digest")

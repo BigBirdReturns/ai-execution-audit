@@ -72,6 +72,12 @@ class StcMaryFlightConductorWitnesses(unittest.TestCase):
             out=str(out or (self.private_parent / "stc-mary-flight-conductor-test-01")),
             campaign_label=campaign_label,
             cuda_device_index=0,
+            halo3_product_name="NVIDIA GeForce RTX 3090",
+            halo3_gpu_uuid="GPU-11111111-2222-3333-4444-555555555555",
+            halo3_pci_bus_id="00000000:25:00.0",
+            halo3_pnp_instance_id=r"PCI\VEN_10DE&DEV_2204&SUBSYS_00000000\1",
+            halo3_transport_class="thunderbolt_egpu",
+            halo3_transport_anchor_pnp_instance_id=r"PCI\VEN_8086&DEV_15DA&SUBSYS_00000000\1",
             artifact=artifacts if artifacts is not None else self.artifact_arguments(),
             profile=str(conductor.DEFAULT_PROFILE),
         )
@@ -349,7 +355,7 @@ exit 0
 
     def run_operator(self, script: Path, arguments: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[bytes]:
         shell = self.powershell_executable()
-        command = [shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-File", str(script), *arguments]
+        command = [shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(script), *arguments]
         return subprocess.run(
             command,
             cwd=self.root,
@@ -381,10 +387,10 @@ exit 0
         self.assertEqual(left, right)
         self.assertRegex(left, conductor.CONTENT_ID_RE)
 
-    def test_05_source_set_has_exact_six_member_denominator(self) -> None:
+    def test_05_source_set_has_exact_member_denominator(self) -> None:
         receipt = conductor.source_set_receipt()
         conductor.validate_source_set(receipt)
-        self.assertEqual(receipt["memberCount"], 6)
+        self.assertEqual(receipt["memberCount"], 7)
         self.assertEqual([row["relativePath"] for row in receipt["members"]], list(conductor.SOURCE_MEMBERS))
 
     def test_06_git_snapshot_detects_moving_branch(self) -> None:
@@ -478,6 +484,19 @@ exit 0
             },
             "nvidiaQuery": {},
             "nvidiaGpus": [],
+            "halo3Seat": ws.config["halo3Seat"],
+            "halo3SeatObservation": {
+                "schema": "stc-mary-halo3-seat-observation/1",
+                "seatId": ws.config["halo3Seat"]["seatId"],
+                "role": "HALO3",
+                "currentCudaDeviceIndex": ws.config["selectedCudaDeviceIndex"],
+                "gpuUuid": ws.config["halo3Seat"]["gpuUuid"],
+                "pciBusId": ws.config["halo3Seat"]["pciBusId"],
+                "pnpInstanceId": ws.config["halo3Seat"]["pnpInstanceId"],
+                "transportClass": ws.config["halo3Seat"]["transportClass"],
+                "transportAnchorObserved": True,
+                "authority": "none",
+            },
             "windows": {},
             "artifacts": artifacts,
             "externalServiceCalls": 0,
@@ -537,6 +556,8 @@ exit 0
             "nvidiaQuery": {},
             "nvidiaGpus": [],
             "windows": {},
+            "halo3Seat": ws.config["halo3Seat"],
+            "halo3SeatObservation": {},
             "artifacts": [],
             "externalServiceCalls": 0,
             "operationalCredentials": 0,
@@ -678,7 +699,6 @@ exit 0
             "oversized_stderr",
             "unbounded_stderr",
             "cuda_unavailable",
-            "missing_index",
         )
         for mode in refusal_modes:
             with self.subTest(mode=mode):

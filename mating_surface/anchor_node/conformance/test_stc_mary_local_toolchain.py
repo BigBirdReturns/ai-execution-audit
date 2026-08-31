@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
 import subprocess
@@ -8,10 +9,12 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 import stc_mary_local as mod
+from stc_mary_local.halo3_seat import halo3_seat_record
 PROFILE_PATH = HERE.parent / "stc-mary-local-toolchain-profile-01.json"
 
 
@@ -19,6 +22,27 @@ class LocalToolchainTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="stc-mary-local-toolchain-")
         self.root = Path(self.temp.name)
+        self.halo3_seat = halo3_seat_record(
+            product_name="NVIDIA GeForce RTX 3090",
+            gpu_uuid="GPU-0b31e56a-34eb-e8ef-e888-a6d6f044097b",
+            pci_bus_id="00000000:25:00.0",
+            pnp_instance_id=r"PCI\VEN_10DE&DEV_2204&SUBSYS_38801028\FIXTURE",
+            transport_class="thunderbolt_egpu",
+            transport_anchor_pnp_instance_id=r"PCI\VEN_8086&DEV_15DA&SUBSYS_00011A58\FIXTURE",
+            initial_cuda_device_index=1,
+        )
+        self.halo3_observation = {
+            "schema": "stc-mary-halo3-seat-observation/1",
+            "seatId": self.halo3_seat["seatId"],
+            "role": "HALO3",
+            "currentCudaDeviceIndex": 1,
+            "gpuUuid": self.halo3_seat["gpuUuid"],
+            "pciBusId": self.halo3_seat["pciBusId"],
+            "pnpInstanceId": self.halo3_seat["pnpInstanceId"],
+            "transportClass": self.halo3_seat["transportClass"],
+            "transportAnchorObserved": True,
+            "authority": "none",
+        }
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -80,6 +104,8 @@ class LocalToolchainTests(unittest.TestCase):
             "artifacts": [{
                 "schema": "stc-mary-local-artifact-manifest/1",
                 "label": "cartridge",
+            "halo3Seat": self.halo3_seat,
+            "halo3SeatObservation": self.halo3_observation,
                 "kind": "file",
                 "files": [{"relativePath": "cartridge.bin", "sha256": "1" * 64, "bytes": 1}],
                 "fileCount": 1,
@@ -164,6 +190,38 @@ class LocalToolchainTests(unittest.TestCase):
         self.assertNotIn("privatePath", encoded)
         self.assertEqual(projection["publicPrivatePaths"], 0)
 
+    def test_torch_cuda_workload_resolves_exact_seat_in_torch_index_space(self):
+        feed = self.feed(records=16)
+        config = self.root / "campaign.json"
+        config.write_text(json.dumps({"halo3Seat": self.halo3_seat}), encoding="utf-8")
+        torch_devices = [{
+            "index": 0,
+            "name": self.halo3_seat["productName"],
+            "uuid": self.halo3_seat["gpuUuid"],
+            "pciBusId": self.halo3_seat["pciBusId"],
+        }]
+        observation = {**self.halo3_observation, "currentCudaDeviceIndex": 0}
+
+        workload_module = importlib.import_module("stc_mary_local.workload")
+        classified = (bytes([0]) * 16, [16, 0, 0, 0], 1.0, "fixture", 0.5, "cuda_accelerator:0")
+        with patch.object(workload_module, "torch_probe", return_value={
+            "available": True, "cudaAvailable": True, "devices": torch_devices,
+        }), patch.object(
+            workload_module, "resolve_halo3_seat", return_value=observation,
+        ) as resolve, patch.object(
+            workload_module, "classify_torch", return_value=classified,
+        ) as classify:
+            result = workload_module.run_workload(argparse.Namespace(
+                feed=str(feed), backend="torch-cuda", device_index=0,
+                halo3_seat_config=str(config), out=str(self.root / "cuda.json"),
+            ))
+
+        resolve.assert_called_once_with(self.halo3_seat, torch_devices=torch_devices)
+        self.assertEqual(classify.call_args.kwargs["device_index"], 0)
+        committed = json.loads((self.root / "cuda.json").read_text(encoding="utf-8"))
+        self.assertEqual(committed["observedCudaDeviceIndex"], 0)
+        self.assertEqual(committed["halo3SeatId"], self.halo3_seat["seatId"])
+
     def test_comparison_requires_same_output_and_proves_acceleration(self):
         feed = self.feed()
         baseline = self.workload(feed, "baseline.json")
@@ -171,7 +229,9 @@ class LocalToolchainTests(unittest.TestCase):
             baseline,
             backend="torch-cuda",
             backendVersion="fixture",
-            deviceClass="cuda_accelerator:0",
+            deviceClass="cuda_accelerator",
+            halo3SeatId=self.halo3_seat["seatId"],
+            observedCudaDeviceIndex=1,
             elapsedSeconds=baseline["elapsedSeconds"] / 4,
             computeSeconds=baseline["computeSeconds"] / 4,
             throughputRecordsPerSecond=baseline["throughputRecordsPerSecond"] * 4,
@@ -207,7 +267,9 @@ class LocalToolchainTests(unittest.TestCase):
             baseline,
             backend="torch-cuda",
             backendVersion="fixture",
-            deviceClass="cuda_accelerator:0",
+            deviceClass="cuda_accelerator",
+            halo3SeatId=self.halo3_seat["seatId"],
+            observedCudaDeviceIndex=1,
             elapsedSeconds=baseline["elapsedSeconds"] / 3,
             computeSeconds=baseline["computeSeconds"] / 3,
             throughputRecordsPerSecond=baseline["throughputRecordsPerSecond"] * 3,
@@ -292,7 +354,13 @@ class LocalToolchainTests(unittest.TestCase):
         subprocess.run(["git", "add", "artifact.bin"], cwd=repository, check=True)
         subprocess.run(["git", "commit", "-qm", "init"], cwd=repository, check=True)
         output = self.root / "stc-mary-local-prep-doctor"
-        receipt = mod.doctor_command(argparse.Namespace(repository=str(repository), out=str(output), artifact=[f"artifact={artifact}"]))
+        campaign_config = self.root / "campaign-config.json"
+        campaign_config.write_text(json.dumps({"halo3Seat": self.halo3_seat}), encoding="utf-8")
+        with patch("stc_mary_local.readiness.resolve_halo3_seat", return_value=self.halo3_observation):
+            receipt = mod.doctor_command(argparse.Namespace(
+                repository=str(repository), out=str(output), artifact=[f"artifact={artifact}"],
+                halo3_seat_config=str(campaign_config),
+            ))
         self.assertEqual(receipt["status"], "PASS")
         private = json.loads((output / "readiness-private.json").read_text())
         public = json.loads((output / "readiness-public-projection.json").read_text())

@@ -1,15 +1,15 @@
 # STC MARY private flight conductor and evidence workstation
 
-The conductor binds the admitted local toolchain, offline carrier, flight-plan compiler, and private packet into one restart-safe private campaign root. It does not perform a physical action, create an evidence body, confirm an operator question, record a packet stage, or promote any qualification claim. Its only canonical inputs are an immutable private configuration, an exact generated path map, the six identified conductor source files, and the receipts produced by the already admitted instruments.
+The conductor binds the admitted local toolchain, offline carrier, flight-plan compiler, and private packet into one restart-safe private campaign root. It does not perform a physical action, create an evidence body, confirm an operator question, record a packet stage, or promote any qualification claim. Its only canonical inputs are an immutable private configuration, an exact generated path map, the seven identified conductor source files, and the receipts produced by the already admitted instruments.
 
 The execution floor remains the detached checkout admitted at:
 
 ```text
-commit: d31e59f5fd30e57b1917c00832b189ee2ea3e12f
-tree:   2a6a155e9615eb847781f87566bac32d4c9dc126
+commit: c9f4f96ebcc790ffbcc779a1c1f8f32543a8962f
+tree:   8e6335cdcc196931d4fbf911ae2d1f6fd2352c29
 ```
 
-The conductor itself is a later source layer. Run it from its admitted repository checkout or from the exact six-member source archive produced by qualification, and point `--repository` at a separate detached `d31e59f...` execution checkout. This separation preserves the frozen physical-flight toolchain while allowing the operator workstation to be admitted afterward.
+The conductor itself is a later source layer. Run it from its admitted repository checkout or from the exact seven-member source archive produced by qualification, and point `--repository` at a separate detached `c9f4f96...` execution checkout. This separation preserves the frozen physical-flight toolchain while allowing the operator workstation to be admitted afterward.
 
 ## Permanent source set
 
@@ -22,6 +22,7 @@ mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py
 mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json
 mating_surface/anchor_node/stc-mary-flight-conductor.ps1
 mating_surface/anchor_node/stc_mary_flight_conductor.py
+mating_surface/anchor_node/stc_mary_local/halo3_seat.py
 ```
 
 Every workstation records the ordered member denominator, member byte counts, member SHA-256 digests, and one source-set content identity. Later source-byte drift refuses the `admitted_checkout` phase.
@@ -30,7 +31,7 @@ Every workstation records the ordered member denominator, member byte counts, me
 
 Prepare two local coordinates:
 
-1. An exact detached, clean checkout of `d31e59f5fd30e57b1917c00832b189ee2ea3e12f` for the admitted execution tools.
+1. An exact detached, clean checkout of `c9f4f96ebcc790ffbcc779a1c1f8f32543a8962f` for the admitted execution tools.
 2. A private evidence parent outside both repositories. It must already exist and may not be a filesystem root, the user home, the current directory, or any path overlapping the execution checkout.
 
 Declare exactly four private artifact coordinates:
@@ -55,7 +56,7 @@ $Conductor = 'PATH_TO_CONDUCTOR_SOURCE\mating_surface\anchor_node\stc-mary-fligh
 & $Conductor validate-profile
 ```
 
-The profile binds the execution commit and tree, twelve-phase denominator, required artifact labels, selected CUDA index range, deterministic feed coordinates, no-network boundary, zero external services, zero operational credentials, and `authority: none`.
+The profile binds the execution commit and tree, twelve-phase denominator, required artifact labels, exact HALO3 Seat identity, permitted Thunderbolt transport class, initial CUDA-index observation range, deterministic feed coordinates, no-network boundary, zero external services, zero operational credentials, and `authority: none`.
 
 ## Initialize one immutable workstation
 
@@ -71,14 +72,20 @@ $Workstation = Join-Path $PrivateParent 'stc-mary-flight-conductor-flight-01'
   --private-parent $PrivateParent `
   --out $Workstation `
   --campaign-label 'PRIVATE-STC-MARY-FLIGHT-01' `
-  --cuda-device-index 0 `
+  --cuda-device-index INITIAL_OBSERVED_INDEX `
+  --halo3-product-name 'NVIDIA GeForce RTX 3090' `
+  --halo3-gpu-uuid 'GPU-EXACT_UUID' `
+  --halo3-pci-bus-id '00000000:BB:DD.F' `
+  --halo3-pnp-instance-id 'PCI\VEN_10DE&DEV_2204&EXACT_INSTANCE' `
+  --halo3-transport-class 'thunderbolt_egpu' `
+  --halo3-transport-anchor-pnp-instance-id 'PCI\VEN_8086&DEV_15DA&EXACT_THUNDERBOLT_ANCHOR' `
   --artifact 'cartridge=PATH_TO_STC_CARTRIDGE' `
   --artifact 'model=PATH_TO_MODEL_OR_EXECUTABLE' `
   --artifact 'verifier=PATH_TO_INDEPENDENT_VERIFIER' `
   --artifact 'storage=PATH_TO_STORAGE_SUBSTRATE'
 ```
 
-Initialization refuses a moving branch, dirty checkout, wrong full commit, wrong tree, existing campaign root, repository-local output, unsafe private parent, unknown artifact label, missing label, duplicate label, symlink coordinate, path overlap, placeholder campaign label, and out-of-range CUDA index.
+Initialization refuses a moving branch, dirty checkout, wrong full commit, wrong tree, existing campaign root, repository-local output, unsafe private parent, unknown artifact label, missing label, duplicate label, symlink coordinate, path overlap, placeholder campaign label, invalid GPU UUID/PCI/PnP identity, disallowed transport class, missing Thunderbolt anchor, and out-of-range initial CUDA-index observation. CUDA index is never the Seat identity.
 
 A successful initialization creates only the workstation control surface and the empty `products` parent. It does not create any low-level output root. The control surface contains:
 
@@ -249,7 +256,7 @@ seal
 
 Every action first reconstructs the workstation ledger and requires the exact current conductor phase. The script then invokes only the selected bounded transaction, checks each tool exit code, and terminates. It cannot continue into a later phase merely because later commands exist in the generated file.
 
-Before `readiness`, `STC_MARY_PYTHON` must resolve to one exact Python 3.11-or-later file whose Torch probe reports `torch.cuda.is_available() == true` and includes the selected CUDA index. The operator starts that interpreter through `System.Diagnostics.Process` with shell execution disabled, both native streams redirected independently, and no window. It reads both byte streams concurrently in bounded chunks, retains at most 64 KiB from each stream, terminates the process as soon as either cap is crossed, and refuses a probe that does not complete within sixty seconds. A start failure, nonzero exit, empty stdout, oversized stream, timeout, malformed or multiple JSON stdout, unsupported Python, unavailable CUDA, or absent selected index refuses before `doctor`.
+Before `readiness`, `STC_MARY_PYTHON` must resolve to one exact Python 3.11-or-later file whose Torch probe reports `torch.cuda.is_available() == true` and at least one CUDA device. The operator starts that interpreter through `System.Diagnostics.Process` with shell execution disabled, both native streams redirected independently, and no window. It reads both byte streams concurrently in bounded chunks, retains at most 64 KiB from each stream, terminates the process as soon as either cap is crossed, and refuses a probe that does not complete within sixty seconds. A start failure, nonzero exit, empty stdout, oversized stream, timeout, malformed or multiple JSON stdout, unsupported Python, unavailable CUDA, or zero CUDA devices refuses before `doctor`. Doctor then resolves the configured Seat by exact GPU UUID, PCI bus, PnP instance, product, and Thunderbolt ancestry; the observed CUDA index may change without changing the Seat.
 
 Only stdout is parsed as the single Torch-probe JSON object. Bounded stderr is accepted as local diagnostic output and is never merged into the JSON input, included in an exception body, copied to a public projection, or treated as authority. The stream bodies remain local and are discarded after the decision. After the precheck accepts, `readiness` invokes only `doctor` and stops before feed generation.
 
