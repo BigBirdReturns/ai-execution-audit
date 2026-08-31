@@ -38,6 +38,8 @@ param(
 
     [int] $DeviceRestoreTimeoutSeconds = 150,
 
+    [switch] $DrainAuthorizedBraveGpuHelpers,
+
     [switch] $NonInteractive
 )
 
@@ -346,6 +348,34 @@ function Get-NvidiaComputeProcesses {
             ProcessName = [string] ($Parts[2..($Parts.Count - 1)] -join ',')
         }
     }
+
+function Get-AuthorizedBraveGpuHelper {
+    param([Parameter(Mandatory = $true)][int] $ProcessId)
+
+    try {
+        $Process = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop
+    }
+    catch {
+        return $null
+    }
+
+    $CommandLine = [string] $Process.CommandLine
+    $Executable = [string] $Process.ExecutablePath
+    $GpuRole = $CommandLine.Contains('--type=gpu-process')
+    $VideoRole = $CommandLine.Contains('--utility-sub-type=video_capture.mojom.VideoCaptureService')
+
+    if (
+        $Executable -eq 'C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe' -and
+        ($GpuRole -or $VideoRole)
+    ) {
+        return [pscustomobject]@{
+            ProcessId = $ProcessId
+            Role = if ($GpuRole) { 'gpu-process' } else { 'video-capture-service' }
+        }
+    }
+
+    return $null
+}
 
     return @($Rows)
 }
@@ -975,11 +1005,22 @@ try {
         $ComputeProcesses = @(
             Get-NvidiaComputeProcesses -GpuUuid $GpuUuid
         )
+        $AuthorizedBraveHelpers = @()
 
-        if ($ComputeProcesses.Count -ne 0) {
+        foreach ($ComputeProcess in $ComputeProcesses) {
+            $Helper = Get-AuthorizedBraveGpuHelper -ProcessId ([int] $ComputeProcess.Pid)
+            if ($null -eq $Helper) {
+                Stop-Gate `
+                    -Code 'HALO3_ACTIVE_COMPUTE_PROCESS_REFUSED' `
+                    -Message "The exact HALO3 GPU has a non-authorized active process PID $($ComputeProcess.Pid)."
+            }
+            $AuthorizedBraveHelpers += $Helper
+        }
+
+        if ($AuthorizedBraveHelpers.Count -ne 0 -and -not $DrainAuthorizedBraveGpuHelpers) {
             Stop-Gate `
-                -Code 'HALO3_ACTIVE_COMPUTE_PROCESS_REFUSED' `
-                -Message "The exact HALO3 GPU has $($ComputeProcesses.Count) active compute process(es)."
+                -Code 'HALO3_AUTHORIZED_BRAVE_HELPERS_NOT_DRAINED' `
+                -Message "The exact HALO3 GPU has $($AuthorizedBraveHelpers.Count) validated Brave helper process(es)."
         }
 
         Write-Host ''
@@ -991,6 +1032,7 @@ try {
         Write-Host ''
         Write-Host 'What the script will do:'
         Write-Host '  1. Disable one exact Windows PnP GPU device.'
+
         Write-Host '  2. Confirm that its admitted UUID disappears from NVIDIA visibility.'
         Write-Host '  3. Run the resident continuity workload, independent verification,'
         Write-Host '     and three-way comparison.'
@@ -1014,7 +1056,12 @@ try {
         Write-Host ''
         Write-Host 'Safety checks already passed:'
         Write-Host '  Windows does not report an active display on this GPU.'
-        Write-Host '  NVIDIA reports no active compute process on this GPU.'
+        if ($AuthorizedBraveHelpers.Count -eq 0) {
+            Write-Host '  NVIDIA reports no active process on this GPU.'
+        }
+        else {
+            Write-Host ("  {0} authorized Brave GPU/video helper(s) will be drained immediately before disable." -f $AuthorizedBraveHelpers.Count)
+        }
         Write-Host ''
 
         if (-not $NonInteractive) {
@@ -1031,6 +1078,15 @@ try {
             Stop-Gate `
                 -Code 'NONINTERACTIVE_PHYSICAL_GATE_REFUSED' `
                 -Message 'This physical gate requires one informed local confirmation.'
+        }
+        foreach ($Helper in $AuthorizedBraveHelpers) {
+            $CurrentHelper = Get-AuthorizedBraveGpuHelper -ProcessId ([int] $Helper.ProcessId)
+            if ($null -eq $CurrentHelper -or [string] $CurrentHelper.Role -ne [string] $Helper.Role) {
+                Stop-Gate `
+                    -Code 'HALO3_BRAVE_HELPER_IDENTITY_CHANGED' `
+                    -Message "Authorized Brave helper PID $($Helper.ProcessId) changed before the gate."
+            }
+            Stop-Process -Id ([int] $Helper.ProcessId) -ErrorAction Stop
         }
 
         $GateStartedUtc = [DateTime]::UtcNow.ToString('o')
