@@ -9,6 +9,12 @@ on:
       - "mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json"
       - "mating_surface/anchor_node/stc-mary-flight-conductor.ps1"
       - "mating_surface/anchor_node/stc_mary_flight_conductor.py"
+      - "mating_surface/anchor_node/stc_mary_local/halo3_seat.py"
+      - "mating_surface/anchor_node/stc_mary_local/workload.py"
+      - "mating_surface/anchor_node/conformance/test_halo3_exact_seat.py"
+      - "mating_surface/anchor_node/conformance/test_stc_mary_local_toolchain.py"
+      - "mating_surface/anchor_node/Run-STCMary-HALO3-ExactSeat-Reversible-Continuity.ps1"
+      - "mating_surface/anchor_node/Run-STCMary-HALO3-ExactSeat-Reversible-Continuity.ps1.sha256"
   push:
     branches:
       - main
@@ -19,6 +25,12 @@ on:
       - "mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json"
       - "mating_surface/anchor_node/stc-mary-flight-conductor.ps1"
       - "mating_surface/anchor_node/stc_mary_flight_conductor.py"
+      - "mating_surface/anchor_node/stc_mary_local/halo3_seat.py"
+      - "mating_surface/anchor_node/stc_mary_local/workload.py"
+      - "mating_surface/anchor_node/conformance/test_halo3_exact_seat.py"
+      - "mating_surface/anchor_node/conformance/test_stc_mary_local_toolchain.py"
+      - "mating_surface/anchor_node/Run-STCMary-HALO3-ExactSeat-Reversible-Continuity.ps1"
+      - "mating_surface/anchor_node/Run-STCMary-HALO3-ExactSeat-Reversible-Continuity.ps1.sha256"
   workflow_dispatch:
 
 permissions:
@@ -65,6 +77,10 @@ jobs:
               Path('mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json'),
               Path('mating_surface/anchor_node/stc-mary-flight-conductor.ps1'),
               Path('mating_surface/anchor_node/stc_mary_flight_conductor.py'),
+              Path('mating_surface/anchor_node/stc_mary_local/halo3_seat.py'),
+              Path('mating_surface/anchor_node/stc_mary_local/workload.py'),
+              Path('mating_surface/anchor_node/conformance/test_halo3_exact_seat.py'),
+              Path('mating_surface/anchor_node/conformance/test_stc_mary_local_toolchain.py'),
           ]
           joined = '\n'.join(path.read_text(encoding='utf-8') for path in paths)
           forbidden = {
@@ -82,6 +98,10 @@ jobs:
         run: |
           python -m py_compile \
             mating_surface/anchor_node/stc_mary_flight_conductor.py \
+            mating_surface/anchor_node/stc_mary_local/halo3_seat.py \
+            mating_surface/anchor_node/stc_mary_local/workload.py \
+            mating_surface/anchor_node/conformance/test_halo3_exact_seat.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_local_toolchain.py \
             mating_surface/anchor_node/conformance/test_stc_mary_flight_conductor.py
           python mating_surface/anchor_node/stc_mary_flight_conductor.py validate-profile \
             mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json
@@ -102,6 +122,14 @@ jobs:
               raise SystemExit('closed 32-witness conductor denominator did not pass')
           PY
 
+      - name: Run the exact HALO3 seat witnesses
+        shell: bash
+        run: |
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_halo3_exact_seat.py' \
+            -v 2>&1 | tee qualification/stc-mary-flight-conductor-01/exact-halo3-seat-tests-${{ matrix.os }}.txt
+
       - name: Replay the inherited local-toolchain and offline-carrier suites
         shell: bash
         run: |
@@ -114,7 +142,7 @@ jobs:
             -p 'test_stc_mary_offline_carrier.py' \
             -v 2>&1 | tee qualification/stc-mary-flight-conductor-01/inherited-offline-carrier-tests-${{ matrix.os }}.txt
 
-      - name: Freeze the exact six-member source archive and qualification receipt
+      - name: Freeze the exact seven-member source archive and qualification receipt
         shell: bash
         run: |
           python - <<'PY'
@@ -131,6 +159,7 @@ jobs:
               'mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json',
               'mating_surface/anchor_node/stc-mary-flight-conductor.ps1',
               'mating_surface/anchor_node/stc_mary_flight_conductor.py',
+              'mating_surface/anchor_node/stc_mary_local/halo3_seat.py',
           ]
           qualification = Path('qualification/stc-mary-flight-conductor-01')
           archive = qualification / 'stc-mary-flight-conductor-source-01.zip'
@@ -162,9 +191,10 @@ jobs:
               'archiveBytes': len(archive_bytes),
               'tests': logs,
               'conductorWitnesses': 32,
-              'inheritedLocalToolchainWitnesses': 13,
+              'inheritedLocalToolchainWitnesses': 14,
               'inheritedOfflineCarrierWitnesses': 30,
               'actualReadinessCensusExecuted': False,
+              'exactHalo3SeatWitnesses': 4,
               'actualHalo3AuditionExecuted': False,
               'actualSecondHostObserved': False,
               'actualPartitionExecuted': False,

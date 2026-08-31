@@ -723,17 +723,6 @@ try {
             -Message 'HALO3 is not closed.'
     }
 
-    if (
-        [string] $Status.currentPhase -ne 'post_halo3_continuity' -or
-        [string] $Status.currentPhaseState -ne 'HOLD' -or
-        [int] $Status.closedPhaseCount -ne 6 -or
-        [int] $Status.heldPhaseCount -ne 6 -or
-        [int] $Status.refusedPhaseCount -ne 0
-    ) {
-        Stop-Gate `
-            -Code 'POST_HALO3_START_STATE_INVALID' `
-            -Message 'Campaign is not at the admitted post-HALO3 physical gate.'
-    }
 
     $Halo3Result = [string] $PathMap.paths.accelerated
     $Halo3Verification = [string] $PathMap.paths.acceleratedVerification
@@ -804,6 +793,40 @@ try {
         Stop-Gate `
             -Code 'CONTINUITY_COMPARISON_WITHOUT_COMPLETE_PAIR' `
             -Message 'A comparison exists without a complete continuity pair.'
+    }
+
+    $FreshState =
+        (-not $ContinuityExists -and
+         -not $ContinuityVerificationExists -and
+         -not $ComparisonExists)
+    $PartialResultState =
+        ($ContinuityExists -and
+         -not $ContinuityVerificationExists -and
+         -not $ComparisonExists)
+    $PartialPairState =
+        ($ContinuityExists -and
+         $ContinuityVerificationExists -and
+         -not $ComparisonExists)
+
+    $AdmittedFreshStart =
+        ($FreshState -and
+         [string] $Status.currentPhase -eq 'post_halo3_continuity' -and
+         [string] $Status.currentPhaseState -eq 'HOLD' -and
+         [int] $Status.closedPhaseCount -eq 6 -and
+         [int] $Status.heldPhaseCount -eq 6 -and
+         [int] $Status.refusedPhaseCount -eq 0)
+    $AdmittedPartialStart =
+        (($PartialResultState -or $PartialPairState) -and
+         [string] $Status.currentPhase -eq 'post_halo3_continuity' -and
+         [string] $Status.currentPhaseState -eq 'REFUSED' -and
+         [int] $Status.closedPhaseCount -eq 6 -and
+         [int] $Status.heldPhaseCount -eq 5 -and
+         [int] $Status.refusedPhaseCount -eq 1)
+
+    if (-not $AdmittedFreshStart -and -not $AdmittedPartialStart) {
+        Stop-Gate `
+            -Code 'POST_HALO3_START_STATE_INVALID' `
+            -Message 'Campaign state and committed continuity receipts do not form an admitted fresh or restart-safe gate.'
     }
 
     $NeedContinuityResult = -not $ContinuityExists

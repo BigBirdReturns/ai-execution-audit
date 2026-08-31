@@ -104,6 +104,21 @@ class Halo3ExactSeatWitnesses(unittest.TestCase):
             )
         self.assertEqual(caught.exception.code, "HALO3_TRANSPORT_TOPOLOGY_MISMATCH")
 
+    def test_guided_transaction_admits_receipt_bound_partial_restart(self) -> None:
+        script = (
+            ANCHOR / "Run-STCMary-HALO3-ExactSeat-Reversible-Continuity.ps1"
+        ).read_text(encoding="utf-8")
+        receipt_probe = script.index("$ContinuityExists =")
+        state_gate = script.index("$AdmittedFreshStart =")
+        self.assertLess(receipt_probe, state_gate)
+        self.assertIn("$PartialResultState =", script)
+        self.assertIn("$PartialPairState =", script)
+        self.assertIn("$AdmittedPartialStart =", script)
+        self.assertIn("$Status.currentPhaseState -eq 'REFUSED'", script)
+        self.assertIn("$Status.refusedPhaseCount -eq 1", script)
+        self.assertEqual(script.count("run-workload"), 1)
+        self.assertEqual(script.count("verify-workload"), 1)
+        self.assertEqual(script.count("compare-workloads"), 1)
 
 if __name__ == "__main__":
     unittest.main()
