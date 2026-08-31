@@ -7,6 +7,7 @@ from typing import Any
 from .common import BACKENDS, content_id, read_json, require, sha256_bytes, write_json
 from .workload_feed import load_feed, validate_feed_manifest
 from .halo3_seat import load_halo3_seat_config, resolve_halo3_seat
+from .readiness import torch_probe
 from .workload_compute import (
     classify_numpy,
     classify_python,
@@ -43,7 +44,16 @@ def run_workload(args: Any) -> dict[str, Any]:
     else:
         require(args.halo3_seat_config is not None, "HALO3_SEAT_CONFIG_REQUIRED", "torch-cuda requires one exact HALO3 seat config")
         seat = load_halo3_seat_config(args.halo3_seat_config)
-        observation = resolve_halo3_seat(seat)
+        torch = torch_probe()
+        require(
+            torch.get("cudaAvailable") is True,
+            "HALO3_TORCH_INVENTORY_UNAVAILABLE",
+            "Torch CUDA inventory is unavailable for exact-seat resolution",
+        )
+        observation = resolve_halo3_seat(
+            seat,
+            torch_devices=torch.get("devices", []),
+        )
         observed_cuda_device_index = observation["currentCudaDeviceIndex"]
         if args.device_index is not None:
             require(

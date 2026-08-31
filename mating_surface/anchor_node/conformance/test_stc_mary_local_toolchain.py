@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
 import subprocess
@@ -188,6 +189,38 @@ class LocalToolchainTests(unittest.TestCase):
         self.assertNotIn("SECRET-USER", encoded)
         self.assertNotIn("privatePath", encoded)
         self.assertEqual(projection["publicPrivatePaths"], 0)
+
+    def test_torch_cuda_workload_resolves_exact_seat_in_torch_index_space(self):
+        feed = self.feed(records=16)
+        config = self.root / "campaign.json"
+        config.write_text(json.dumps({"halo3Seat": self.halo3_seat}), encoding="utf-8")
+        torch_devices = [{
+            "index": 0,
+            "name": self.halo3_seat["productName"],
+            "uuid": self.halo3_seat["gpuUuid"],
+            "pciBusId": self.halo3_seat["pciBusId"],
+        }]
+        observation = {**self.halo3_observation, "currentCudaDeviceIndex": 0}
+
+        workload_module = importlib.import_module("stc_mary_local.workload")
+        classified = (bytes([0]) * 16, [16, 0, 0, 0], 1.0, "fixture", 0.5, "cuda_accelerator:0")
+        with patch.object(workload_module, "torch_probe", return_value={
+            "available": True, "cudaAvailable": True, "devices": torch_devices,
+        }), patch.object(
+            workload_module, "resolve_halo3_seat", return_value=observation,
+        ) as resolve, patch.object(
+            workload_module, "classify_torch", return_value=classified,
+        ) as classify:
+            result = workload_module.run_workload(argparse.Namespace(
+                feed=str(feed), backend="torch-cuda", device_index=0,
+                halo3_seat_config=str(config), out=str(self.root / "cuda.json"),
+            ))
+
+        resolve.assert_called_once_with(self.halo3_seat, torch_devices=torch_devices)
+        self.assertEqual(classify.call_args.kwargs["device_index"], 0)
+        committed = json.loads((self.root / "cuda.json").read_text(encoding="utf-8"))
+        self.assertEqual(committed["observedCudaDeviceIndex"], 0)
+        self.assertEqual(committed["halo3SeatId"], self.halo3_seat["seatId"])
 
     def test_comparison_requires_same_output_and_proves_acceleration(self):
         feed = self.feed()
