@@ -51,9 +51,20 @@ def torch_probe() -> dict[str, Any]:
         if cuda_available:
             for index in range(torch.cuda.device_count()):
                 properties = torch.cuda.get_device_properties(index)
+                uuid_value = str(getattr(properties, "uuid", "")).strip()
+                if uuid_value and not uuid_value.startswith("GPU-"):
+                    uuid_value = f"GPU-{uuid_value}"
+                pci_domain = getattr(properties, "pci_domain_id", None)
+                pci_bus = getattr(properties, "pci_bus_id", None)
+                pci_device = getattr(properties, "pci_device_id", None)
+                pci_bus_id = None
+                if all(isinstance(value, int) for value in (pci_domain, pci_bus, pci_device)):
+                    pci_bus_id = f"{pci_domain:08X}:{pci_bus:02X}:{pci_device:02X}.0"
                 devices.append({
                     "index": index,
                     "name": properties.name,
+                    "uuid": uuid_value or None,
+                    "pciBusId": pci_bus_id,
                     "totalMemoryBytes": int(properties.total_memory),
                     "computeCapability": [int(properties.major), int(properties.minor)],
                     "multiProcessorCount": int(properties.multi_processor_count),

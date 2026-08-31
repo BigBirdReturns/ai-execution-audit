@@ -31,6 +31,10 @@ class Halo3ExactSeatWitnesses(unittest.TestCase):
             {"index": 0, "name": "NVIDIA GeForce RTX 4060", "uuid": "GPU-e0b1541d-fc7d-38f5-d4c0-c15a3bd241a0", "pci.bus_id": "00000000:01:00.0"},
             {"index": 1, "name": "NVIDIA GeForce RTX 3090", "uuid": "GPU-0b31e56a-34eb-e8ef-e888-a6d6f044097b", "pci.bus_id": "00000000:25:00.0"},
         ]
+        self.torch = [
+            {"index": 0, "name": "NVIDIA GeForce RTX 3090", "uuid": "GPU-0b31e56a-34eb-e8ef-e888-a6d6f044097b", "pciBusId": "00000000:25:00.0"},
+            {"index": 1, "name": "NVIDIA GeForce RTX 4060", "uuid": "GPU-e0b1541d-fc7d-38f5-d4c0-c15a3bd241a0", "pciBusId": "00000000:01:00.0"},
+        ]
         self.pnp = [
             {
                 "instanceId": r"PCI\VEN_10DE&DEV_2882&SUBSYS_172619DA\4060",
@@ -52,19 +56,16 @@ class Halo3ExactSeatWitnesses(unittest.TestCase):
             },
         ]
 
-    def test_exact_thunderbolt_3090_wins_over_cuda_index_zero_4060(self) -> None:
+    def test_exact_thunderbolt_3090_survives_divergent_nvidia_and_torch_indexes(self) -> None:
         observation = resolve_halo3_seat_observation(
             self.seat,
             nvidia_rows=self.nvidia,
             pnp_rows=self.pnp,
-            torch_devices=[
-                {"index": 0, "name": "NVIDIA GeForce RTX 4060"},
-                {"index": 1, "name": "NVIDIA GeForce RTX 3090"},
-            ],
+            torch_devices=self.torch,
         )
         self.assertEqual(observation["seatId"], self.seat["seatId"])
         self.assertEqual(observation["gpuUuid"], self.seat["gpuUuid"])
-        self.assertEqual(observation["currentCudaDeviceIndex"], 1)
+        self.assertEqual(observation["currentCudaDeviceIndex"], 0)
 
     def test_exact_seat_survives_cuda_index_reordering(self) -> None:
         reordered = [
@@ -76,12 +77,12 @@ class Halo3ExactSeatWitnesses(unittest.TestCase):
             nvidia_rows=reordered,
             pnp_rows=self.pnp,
             torch_devices=[
-                {"index": 0, "name": "NVIDIA GeForce RTX 3090"},
-                {"index": 1, "name": "NVIDIA GeForce RTX 4060"},
+                {**self.torch[0], "index": 1},
+                {**self.torch[1], "index": 0},
             ],
         )
         self.assertEqual(observation["seatId"], self.seat["seatId"])
-        self.assertEqual(observation["currentCudaDeviceIndex"], 0)
+        self.assertEqual(observation["currentCudaDeviceIndex"], 1)
         self.assertEqual(self.seat["initialCudaDeviceIndex"], 1)
 
     def test_internal_4060_cannot_satisfy_thunderbolt_halo3_role(self) -> None:
@@ -99,10 +100,7 @@ class Halo3ExactSeatWitnesses(unittest.TestCase):
                 wrong_seat,
                 nvidia_rows=self.nvidia,
                 pnp_rows=self.pnp,
-                torch_devices=[
-                    {"index": 0, "name": "NVIDIA GeForce RTX 4060"},
-                    {"index": 1, "name": "NVIDIA GeForce RTX 3090"},
-                ],
+                torch_devices=self.torch,
             )
         self.assertEqual(caught.exception.code, "HALO3_TRANSPORT_TOPOLOGY_MISMATCH")
 

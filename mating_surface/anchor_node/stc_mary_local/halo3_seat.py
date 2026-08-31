@@ -180,7 +180,7 @@ def resolve_halo3_seat_observation(
         and row.get("name") == seat["productName"]
     ]
     require(len(nvidia_matches) == 1, "HALO3_NVIDIA_IDENTITY_NOT_UNIQUE", "exact HALO3 NVIDIA identity did not resolve once")
-    current_index = safe_int(nvidia_matches[0].get("index"), 0, 31, "HALO3_NVIDIA_IDENTITY_INVALID", "observed CUDA device index")
+    current_index = safe_int(nvidia_matches[0].get("index"), 0, 31, "HALO3_NVIDIA_IDENTITY_INVALID", "observed NVIDIA index")
 
     pnp_matches = [row for row in pnp_rows if str(row.get("instanceId", "")).upper() == seat["pnpInstanceId"]]
     require(len(pnp_matches) == 1, "HALO3_PNP_IDENTITY_NOT_UNIQUE", "exact HALO3 PnP identity did not resolve once")
@@ -209,9 +209,12 @@ def resolve_halo3_seat_observation(
     if torch_devices is not None:
         torch_matches = [
             row for row in torch_devices
-            if row.get("index") == current_index and row.get("name") == seat["productName"]
+            if row.get("name") == seat["productName"]
+            and row.get("uuid") == seat["gpuUuid"]
+            and str(row.get("pciBusId", "")).upper() == seat["pciBusId"]
         ]
         require(len(torch_matches) == 1, "HALO3_TORCH_IDENTITY_NOT_UNIQUE", "Torch did not expose the exact HALO3 seat at its observed CUDA index")
+        current_index = safe_int(torch_matches[0].get("index"), 0, 31, "HALO3_TORCH_IDENTITY_INVALID", "observed Torch CUDA device index")
 
     return {
         "schema": "stc-mary-halo3-seat-observation/1",
