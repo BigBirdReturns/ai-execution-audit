@@ -1,0 +1,56 @@
+{
+  "claimBoundary": "Supplier-neutral synthetic contract for admitting distributed-model-inference formations as single Estate routes. The public SwarmLLM observation is floor inventory only and remains a qualification plan. Synthetic conformance fixtures do not qualify the actual SwarmLLM product, Nehanth Narendrula, any physical device, any model output, or any operational Estate. This increment executes no inference, imports no supplier runtime, grants no mission or command authority, and changes no admitted physical-flight state.",
+  "commodityInterface": "axm/distributed-model-inference@1",
+  "fixtureCaseIds": [
+    "qualified-synthetic-swarmllm-composite-route",
+    "plan-public-swarmllm-observation-only",
+    "plan-independent-route-memory-does-not-pool",
+    "qualified-measured-composite-formation",
+    "plan-member-loss-invalidates-formation",
+    "hold-forged-aggregate-capacity",
+    "qualified-supplier-substitution",
+    "hold-work-unit-pins-swarmllm",
+    "hold-duplicate-seat-membership",
+    "hold-public-claim-promotion",
+    "qualified-local-route-beats-slow-composite",
+    "qualified-local-fallback-after-distributed-removal"
+  ],
+  "noMemoryPoolingLaw": "Independent routes remain independently sufficient or insufficient. Their memory is never summed. A distributed formation may expose modelCapacityBytes only as one executable composite route with unique members, a capacity receipt, a topology receipt, an adapter, and current availability. Member pledge sums are consistency ceilings, not admission evidence.",
+  "objectSchemas": [
+    "axm-head/distributed-inference-supplier-catalog@1",
+    "axm-head/distributed-inference-supplier-observation@1",
+    "axm-head/distributed-inference-adapter@1",
+    "axm-head/distributed-inference-formation@1",
+    "axm-head/distributed-inference-route@1",
+    "axm-head/distributed-inference-route-evaluation@1",
+    "axm-head/distributed-inference-decision@1",
+    "axm-head/distributed-inference-floor@1"
+  ],
+  "permittedAuthorityClasses": [
+    "compute-only"
+  ],
+  "profileId": "axm-head/distributed-inference-commodity/0.1",
+  "requiredValidatorRefs": [
+    "validator:formation-capacity@1",
+    "validator:model-output-equivalence@1"
+  ],
+  "schema": "axm-head-distributed-inference-commodity-profile/1",
+  "sourceFloor": {
+    "commit": "f71e043aa1558bc86fd2705e989203f3057f7f0f",
+    "repository": "BigBirdReturns/ai-execution-audit",
+    "status": "admitted_floor"
+  },
+  "status": "candidate_contract_only",
+  "supplierNeutralityLaw": "A work unit names required capabilities, capacity, privacy, validators, performance, and authority. It does not name SwarmLLM or any other supplier. Supplier identity exists only below the replaceable adapter boundary.",
+  "supplierObservationIds": [
+    "supplier:swarmllm@public-observation-2026-08-31"
+  ],
+  "supportedPartitionModes": [
+    "pipeline-layer"
+  ],
+  "terminalStates": [
+    "QUALIFIED_ASSEMBLY",
+    "QUALIFICATION_PLAN",
+    "HOLD"
+  ]
+}

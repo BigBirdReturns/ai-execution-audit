@@ -1,0 +1,200 @@
+name: AXM HEAD Distributed Inference Commodity 01
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/axm-head-distributed-inference-commodity-01.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-DISTRIBUTED-INFERENCE-COMMODITY-01.md"
+      - "mating_surface/anchor_node/axm-head-distributed-inference-commodity-profile-01.json"
+      - "mating_surface/anchor_node/axm_head_distributed_inference_commodity.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_distributed_inference_commodity.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-distributed-inference-commodity-cases-01.json"
+      - "mating_surface/anchor_node/fixtures/axm-head-distributed-inference-suppliers-01.json"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/axm-head-distributed-inference-commodity-01.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-DISTRIBUTED-INFERENCE-COMMODITY-01.md"
+      - "mating_surface/anchor_node/axm-head-distributed-inference-commodity-profile-01.json"
+      - "mating_surface/anchor_node/axm_head_distributed_inference_commodity.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_distributed_inference_commodity.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-distributed-inference-commodity-cases-01.json"
+      - "mating_surface/anchor_node/fixtures/axm-head-distributed-inference-suppliers-01.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: axm-head-distributed-inference-commodity-01-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out event coordinate with complete history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Qualify exact source coordinates
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PLATFORM: ${{ matrix.os }}
+          QUALIFICATION_ROOT: ${{ runner.temp }}/axm-head-distributed-inference
+        run: |
+          set -euo pipefail
+
+          PROFILE="mating_surface/anchor_node/axm-head-distributed-inference-commodity-profile-01.json"
+          SUPPLIERS="mating_surface/anchor_node/fixtures/axm-head-distributed-inference-suppliers-01.json"
+          FIXTURES="mating_surface/anchor_node/fixtures/axm-head-distributed-inference-commodity-cases-01.json"
+          TOOL="mating_surface/anchor_node/axm_head_distributed_inference_commodity.py"
+          TESTS="mating_surface/anchor_node/conformance/test_axm_head_distributed_inference_commodity.py"
+
+          COORDINATES="$RUNNER_TEMP/axm-head-distributed-inference-coordinates.tsv"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            printf 'head\t%s\nmerge\t%s\n' "$PR_HEAD_SHA" "$EVENT_SHA" > "$COORDINATES"
+          else
+            printf 'source\t%s\n' "$EVENT_SHA" > "$COORDINATES"
+          fi
+
+          while IFS=$'\t' read -r COORDINATE EXPECTED_SHA
+          do
+            [ -n "$COORDINATE" ] || continue
+            git checkout --force --detach "$EXPECTED_SHA"
+            git clean -ffdx
+
+            OBSERVED_SHA="$(git rev-parse HEAD)"
+            OBSERVED_TREE="$(git rev-parse 'HEAD^{tree}')"
+            if [ "$OBSERVED_SHA" != "$EXPECTED_SHA" ]; then
+              echo "checkout identity differs: expected=$EXPECTED_SHA observed=$OBSERVED_SHA" >&2
+              exit 1
+            fi
+            if [ -n "$(git status --porcelain=v1)" ]; then
+              echo "checkout is dirty before qualification" >&2
+              git status --short >&2
+              exit 1
+            fi
+
+            DEST="$QUALIFICATION_ROOT/$COORDINATE/$PLATFORM"
+            mkdir -p "$DEST"
+
+            python - "$DEST/source-identity.json" \
+              "$EVENT_NAME" "$COORDINATE" "$EXPECTED_SHA" "$OBSERVED_SHA" "$OBSERVED_TREE" <<'PY'
+          from pathlib import Path
+          import json
+          import sys
+
+          out, event_name, coordinate, expected_sha, observed_sha, tree = sys.argv[1:]
+          body = {
+              "schema": "axm-head/source-coordinate-verdict@1",
+              "status": "PASS" if expected_sha == observed_sha else "REFUSED",
+              "eventName": event_name,
+              "coordinate": coordinate,
+              "expectedSha": expected_sha,
+              "observedSha": observed_sha,
+              "tree": tree,
+              "cleanBeforeQualification": True,
+          }
+          Path(out).write_text(json.dumps(body, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          if body["status"] != "PASS":
+              raise SystemExit(2)
+          PY
+
+            python - <<'PY'
+          from pathlib import Path
+          import re
+
+          paths = [
+              Path(".github/workflows/axm-head-distributed-inference-commodity-01.yml"),
+              Path("mating_surface/anchor_node/AXM-HEAD-DISTRIBUTED-INFERENCE-COMMODITY-01.md"),
+              Path("mating_surface/anchor_node/axm-head-distributed-inference-commodity-profile-01.json"),
+              Path("mating_surface/anchor_node/axm_head_distributed_inference_commodity.py"),
+              Path("mating_surface/anchor_node/conformance/test_axm_head_distributed_inference_commodity.py"),
+              Path("mating_surface/anchor_node/fixtures/axm-head-distributed-inference-commodity-cases-01.json"),
+              Path("mating_surface/anchor_node/fixtures/axm-head-distributed-inference-suppliers-01.json"),
+          ]
+          joined = "\n".join(path.read_text(encoding="utf-8") for path in paths)
+          forbidden = {
+              "network runtime": r"\b(?:requests|urllib3|aiohttp|httpx)\b|socket\.(?:connect|create_connection)",
+              "credential material": r"AKIA[0-9A-Z]{16}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:\s*Bearer",
+              "private host identity": r"\bOCTO-(?:W|L|N)[0-9]+\b",
+          }
+          for label, pattern in forbidden.items():
+              if re.search(pattern, joined, re.I):
+                  raise SystemExit(f"{label} detected in permanent commodity product")
+
+          workflow = paths[0].read_text(encoding="utf-8")
+          if "permissions:\n  contents: read\n" not in workflow:
+              raise SystemExit("workflow does not retain read-only contents permission")
+          for fragment in ("contents: write", "git push origin", "pull_request_target"):
+              if fragment in workflow:
+                  raise SystemExit(f"write-capable carrier fragment detected: {fragment}")
+          PY
+
+            python -m py_compile "$TOOL" "$TESTS"
+
+            python "$TOOL" validate-profile "$PROFILE" \
+              > "$DEST/profile-verdict.json"
+            python "$TOOL" validate-suppliers "$PROFILE" "$SUPPLIERS" \
+              > "$DEST/supplier-verdict.json"
+            python "$TOOL" validate-fixtures "$PROFILE" "$SUPPLIERS" "$FIXTURES" \
+              > "$DEST/fixture-verdict.json"
+
+            python -m unittest discover \
+              -s mating_surface/anchor_node/conformance \
+              -p 'test_axm_head_distributed_inference_commodity.py' \
+              -v 2>&1 | tee "$DEST/test-output.txt"
+
+            python "$TOOL" campaign "$PROFILE" "$SUPPLIERS" "$FIXTURES" \
+              > "$DEST/campaign.json"
+            python "$TOOL" floor "$PROFILE" "$SUPPLIERS" "$FIXTURES" \
+              > "$DEST/floor.json"
+
+            python - "$DEST/campaign.json" "$DEST/floor.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          campaign = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          floor = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+
+          if campaign["status"] != "PASS" or campaign["caseCount"] != 12:
+              raise SystemExit("campaign did not close the exact twelve-case denominator")
+          if campaign["terminalCounts"] != {
+              "QUALIFIED_ASSEMBLY": 5,
+              "QUALIFICATION_PLAN": 3,
+              "HOLD": 4,
+          }:
+              raise SystemExit("campaign terminal counts drifted")
+          if campaign["publicSwarmLLMQualified"] or campaign["executionOccurred"]:
+              raise SystemExit("campaign promoted public SwarmLLM or claimed execution")
+
+          if floor["supplierCount"] != 1:
+              raise SystemExit("floor supplier denominator drifted")
+          row = floor["suppliers"][0]
+          if row["actor"] != "Nehanth Narendrula" or row["product"] != "SwarmLLM":
+              raise SystemExit("public supplier identity drifted")
+          if row["status"] != "QUALIFICATION_PLAN":
+              raise SystemExit("public SwarmLLM row escaped its qualification plan")
+          if row["actualSupplierQualified"] or row["executionOccurred"]:
+              raise SystemExit("public supplier row promoted a non-receipt")
+          PY
+
+          done
