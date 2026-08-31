@@ -1,0 +1,175 @@
+name: STC MARY Sealed Campaign Compatibility 01
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/stc-mary-sealed-campaign-compatibility-01.yml"
+      - "mating_surface/anchor_node/STC-MARY-SEALED-CAMPAIGN-COMPATIBILITY-01.md"
+      - "mating_surface/anchor_node/stc-mary-sealed-campaign-compatibility-profile-01.json"
+      - "mating_surface/anchor_node/stc-mary-sealed-campaign-compatibility.ps1"
+      - "mating_surface/anchor_node/stc_mary_sealed_campaign_compatibility.py"
+      - "mating_surface/anchor_node/verify_stc_mary_sealed_campaign_compatibility.py"
+      - "mating_surface/anchor_node/verify_stc_mary_sealed_campaign_compatibility_bootstrap.py"
+      - "mating_surface/anchor_node/conformance/test_stc_mary_sealed_campaign_compatibility.py"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/stc-mary-sealed-campaign-compatibility-01.yml"
+      - "mating_surface/anchor_node/STC-MARY-SEALED-CAMPAIGN-COMPATIBILITY-01.md"
+      - "mating_surface/anchor_node/stc-mary-sealed-campaign-compatibility-profile-01.json"
+      - "mating_surface/anchor_node/stc-mary-sealed-campaign-compatibility.ps1"
+      - "mating_surface/anchor_node/stc_mary_sealed_campaign_compatibility.py"
+      - "mating_surface/anchor_node/verify_stc_mary_sealed_campaign_compatibility.py"
+      - "mating_surface/anchor_node/verify_stc_mary_sealed_campaign_compatibility_bootstrap.py"
+      - "mating_surface/anchor_node/conformance/test_stc_mary_sealed_campaign_compatibility.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+        coordinate: ${{ fromJSON(github.event_name == 'pull_request' && '["head","merge"]' || '["head"]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve exact Git coordinate
+        id: coordinate
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ matrix.coordinate }}" == "head" ]]; then
+            echo "ref=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out exact coordinate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.coordinate.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Materialize authoritative source from exact Git blobs
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+
+          ref = os.environ["SOURCE_REF"]
+          profile_path = "mating_surface/anchor_node/stc-mary-sealed-campaign-compatibility-profile-01.json"
+          profile = json.loads(subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{profile_path}"]))
+          for relative in profile["repairSourceMembers"]:
+              data = subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{relative}"])
+              path = pathlib.Path(relative)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+              if b"\r" in data:
+                  raise SystemExit(f"authoritative source contains CR bytes: {relative}")
+          PY
+
+      - name: Refuse any predecessor conductor source change on this branch
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          ref = os.environ["SOURCE_REF"]
+          profile_path = "mating_surface/anchor_node/stc-mary-sealed-campaign-compatibility-profile-01.json"
+          profile = json.loads(subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{profile_path}"]))
+          predecessor = set(profile["predecessor"]["sourceMembers"])
+          repair = set(profile["repairSourceMembers"])
+          overlap = predecessor & repair
+          if overlap:
+              sys.exit(f"repair source claims predecessor conductor members: {sorted(overlap)}")
+
+          base = subprocess.check_output(["git", "merge-base", "origin/main", ref], text=True).strip()
+          changed = set(
+              subprocess.check_output(["git", "diff", "--name-only", base, ref], text=True).split()
+          )
+          touched = sorted(predecessor & changed)
+          if touched:
+              sys.exit(
+                  "this transaction may not modify predecessor conductor source; "
+                  f"the future-conductor repair is a separate issue and branch: {touched}"
+              )
+          print("predecessor conductor source is untouched on this branch")
+          PY
+
+      - name: Compile source
+        shell: bash
+        run: |
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_sealed_campaign_compatibility.py \
+            mating_surface/anchor_node/verify_stc_mary_sealed_campaign_compatibility.py \
+            mating_surface/anchor_node/verify_stc_mary_sealed_campaign_compatibility_bootstrap.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_sealed_campaign_compatibility.py
+
+      - name: Report admitted profile digest
+        shell: bash
+        run: |
+          python mating_surface/anchor_node/stc_mary_sealed_campaign_compatibility.py profile-digest
+
+      - name: Report repair verifier source set
+        shell: bash
+        run: |
+          python mating_surface/anchor_node/stc_mary_sealed_campaign_compatibility.py source-set
+
+      - name: Run closed hostile witness denominator
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_sealed_campaign_compatibility.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/stc-mary-sealed-campaign-compatibility-tests.txt"
+          grep -F "OK" "$RUNNER_TEMP/stc-mary-sealed-campaign-compatibility-tests.txt"
+
+      - name: Refuse private material in the public surface
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          profile = json.loads(
+              pathlib.Path(
+                  "mating_surface/anchor_node/stc-mary-sealed-campaign-compatibility-profile-01.json"
+              ).read_text(encoding="utf-8")
+          )
+          forbidden = ("private-flight-local-01", "octo-", "C:\\\\Users", "D:\\\\Projects", "S:\\\\")
+          # This workflow carries the token list above, so scanning it would match its own
+          # detector rather than a leak. Every other repair source member is scanned.
+          scanner = ".github/workflows/stc-mary-sealed-campaign-compatibility-01.yml"
+          for relative in profile["repairSourceMembers"]:
+              if relative == scanner:
+                  continue
+              text = pathlib.Path(relative).read_text(encoding="utf-8")
+              for token in forbidden:
+                  if token in text:
+                      sys.exit(f"public source member exposes private surface {token!r}: {relative}")
+          print("public repair source carries no private campaign coordinate")
+          PY
