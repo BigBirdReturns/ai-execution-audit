@@ -1,0 +1,223 @@
+name: TEMP Refresh Browser Audition Operation Plan 68 Retry 02
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - ".github/workflows/temp-refresh-axm-browser-audition-operation-plan-68-retry-02.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-refresh-browser-audition-operation-plan-68-retry-02
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  BASE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+  BASE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+  PRODUCT_BRANCH: work/axm-head-browser-audition-operation-plan-product-01
+  PRODUCT_HEAD: 878bab5c81de51dcdb55b6da7578be21d21c533c
+  REFRESH_SHA256: 9b762c9b8ea5e500089b6872804b7ed01e6514b73c7c14ad60d5c3a0ec8c9ff6
+  EXPECTED_SOURCE_BINDING: axmoperationplansource_d281a42ef1f3ba0b620e0421c18966b9c06b167f3450d973e1fd33273b05b107
+  EXPECTED_EXTENSION_ID: axmoperationplanextension_e36fe4a52fee3096311dd3f985cb6b0badc25062c9a8b460bf610d82e3c39b8d
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-browser-audition-operation-plan-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Reconstruct, qualify, and publish the exact refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main "$PRODUCT_BRANCH"
+          [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]] || { echo "main moved" >&2; exit 2; }
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]] || { echo "main tree differs" >&2; exit 2; }
+          [[ "$(git rev-parse "origin/$PRODUCT_BRANCH")" == "$PRODUCT_HEAD" ]] || { echo "product branch moved" >&2; exit 2; }
+
+          parts=(
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-00'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-01'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-02'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-03'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-04'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-05a0'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-05a1'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-05a2'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-05a30'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-05a31'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-05a32'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-05a33'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-05b'
+            '.agent-carriers/axm-head-browser-audition-operation-plan-68-refresh.zip.b64.part-06'
+          )
+          sizes=(8000 8000 8000 8000 8000 1000 1000 1000 250 250 250 250 4000 7940)
+          blobs=(
+            256e2d739edf0eb1ab2971dfd305f33dc5f3990f
+            e2ff71c2ae2a5c2ced0b0aa82d3eea76857277e8
+            ffa2913202faba194b2476064148b03bd4799d4f
+            86dcf37956724869efe81079d4e4c7340af32561
+            4f2e8ef9d373543fcb6cf3a5075ec7f7ed862b42
+            40fc12bb3d1ed117f116aac79a2ced240eed0028
+            72da4d03dfe98487860a72ad44202526a7928a4e
+            3b39cd6da09356d8874041a342b9d2203f24c1ae
+            9237578148744d13876adebb21eff3d469927df8
+            4a18cc8bb7a65aa8dd8d73feef62d5790711ab98
+            dde25ca390444009549042953020110f806e606a
+            d333827b921bf3df904ec2fca99738778f1e9695
+            7066ed840c6dce22be44da165d9800f98059f994
+            b491e3644fee338bf16c016deb6f521d3567789d
+          )
+          for index in "${!parts[@]}"; do
+            part="${parts[$index]}"
+            [[ -f "$part" ]] || { echo "carrier segment missing: $part" >&2; exit 2; }
+            [[ "$(wc -c < "$part")" -eq "${sizes[$index]}" ]] || { echo "carrier segment size differs: $part" >&2; exit 2; }
+            [[ "$(git hash-object "$part")" == "${blobs[$index]}" ]] || { echo "carrier segment Git blob differs: $part" >&2; exit 2; }
+          done
+          cat "${parts[@]}" | base64 --decode > "$RUNNER_TEMP/refresh.zip"
+          [[ "$(sha256sum "$RUNNER_TEMP/refresh.zip" | awk '{print $1}')" == "$REFRESH_SHA256" ]] || { echo "refresh digest differs" >&2; exit 2; }
+
+          python - "$RUNNER_TEMP/refresh.zip" <<'PY'
+          import stat, sys, zipfile
+          from pathlib import PurePosixPath
+          expected = {
+              "mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md",
+              "mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py",
+              "mating_surface/anchor_node/browser_audition_operation_plan_contract.js",
+              "mating_surface/anchor_node/browser_audition_operation_plan_panel.js",
+              "mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py",
+              "mating_surface/anchor_node/fixtures/axm-head-browser-audition-operation-plan-cases-01.json",
+              "mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py",
+          }
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              rows = archive.infolist(); names = [row.filename for row in rows]
+              if len(names) != len(set(names)) or set(names) != expected:
+                  raise SystemExit(f"refresh denominator differs: missing={sorted(expected-set(names))} extra={sorted(set(names)-expected)}")
+              for row in rows:
+                  path = PurePosixPath(row.filename)
+                  if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+                      raise SystemExit(f"unsafe refresh member: {row.filename}")
+                  if row.is_dir() or stat.S_ISLNK(row.external_attr >> 16):
+                      raise SystemExit(f"non-regular refresh member: {row.filename}")
+                  data = archive.read(row)
+                  if not data or b"\r" in data:
+                      raise SystemExit(f"empty or CR-bearing refresh member: {row.filename}")
+                  if any(value < 32 and value not in (9, 10) for value in data):
+                      raise SystemExit(f"forbidden control byte: {row.filename}")
+                  data.decode("utf-8")
+          PY
+
+          git checkout --detach "$PRODUCT_HEAD"
+          python - "$RUNNER_TEMP/refresh.zip" <<'PY'
+          import sys, zipfile
+          from pathlib import Path, PurePosixPath
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              for row in archive.infolist():
+                  target = Path(*PurePosixPath(row.filename).parts)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(archive.read(row))
+          PY
+
+          python - <<'PY'
+          import pathlib, subprocess
+          expected = {
+              "mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md": "1cdd2111241f9b6081c5d6bcce9d6988332a01e1",
+              "mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py": "82b8f56834fc51c67b2d5ba1580802ce15ae8411",
+              "mating_surface/anchor_node/browser_audition_operation_plan_contract.js": "f8e707b96fccca0684753e7cd295c069d44c1de5",
+              "mating_surface/anchor_node/browser_audition_operation_plan_panel.js": "24e94dd9a3da9208209f88efc9d9768ffe68adc9",
+              "mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py": "41baf610a37da0cfd6b781c5a5bd73f290c70e30",
+              "mating_surface/anchor_node/fixtures/axm-head-browser-audition-operation-plan-cases-01.json": "f5e03c485b20941e6fed23207736fc0415aba54f",
+              "mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py": "de684b129521268696337508b48adf4280de8bf6",
+          }
+          for relative, wanted in expected.items():
+              observed = subprocess.check_output(["git", "hash-object", relative], text=True).strip()
+              if observed != wanted or not pathlib.Path(relative).is_file():
+                  raise SystemExit(f"strengthened source differs: {relative}: {observed} != {wanted}")
+          PY
+
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-audition-operation-plan-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-audition-operation-plan-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_audition_operation_plan_01.py"
+          VERIFY="$ROOT/verify_axm_head_browser_audition_operation_plan_01.py"
+          BOOT="$ROOT/verify_axm_head_browser_audition_operation_plan_01_bootstrap.py"
+          TESTS="$ROOT/conformance/test_axm_head_browser_audition_operation_plan_01.py"
+          RECEIPTS="$RUNNER_TEMP/receipts"
+          OUTPUT="$RUNNER_TEMP/extension"
+          mkdir -p "$RECEIPTS"
+          python -m py_compile "$TOOL" "$VERIFY" "$BOOT" "$TESTS"
+          node --check "$ROOT/browser_audition_operation_plan_contract.js"
+          node --check "$ROOT/browser_audition_operation_plan_panel.js"
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPTS/profile.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPTS/fixtures.json"
+          python "$TOOL" campaign "$PROFILE" "$GITHUB_WORKSPACE" "$FIXTURES" > "$RECEIPTS/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" > "$RECEIPTS/source-set.json"
+          python -m unittest discover -s "$ROOT/conformance" -p 'test_axm_head_browser_audition_operation_plan_01.py' -v 2>&1 | tee "$RECEIPTS/tests.txt"
+          grep -F 'Ran 68 tests' "$RECEIPTS/tests.txt"
+          grep -Fx 'OK' "$RECEIPTS/tests.txt"
+          python "$TOOL" build-extension "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/build.json"
+          cmp "$RECEIPTS/build.json" "$OUTPUT/build-manifest.json"
+          python "$VERIFY" "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/direct.json"
+          python "$BOOT" "$VERIFY" "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/bootstrap.json"
+
+          python - "$RECEIPTS" <<'PY'
+          import json, os, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          campaign = json.loads((root / "campaign.json").read_text())
+          source = json.loads((root / "source-set.json").read_text())
+          build = json.loads((root / "build.json").read_text())
+          direct = json.loads((root / "direct.json").read_text())
+          bootstrap = json.loads((root / "bootstrap.json").read_text())
+          if campaign.get("status") != "PASS" or campaign.get("caseCount") != 24 or campaign.get("outcomeCounts") != {"PASS": 3, "REFUSED": 21}:
+              raise SystemExit(campaign)
+          if source.get("sourceMemberCount") != 13 or source.get("sourceBindingId") != os.environ["EXPECTED_SOURCE_BINDING"]:
+              raise SystemExit(source)
+          if build.get("extensionId") != os.environ["EXPECTED_EXTENSION_ID"]:
+              raise SystemExit(build)
+          if direct.get("status") != "PASS" or direct.get("operationPlanExecuted") is not False or direct.get("actualSupplierQualified") is not False or direct.get("physicalEstateQualified") is not False:
+              raise SystemExit(direct)
+          if bootstrap.get("status") != "PASS" or bootstrap.get("bootstrapAuthenticated") is not True or bootstrap.get("operationPlanExecuted") is not False:
+              raise SystemExit(bootstrap)
+          PY
+          find "$ROOT" -type d -name __pycache__ -prune -exec rm -rf {} +
+          git diff --check
+
+          expected=(
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md'
+            'mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/browser_audition_operation_plan_contract.js'
+            'mating_surface/anchor_node/browser_audition_operation_plan_panel.js'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/fixtures/axm-head-browser-audition-operation-plan-cases-01.json'
+            'mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py'
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          mapfile -t observed < <(git status --porcelain=v1 --untracked-files=all | sed -E 's/^...//' | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]] || { echo "refresh working denominator differs" >&2; exit 2; }
+          git add -- "${expected[@]}"
+          mapfile -t staged < <(git diff --cached --name-only | LC_ALL=C sort)
+          [[ "${staged[*]}" == "${wanted[*]}" ]] || { echo "staged refresh denominator differs" >&2; exit 2; }
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Strengthen the browser audition operation plan'
+          echo "REFRESHED_HEAD=$(git rev-parse HEAD)"
+          echo "REFRESHED_TREE=$(git rev-parse 'HEAD^{tree}')"
+          git push --force-with-lease="refs/heads/$PRODUCT_BRANCH:$PRODUCT_HEAD" origin "HEAD:refs/heads/$PRODUCT_BRANCH"
