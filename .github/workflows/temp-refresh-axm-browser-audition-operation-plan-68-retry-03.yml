@@ -1,0 +1,83 @@
+name: TEMP Refresh Browser Audition Operation Plan 68 Retry 03
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - ".github/workflows/temp-refresh-axm-browser-audition-operation-plan-68-retry-03.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-refresh-browser-audition-operation-plan-68-retry-03
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  BASE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+  BASE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+  PRODUCT_BRANCH: work/axm-head-browser-audition-operation-plan-product-01
+  PRODUCT_HEAD: 878bab5c81de51dcdb55b6da7578be21d21c533c
+  REFRESH_SHA256: 9b762c9b8ea5e500089b6872804b7ed01e6514b73c7c14ad60d5c3a0ec8c9ff6
+  EXPECTED_SOURCE_BINDING: axmoperationplansource_d281a42ef1f3ba0b620e0421c18966b9c06b167f3450d973e1fd33273b05b107
+  EXPECTED_EXTENSION_ID: axmoperationplanextension_e36fe4a52fee3096311dd3f985cb6b0badc25062c9a8b460bf610d82e3c39b8d
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-browser-audition-operation-plan-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Execute the predecessor body with corrected fragment identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/temp-refresh-axm-browser-audition-operation-plan-68-retry-02.yml')
+          text = source.read_text(encoding='utf-8')
+          marker = '        run: |\n'
+          if text.count(marker) != 1:
+              raise SystemExit(f'expected one executable body, observed {text.count(marker)}')
+          body = text.split(marker, 1)[1]
+          lines = body.splitlines()
+          script_lines = []
+          for line in lines:
+              if line:
+                  if not line.startswith('          '):
+                      raise SystemExit(f'unexpected YAML indentation: {line!r}')
+                  script_lines.append(line[10:])
+              else:
+                  script_lines.append('')
+          script = '\n'.join(script_lines) + '\n'
+          replacements = {
+              '9237578148744d13876adebb21eff3d469927df8': '92375710ab11fe15e164a6bd2e11ee11a6d8a272',
+              '4a18cc8bb7a65aa8dd8d73feef62d5790711ab98': '4a18ad448d678b9beea6bd28ceb357895662ca19',
+              'dde25ca390444009549042953020110f806e606a': 'dde25d86e55e8bfb30853cf85288b27cc68b303f',
+              '7066ed840c6dce22be44da165d9800f98059f994': 'e5833b94acb86240afde4d9a40dfd8993617969e',
+          }
+          for old, new in replacements.items():
+              if script.count(old) != 1:
+                  raise SystemExit(f'expected one predecessor identity {old}, observed {script.count(old)}')
+              script = script.replace(old, new)
+          target = Path('/tmp/operation-plan-refresh-68.sh')
+          target.write_text(script, encoding='utf-8', newline='\n')
+          PY
+          bash -n /tmp/operation-plan-refresh-68.sh
+          bash /tmp/operation-plan-refresh-68.sh
