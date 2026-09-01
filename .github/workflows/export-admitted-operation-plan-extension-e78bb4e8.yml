@@ -1,0 +1,135 @@
+name: Export Admitted Operation Plan Extension e78bb4e8
+
+on:
+  push:
+    branches:
+      - ops/export-admitted-operation-plan-extension-e78bb4e8
+    paths:
+      - ".github/workflows/export-admitted-operation-plan-extension-e78bb4e8.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: export-admitted-operation-plan-extension-e78bb4e8
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  ADMISSION_COMMIT: e78bb4e8a4115b2191967d1ffcd1d744d77ce050
+  ADMISSION_TREE: 83006c13dd14f670785ffb57bd62d44b502d73a8
+  SOURCE_BINDING: axmoperationplansource_c16c73e2f3923a1c271bd4840d05f56a8bf639f947b4a47a565e5980c615ea9c
+  EXTENSION_ID: axmoperationplanextension_43261df0433ae81596aa1d0a85fdc86f4f85d2004098d604ecc6bda694e3ffa6
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: e78bb4e8a4115b2191967d1ffcd1d744d77ce050
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Reconstruct and qualify admitted extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$ADMISSION_COMMIT" ]]
+          [[ "$(git rev-parse 'HEAD^{tree}')" == "$ADMISSION_TREE" ]]
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-audition-operation-plan-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-audition-operation-plan-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_audition_operation_plan_01.py"
+          VERIFY="$ROOT/verify_axm_head_browser_audition_operation_plan_01.py"
+          BOOT="$ROOT/verify_axm_head_browser_audition_operation_plan_01_bootstrap.py"
+          OUTPUT="$RUNNER_TEMP/admitted-operation-plan-extension"
+          RECEIPTS="$RUNNER_TEMP/admitted-operation-plan-receipts"
+          mkdir -p "$RECEIPTS"
+
+          python -m py_compile "$TOOL" "$VERIFY" "$BOOT" "$ROOT/conformance/test_axm_head_browser_audition_operation_plan_01.py"
+          node --check "$ROOT/browser_audition_operation_plan_contract.js"
+          node --check "$ROOT/browser_audition_operation_plan_panel.js"
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPTS/profile.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPTS/fixtures.json"
+          python "$TOOL" campaign "$PROFILE" "$GITHUB_WORKSPACE" "$FIXTURES" > "$RECEIPTS/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" > "$RECEIPTS/source-set.json"
+          python -m unittest discover -s "$ROOT/conformance" -p 'test_axm_head_browser_audition_operation_plan_01.py' -v 2>&1 | tee "$RECEIPTS/tests.txt"
+          grep -F 'Ran 83 tests' "$RECEIPTS/tests.txt"
+          grep -Fx 'OK' "$RECEIPTS/tests.txt"
+          python "$TOOL" build-extension "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/build.json"
+          cmp "$RECEIPTS/build.json" "$OUTPUT/build-manifest.json"
+          python "$VERIFY" "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/direct.json"
+          python "$BOOT" "$VERIFY" "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/bootstrap.json"
+
+          python - "$RECEIPTS" "$OUTPUT" <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import sys
+
+          receipts = pathlib.Path(sys.argv[1])
+          output = pathlib.Path(sys.argv[2])
+          source = json.loads((receipts / "source-set.json").read_text())
+          build = json.loads((receipts / "build.json").read_text())
+          direct = json.loads((receipts / "direct.json").read_text())
+          bootstrap = json.loads((receipts / "bootstrap.json").read_text())
+          campaign = json.loads((receipts / "campaign.json").read_text())
+          if source.get("sourceBindingId") != os.environ["SOURCE_BINDING"] or source.get("sourceMemberCount") != 13:
+              raise SystemExit(source)
+          if build.get("extensionId") != os.environ["EXTENSION_ID"] or build.get("memberCount") != 8:
+              raise SystemExit(build)
+          if direct.get("status") != "PASS" or direct.get("extensionMemberCount") != 9:
+              raise SystemExit(direct)
+          if bootstrap.get("status") != "PASS" or bootstrap.get("bootstrapAuthenticated") is not True:
+              raise SystemExit(bootstrap)
+          if campaign.get("status") != "PASS" or campaign.get("caseCount") != 24 or campaign.get("outcomeCounts") != {"PASS": 3, "REFUSED": 21}:
+              raise SystemExit(campaign)
+          rows = []
+          for path in sorted(p for p in output.rglob("*") if p.is_file()):
+              data = path.read_bytes()
+              rows.append({
+                  "path": path.relative_to(output).as_posix(),
+                  "bytes": len(data),
+                  "sha256": "sha256:" + hashlib.sha256(data).hexdigest(),
+              })
+          if len(rows) != 9:
+              raise SystemExit(rows)
+          receipt = {
+              "schema": "axm-head/browser-audition-operation-plan-admitted-extension-export@1",
+              "status": "PASS",
+              "admissionCommit": os.environ["ADMISSION_COMMIT"],
+              "admissionTree": os.environ["ADMISSION_TREE"],
+              "sourceBindingId": os.environ["SOURCE_BINDING"],
+              "extensionId": os.environ["EXTENSION_ID"],
+              "extensionMemberCount": len(rows),
+              "members": rows,
+              "hostileWitnesses": {"passed": 83, "denominator": 83},
+              "bindingCases": {"passed": 24, "denominator": 24, "outcomes": {"PASS": 3, "REFUSED": 21}},
+              "physicalExecutionObserved": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none",
+          }
+          (receipts / "admitted-extension-export.json").write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: axm-admitted-operation-plan-extension-e78bb4e8
+          path: |
+            ${{ runner.temp }}/admitted-operation-plan-extension
+            ${{ runner.temp }}/admitted-operation-plan-receipts
+          if-no-files-found: error
+          retention-days: 14
