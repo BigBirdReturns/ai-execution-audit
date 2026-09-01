@@ -31,7 +31,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat .carrier/pr97-auth-hotfix/chunk-*.b64 | tr -d '\r\n\t ' > "$RUNNER_TEMP/hotfix.b64"
+          cat \
+            .carrier/pr97-auth-hotfix/prefix-00.b64 \
+            .carrier/pr97-auth-hotfix/prefix-01.b64 \
+            .carrier/pr97-auth-hotfix/prefix-02.b64 \
+            .carrier/pr97-auth-hotfix/chunk-02.b64 \
+            .carrier/pr97-auth-hotfix/chunk-03.b64 \
+            .carrier/pr97-auth-hotfix/chunk-04.b64 \
+            .carrier/pr97-auth-hotfix/chunk-05.b64 \
+            | tr -d '\r\n\t ' > "$RUNNER_TEMP/hotfix.b64"
           printf '%s  %s\n' \
             'e9ef2324064cdd08feac732462770bb19694206927b6a65cfd3c66f29b5fb683' \
             "$RUNNER_TEMP/hotfix.b64" | sha256sum --check --status
