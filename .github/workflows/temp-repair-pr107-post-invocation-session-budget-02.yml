@@ -1,0 +1,124 @@
+name: TEMP Repair PR107 Post-Invocation Session Budget 02
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - ".github/workflows/temp-repair-pr107-post-invocation-session-budget-02.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-repair-pr107-post-invocation-session-budget-02
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  BASE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+  BASE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+  PRODUCT_BRANCH: work/axm-head-browser-audition-operation-plan-product-01
+  PRODUCT_HEAD: 3b200c0eddf1f8688763c4e81f0f9cca63355441
+  PRODUCT_TREE: 8ebe69f182997d473569abf59b8aea61176c6b0e
+  REPAIR_BRANCH: repair/pr107-post-invocation-session-budget-01
+
+jobs:
+  qualify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-browser-audition-operation-plan-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Preserve staging-only patcher
+        shell: bash
+        run: cp .agent-carriers/repair_pr107_post_invocation_session_budget_01.py "$RUNNER_TEMP/repair.py"
+
+      - name: Require exact floor, candidate, and repair ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main "$PRODUCT_BRANCH" "$REPAIR_BRANCH"
+          [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]]
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]]
+          [[ "$(git rev-parse "origin/$PRODUCT_BRANCH")" == "$PRODUCT_HEAD" ]]
+          [[ "$(git rev-parse "$PRODUCT_HEAD^{tree}")" == "$PRODUCT_TREE" ]]
+          [[ "$(git rev-parse "origin/$REPAIR_BRANCH")" == "$PRODUCT_HEAD" ]]
+
+      - name: Apply exact repair above the product predecessor
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$PRODUCT_HEAD"
+          python "$RUNNER_TEMP/repair.py"
+
+      - name: Qualify source, compiler, extension, and independent verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-audition-operation-plan-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-audition-operation-plan-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_audition_operation_plan_01.py"
+          VERIFY="$ROOT/verify_axm_head_browser_audition_operation_plan_01.py"
+          BOOT="$ROOT/verify_axm_head_browser_audition_operation_plan_01_bootstrap.py"
+          TESTS="$ROOT/conformance/test_axm_head_browser_audition_operation_plan_01.py"
+          RECEIPTS="$RUNNER_TEMP/receipts"
+          OUTPUT="$RUNNER_TEMP/extension"
+          mkdir -p "$RECEIPTS"
+          python -m py_compile "$TOOL" "$VERIFY" "$BOOT" "$TESTS"
+          node --check "$ROOT/browser_audition_operation_plan_contract.js"
+          node --check "$ROOT/browser_audition_operation_plan_panel.js"
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPTS/profile.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPTS/fixtures.json"
+          python "$TOOL" campaign "$PROFILE" "$GITHUB_WORKSPACE" "$FIXTURES" > "$RECEIPTS/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" > "$RECEIPTS/source-set.json"
+          python -m unittest discover -s "$ROOT/conformance" -p 'test_axm_head_browser_audition_operation_plan_01.py' -v 2>&1 | tee "$RECEIPTS/tests.txt"
+          grep -F 'Ran 83 tests' "$RECEIPTS/tests.txt"
+          grep -Fx 'OK' "$RECEIPTS/tests.txt"
+          python "$TOOL" build-extension "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/build.json"
+          cmp "$RECEIPTS/build.json" "$OUTPUT/build-manifest.json"
+          python "$VERIFY" "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/direct.json"
+          python "$BOOT" "$VERIFY" "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/bootstrap.json"
+          python -c 'import json,os,pathlib; r=pathlib.Path(os.environ["RUNNER_TEMP"])/"receipts"; c=json.loads((r/"campaign.json").read_text()); s=json.loads((r/"source-set.json").read_text()); b=json.loads((r/"build.json").read_text()); d=json.loads((r/"direct.json").read_text()); q=json.loads((r/"bootstrap.json").read_text()); assert c["status"]=="PASS" and c["caseCount"]==24 and c["outcomeCounts"]=={"PASS":3,"REFUSED":21}; assert s["sourceMemberCount"]==13; assert d["status"]=="PASS" and d["sourceBindingId"]==s["sourceBindingId"] and d["extensionId"]==b["extensionId"] and "post-invocation-session-budget" in d["checks"]; assert q["status"]=="PASS" and q["bootstrapAuthenticated"] is True; print(json.dumps({"sourceBindingId":s["sourceBindingId"],"extensionId":b["extensionId"],"witnesses":83,"safeProbeInvocations":254,"firstRefusedProbeInvocations":255},sort_keys=True))'
+          find "$ROOT" -type d -name __pycache__ -prune -exec rm -rf {} +
+          git diff --check
+
+      - name: Freeze exactly seven repaired members
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            '.github/workflows/axm-head-browser-audition-operation-plan-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md'
+            'mating_surface/anchor_node/axm-head-browser-audition-operation-plan-profile-01.json'
+            'mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/browser_audition_operation_plan_contract.js'
+            'mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py'
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          mapfile -t observed < <(git diff --name-only "$PRODUCT_HEAD" | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]]
+          git add -- "${expected[@]}"
+          mapfile -t staged < <(git diff --cached --name-only | LC_ALL=C sort)
+          [[ "${staged[*]}" == "${wanted[*]}" ]]
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Bind operation plans to post-invocation request budget'
+          echo "REPAIRED_HEAD=$(git rev-parse HEAD)"
+          echo "REPAIRED_TREE=$(git rev-parse 'HEAD^{tree}')"
+          git push --force-with-lease="refs/heads/$REPAIR_BRANCH:$PRODUCT_HEAD" origin "HEAD:refs/heads/$REPAIR_BRANCH"
