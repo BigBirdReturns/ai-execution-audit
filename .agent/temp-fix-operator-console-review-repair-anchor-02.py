@@ -2,7 +2,8 @@ from pathlib import Path
 
 path = Path(".agent/temp-repair-browser-physical-audition-operator-console-review-02.py")
 text = path.read_text(encoding="utf-8")
-old = '''replace_once(
+
+old_anchor = '''replace_once(
     worker,
     \'\'\'      const inspection = await executeInMain(message.tabId, inspectProbeInPage, [
         CONTRACT.METHODS,
@@ -17,7 +18,7 @@ old = '''replace_once(
 \'\'\',
 )
 '''
-new = '''replace_once(
+new_anchor = '''replace_once(
     worker,
     \'\'\'      const inspection = await executeInMain(message.tabId, inspectProbeInPage, [
         CONTRACT.METHODS,
@@ -34,6 +35,17 @@ new = '''replace_once(
 \'\'\',
 )
 '''
-if text.count(old) != 1:
-    raise SystemExit(f"repair-script anchor differs: {text.count(old)}")
-path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
+if text.count(old_anchor) != 1:
+    raise SystemExit(f"repair-script anchor differs: {text.count(old_anchor)}")
+text = text.replace(old_anchor, new_anchor)
+
+old_open = "extra_tests = textwrap.dedent(r'''\n"
+new_open = "extra_tests = r'''\n"
+old_close = "''')\nreplace_once(tests, '\\n\\ndef _fixture_test(row: dict, group: str):\\n', extra_tests"
+new_close = "'''\nreplace_once(tests, '\\n\\ndef _fixture_test(row: dict, group: str):\\n', extra_tests"
+if text.count(old_open) != 1 or text.count(old_close) != 1:
+    raise SystemExit(
+        f"repair witness indentation anchors differ: open={text.count(old_open)} close={text.count(old_close)}"
+    )
+text = text.replace(old_open, new_open).replace(old_close, new_close)
+path.write_text(text, encoding="utf-8", newline="\n")
