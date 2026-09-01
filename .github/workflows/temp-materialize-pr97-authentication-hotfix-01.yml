@@ -1,0 +1,106 @@
+name: TEMP Materialize PR97 Authentication Hotfix 01
+
+on:
+  push:
+    branches:
+      - tmp/pr97-source-carrier-01
+
+permissions:
+  contents: write
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out isolated carrier
+        uses: actions/checkout@v6
+        with:
+          ref: tmp/pr97-source-carrier-01
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Reconstruct checksum-bound patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .carrier/pr97-auth-hotfix/chunk-*.b64 | tr -d '\r\n\t ' > "$RUNNER_TEMP/hotfix.b64"
+          printf '%s  %s\n' \
+            'e9ef2324064cdd08feac732462770bb19694206927b6a65cfd3c66f29b5fb683' \
+            "$RUNNER_TEMP/hotfix.b64" | sha256sum --check --status
+          base64 --decode "$RUNNER_TEMP/hotfix.b64" > "$RUNNER_TEMP/hotfix.patch.gz"
+          gzip -dc "$RUNNER_TEMP/hotfix.patch.gz" > "$RUNNER_TEMP/hotfix.patch"
+          printf '%s  %s\n' \
+            '391176fbd9e882fa3a6b40620f850814bb87ccbd262a36c868e221ea2cf7c758' \
+            "$RUNNER_TEMP/hotfix.patch" | sha256sum --check --status
+
+      - name: Build and qualify exact five-file intermediate tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          base='66a836fb6cbf072d8982187b9c116645e70a3c44'
+          [[ "$(git rev-parse origin/main)" == "$base" ]] || {
+            echo 'main moved before hotfix materialization' >&2
+            exit 2
+          }
+          git checkout --detach "$base"
+          git apply --check "$RUNNER_TEMP/hotfix.patch"
+          git apply "$RUNNER_TEMP/hotfix.patch"
+
+          expected=(
+            'mating_surface/anchor_node/STC-MARY-PACKET-EVIDENCE-ADMISSION-01.md'
+            'mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py'
+            'mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json'
+            'mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py'
+            'mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py'
+          )
+          mapfile -t observed < <(git diff --name-only | LC_ALL=C sort)
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]] || {
+            printf 'candidate denominator differs\nobserved:\n%s\nexpected:\n%s\n' \
+              "$(printf '%s\n' "${observed[@]}")" \
+              "$(printf '%s\n' "${wanted[@]}")" >&2
+            exit 2
+          }
+          git diff --check
+
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_packet_evidence_admission.py \
+            mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py \
+            mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py
+          set -o pipefail
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_packet_evidence_admission.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/tests.txt"
+          grep -F 'Ran 121 tests' "$RUNNER_TEMP/tests.txt"
+          grep -Fx 'OK' "$RUNNER_TEMP/tests.txt"
+          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py profile-digest
+          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py source-set
+          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py denominator
+
+      - name: Freeze intermediate tree for connector completion
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            mating_surface/anchor_node/STC-MARY-PACKET-EVIDENCE-ADMISSION-01.md \
+            mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py \
+            mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json \
+            mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py \
+            mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py
+          git commit -m 'Repair packet evidence source authentication'
+          echo "INTERMEDIATE_HEAD=$(git rev-parse HEAD)"
+          echo "INTERMEDIATE_TREE=$(git rev-parse 'HEAD^{tree}')"
+          git push origin HEAD:refs/heads/fix/stc-mary-packet-evidence-authentication-97
