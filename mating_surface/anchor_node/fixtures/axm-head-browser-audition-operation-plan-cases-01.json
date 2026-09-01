@@ -1,0 +1,4696 @@
+{
+  "hostileCases": [
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_0000000000000000000000000000000000000000000000000000000000000000",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-bindings-id",
+      "expectedCode": "BINDINGS_CONTENT_ID_INVALID"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_bbf586238e525466cde45ff2005d8b965512236f87eb353c4e841d89e8813d8c",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "supplier": "forbidden",
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-supplier-field",
+      "expectedCode": "FORBIDDEN_FIELD"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_d90a7e94ee7ab7ef589d87ac143efdaf15c4db4839dbfce2cc3608e83c43067f",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-one-member",
+      "expectedCode": "MEMBER_COUNT_INVALID"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_b732b85ad41c49afc25b3c8f3dbf93c497231ae4011389020147beba0207fe01",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-duplicate-member-alias",
+      "expectedCode": "MEMBER_ALIAS_DUPLICATE"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_6bc33f1e5cf79b640c61de3721b7890d116612b221b56e11b24ec89a210adef9",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-duplicate-member-id",
+      "expectedCode": "MEMBER_ID_DUPLICATE"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_ba3aa77e07928ee051f30f067a8fa70b0d237272a53095c9430e2616d0b67103",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-stage"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-member-role-denominator",
+      "expectedCode": "MEMBER_ROLE_DENOMINATOR_INVALID"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_61b570c10ffd71dd2b86bbbb8f6df15718f7d51bed81060a8093542611f023c4",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:missing"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-unresolved-artifact-member",
+      "expectedCode": "MEMBER_ALIAS_UNRESOLVED"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_d66f76ab9e35ae1ffdf4e971d8e40313e5d8f2fac99670f438b543654742243a",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 3
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-layer-gap",
+      "expectedCode": "LAYER_DENOMINATOR_NOT_CONTIGUOUS"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_e77669e7f75a733bbb746f28d7b6597d6e606a125647b47fa103476ff712b2ce",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 9999,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-capacity-mismatch",
+      "expectedCode": "FORMATION_CAPACITY_MISMATCH"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_0033975c4118cdb569c0b16390107f26fc8983cc1334d1c13da0ea64771ed219",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 2,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-token-gap",
+      "expectedCode": "TOKEN_INDEX_NOT_CONTIGUOUS"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_5dcef7dee2ff9e004892bb8ec969f9872e55efcdc3795a9767baf52ba495b41e",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 999
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-token-time-regression",
+      "expectedCode": "TOKEN_TIME_REGRESSION"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_c7e90299d981be473fc007453ecebc71344b04782bfc204077ab6dd80df64214",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000.5
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-fractional-monotonic-time",
+      "expectedCode": "MONOTONIC_TIME_INTEGER_REQUIRED"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_2438b52d217b9bddf6aea562f02a9fe3bc5655187061e1ccb333d7f4fa53ba5c",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 3,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-output-count-mismatch",
+      "expectedCode": "OUTPUT_TOKEN_DENOMINATOR_MISMATCH"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_305b8bf25242fd377f7e2d62f001e75b845d37c86e2c08a3614bfd658da122d4",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 4,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-prompt-count-mismatch",
+      "expectedCode": "PROMPT_TOKEN_DENOMINATOR_MISMATCH"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_c1632587bd2fed4be6bb87d50d5c6b0c4bff2781f48ae13c5aed4ea04b4d504e",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-receipt-order",
+      "expectedCode": "RECEIPT_DENOMINATOR_INVALID"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_8f3595a4c4a27e47238ec973dc2484c818dd731be4687546e26332144a710590",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-receipt-evidence-mismatch",
+      "expectedCode": "RECEIPT_EVIDENCE_BINDING_MISMATCH"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_b69731b636c59ca75bd91513eab10088f5dab4c22897fd5584ecef9c679ef019",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "https://invalid.example/model",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-raw-model-coordinate",
+      "expectedCode": "RAW_COORDINATE_FORBIDDEN"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_5426068fcdac25c09e886296d731553fe917edba3b9925a15975340b1baabda9",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": true,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-claim-boundary",
+      "expectedCode": "CLAIM_BOUNDARY_INVALID"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_cf737b61319164c63fb48d98274a675932fb73b64146db229eeb4df76a4cf335",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-plan-step-mutation",
+      "expectedCode": "PLAN_NOT_DETERMINISTIC",
+      "plan": {
+        "bindingsId": "axmoperationbindings_cf737b61319164c63fb48d98274a675932fb73b64146db229eeb4df76a4cf335",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "operatorProtocol": "axm-head/browser-physical-audition-operator-console@1",
+        "planId": "axmoperationplan_998ef5491418acdf16bd811ca9d2ee647b551fc59ae50a934c2aeaf10b3350b9",
+        "probeInvocationCount": 25,
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-plan@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "stepCount": 28,
+        "steps": [
+          {
+            "kind": "probe-call",
+            "stepId": "step:status-preflight"
+          },
+          {
+            "code": "BEFORE_PLAN_EXECUTION",
+            "kind": "operator-barrier",
+            "statement": "The operator has reviewed the bound transaction, seat, and complete invocation denominator.",
+            "stepId": "step:barrier-before-execution"
+          },
+          {
+            "argsRef": "values.availability",
+            "kind": "probe-call",
+            "method": "markAvailability",
+            "stepId": "step:availability"
+          },
+          {
+            "argsRef": "values.adapterArtifact",
+            "kind": "probe-call",
+            "method": "markAdapterArtifact",
+            "stepId": "step:adapter-artifact"
+          },
+          {
+            "argsRef": "values.formation",
+            "kind": "probe-call",
+            "method": "markFormation",
+            "stepId": "step:formation"
+          },
+          {
+            "argsRef": "values.members.0.args",
+            "kind": "probe-call",
+            "method": "markMember",
+            "saveResultAs": "member:stage-0",
+            "stepId": "step:member-00"
+          },
+          {
+            "argsRef": "values.members.1.args",
+            "kind": "probe-call",
+            "method": "markMember",
+            "saveResultAs": "member:stage-1",
+            "stepId": "step:member-01"
+          },
+          {
+            "argsRef": "values.modelManifest",
+            "kind": "probe-call",
+            "method": "markModelManifest",
+            "stepId": "step:model-manifest"
+          },
+          {
+            "argsRef": "values.modelArtifacts.0.args",
+            "kind": "probe-call",
+            "method": "markModelArtifact",
+            "resultRefs": {
+              "memberIdHash": "member:stage-0"
+            },
+            "stepId": "step:model-artifact-000"
+          },
+          {
+            "argsRef": "values.modelArtifacts.1.args",
+            "kind": "probe-call",
+            "method": "markModelArtifact",
+            "resultRefs": {
+              "memberIdHash": "member:stage-1"
+            },
+            "stepId": "step:model-artifact-001"
+          },
+          {
+            "argsRef": "values.performanceStart",
+            "kind": "probe-call",
+            "method": "markPerformanceStart",
+            "stepId": "step:performance-start"
+          },
+          {
+            "argsRef": "values.tokenMarks.0",
+            "kind": "probe-call",
+            "method": "markToken",
+            "stepId": "step:token-000"
+          },
+          {
+            "argsRef": "values.tokenMarks.1",
+            "kind": "probe-call",
+            "method": "markToken",
+            "stepId": "step:token-001"
+          },
+          {
+            "argsRef": "values.drop.args",
+            "kind": "probe-call",
+            "method": "markDrop",
+            "resultRefs": {
+              "memberIdHash": "member:stage-1"
+            },
+            "stepId": "step:controlled-drop"
+          },
+          {
+            "argsRef": "values.equivalence",
+            "kind": "probe-call",
+            "method": "markEquivalence",
+            "stepId": "step:equivalence"
+          },
+          {
+            "argsRef": "values.privacy",
+            "kind": "probe-call",
+            "method": "markPrivacyDeclaration",
+            "stepId": "step:privacy"
+          },
+          {
+            "argsRef": "values.receipts.0",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "current-availability-observation",
+            "stepId": "step:receipt-00"
+          },
+          {
+            "argsRef": "values.receipts.1",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "executable-adapter-artifact",
+            "stepId": "step:receipt-01"
+          },
+          {
+            "argsRef": "values.receipts.2",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "formation-capacity-receipt",
+            "stepId": "step:receipt-02"
+          },
+          {
+            "argsRef": "values.receipts.3",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "formation-topology-receipt",
+            "stepId": "step:receipt-03"
+          },
+          {
+            "argsRef": "values.receipts.4",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "member-drop-behavior-receipt",
+            "stepId": "step:receipt-04"
+          },
+          {
+            "argsRef": "values.receipts.5",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "model-output-equivalence-receipt",
+            "stepId": "step:receipt-05"
+          },
+          {
+            "argsRef": "values.receipts.6",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "performance-receipt",
+            "stepId": "step:receipt-06"
+          },
+          {
+            "argsRef": "values.receipts.7",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "network-exposure-observation",
+            "stepId": "step:receipt-07"
+          },
+          {
+            "argsRef": "values.receipts.8",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "privacy-declaration",
+            "stepId": "step:receipt-08"
+          },
+          {
+            "kind": "probe-call",
+            "literalArgs": {},
+            "method": "samplePeerStats",
+            "stepId": "step:peer-stats"
+          },
+          {
+            "code": "BEFORE_CAPTURE_EXPORT",
+            "kind": "operator-barrier",
+            "statement": "The operator has completed the physical observation and authorizes local private capture export.",
+            "stepId": "step:barrier-before-export"
+          },
+          {
+            "kind": "probe-call",
+            "literalArgs": {},
+            "method": "exportCapture",
+            "stepId": "step:capture-export"
+          }
+        ],
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_cf737b61319164c63fb48d98274a675932fb73b64146db229eeb4df76a4cf335",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-plan-id-mutation",
+      "expectedCode": "PLAN_NOT_DETERMINISTIC",
+      "plan": {
+        "bindingsId": "axmoperationbindings_cf737b61319164c63fb48d98274a675932fb73b64146db229eeb4df76a4cf335",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "operatorProtocol": "axm-head/browser-physical-audition-operator-console@1",
+        "planId": "axmoperationplan_0000000000000000000000000000000000000000000000000000000000000000",
+        "probeInvocationCount": 25,
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-plan@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "stepCount": 28,
+        "steps": [
+          {
+            "kind": "console-status",
+            "stepId": "step:status-preflight"
+          },
+          {
+            "code": "BEFORE_PLAN_EXECUTION",
+            "kind": "operator-barrier",
+            "statement": "The operator has reviewed the bound transaction, seat, and complete invocation denominator.",
+            "stepId": "step:barrier-before-execution"
+          },
+          {
+            "argsRef": "values.availability",
+            "kind": "probe-call",
+            "method": "markAvailability",
+            "stepId": "step:availability"
+          },
+          {
+            "argsRef": "values.adapterArtifact",
+            "kind": "probe-call",
+            "method": "markAdapterArtifact",
+            "stepId": "step:adapter-artifact"
+          },
+          {
+            "argsRef": "values.formation",
+            "kind": "probe-call",
+            "method": "markFormation",
+            "stepId": "step:formation"
+          },
+          {
+            "argsRef": "values.members.0.args",
+            "kind": "probe-call",
+            "method": "markMember",
+            "saveResultAs": "member:stage-0",
+            "stepId": "step:member-00"
+          },
+          {
+            "argsRef": "values.members.1.args",
+            "kind": "probe-call",
+            "method": "markMember",
+            "saveResultAs": "member:stage-1",
+            "stepId": "step:member-01"
+          },
+          {
+            "argsRef": "values.modelManifest",
+            "kind": "probe-call",
+            "method": "markModelManifest",
+            "stepId": "step:model-manifest"
+          },
+          {
+            "argsRef": "values.modelArtifacts.0.args",
+            "kind": "probe-call",
+            "method": "markModelArtifact",
+            "resultRefs": {
+              "memberIdHash": "member:stage-0"
+            },
+            "stepId": "step:model-artifact-000"
+          },
+          {
+            "argsRef": "values.modelArtifacts.1.args",
+            "kind": "probe-call",
+            "method": "markModelArtifact",
+            "resultRefs": {
+              "memberIdHash": "member:stage-1"
+            },
+            "stepId": "step:model-artifact-001"
+          },
+          {
+            "argsRef": "values.performanceStart",
+            "kind": "probe-call",
+            "method": "markPerformanceStart",
+            "stepId": "step:performance-start"
+          },
+          {
+            "argsRef": "values.tokenMarks.0",
+            "kind": "probe-call",
+            "method": "markToken",
+            "stepId": "step:token-000"
+          },
+          {
+            "argsRef": "values.tokenMarks.1",
+            "kind": "probe-call",
+            "method": "markToken",
+            "stepId": "step:token-001"
+          },
+          {
+            "argsRef": "values.drop.args",
+            "kind": "probe-call",
+            "method": "markDrop",
+            "resultRefs": {
+              "memberIdHash": "member:stage-1"
+            },
+            "stepId": "step:controlled-drop"
+          },
+          {
+            "argsRef": "values.equivalence",
+            "kind": "probe-call",
+            "method": "markEquivalence",
+            "stepId": "step:equivalence"
+          },
+          {
+            "argsRef": "values.privacy",
+            "kind": "probe-call",
+            "method": "markPrivacyDeclaration",
+            "stepId": "step:privacy"
+          },
+          {
+            "argsRef": "values.receipts.0",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "current-availability-observation",
+            "stepId": "step:receipt-00"
+          },
+          {
+            "argsRef": "values.receipts.1",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "executable-adapter-artifact",
+            "stepId": "step:receipt-01"
+          },
+          {
+            "argsRef": "values.receipts.2",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "formation-capacity-receipt",
+            "stepId": "step:receipt-02"
+          },
+          {
+            "argsRef": "values.receipts.3",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "formation-topology-receipt",
+            "stepId": "step:receipt-03"
+          },
+          {
+            "argsRef": "values.receipts.4",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "member-drop-behavior-receipt",
+            "stepId": "step:receipt-04"
+          },
+          {
+            "argsRef": "values.receipts.5",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "model-output-equivalence-receipt",
+            "stepId": "step:receipt-05"
+          },
+          {
+            "argsRef": "values.receipts.6",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "performance-receipt",
+            "stepId": "step:receipt-06"
+          },
+          {
+            "argsRef": "values.receipts.7",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "network-exposure-observation",
+            "stepId": "step:receipt-07"
+          },
+          {
+            "argsRef": "values.receipts.8",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "privacy-declaration",
+            "stepId": "step:receipt-08"
+          },
+          {
+            "kind": "probe-call",
+            "literalArgs": {},
+            "method": "samplePeerStats",
+            "stepId": "step:peer-stats"
+          },
+          {
+            "code": "BEFORE_CAPTURE_EXPORT",
+            "kind": "operator-barrier",
+            "statement": "The operator has completed the physical observation and authorizes local private capture export.",
+            "stepId": "step:barrier-before-export"
+          },
+          {
+            "kind": "probe-call",
+            "literalArgs": {},
+            "method": "exportCapture",
+            "stepId": "step:capture-export"
+          }
+        ],
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_cf737b61319164c63fb48d98274a675932fb73b64146db229eeb4df76a4cf335",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "refuse-plan-extra-step",
+      "expectedCode": "PLAN_NOT_DETERMINISTIC",
+      "plan": {
+        "bindingsId": "axmoperationbindings_cf737b61319164c63fb48d98274a675932fb73b64146db229eeb4df76a4cf335",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "operatorProtocol": "axm-head/browser-physical-audition-operator-console@1",
+        "planId": "axmoperationplan_998ef5491418acdf16bd811ca9d2ee647b551fc59ae50a934c2aeaf10b3350b9",
+        "probeInvocationCount": 25,
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-plan@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "stepCount": 28,
+        "steps": [
+          {
+            "kind": "console-status",
+            "stepId": "step:status-preflight"
+          },
+          {
+            "code": "BEFORE_PLAN_EXECUTION",
+            "kind": "operator-barrier",
+            "statement": "The operator has reviewed the bound transaction, seat, and complete invocation denominator.",
+            "stepId": "step:barrier-before-execution"
+          },
+          {
+            "argsRef": "values.availability",
+            "kind": "probe-call",
+            "method": "markAvailability",
+            "stepId": "step:availability"
+          },
+          {
+            "argsRef": "values.adapterArtifact",
+            "kind": "probe-call",
+            "method": "markAdapterArtifact",
+            "stepId": "step:adapter-artifact"
+          },
+          {
+            "argsRef": "values.formation",
+            "kind": "probe-call",
+            "method": "markFormation",
+            "stepId": "step:formation"
+          },
+          {
+            "argsRef": "values.members.0.args",
+            "kind": "probe-call",
+            "method": "markMember",
+            "saveResultAs": "member:stage-0",
+            "stepId": "step:member-00"
+          },
+          {
+            "argsRef": "values.members.1.args",
+            "kind": "probe-call",
+            "method": "markMember",
+            "saveResultAs": "member:stage-1",
+            "stepId": "step:member-01"
+          },
+          {
+            "argsRef": "values.modelManifest",
+            "kind": "probe-call",
+            "method": "markModelManifest",
+            "stepId": "step:model-manifest"
+          },
+          {
+            "argsRef": "values.modelArtifacts.0.args",
+            "kind": "probe-call",
+            "method": "markModelArtifact",
+            "resultRefs": {
+              "memberIdHash": "member:stage-0"
+            },
+            "stepId": "step:model-artifact-000"
+          },
+          {
+            "argsRef": "values.modelArtifacts.1.args",
+            "kind": "probe-call",
+            "method": "markModelArtifact",
+            "resultRefs": {
+              "memberIdHash": "member:stage-1"
+            },
+            "stepId": "step:model-artifact-001"
+          },
+          {
+            "argsRef": "values.performanceStart",
+            "kind": "probe-call",
+            "method": "markPerformanceStart",
+            "stepId": "step:performance-start"
+          },
+          {
+            "argsRef": "values.tokenMarks.0",
+            "kind": "probe-call",
+            "method": "markToken",
+            "stepId": "step:token-000"
+          },
+          {
+            "argsRef": "values.tokenMarks.1",
+            "kind": "probe-call",
+            "method": "markToken",
+            "stepId": "step:token-001"
+          },
+          {
+            "argsRef": "values.drop.args",
+            "kind": "probe-call",
+            "method": "markDrop",
+            "resultRefs": {
+              "memberIdHash": "member:stage-1"
+            },
+            "stepId": "step:controlled-drop"
+          },
+          {
+            "argsRef": "values.equivalence",
+            "kind": "probe-call",
+            "method": "markEquivalence",
+            "stepId": "step:equivalence"
+          },
+          {
+            "argsRef": "values.privacy",
+            "kind": "probe-call",
+            "method": "markPrivacyDeclaration",
+            "stepId": "step:privacy"
+          },
+          {
+            "argsRef": "values.receipts.0",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "current-availability-observation",
+            "stepId": "step:receipt-00"
+          },
+          {
+            "argsRef": "values.receipts.1",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "executable-adapter-artifact",
+            "stepId": "step:receipt-01"
+          },
+          {
+            "argsRef": "values.receipts.2",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "formation-capacity-receipt",
+            "stepId": "step:receipt-02"
+          },
+          {
+            "argsRef": "values.receipts.3",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "formation-topology-receipt",
+            "stepId": "step:receipt-03"
+          },
+          {
+            "argsRef": "values.receipts.4",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "member-drop-behavior-receipt",
+            "stepId": "step:receipt-04"
+          },
+          {
+            "argsRef": "values.receipts.5",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "model-output-equivalence-receipt",
+            "stepId": "step:receipt-05"
+          },
+          {
+            "argsRef": "values.receipts.6",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "performance-receipt",
+            "stepId": "step:receipt-06"
+          },
+          {
+            "argsRef": "values.receipts.7",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "network-exposure-observation",
+            "stepId": "step:receipt-07"
+          },
+          {
+            "argsRef": "values.receipts.8",
+            "kind": "probe-call",
+            "method": "markObservationReceipt",
+            "receiptKind": "privacy-declaration",
+            "stepId": "step:receipt-08"
+          },
+          {
+            "kind": "probe-call",
+            "literalArgs": {},
+            "method": "samplePeerStats",
+            "stepId": "step:peer-stats"
+          },
+          {
+            "code": "BEFORE_CAPTURE_EXPORT",
+            "kind": "operator-barrier",
+            "statement": "The operator has completed the physical observation and authorizes local private capture export.",
+            "stepId": "step:barrier-before-export"
+          },
+          {
+            "kind": "probe-call",
+            "literalArgs": {},
+            "method": "exportCapture",
+            "stepId": "step:capture-export"
+          },
+          {
+            "kind": "console-status",
+            "stepId": "step:extra"
+          }
+        ],
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    }
+  ],
+  "positiveCases": [
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_f471034db428169c3021e946c0104556587f0c2a4c32f3e096b638b8c628d51e",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 1,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 1000,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            }
+          ]
+        }
+      },
+      "caseId": "pass-minimal-plan"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_cf737b61319164c63fb48d98274a675932fb73b64146db229eeb4df76a4cf335",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-1"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 2,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 2100,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            }
+          ]
+        }
+      },
+      "caseId": "pass-two-seat-plan"
+    },
+    {
+      "bindings": {
+        "bindingsId": "axmoperationbindings_a8545aa36a1b4e49d75ca2543f63b323f3e4998c55a787ee66843e924d9622c4",
+        "claimBoundary": {
+          "actualSupplierQualified": false,
+          "browserLaunched": false,
+          "commandAuthority": "none",
+          "inferenceExecuted": false,
+          "missionAuthority": "none",
+          "modelDownloaded": false,
+          "namedHumanConfirmationSupplied": false,
+          "operationPlanExecuted": false,
+          "operationPlanSourceAdmitted": false,
+          "operationPlanSourceConstructed": true,
+          "peerConnectionFormed": false,
+          "physicalAuditionCompleted": false,
+          "physicalEstateQualified": false,
+          "supplierEndpointContacted": false
+        },
+        "interface": "axm/distributed-model-inference@1",
+        "profileId": "axm-head/browser-audition-operation-plan/0.1",
+        "protocol": "axm-head/browser-audition-operation-plan@1",
+        "schema": "axm-head/browser-audition-operation-bindings@1",
+        "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "transactionRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "values": {
+          "adapterArtifact": {
+            "artifactBytes": 4096,
+            "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "executableObserved": true
+          },
+          "availability": {
+            "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "observed": true,
+            "observedAtUnixMs": 1788280000000
+          },
+          "drop": {
+            "args": {
+              "controlled": true,
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "observedTerminal": "HALTED",
+              "recovered": false
+            },
+            "memberAlias": "member:stage-2"
+          },
+          "equivalence": {
+            "candidateDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+            "outputTokenCount": 4,
+            "promptTokenCount": 3,
+            "referenceDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "formation": {
+            "artifactBound": true,
+            "capacityBasis": "artifact-bound-shards",
+            "capacityReceiptRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "modelCapacityBytes": 3300,
+            "partitionMode": "pipeline-layer",
+            "topologyReceiptRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "members": [
+            {
+              "alias": "member:stage-0",
+              "args": {
+                "memberId": "seat-stage-0",
+                "pledgedBytes": 1000,
+                "role": "pipeline-input"
+              }
+            },
+            {
+              "alias": "member:stage-1",
+              "args": {
+                "memberId": "seat-stage-1",
+                "pledgedBytes": 1001,
+                "role": "pipeline-stage"
+              }
+            },
+            {
+              "alias": "member:stage-2",
+              "args": {
+                "memberId": "seat-stage-2",
+                "pledgedBytes": 1002,
+                "role": "pipeline-output"
+              }
+            }
+          ],
+          "modelArtifacts": [
+            {
+              "args": {
+                "artifactId": "artifact-0",
+                "bytes": 1000,
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "layerEnd": 1,
+                "layerStart": 0
+              },
+              "memberAlias": "member:stage-0"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-1",
+                "bytes": 1100,
+                "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "layerEnd": 3,
+                "layerStart": 2
+              },
+              "memberAlias": "member:stage-1"
+            },
+            {
+              "args": {
+                "artifactId": "artifact-2",
+                "bytes": 1200,
+                "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "layerEnd": 5,
+                "layerStart": 4
+              },
+              "memberAlias": "member:stage-2"
+            }
+          ],
+          "modelManifest": {
+            "boundModelId": "model:bound-01",
+            "claimedId": "model:observed-01",
+            "observedManifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "performanceStart": {
+            "promptTokenCount": 3,
+            "startMonotonicMs": 1000
+          },
+          "privacy": {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+            "scope": "browser-observed-network-surface-only"
+          },
+          "receipts": [
+            {
+              "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "kind": "current-availability-observation"
+            },
+            {
+              "evidenceRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+              "kind": "executable-adapter-artifact"
+            },
+            {
+              "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+              "kind": "formation-capacity-receipt"
+            },
+            {
+              "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+              "kind": "formation-topology-receipt"
+            },
+            {
+              "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "kind": "member-drop-behavior-receipt"
+            },
+            {
+              "evidenceRef": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+              "kind": "model-output-equivalence-receipt"
+            },
+            {
+              "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+              "kind": "performance-receipt"
+            },
+            {
+              "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+              "kind": "network-exposure-observation"
+            },
+            {
+              "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+              "kind": "privacy-declaration"
+            }
+          ],
+          "tokenMarks": [
+            {
+              "index": 0,
+              "monotonicMs": 1010
+            },
+            {
+              "index": 1,
+              "monotonicMs": 1020
+            },
+            {
+              "index": 2,
+              "monotonicMs": 1030
+            },
+            {
+              "index": 3,
+              "monotonicMs": 1040
+            }
+          ]
+        }
+      },
+      "caseId": "pass-three-stage-plan"
+    }
+  ],
+  "schema": "axm-head/browser-audition-operation-plan-fixtures@1"
+}
