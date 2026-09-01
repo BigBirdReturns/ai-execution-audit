@@ -27,53 +27,41 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Reconstruct checksum-bound patch
+      - name: Reconstruct checksum-bound incremental repair
         shell: bash
         run: |
           set -euo pipefail
           cat \
-            .carrier/pr97-auth-hotfix/prefix-00.b64 \
-            .carrier/pr97-auth-hotfix/prefix-01.b64 \
-            .carrier/pr97-auth-hotfix/prefix-02.b64 \
-            .carrier/pr97-auth-hotfix/chunk-02.b64 \
-            .carrier/pr97-auth-hotfix/chunk-03.b64 \
-            .carrier/pr97-auth-hotfix/chunk-04.b64 \
-            .carrier/pr97-auth-hotfix/chunk-05.b64 \
-            | tr -d '\r\n\t ' > "$RUNNER_TEMP/hotfix.b64"
+            .carrier/pr97-auth-hotfix/synthetic-terminal-00.b64 \
+            .carrier/pr97-auth-hotfix/synthetic-terminal-01.b64 \
+            | tr -d '\r\n\t ' > "$RUNNER_TEMP/incremental.b64"
           printf '%s  %s\n' \
-            'e9ef2324064cdd08feac732462770bb19694206927b6a65cfd3c66f29b5fb683' \
-            "$RUNNER_TEMP/hotfix.b64" | sha256sum --check --status
-          base64 --decode "$RUNNER_TEMP/hotfix.b64" > "$RUNNER_TEMP/hotfix.patch.gz"
-          gzip -dc "$RUNNER_TEMP/hotfix.patch.gz" > "$RUNNER_TEMP/hotfix.patch"
+            '6268b9adf91ea8b39565747af5f27d8805aacaa3b1de1cfab154a855c627214d' \
+            "$RUNNER_TEMP/incremental.b64" | sha256sum --check --status
+          base64 --decode "$RUNNER_TEMP/incremental.b64" > "$RUNNER_TEMP/incremental.patch.gz"
+          gzip -dc "$RUNNER_TEMP/incremental.patch.gz" > "$RUNNER_TEMP/incremental.patch"
           printf '%s  %s\n' \
-            '391176fbd9e882fa3a6b40620f850814bb87ccbd262a36c868e221ea2cf7c758' \
-            "$RUNNER_TEMP/hotfix.patch" | sha256sum --check --status
+            '8009be9e76b76e4554f031d6f4e973cc3b23c6dcb28e8de587465900c25fe509' \
+            "$RUNNER_TEMP/incremental.patch" | sha256sum --check --status
 
-      - name: Build and qualify exact six-file candidate tree
+      - name: Build and qualify amended one-commit candidate
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --no-tags origin main
           base='66a836fb6cbf072d8982187b9c116645e70a3c44'
+          predecessor='e2993839298e6db2aa3d663bbc5c4ed3d3be7c21'
+          git fetch --no-tags origin main fix/stc-mary-packet-evidence-authentication-97
           [[ "$(git rev-parse origin/main)" == "$base" ]] || {
-            echo 'main moved before hotfix materialization' >&2
+            echo 'main moved before synthetic terminal repair' >&2
             exit 2
           }
-          git checkout --detach "$base"
-          git apply --check "$RUNNER_TEMP/hotfix.patch"
-          git apply "$RUNNER_TEMP/hotfix.patch"
-
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('.github/workflows/stc-mary-packet-evidence-admission-01.yml')
-          text = path.read_text(encoding='utf-8')
-          old = '  WITNESS_DENOMINATOR: "107"\n'
-          new = '  WITNESS_DENOMINATOR: "121"\n'
-          if text.count(old) != 1:
-              raise SystemExit('permanent workflow witness denominator target differs')
-          path.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
-          PY
+          [[ "$(git rev-parse origin/fix/stc-mary-packet-evidence-authentication-97)" == "$predecessor" ]] || {
+            echo 'hotfix branch moved before synthetic terminal repair' >&2
+            exit 2
+          }
+          git checkout --detach "$predecessor"
+          git apply --check "$RUNNER_TEMP/incremental.patch"
+          git apply "$RUNNER_TEMP/incremental.patch"
 
           expected=(
             '.github/workflows/stc-mary-packet-evidence-admission-01.yml'
@@ -83,7 +71,7 @@ jobs:
             'mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py'
             'mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py'
           )
-          mapfile -t observed < <(git diff --name-only | LC_ALL=C sort)
+          mapfile -t observed < <(git diff --name-only "$base" | LC_ALL=C sort)
           mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
           [[ "${observed[*]}" == "${wanted[*]}" ]] || {
             printf 'candidate denominator differs\nobserved:\n%s\nexpected:\n%s\n' \
@@ -91,7 +79,7 @@ jobs:
               "$(printf '%s\n' "${wanted[@]}")" >&2
             exit 2
           }
-          git diff --check
+          git diff --check "$base"
 
           python -m py_compile \
             mating_surface/anchor_node/stc_mary_packet_evidence_admission.py \
@@ -103,25 +91,43 @@ jobs:
             -s mating_surface/anchor_node/conformance \
             -p 'test_stc_mary_packet_evidence_admission.py' \
             -v 2>&1 | tee "$RUNNER_TEMP/tests.txt"
-          grep -F 'Ran 121 tests' "$RUNNER_TEMP/tests.txt"
+          grep -F 'Ran 124 tests' "$RUNNER_TEMP/tests.txt"
           grep -Fx 'OK' "$RUNNER_TEMP/tests.txt"
-          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py profile-digest
-          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py source-set
-          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py denominator
 
-      - name: Freeze exact six-file candidate
+          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py profile-digest \
+            | tee "$RUNNER_TEMP/profile.json"
+          grep -F 'caaf50da052c492debe6eabd77791034d7542ed2a0dfb0481cc221d8f06679c2' \
+            "$RUNNER_TEMP/profile.json"
+          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py source-set \
+            | tee "$RUNNER_TEMP/source-set.json"
+          grep -F 'stcmarypacketevidenceadmissionsourceset1_d57fb2b063be1ae47aaf1f02f392c29ac0826bf99599b4b0387c0ecbb65fb65c' \
+            "$RUNNER_TEMP/source-set.json"
+          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py denominator \
+            | tee "$RUNNER_TEMP/denominator.json"
+          grep -F 'stcmarypacketevidenceadmissiondenominator1_992daedcd2eb5fbd80c83f478584320a0fc8dd578c262f04302a234bb71dc62a' \
+            "$RUNNER_TEMP/denominator.json"
+
+      - name: Freeze amended exact six-file candidate
         shell: bash
         run: |
           set -euo pipefail
+          base='66a836fb6cbf072d8982187b9c116645e70a3c44'
+          git reset --soft "$base"
+          git add -A
+          mapfile -t observed < <(git diff --cached --name-only | LC_ALL=C sort)
+          expected=(
+            '.github/workflows/stc-mary-packet-evidence-admission-01.yml'
+            'mating_surface/anchor_node/STC-MARY-PACKET-EVIDENCE-ADMISSION-01.md'
+            'mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py'
+            'mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json'
+            'mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py'
+            'mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py'
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]]
+          git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            .github/workflows/stc-mary-packet-evidence-admission-01.yml \
-            mating_surface/anchor_node/STC-MARY-PACKET-EVIDENCE-ADMISSION-01.md \
-            mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py \
-            mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json \
-            mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py \
-            mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py
           git commit -m 'Repair packet evidence source authentication'
           echo "FINAL_HEAD=$(git rev-parse HEAD)"
           echo "FINAL_TREE=$(git rev-parse 'HEAD^{tree}')"
