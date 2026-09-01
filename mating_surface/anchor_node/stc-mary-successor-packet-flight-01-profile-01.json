@@ -684,6 +684,29 @@
       "stage",
       "terminalState"
     ],
+    "transaction": {
+      "claimBoundary": "Same-volume atomic seal transaction for one exact closed successor packet. It grants no authority.",
+      "idKey": "sealTransactionId",
+      "idPrefix": "stcmarysuccessorsealtransaction1",
+      "keys": [
+        "authority",
+        "claimBoundary",
+        "dispositionId",
+        "finalDirectoryName",
+        "manifestId",
+        "packetId",
+        "postSealClosureId",
+        "preSealClosureId",
+        "priorStateId",
+        "proposedSealedStateId",
+        "runId",
+        "schema",
+        "sealTransactionId",
+        "status",
+        "temporaryDirectoryName"
+      ],
+      "schema": "stc-mary/successor-seal-transaction/1"
+    },
     "verificationIdKey": "verificationId",
     "verificationIdPrefix": "stcmarysuccessorflightsealedverification1",
     "verificationKeys": [

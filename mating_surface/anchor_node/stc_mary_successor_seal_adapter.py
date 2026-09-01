@@ -1,11 +1,13 @@
-"""Seal one closed 0.2 successor packet, and verify the sealed result detached from sealing.
+"""Atomically seal one closed 0.2 successor packet and verify it detached from sealing.
 
 Sealing is permitted only when the packet already carries a valid pre-seal closure at
 exact sixteen of sixteen. The closure is not produced here; it is produced by
 ``verify_stc_mary_successor_pre_seal_closure`` and merely consumed, so the surface that
 decides a packet is closed is not the surface that benefits from closing it.
 
-Everything the sealed directory publishes is body-free. The run and the public
+The complete sealed denominator is built and detached-verified in a same-volume temporary
+sibling before one atomic rename makes the final directory visible. Restart reconciliation
+admits only exact transaction-prescribed predecessors. Everything the sealed directory publishes is body-free. The run and the public
 disposition carry counts, content identities, terminals and claim boundaries. No private
 evidence body and no private path leaves the packet.
 
@@ -74,12 +76,74 @@ def validate_new_sealed_directory(profile: Mapping[str, Any], sealed: Path, repo
         "SEALED_OUTPUT_UNSAFE",
         "the sealed directory must remain outside the public repository",
     )
-    law.require(
-        not resolved.exists() or not any(resolved.iterdir()),
-        "SEALED_OUTPUT_EXISTS",
-        "the sealed directory must not already carry a sealed result",
-    )
     return resolved
+
+
+def seal_transaction(
+    *, profile: Mapping[str, Any], packet_id: str, pre_seal_closure_id: str,
+    prior_state_id: str, proposed_state_id: str, run_id: str, disposition_id: str,
+    manifest_id: str, staging: Path, sealed: Path, status: str,
+    post_seal_closure_id: str | None = None,
+) -> dict[str, Any]:
+    block = profile["seal"]["transaction"]
+    body = {
+        "schema": block["schema"],
+        "status": status,
+        "packetId": packet_id,
+        "preSealClosureId": pre_seal_closure_id,
+        "priorStateId": prior_state_id,
+        "proposedSealedStateId": proposed_state_id,
+        "runId": run_id,
+        "dispositionId": disposition_id,
+        "manifestId": manifest_id,
+        "postSealClosureId": post_seal_closure_id,
+        "temporaryDirectoryName": staging.name,
+        "finalDirectoryName": sealed.name,
+        "authority": law.AUTHORITY,
+        "claimBoundary": block["claimBoundary"],
+    }
+    return law.sign(body, block["idKey"], block["idPrefix"])
+
+
+def verify_exact_sealed_directory(
+    *, directory: Path, expected_files: Mapping[str, bytes], repository: Path,
+) -> Mapping[str, Any]:
+    law.require(directory.is_dir(), "SEALED_OUTPUT_INVALID", "sealed directory is absent or not a directory")
+    entries = {entry.name for entry in directory.iterdir() if entry.is_file()}
+    law.require(
+        entries == set(expected_files) and all(entry.is_file() for entry in directory.iterdir()),
+        "SEALED_OUTPUT_INVALID",
+        "sealed directory does not carry the exact complete denominator",
+    )
+    for name, expected in expected_files.items():
+        observed = law.read_bounded_bytes(
+            directory / name, law.MAX_JSON_BYTES, code="SEALED_FILE_MISMATCH", label=f"sealed file {name}"
+        )
+        law.require(observed == expected, "SEALED_FILE_MISMATCH", f"sealed file differs: {name}")
+    return verify_detached(sealed=directory, repository=repository)
+
+
+def validate_staging_prefix(directory: Path, expected_files: Mapping[str, bytes]) -> set[str]:
+    if not directory.exists():
+        return set()
+    law.require(directory.is_dir(), "SEAL_TRANSACTION_INCONSISTENT", "temporary seal coordinate is not a directory")
+    present: set[str] = set()
+    for entry in directory.iterdir():
+        law.require(
+            entry.is_file() and entry.name in expected_files,
+            "SEAL_TRANSACTION_INCONSISTENT",
+            f"unexpected temporary sealed member: {entry.name}",
+        )
+        observed = law.read_bounded_bytes(
+            entry, law.MAX_JSON_BYTES, code="SEALED_FILE_MISMATCH", label=f"temporary sealed file {entry.name}"
+        )
+        law.require(
+            observed == expected_files[entry.name],
+            "SEAL_TRANSACTION_INCONSISTENT",
+            f"temporary sealed member differs: {entry.name}",
+        )
+        present.add(entry.name)
+    return present
 
 
 def load_pre_seal_closure(
@@ -121,7 +185,12 @@ def load_pre_seal_closure(
 
 
 def seal_packet(
-    *, packet: Path, sealed: Path, pre_seal_closure: Path, repository: Path, profile_path: Path = PROFILE_PATH
+    *, packet: Path, sealed: Path, pre_seal_closure: Path, repository: Path,
+    transaction_receipt: Path | None = None, profile_path: Path = PROFILE_PATH,
+    interrupt_after_file: int | None = None,
+    interrupt_after_staging_verification: bool = False,
+    interrupt_after_promotion: bool = False,
+    interrupt_after_state_promotion: bool = False,
 ) -> dict[str, Any]:
     law.require_supported_python()
     packet = law.validate_lexical_coordinate(packet, label="packet root", code="PACKET_ROOT_INVALID")
@@ -135,7 +204,6 @@ def seal_packet(
 
     loaded = law.load_packet(profile, packet)
     marker, state, config = loaded["marker"], loaded["state"], loaded["config"]
-    law.require(state["sealed"] is False, "PACKET_ALREADY_SEALED", "the packet is already sealed")
     law.require(
         state["completedStageCount"] == profile["denominator"]["stageDenominator"]
         and state["nextStage"] is None,
@@ -256,17 +324,15 @@ def seal_packet(
     )
     verification = build_verification(profile=profile, run=run, disposition=disposition, file_count=len(seal_law["manifestFiles"]))
 
-    resolved.mkdir(parents=True, exist_ok=True)
-    law.write_canonical_json(resolved / files["marker"], sealed_marker)
-    law.write_canonical_json(resolved / files["run"], run)
-    law.write_canonical_json(resolved / files["disposition"], disposition)
-    law.write_canonical_json(resolved / files["verification"], verification)
-
+    materialized = {
+        files["marker"]: law.canonical_json_bytes(sealed_marker),
+        files["run"]: law.canonical_json_bytes(run),
+        files["disposition"]: law.canonical_json_bytes(disposition),
+        files["verification"]: law.canonical_json_bytes(verification),
+    }
     entries = []
     for name in seal_law["manifestFiles"]:
-        data = law.read_bounded_bytes(
-            resolved / name, law.MAX_JSON_BYTES, code="SEALED_FILE_INVALID", label=f"sealed file {name}"
-        )
+        data = materialized[name]
         row = {"path": name, "bytes": len(data), "sha256": law.sha256_bytes(data)}
         law.exact_keys(row, seal_law["manifestFileKeys"], "SEALED_MANIFEST_INVALID", "sealed manifest file")
         entries.append(row)
@@ -290,7 +356,7 @@ def seal_packet(
         "SEALED_MANIFEST_INVALID",
         "the sealed manifest file denominator differs from the admitted denominator",
     )
-    law.write_canonical_json(resolved / files["manifest"], manifest)
+    materialized[files["manifest"]] = law.canonical_json_bytes(manifest)
 
     next_state = law.build_packet_state(
         profile=profile,
@@ -302,7 +368,166 @@ def seal_packet(
         sealed_disposition_id=disposition[seal_law["dispositionIdKey"]],
         claim_boundary=STATE_CLAIM,
     )
-    law.write_canonical_json(packet / profile["packet"]["files"]["state"], next_state)
+    state_id_key = profile["packet"]["stateIdKey"]
+    transaction_path = law.validate_lexical_coordinate(
+        transaction_receipt
+        if transaction_receipt is not None
+        else resolved.parent / f".{resolved.name}.seal-transaction.json",
+        label="seal transaction receipt",
+        code="SEAL_TRANSACTION_INVALID",
+    )
+    staging = resolved.parent / f".{resolved.name}.seal-staging"
+    law.require(
+        not law.is_within(transaction_path, packet)
+        and not law.is_within(transaction_path, resolved)
+        and not law.is_within(transaction_path, repository)
+        and staging.parent == resolved.parent,
+        "SEAL_TRANSACTION_INVALID",
+        "seal transaction custody or same-volume staging boundary is invalid",
+    )
+
+    transaction_block = seal_law["transaction"]
+    transaction: Mapping[str, Any]
+    if transaction_path.exists():
+        transaction = law.read_json_file(
+            transaction_path, code="SEAL_TRANSACTION_INVALID", label="seal transaction"
+        )
+        law.exact_keys(transaction, transaction_block["keys"], "SEAL_TRANSACTION_INVALID", "seal transaction")
+        law.assert_identity(
+            transaction,
+            transaction_block["idKey"],
+            transaction_block["idPrefix"],
+            "SEAL_TRANSACTION_INVALID",
+            "seal transaction",
+        )
+        law.require(
+            transaction["status"] in ("in_progress", "sealed_state_promoted", "complete"),
+            "SEAL_TRANSACTION_INVALID",
+            "seal transaction status differs",
+        )
+        expected_transaction = seal_transaction(
+            profile=profile,
+            packet_id=marker["packetId"],
+            pre_seal_closure_id=closure[profile["preSealClosure"]["idKey"]],
+            prior_state_id=transaction["priorStateId"],
+            proposed_state_id=next_state[state_id_key],
+            run_id=run[seal_law["runIdKey"]],
+            disposition_id=disposition[seal_law["dispositionIdKey"]],
+            manifest_id=manifest[seal_law["manifestIdKey"]],
+            staging=staging,
+            sealed=resolved,
+            status=transaction["status"],
+            post_seal_closure_id=transaction["postSealClosureId"],
+        )
+        law.require(
+            transaction == expected_transaction,
+            "SEAL_TRANSACTION_MISMATCH",
+            "seal transaction belongs to another packet, closure, state, or sealed result",
+        )
+    else:
+        law.require(
+            state["sealed"] is False and not resolved.exists() and not staging.exists(),
+            "SEAL_TRANSACTION_ABSENT",
+            "an existing seal surface has no authenticating transaction",
+        )
+        transaction = seal_transaction(
+            profile=profile,
+            packet_id=marker["packetId"],
+            pre_seal_closure_id=closure[profile["preSealClosure"]["idKey"]],
+            prior_state_id=state[state_id_key],
+            proposed_state_id=next_state[state_id_key],
+            run_id=run[seal_law["runIdKey"]],
+            disposition_id=disposition[seal_law["dispositionIdKey"]],
+            manifest_id=manifest[seal_law["manifestIdKey"]],
+            staging=staging,
+            sealed=resolved,
+            status="in_progress",
+        )
+        law.write_canonical_json(transaction_path, transaction)
+
+    if state["sealed"] is False:
+        law.require(
+            transaction["priorStateId"] == state[state_id_key]
+            and transaction["status"] == "in_progress",
+            "SEAL_TRANSACTION_INCONSISTENT",
+            "unsealed packet does not reproduce the transaction's exact predecessor state",
+        )
+    else:
+        law.require(
+            transaction["status"] in ("sealed_state_promoted", "complete")
+            or (
+                transaction["status"] == "in_progress"
+                and transaction["postSealClosureId"] is None
+                and state[state_id_key] == next_state[state_id_key]
+                and resolved.is_dir()
+                and not staging.exists()
+            ),
+            "SEAL_TRANSACTION_INCONSISTENT",
+            "sealed packet is not the exact crash-after-state transaction predecessor",
+        )
+
+    if staging.exists() and resolved.exists():
+        law.fail(
+            "SEAL_TRANSACTION_INCONSISTENT",
+            "temporary and final sealed coordinates are both present",
+        )
+
+    if state["sealed"] is True:
+        law.require(
+            state[state_id_key] == next_state[state_id_key]
+            and state["sealedDispositionId"] == disposition[seal_law["dispositionIdKey"]]
+            and resolved.exists()
+            and not staging.exists(),
+            "SEALED_STATE_WITHOUT_VALID_FINAL",
+            "packet is sealed while the final sealed directory is absent or inconsistent",
+        )
+        verify_exact_sealed_directory(directory=resolved, expected_files=materialized, repository=repository)
+    elif resolved.exists():
+        law.require(not staging.exists(), "SEAL_TRANSACTION_INCONSISTENT", "temporary and final sealed coordinates both exist")
+        verify_exact_sealed_directory(directory=resolved, expected_files=materialized, repository=repository)
+        law.write_canonical_json(packet / profile["packet"]["files"]["state"], next_state)
+        if interrupt_after_state_promotion:
+            law.fail("SEAL_INTERRUPTED", "synthetic interruption after sealed packet-state promotion")
+    else:
+        present = validate_staging_prefix(staging, materialized)
+        if not staging.exists():
+            staging.mkdir(parents=False, exist_ok=False)
+        for index, (name, data) in enumerate(materialized.items(), start=1):
+            if name in present:
+                continue
+            (staging / name).write_bytes(data)
+            if interrupt_after_file == index:
+                law.fail("SEAL_INTERRUPTED", f"synthetic interruption after temporary sealed file {index}")
+        first = verify_exact_sealed_directory(directory=staging, expected_files=materialized, repository=repository)
+        replay = verify_exact_sealed_directory(directory=staging, expected_files=materialized, repository=repository)
+        law.require(first == replay, "SEALED_VERIFICATION_MISMATCH", "temporary detached verification is not deterministic")
+        if interrupt_after_staging_verification:
+            law.fail("SEAL_INTERRUPTED", "synthetic interruption after temporary detached verification")
+        staging.rename(resolved)
+        if interrupt_after_promotion:
+            law.fail("SEAL_INTERRUPTED", "synthetic interruption after atomic sealed-directory promotion")
+        verify_exact_sealed_directory(directory=resolved, expected_files=materialized, repository=repository)
+        law.write_canonical_json(packet / profile["packet"]["files"]["state"], next_state)
+        if interrupt_after_state_promotion:
+            law.fail("SEAL_INTERRUPTED", "synthetic interruption after sealed packet-state promotion")
+
+    promoted_transaction = seal_transaction(
+        profile=profile,
+        packet_id=marker["packetId"],
+        pre_seal_closure_id=closure[profile["preSealClosure"]["idKey"]],
+        prior_state_id=transaction["priorStateId"],
+        proposed_state_id=next_state[state_id_key],
+        run_id=run[seal_law["runIdKey"]],
+        disposition_id=disposition[seal_law["dispositionIdKey"]],
+        manifest_id=manifest[seal_law["manifestIdKey"]],
+        staging=staging,
+        sealed=resolved,
+        status="sealed_state_promoted",
+    )
+    if transaction["status"] == "complete":
+        promoted_transaction = dict(transaction)
+    else:
+        law.write_canonical_json(transaction_path, promoted_transaction)
     return {
         "sealedDirectory": resolved,
         "marker": sealed_marker,
@@ -311,6 +536,7 @@ def seal_packet(
         "verification": verification,
         "manifest": manifest,
         "state": next_state,
+        "transaction": promoted_transaction,
     }
 
 
@@ -470,6 +696,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     seal.add_argument("--packet", type=Path, required=True)
     seal.add_argument("--sealed", type=Path, required=True)
     seal.add_argument("--pre-seal-closure", type=Path, required=True)
+    seal.add_argument("--transaction-receipt", type=Path)
     seal.add_argument("--repository-root", type=Path, default=HERE.parent.parent)
     seal.add_argument("--out", type=Path)
     detached = sub.add_parser("verify-detached", help="verify one sealed directory with nothing carried over")
@@ -485,9 +712,11 @@ def emit(value: Mapping[str, Any], out: Path | None) -> None:
         sys.stdout.buffer.write(data)
         return
     path = law.validate_lexical_coordinate(out, label="receipt output", code="RECEIPT_PATH_INVALID")
-    law.require(not path.exists(), "RECEIPT_OUTPUT_EXISTS", "receipt output must not already exist")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+    if path.exists():
+        law.require(path.read_bytes() == data, "RECEIPT_OUTPUT_MISMATCH", "receipt output differs on replay")
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -500,6 +729,7 @@ def main(argv: list[str] | None = None) -> int:
                 sealed=args.sealed,
                 pre_seal_closure=args.pre_seal_closure,
                 repository=args.repository_root,
+                transaction_receipt=args.transaction_receipt,
             )
             emit(
                 {

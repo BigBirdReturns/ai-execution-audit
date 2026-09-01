@@ -215,6 +215,7 @@ def close_post_seal(
     detached_verification: Path,
     profile_path: Path,
     repository: Path,
+    seal_transaction_receipt: Path | None = None,
 ) -> dict[str, Any]:
     require(
         sys.version_info[:2] >= MINIMUM_PYTHON,
@@ -468,6 +469,72 @@ def close_post_seal(
     assert_no_private_material(
         closure_receipt, code="POST_SEAL_CLOSURE_PRIVATE_MATERIAL", label="post-seal closure"
     )
+    transaction_law = seal_law["transaction"]
+    transaction_path = validate_lexical_coordinate(
+        seal_transaction_receipt
+        if seal_transaction_receipt is not None
+        else sealed.parent / f".{sealed.name}.seal-transaction.json",
+        label="seal transaction receipt",
+        code="SEAL_TRANSACTION_INVALID",
+    )
+    require(
+        not is_within(transaction_path, packet)
+        and not is_within(transaction_path, sealed)
+        and not is_within(transaction_path, repository),
+        "SEAL_TRANSACTION_INVALID",
+        "seal transaction receipt is inside a measured surface",
+    )
+    transaction = read_json_file(
+        transaction_path, code="SEAL_TRANSACTION_INVALID", label="seal transaction receipt"
+    )
+    exact_keys(transaction, transaction_law["keys"], "SEAL_TRANSACTION_INVALID", "seal transaction receipt")
+    assert_identity(
+        transaction,
+        transaction_law["idKey"],
+        transaction_law["idPrefix"],
+        "SEAL_TRANSACTION_INVALID",
+        "seal transaction receipt",
+    )
+    require(
+        transaction["status"] in ("sealed_state_promoted", "complete")
+        and transaction["packetId"] == packet_id
+        and transaction["preSealClosureId"] == pre_seal_closure_id
+        and transaction["proposedSealedStateId"] == state[packet_law["stateIdKey"]]
+        and transaction["runId"] == run_id
+        and transaction["dispositionId"] == disposition_id
+        and transaction["manifestId"] == manifest[seal_law["manifestIdKey"]]
+        and transaction["finalDirectoryName"] == sealed.name
+        and transaction["temporaryDirectoryName"] == f".{sealed.name}.seal-staging"
+        and transaction["authority"] == AUTHORITY
+        and transaction["claimBoundary"] == transaction_law["claimBoundary"],
+        "SEAL_TRANSACTION_MISMATCH",
+        "seal transaction does not bind this exact closed sealed flight",
+    )
+    closure_id = closure_receipt[closure_law["idKey"]]
+    if transaction["status"] == "complete":
+        require(
+            transaction["postSealClosureId"] == closure_id,
+            "SEAL_TRANSACTION_MISMATCH",
+            "completed seal transaction names another post-seal closure",
+        )
+    else:
+        require(
+            transaction["postSealClosureId"] is None,
+            "SEAL_TRANSACTION_INVALID",
+            "incomplete seal transaction already names a post-seal closure",
+        )
+        body = {
+            key: value
+            for key, value in transaction.items()
+            if key != transaction_law["idKey"]
+        }
+        body["status"] = "complete"
+        body["postSealClosureId"] = closure_id
+        completed = {
+            **body,
+            transaction_law["idKey"]: content_id(transaction_law["idPrefix"], body),
+        }
+        transaction_path.write_bytes(canonical_json_bytes(completed))
     return closure_receipt
 
 
@@ -492,6 +559,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--detached-verification", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--repository-root", type=Path, required=True)
+    parser.add_argument("--seal-transaction-receipt", type=Path)
     parser.add_argument("--out", type=Path)
     return parser.parse_args(argv)
 
@@ -505,8 +573,6 @@ def main(argv: list[str] | None = None) -> int:
             for forbidden, label in ((args.packet, "packet"), (args.sealed, "sealed directory")):
                 if is_within(output, Path(os.path.abspath(os.fspath(forbidden)))):
                     fail("CLOSURE_INSIDE_MEASURED_SURFACE", f"the closure may not be written inside the {label}")
-            if output.exists():
-                fail("CLOSURE_OUTPUT_EXISTS", "post-seal closure output must not already exist")
         closure = close_post_seal(
             packet=args.packet,
             sealed=args.sealed,
@@ -514,13 +580,21 @@ def main(argv: list[str] | None = None) -> int:
             detached_verification=args.detached_verification,
             profile_path=args.profile,
             repository=args.repository_root,
+            seal_transaction_receipt=args.seal_transaction_receipt,
         )
         data = canonical_json_bytes(closure)
         if output is None:
             sys.stdout.buffer.write(data)
         else:
-            output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_bytes(data)
+            if output.exists():
+                require(
+                    output.read_bytes() == data,
+                    "CLOSURE_OUTPUT_MISMATCH",
+                    "existing post-seal closure differs on replay",
+                )
+            else:
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_bytes(data)
         return 0
     except PostSealClosureError as exc:
         sys.stdout.buffer.write(canonical_json_bytes(refusal_document(exc.code, str(exc))))

@@ -58,6 +58,7 @@ param(
     [string] $SourceCommit,
     [string] $ExecutionReceipt,
     [string] $TransactionWorkspace,
+    [string] $SealTransactionReceipt,
     [string] $Out,
     [string] $Python = 'python'
 )
@@ -238,6 +239,7 @@ switch ($Command) {
             '--pre-seal-closure', $PreSealClosure,
             '--repository-root', $repositoryRoot
         )
+        if ($SealTransactionReceipt) { $arguments += @('--transaction-receipt', $SealTransactionReceipt) }
         if ($Out) { $arguments += @('--out', $Out) }
         Invoke-MeasuredSurface -Role 'seal' -Arguments $arguments
     }
@@ -267,6 +269,7 @@ switch ($Command) {
             '--profile', '@profile',
             '--repository-root', $repositoryRoot
         )
+        if ($SealTransactionReceipt) { $arguments += @('--seal-transaction-receipt', $SealTransactionReceipt) }
         if ($Out) { $arguments += @('--out', $Out) }
         Invoke-MeasuredSurface -Role 'close-post-seal' -Arguments $arguments
     }

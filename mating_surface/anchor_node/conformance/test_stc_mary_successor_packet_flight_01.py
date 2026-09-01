@@ -1090,6 +1090,13 @@ class LegalOrderTraversal(unittest.TestCase):
             ("materialization", self.walk.materialization_receipt),
             ("orchestration", self.walk.orchestration_receipt),
             ("pre-seal", self.walk.pre_seal_closure),
+            (
+                "seal-transaction",
+                load_json(
+                    self.walk.sealed.parent
+                    / f".{self.walk.sealed.name}.seal-transaction.json"
+                ),
+            ),
             ("detached", self.walk.detached_verification),
             ("post-seal", self.walk.post_seal_closure),
         ):
@@ -2059,6 +2066,133 @@ class VerifiedPrefixRestartWitnesses(unittest.TestCase):
 
     def test_recording_reconciles_state_promotion_before_transaction_completion(self) -> None:
         self.resume_recording(phase="after-state-promotion")
+
+
+class AtomicSealRestartWitnesses(unittest.TestCase):
+    """Crash reconciliation keeps the final sealed coordinate all-or-nothing."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.walk = shared_walk()
+
+    def copy_pre_seal_estate(self) -> Path:
+        target = Path(tempfile.mkdtemp(prefix="stc-mary-successor-seal-restart-")) / "estate"
+        self.addCleanup(shutil.rmtree, target.parent, ignore_errors=True)
+        shutil.copytree(self.walk.pre_seal_snapshot, target)
+        return target
+
+    def coordinates(self, estate: Path) -> tuple[Path, Path, Path, dict]:
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        staging = sealed.parent / f".{sealed.name}.seal-staging"
+        transaction = estate / "receipts" / "seal-transaction.json"
+        arguments = {
+            "packet": estate / "campaign" / "stc-mary-private-flight-successor",
+            "sealed": sealed,
+            "pre_seal_closure": estate / "receipts" / "pre-seal-closure.json",
+            "repository": REPOSITORY_ROOT,
+            "transaction_receipt": transaction,
+        }
+        return sealed, staging, transaction, arguments
+
+    def resume(self, estate: Path, **interrupt: Any) -> tuple[dict, dict]:
+        sealed, staging, transaction, arguments = self.coordinates(estate)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.seal_packet(**arguments, **interrupt)
+        self.assertEqual(caught.exception.code, "SEAL_INTERRUPTED")
+        result = seal_adapter.seal_packet(**arguments)
+        self.assertTrue(sealed.is_dir())
+        self.assertFalse(staging.exists())
+        self.assertEqual(load_json(transaction)["status"], "sealed_state_promoted")
+        for key in ("marker", "run", "disposition", "verification", "manifest", "state"):
+            self.assertEqual(result[key], self.walk.seal_result[key])
+        return result, arguments
+
+    def test_partial_temporary_directory_resumes_without_visible_final(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        sealed, staging, _, arguments = self.coordinates(estate)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.seal_packet(**arguments, interrupt_after_file=1)
+        self.assertEqual(caught.exception.code, "SEAL_INTERRUPTED")
+        self.assertFalse(sealed.exists())
+        self.assertEqual(len(list(staging.iterdir())), 1)
+        result = seal_adapter.seal_packet(**arguments)
+        self.assertEqual(result["manifest"], self.walk.seal_result["manifest"])
+        self.assertTrue(sealed.is_dir())
+        self.assertFalse(staging.exists())
+
+    def test_complete_verified_temporary_directory_promotes_on_restart(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        sealed, staging, _, arguments = self.coordinates(estate)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.seal_packet(**arguments, interrupt_after_staging_verification=True)
+        self.assertEqual(caught.exception.code, "SEAL_INTERRUPTED")
+        self.assertFalse(sealed.exists())
+        self.assertEqual(len(list(staging.iterdir())), 5)
+        result = seal_adapter.seal_packet(**arguments)
+        self.assertEqual(result["verification"], self.walk.seal_result["verification"])
+
+    def test_final_directory_promotes_packet_state_on_restart(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        sealed, staging, _, arguments = self.coordinates(estate)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.seal_packet(**arguments, interrupt_after_promotion=True)
+        self.assertEqual(caught.exception.code, "SEAL_INTERRUPTED")
+        self.assertTrue(sealed.is_dir())
+        self.assertFalse(staging.exists())
+        state = law.load_packet(law.load_profile(PROFILE), arguments["packet"])["state"]
+        self.assertFalse(state["sealed"])
+        result = seal_adapter.seal_packet(**arguments)
+        self.assertTrue(result["state"]["sealed"])
+
+    def test_sealed_packet_completes_transaction_and_post_seal_on_restart(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        result, arguments = self.resume(estate, interrupt_after_state_promotion=True)
+        receipts = estate / "receipts"
+        detached_path = receipts / "detached-verification.json"
+        law.write_canonical_json(detached_path, result["verification"])
+        closure = post_seal.close_post_seal(
+            packet=arguments["packet"],
+            sealed=arguments["sealed"],
+            pre_seal_closure=arguments["pre_seal_closure"],
+            detached_verification=detached_path,
+            profile_path=PROFILE,
+            repository=REPOSITORY_ROOT,
+            seal_transaction_receipt=arguments["transaction_receipt"],
+        )
+        self.assertEqual(closure, self.walk.post_seal_closure)
+        self.assertEqual(load_json(arguments["transaction_receipt"])["status"], "complete")
+        replayed = seal_adapter.seal_packet(**arguments)
+        self.assertEqual(replayed["transaction"]["status"], "complete")
+
+    def test_sealed_packet_without_final_directory_refuses(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        _, arguments = self.resume(estate, interrupt_after_state_promotion=True)
+        preserved = arguments["sealed"].with_name("preserved-sealed-result")
+        shutil.move(arguments["sealed"], preserved)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.seal_packet(**arguments)
+        self.assertEqual(caught.exception.code, "SEALED_STATE_WITHOUT_VALID_FINAL")
+
+    def test_temporary_and_final_directories_together_refuse(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        sealed, staging, _, arguments = self.coordinates(estate)
+        with self.assertRaises(law.SuccessorFlightError):
+            seal_adapter.seal_packet(**arguments, interrupt_after_promotion=True)
+        self.assertTrue(sealed.is_dir())
+        staging.mkdir()
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.seal_packet(**arguments)
+        self.assertEqual(caught.exception.code, "SEAL_TRANSACTION_INCONSISTENT")
+
+    def test_inconsistent_temporary_prefix_refuses(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        _, staging, _, arguments = self.coordinates(estate)
+        with self.assertRaises(law.SuccessorFlightError):
+            seal_adapter.seal_packet(**arguments, interrupt_after_file=1)
+        next(staging.iterdir()).write_bytes(b'{"substituted":true}\n')
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.seal_packet(**arguments)
+        self.assertEqual(caught.exception.code, "SEAL_TRANSACTION_INCONSISTENT")
 
 
 class OrderingWitnesses(unittest.TestCase):
