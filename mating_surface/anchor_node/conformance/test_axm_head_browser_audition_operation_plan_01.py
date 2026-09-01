@@ -95,7 +95,7 @@ const nativeURL = global.URL;
 global.URL = {{ createObjectURL() {{ return 'blob:test'; }}, revokeObjectURL() {{}}, }};
 vm.runInThisContext(fs.readFileSync({json.dumps(str(operator_path))}, 'utf8'));
 vm.runInThisContext(fs.readFileSync({json.dumps(str(plan_path))}, 'utf8'));
-const panelSource = fs.readFileSync({json.dumps(str(panel_path))}, 'utf8') + `\n;globalThis.__AXM_PANEL_TEST__={{state,el,refreshControls,resetExecutionProgress,settleSessionLoss,discardSessionState,connectPort,requirePristineCapture,serializeCaptureForDownload,downloadCapture,runPlan,acknowledgeBarrier,closeSession}};`;
+const panelSource = fs.readFileSync({json.dumps(str(panel_path))}, 'utf8') + `\n;globalThis.__AXM_PANEL_TEST__={{state,el,refreshControls,resetExecutionProgress,settleSessionLoss,discardSessionState,connectPort,requireHealthyInspection,requirePristineCapture,serializeCaptureForDownload,downloadCapture,runPlan,acknowledgeBarrier,closeSession}};`;
 vm.runInThisContext(panelSource);
 (async () => {{
   const test = globalThis.__AXM_PANEL_TEST__;
@@ -444,7 +444,7 @@ setPortFactory(() => ({
   onMessage:{addListener(fn){messageListeners.push(fn);}},
   onDisconnect:{addListener(fn){disconnectListeners.push(fn);}},
   postMessage(message){
-    let response={protocol:AXMOperatorContract.PROTOCOL,status:'PASS',requestId:message.requestId,inspection:{status:'PASS',probeVersion:'1',installedBeforeApplication:true,observedEventCount:1}};
+    let response={protocol:AXMOperatorContract.PROTOCOL,status:'PASS',requestId:message.requestId,inspection:{status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:null,observedEventCount:1}};
     if(message.kind==='invoke' && message.method==='exportCapture') response.result={schema:'axm-head/browser-probe-private-capture@1',installedBeforeApplication:true,refused:null,events:[{type:'probe-installed'}]};
     if(message.kind==='invoke' && message.method==='markAvailability') response.result=null;
     queueMicrotask(()=>messageListeners.forEach(fn=>fn(response)));
@@ -520,6 +520,76 @@ const fixtures=JSON.parse(fs.readFileSync({json.dumps(str(FIXTURE_PATH))},'utf8'
         completed = subprocess.run(["node", "-e", script], capture_output=True, text=True)
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         self.assertEqual(json.loads(completed.stdout), {"status": "PASS", "count": 24})
+
+
+    def test_045_healthy_inspection_accepts_explicit_null_refusal(self):
+        result = run_panel_harness(r"""
+const inspection={status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:null,observedEventCount:2};
+const observed=test.requireHealthyInspection(inspection);
+console.log(JSON.stringify({same:observed===inspection,probeState:test.el.probeState.textContent,events:test.el.probeEvents.textContent}));
+""")
+        self.assertEqual(result, {"same": True, "probeState": "version 1", "events": "2"})
+
+    def test_046_healthy_inspection_refuses_absent_refusal_state(self):
+        result = run_panel_harness(r"""
+let code=null;
+try { test.requireHealthyInspection({status:'PASS',probeVersion:'1',installedBeforeApplication:true,observedEventCount:1}); }
+catch (error) { code=error.code; }
+console.log(JSON.stringify({code}));
+""")
+        self.assertEqual(result, {"code": "PROBE_REFUSAL_STATE_ABSENT"})
+
+    def test_047_healthy_inspection_refuses_non_null_refusal_state(self):
+        result = run_panel_harness(r"""
+let code=null;
+try { test.requireHealthyInspection({status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:{code:'EVENT_LIMIT_EXCEEDED'},observedEventCount:1}); }
+catch (error) { code=error.code; }
+console.log(JSON.stringify({code}));
+""")
+        self.assertEqual(result, {"code": "PROBE_CAPTURE_REFUSED"})
+
+    def test_048_nominal_pass_probe_refusal_halts_mutated_plan(self):
+        bindings = fixture_bindings()
+        body = r"""
+const bindings=JSON.parse(BINDINGS_JSON);
+const messageListeners=[]; const disconnectListeners=[]; const invocations=[];
+setPortFactory(() => ({
+  onMessage:{addListener(fn){messageListeners.push(fn);}},
+  onDisconnect:{addListener(fn){disconnectListeners.push(fn);}},
+  postMessage(message){
+    let response={protocol:AXMOperatorContract.PROTOCOL,status:'PASS',requestId:message.requestId};
+    if(message.kind==='invoke') {
+      invocations.push(message.method);
+      response.result=null;
+      response.inspection={status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:invocations.length===2?{code:'EVENT_LIMIT_EXCEEDED'}:null,observedEventCount:invocations.length};
+    }
+    if(message.kind==='close-session') response.kind='session-closed';
+    queueMicrotask(()=>messageListeners.forEach(fn=>fn(response)));
+  },
+}));
+test.connectPort();
+test.state.plan={steps:[
+  {stepId:'step:first-mark',kind:'probe-call',method:'markAvailability',argsRef:'values.availability'},
+  {stepId:'step:second-mark',kind:'probe-call',method:'markAdapterArtifact',argsRef:'values.adapterArtifact'},
+  {stepId:'step:must-not-run',kind:'probe-call',method:'markFormation',argsRef:'values.formation'},
+]};
+test.state.bindings=bindings;
+test.state.sessionId='session:'+'1'.repeat(32);
+test.state.tabId=7;
+test.state.terminal='SESSION_OPEN';
+await test.runPlan();
+console.log(JSON.stringify({terminal:test.state.terminal,nextIndex:test.state.nextIndex,mutation:test.state.probeMutationPossible,sessionId:test.state.sessionId,loadDisabled:test.el.load.disabled,openDisabled:test.el.open.disabled,invocations}));
+""".replace("BINDINGS_JSON", json.dumps(json.dumps(bindings)))
+        result = run_panel_harness(body)
+        self.assertEqual(result, {
+            "terminal": "HALTED_PARTIAL_CAPTURE",
+            "nextIndex": 1,
+            "mutation": True,
+            "sessionId": None,
+            "loadDisabled": True,
+            "openDisabled": True,
+            "invocations": ["markAvailability", "markAdapterArtifact"],
+        })
 
 
 def add_fixture_witnesses() -> None:

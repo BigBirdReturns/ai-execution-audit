@@ -1012,12 +1012,17 @@ def verify_extension(profile_path: str | os.PathLike[str], repository_root: str 
         'MUTATING_METHODS.has(current.method)',
         'probeMutationPossible',
         'settleSessionLoss',
+        'requireHealthyInspection',
+        'PROBE_REFUSAL_STATE_ABSENT',
+        'PROBE_CAPTURE_REFUSED',
         'serializeCaptureForDownload',
         'new Blob([serialized]',
     )
     for marker in required_panel_controls:
         if marker not in panel_source:
             refuse("PANEL_CONTROL_MISSING", marker)
+    if panel_source.count('requireHealthyInspection(response.inspection)') != 4:
+        refuse("PANEL_CONTROL_COUNT_INVALID", "healthy inspection call denominator")
     if "JSON.stringify(capture, null, 2)" in panel_source:
         refuse("CAPTURE_SERIALIZATION_DIVERGENCE", "pretty capture serialization")
     return {
@@ -1036,6 +1041,7 @@ def verify_extension(profile_path: str | os.PathLike[str], repository_root: str 
             "supplier-neutral-executable-surface",
             "pristine-ledger-preflight",
             "mutation-uncertainty-stop",
+            "probe-refusal-state-stop",
             "exact-download-byte-binding",
             "operator-barrier-before-execution",
             "operator-barrier-before-export",

@@ -196,11 +196,16 @@ def verify(profile_path: Path, repository_root: Path, extension_root: Path) -> d
         "MUTATING_METHODS.has(current.method)",
         "probeMutationPossible",
         "settleSessionLoss",
+        "requireHealthyInspection",
+        "PROBE_REFUSAL_STATE_ABSENT",
+        "PROBE_CAPTURE_REFUSED",
         "serializeCaptureForDownload",
         "new Blob([serialized]",
     ):
         if marker not in panel_source:
             fail("PANEL_CONTROL_MISSING", marker)
+    if panel_source.count('requireHealthyInspection(response.inspection)') != 4:
+        fail("PANEL_CONTROL_COUNT_INVALID", "healthy inspection call denominator")
     if "JSON.stringify(capture, null, 2)" in panel_source:
         fail("CAPTURE_SERIALIZATION_DIVERGENCE", "pretty capture serialization")
 
@@ -215,7 +220,7 @@ def verify(profile_path: Path, repository_root: Path, extension_root: Path) -> d
         "extensionId": extension_id,
         "sourceMemberCount": len(source_rows),
         "extensionMemberCount": len(EXPECTED_EXTENSION),
-        "checks": ["exact-admitted-console-binding", "independent-source-reconstruction", "payload-source-byte-binding", "deterministic-plan-controls", "pristine-ledger-preflight", "mutation-uncertainty-stop", "exact-download-byte-binding", "closed-local-extension-surface", "supplier-neutral-executable-surface"],
+        "checks": ["exact-admitted-console-binding", "independent-source-reconstruction", "payload-source-byte-binding", "deterministic-plan-controls", "pristine-ledger-preflight", "mutation-uncertainty-stop", "probe-refusal-state-stop", "exact-download-byte-binding", "closed-local-extension-surface", "supplier-neutral-executable-surface"],
         "bootstrapAuthenticated": False,
         "storedVerifierMemberBound": False,
         **claim,

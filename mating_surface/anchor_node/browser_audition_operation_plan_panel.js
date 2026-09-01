@@ -80,6 +80,25 @@ function updateInspection(inspection) {
   el.probeEarly.textContent = inspection.installedBeforeApplication === true ? "yes" : "no";
   el.probeEvents.textContent = String(inspection.observedEventCount ?? 0);
 }
+function requireHealthyInspection(inspection) {
+  updateInspection(inspection);
+  if (!inspection || inspection.status !== "PASS") {
+    throw Object.assign(new Error(inspection?.code || "probe inspection refused"), {
+      code: inspection?.code || "PROBE_INSPECTION_REFUSED",
+    });
+  }
+  if (!Object.prototype.hasOwnProperty.call(inspection, "probeRefused")) {
+    throw Object.assign(new Error("probe refusal state is absent"), {
+      code: "PROBE_REFUSAL_STATE_ABSENT",
+    });
+  }
+  if (inspection.probeRefused !== null) {
+    throw Object.assign(new Error("probe reported a capture refusal"), {
+      code: "PROBE_CAPTURE_REFUSED",
+    });
+  }
+  return inspection;
+}
 function refreshControls() {
   const loaded = Boolean(state.plan && state.bindings);
   const open = Boolean(state.sessionId && Number.isInteger(state.tabId));
@@ -224,10 +243,10 @@ async function openSession() {
   try {
     const tabId = await activeTabId();
     const response = await send({ protocol: OPERATOR.PROTOCOL, kind: "open-session", tabId });
+    requireHealthyInspection(response.inspection);
     state.sessionId = response.sessionId;
     state.tabId = response.tabId;
     state.terminal = "SESSION_OPEN";
-    updateInspection(response.inspection);
     log("PASS", "exact active document bound to a fresh console session");
   } catch (error) {
     discardSessionState("session open failed");
@@ -238,7 +257,7 @@ async function openSession() {
 async function inspectStatus() {
   try {
     const response = await sessionMessage("status");
-    updateInspection(response.inspection);
+    requireHealthyInspection(response.inspection);
     log("PASS", "document session and probe status inspected");
   } catch (error) {
     await halt(error);
@@ -325,12 +344,12 @@ async function runPlan() {
       }
       if (current.kind === "console-status") {
         const response = await sessionMessage("status");
-        updateInspection(response.inspection);
+        requireHealthyInspection(response.inspection);
       } else if (current.kind === "probe-call") {
         const args = PLAN.resolveStepArgs(current, state.bindings, state.resultRefs);
         if (MUTATING_METHODS.has(current.method)) state.probeMutationPossible = true;
         const response = await sessionMessage("invoke", { method: current.method, args });
-        updateInspection(response.inspection);
+        requireHealthyInspection(response.inspection);
         if (current.method === "exportCapture" && current.captureUse === "preflight") {
           requirePristineCapture(response.result);
         }
