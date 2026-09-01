@@ -1,0 +1,108 @@
+{
+  "captureLimits": {
+    "encodedBytes": 1048576,
+    "events": 4096
+  },
+  "claimBoundary": "Supplier-neutral source-qualified browser observation and verification membrane for distributed-model-inference routes. Synthetic fixtures qualify only the membrane. They do not qualify any public supplier, supplier actor, physical device, model output, privacy claim, or operational Estate. CI launches no browser, contacts no external endpoint, performs no inference, grants no mission or command authority, and changes no physical-flight state.",
+  "commodityBinding": {
+    "admissionCommit": "8d18d2c4b6df505751574f219c8c8dd69877a6df",
+    "admissionTree": "7c8d1786cbae8277c55ca17d115b44c9ec4cae7d",
+    "interface": "axm/distributed-model-inference@1",
+    "productMembers": [
+      {
+        "path": ".github/workflows/axm-head-distributed-inference-commodity-01.yml",
+        "sha": "d0888369be48a05482c8f51246173ed660353986"
+      },
+      {
+        "path": "mating_surface/anchor_node/AXM-HEAD-DISTRIBUTED-INFERENCE-COMMODITY-01.md",
+        "sha": "1e3bbbda923b3c279b66cb192826d5f94d85d1a3"
+      },
+      {
+        "path": "mating_surface/anchor_node/axm-head-distributed-inference-commodity-profile-01.json",
+        "sha": "3ae68329a288b1cbc5fef62d648ea3d301a8f7e9"
+      },
+      {
+        "path": "mating_surface/anchor_node/axm_head_distributed_inference_commodity.py",
+        "sha": "97231a83c6e41c8da2f65735e940e1a6a5096c4b"
+      },
+      {
+        "path": "mating_surface/anchor_node/conformance/test_axm_head_distributed_inference_commodity.py",
+        "sha": "db12b0bb65c4d64e244733881b4e58c75d23244d"
+      },
+      {
+        "path": "mating_surface/anchor_node/fixtures/axm-head-distributed-inference-commodity-cases-01.json",
+        "sha": "a03941698d4808f9182fe5f157e5a4392fe479a2"
+      },
+      {
+        "path": "mating_surface/anchor_node/fixtures/axm-head-distributed-inference-suppliers-01.json",
+        "sha": "79b532aa2e6ee063d62108dcdbc90e1ae7ce4d88"
+      }
+    ]
+  },
+  "fixtureCaseIds": [
+    "observed-complete-synthetic-route",
+    "prepared-public-observation-only",
+    "hold-instrumentation-installed-late",
+    "hold-ui-only-capacity",
+    "hold-duplicate-member",
+    "hold-selected-candidate-pair-missing",
+    "hold-unreliable-activation-channel",
+    "hold-model-identity-mismatch",
+    "hold-performance-denominator-incomplete",
+    "hold-drop-terminal-missing",
+    "hold-public-projection-leak",
+    "hold-privacy-overclaim",
+    "hold-supplier-pinned-work-unit",
+    "hold-capture-ceiling-exceeded",
+    "hold-stored-receipt-forgery"
+  ],
+  "issueRef": "BigBirdReturns/ai-execution-audit#92",
+  "observationReceiptKinds": [
+    "current-availability-observation",
+    "executable-adapter-artifact",
+    "formation-capacity-receipt",
+    "formation-topology-receipt",
+    "member-drop-behavior-receipt",
+    "model-output-equivalence-receipt",
+    "performance-receipt",
+    "network-exposure-observation",
+    "privacy-declaration"
+  ],
+  "profileId": "axm-head/browser-distributed-inference-audition/0.1",
+  "publicProjectionAllowedKeys": [
+    "actualSupplierQualified",
+    "bootstrapAuthenticated",
+    "captureDigest",
+    "commandAuthority",
+    "executionOccurred",
+    "missionAuthority",
+    "observationReceiptDigest",
+    "physicalEstateQualified",
+    "reasonCodes",
+    "receiptKindsPresent",
+    "schema",
+    "sourceKind",
+    "supplierAdmissionReceiptPresent",
+    "syntheticConformanceOnly",
+    "terminal"
+  ],
+  "schema": "axm-head-browser-distributed-inference-audition-profile/1",
+  "sourceMembers": [
+    ".github/workflows/axm-head-browser-distributed-inference-audition-01.yml",
+    "mating_surface/anchor_node/AXM-HEAD-BROWSER-DISTRIBUTED-INFERENCE-AUDITION-01.md",
+    "mating_surface/anchor_node/axm-head-browser-distributed-inference-audition-profile-01.json",
+    "mating_surface/anchor_node/axm-head-browser-distributed-inference-audition.ps1",
+    "mating_surface/anchor_node/axm_head_browser_distributed_inference_audition.py",
+    "mating_surface/anchor_node/browser_distributed_inference_probe.js",
+    "mating_surface/anchor_node/verify_axm_head_browser_distributed_inference_audition.py",
+    "mating_surface/anchor_node/verify_axm_head_browser_distributed_inference_audition_bootstrap.py",
+    "mating_surface/anchor_node/conformance/test_axm_head_browser_distributed_inference_audition.py",
+    "mating_surface/anchor_node/fixtures/axm-head-browser-distributed-inference-audition-cases-01.json"
+  ],
+  "status": "candidate_source_only",
+  "terminalStates": [
+    "PREPARED_FOR_PHYSICAL_AUDITION",
+    "OBSERVED_ROUTE_CANDIDATE",
+    "HOLD"
+  ]
+}
