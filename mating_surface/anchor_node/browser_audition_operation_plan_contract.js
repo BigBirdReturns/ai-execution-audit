@@ -212,6 +212,7 @@
     const values = bindings.values;
     const steps = [
       makeStep("step:status-preflight", "console-status"),
+      makeStep("step:capture-preflight", "probe-call", { method: "exportCapture", literalArgs: {}, captureUse: "preflight" }),
       makeStep("step:barrier-before-execution", "operator-barrier", { code: "BEFORE_PLAN_EXECUTION", statement: "The operator has reviewed the bound transaction, seat, and complete invocation denominator." }),
       makeStep("step:availability", "probe-call", { method: "markAvailability", argsRef: "values.availability" }),
       makeStep("step:adapter-artifact", "probe-call", { method: "markAdapterArtifact", argsRef: "values.adapterArtifact" }),
@@ -228,7 +229,7 @@
     values.receipts.forEach((receipt, index) => steps.push(makeStep(`step:receipt-${String(index).padStart(2, "0")}`, "probe-call", { method: "markObservationReceipt", argsRef: `values.receipts.${index}`, receiptKind: receipt.kind })));
     steps.push(makeStep("step:peer-stats", "probe-call", { method: "samplePeerStats", literalArgs: {} }));
     steps.push(makeStep("step:barrier-before-export", "operator-barrier", { code: "BEFORE_CAPTURE_EXPORT", statement: "The operator has completed the physical observation and authorizes local private capture export." }));
-    steps.push(makeStep("step:capture-export", "probe-call", { method: "exportCapture", literalArgs: {} }));
+    steps.push(makeStep("step:capture-export", "probe-call", { method: "exportCapture", literalArgs: {}, captureUse: "download" }));
     return steps;
   }
   async function compilePlan(bindings) {

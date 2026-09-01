@@ -63,6 +63,7 @@ The plan sequence is deterministic:
 
 ```text
 console status preflight
+read-only capture preflight requiring early installation, an unrefused probe, and no prior explicit plan marks
 operator barrier: BEFORE_PLAN_EXECUTION
 availability
 adapter artifact
@@ -83,11 +84,11 @@ private capture export
 
 The panel loads one plan and one binding file into memory, recomputes both content identities, reconstructs the compiler output, and requires byte-equivalent semantics before opening a document session. It uses the admitted extension port and service worker. It cannot issue an operation outside the admitted fourteen-method denominator.
 
-The first barrier requires the operator to acknowledge the complete transaction, seat, and invocation denominator before any probe mark is written. The second barrier requires a separate acknowledgement after the physical observation and before local private capture export. A refusal, document change, service-worker disconnect, channel failure, timeout, invalid opaque member result, or premature close after the first mark terminates `HALTED_PARTIAL_CAPTURE`. The panel instructs the operator to discard that page ledger rather than resume a partially marked capture.
+Before the first barrier, the panel reads the private capture through the admitted `exportCapture` method and requires the probe to have been installed before the application, to remain unrefused, to contain exactly one leading installation event, and to contain no event produced by an earlier operation plan. This read does not write a probe mark. The first barrier then requires the operator to acknowledge the complete transaction, seat, and invocation denominator before any probe mutation is attempted. The second barrier requires a separate acknowledgement after the physical observation and before local private capture export. A refusal, document change, service-worker disconnect, channel failure, timeout, invalid opaque member result, or premature close after a mutating invocation may have begun terminates `HALTED_PARTIAL_CAPTURE`. A pre-mutation session loss resets the execution cursor and reruns both preflights on the next document session. A completed or partially marked panel lifecycle is sealed against loading another bundle. The panel instructs the operator to discard that page ledger rather than resume a partially marked capture.
 
 ## Storage, network, and publication law
 
-The derivative extension contains no external network client, remote code, analytics, telemetry, synchronization, Chrome storage, local storage, session storage, or IndexedDB. Loaded plans, bindings, result aliases, command status, and private capture remain in memory. The only file write is the explicit local download of the unchanged private capture after the second operator barrier.
+The derivative extension contains no external network client, remote code, analytics, telemetry, synchronization, Chrome storage, local storage, session storage, or IndexedDB. Loaded plans, bindings, result aliases, command status, and private capture remain in memory. The only file write is the explicit local download of the unchanged private capture after the second operator barrier. The byte ceiling is checked against the exact compact JSON string supplied to the browser `Blob`, so the validation representation and written representation cannot diverge.
 
 The operation plan and its private bindings remain outside public Git during a physical run. Public custody may receive the source-qualified compiler and derivative extension because they contain no supplier identity or private evidence. A source-qualified plan proves only that a fixed admissible command sequence can be reconstructed and executed through the admitted console. It does not prove that the sequence was used against a physical route.
 

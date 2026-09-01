@@ -680,6 +680,13 @@ def expected_steps(bindings: dict[str, Any]) -> list[dict[str, Any]]:
     steps: list[dict[str, Any]] = [
         step("step:status-preflight", "console-status"),
         step(
+            "step:capture-preflight",
+            "probe-call",
+            method="exportCapture",
+            literalArgs={},
+            captureUse="preflight",
+        ),
+        step(
             "step:barrier-before-execution",
             "operator-barrier",
             code="BEFORE_PLAN_EXECUTION",
@@ -745,7 +752,7 @@ def expected_steps(bindings: dict[str, Any]) -> list[dict[str, Any]]:
                 code="BEFORE_CAPTURE_EXPORT",
                 statement="The operator has completed the physical observation and authorizes local private capture export.",
             ),
-            step("step:capture-export", "probe-call", method="exportCapture", literalArgs={}),
+            step("step:capture-export", "probe-call", method="exportCapture", literalArgs={}, captureUse="download"),
         ]
     )
     return steps
@@ -997,6 +1004,22 @@ def verify_extension(profile_path: str | os.PathLike[str], repository_root: str 
     panel = regular_file(extension / "browser_audition_operation_plan_panel.html").decode("utf-8")
     if "browser_physical_audition_operator_contract.js" not in panel or "browser_audition_operation_plan_contract.js" not in panel:
         refuse("PANEL_CONTRACT_ORDER_INVALID", "panel")
+    panel_source = regular_file(extension / "browser_audition_operation_plan_panel.js").decode("utf-8")
+    required_panel_controls = (
+        'captureUse === "preflight"',
+        'PROBE_LEDGER_ALREADY_MARKED',
+        'PROBE_INSTALLATION_LATE',
+        'MUTATING_METHODS.has(current.method)',
+        'probeMutationPossible',
+        'settleSessionLoss',
+        'serializeCaptureForDownload',
+        'new Blob([serialized]',
+    )
+    for marker in required_panel_controls:
+        if marker not in panel_source:
+            refuse("PANEL_CONTROL_MISSING", marker)
+    if "JSON.stringify(capture, null, 2)" in panel_source:
+        refuse("CAPTURE_SERIALIZATION_DIVERGENCE", "pretty capture serialization")
     return {
         "schema": VERDICT_SCHEMA,
         "status": "PASS",
@@ -1011,6 +1034,9 @@ def verify_extension(profile_path: str | os.PathLike[str], repository_root: str 
             "payload-source-byte-binding",
             "closed-local-extension-surface",
             "supplier-neutral-executable-surface",
+            "pristine-ledger-preflight",
+            "mutation-uncertainty-stop",
+            "exact-download-byte-binding",
             "operator-barrier-before-execution",
             "operator-barrier-before-export",
         ],

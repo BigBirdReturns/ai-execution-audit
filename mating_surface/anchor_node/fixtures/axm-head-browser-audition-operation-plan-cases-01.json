@@ -3204,17 +3204,24 @@
         },
         "interface": "axm/distributed-model-inference@1",
         "operatorProtocol": "axm-head/browser-physical-audition-operator-console@1",
-        "planId": "axmoperationplan_998ef5491418acdf16bd811ca9d2ee647b551fc59ae50a934c2aeaf10b3350b9",
-        "probeInvocationCount": 25,
+        "planId": "axmoperationplan_4efbcaacc84ecf1e5cd3be5a3c1415ad504a8319e2b162d77daf0b7b0fb6c7d0",
+        "probeInvocationCount": 26,
         "profileId": "axm-head/browser-audition-operation-plan/0.1",
         "protocol": "axm-head/browser-audition-operation-plan@1",
         "schema": "axm-head/browser-audition-operation-plan@1",
         "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-        "stepCount": 28,
+        "stepCount": 29,
         "steps": [
           {
             "kind": "probe-call",
             "stepId": "step:status-preflight"
+          },
+          {
+            "captureUse": "preflight",
+            "kind": "probe-call",
+            "literalArgs": {},
+            "method": "exportCapture",
+            "stepId": "step:capture-preflight"
           },
           {
             "code": "BEFORE_PLAN_EXECUTION",
@@ -3393,6 +3400,7 @@
             "stepId": "step:barrier-before-export"
           },
           {
+            "captureUse": "download",
             "kind": "probe-call",
             "literalArgs": {},
             "method": "exportCapture",
@@ -3590,16 +3598,23 @@
         "interface": "axm/distributed-model-inference@1",
         "operatorProtocol": "axm-head/browser-physical-audition-operator-console@1",
         "planId": "axmoperationplan_0000000000000000000000000000000000000000000000000000000000000000",
-        "probeInvocationCount": 25,
+        "probeInvocationCount": 26,
         "profileId": "axm-head/browser-audition-operation-plan/0.1",
         "protocol": "axm-head/browser-audition-operation-plan@1",
         "schema": "axm-head/browser-audition-operation-plan@1",
         "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-        "stepCount": 28,
+        "stepCount": 29,
         "steps": [
           {
             "kind": "console-status",
             "stepId": "step:status-preflight"
+          },
+          {
+            "captureUse": "preflight",
+            "kind": "probe-call",
+            "literalArgs": {},
+            "method": "exportCapture",
+            "stepId": "step:capture-preflight"
           },
           {
             "code": "BEFORE_PLAN_EXECUTION",
@@ -3778,6 +3793,7 @@
             "stepId": "step:barrier-before-export"
           },
           {
+            "captureUse": "download",
             "kind": "probe-call",
             "literalArgs": {},
             "method": "exportCapture",
@@ -3974,17 +3990,24 @@
         },
         "interface": "axm/distributed-model-inference@1",
         "operatorProtocol": "axm-head/browser-physical-audition-operator-console@1",
-        "planId": "axmoperationplan_998ef5491418acdf16bd811ca9d2ee647b551fc59ae50a934c2aeaf10b3350b9",
-        "probeInvocationCount": 25,
+        "planId": "axmoperationplan_4efbcaacc84ecf1e5cd3be5a3c1415ad504a8319e2b162d77daf0b7b0fb6c7d0",
+        "probeInvocationCount": 26,
         "profileId": "axm-head/browser-audition-operation-plan/0.1",
         "protocol": "axm-head/browser-audition-operation-plan@1",
         "schema": "axm-head/browser-audition-operation-plan@1",
         "seatRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-        "stepCount": 28,
+        "stepCount": 29,
         "steps": [
           {
             "kind": "console-status",
             "stepId": "step:status-preflight"
+          },
+          {
+            "captureUse": "preflight",
+            "kind": "probe-call",
+            "literalArgs": {},
+            "method": "exportCapture",
+            "stepId": "step:capture-preflight"
           },
           {
             "code": "BEFORE_PLAN_EXECUTION",
@@ -4163,6 +4186,7 @@
             "stepId": "step:barrier-before-export"
           },
           {
+            "captureUse": "download",
             "kind": "probe-call",
             "literalArgs": {},
             "method": "exportCapture",

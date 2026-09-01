@@ -45,6 +45,70 @@ def fixture_bindings(case_id: str = "pass-two-seat-plan") -> dict:
     raise KeyError(case_id)
 
 
+def run_panel_harness(body: str) -> dict:
+    panel_path = ANCHOR / "browser_audition_operation_plan_panel.js"
+    operator_path = ANCHOR / "browser_physical_audition_operator_contract.js"
+    plan_path = ANCHOR / "browser_audition_operation_plan_contract.js"
+    script = f"""
+const fs = require('fs');
+const vm = require('vm');
+const cryptoModule = require('crypto');
+global.crypto = cryptoModule.webcrypto;
+class Element {{
+  constructor(id = '') {{ this.id=id; this.disabled=false; this.hidden=false; this.textContent=''; this.className=''; this.children=[]; this.files=[]; this.listeners={{}}; this.clicked=false; }}
+  addEventListener(kind, fn) {{ this.listeners[kind]=fn; }}
+  prepend(row) {{ this.children.unshift(row); }}
+  get lastElementChild() {{ return this.children.length ? this.children[this.children.length - 1] : null; }}
+  remove() {{ this.removed=true; }}
+  click() {{ this.clicked=true; }}
+}}
+const elements = new Map();
+global.document = {{
+  querySelector(selector) {{ if (!elements.has(selector)) elements.set(selector, new Element(selector)); return elements.get(selector); }},
+  createElement(tag) {{ return new Element(tag); }},
+}};
+const ports = [];
+let portFactory = null;
+global.chrome = {{
+  runtime: {{
+    connect(options) {{
+      if (portFactory) return portFactory(options);
+      const messageListeners=[]; const disconnectListeners=[];
+      const port={{
+        name: options.name,
+        onMessage: {{ addListener(fn) {{ messageListeners.push(fn); }} }},
+        onDisconnect: {{ addListener(fn) {{ disconnectListeners.push(fn); }} }},
+        postMessage() {{ throw new Error('unconfigured port'); }},
+        __messageListeners: messageListeners,
+        __disconnectListeners: disconnectListeners,
+      }};
+      ports.push(port);
+      return port;
+    }},
+  }},
+  tabs: {{ query: async () => [{{id: 7}}] }},
+}};
+let lastBlob = null;
+const NativeBlob = global.Blob;
+global.Blob = class extends NativeBlob {{ constructor(parts, options) {{ super(parts, options); lastBlob=this; }} }};
+const nativeURL = global.URL;
+global.URL = {{ createObjectURL() {{ return 'blob:test'; }}, revokeObjectURL() {{}}, }};
+vm.runInThisContext(fs.readFileSync({json.dumps(str(operator_path))}, 'utf8'));
+vm.runInThisContext(fs.readFileSync({json.dumps(str(plan_path))}, 'utf8'));
+const panelSource = fs.readFileSync({json.dumps(str(panel_path))}, 'utf8') + `\n;globalThis.__AXM_PANEL_TEST__={{state,el,refreshControls,resetExecutionProgress,settleSessionLoss,discardSessionState,connectPort,requirePristineCapture,serializeCaptureForDownload,downloadCapture,runPlan,acknowledgeBarrier,closeSession}};`;
+vm.runInThisContext(panelSource);
+(async () => {{
+  const test = globalThis.__AXM_PANEL_TEST__;
+  const setPortFactory = (value) => {{ portFactory = value; }};
+  {body}
+}})().catch((error) => {{ console.error(error.stack || error); process.exit(2); }}).finally(() => {{ global.URL = nativeURL; }});
+"""
+    completed = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    if completed.returncode != 0:
+        raise AssertionError(completed.stdout + completed.stderr)
+    return json.loads(completed.stdout)
+
+
 class OperationPlanWitnesses(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -78,7 +142,7 @@ class OperationPlanWitnesses(unittest.TestCase):
         first = tool.compile_plan(bindings)
         second = tool.compile_plan(bindings)
         self.assertEqual(first, second)
-        self.assertEqual(first["planId"], "axmoperationplan_998ef5491418acdf16bd811ca9d2ee647b551fc59ae50a934c2aeaf10b3350b9")
+        self.assertEqual(first["planId"], "axmoperationplan_4efbcaacc84ecf1e5cd3be5a3c1415ad504a8319e2b162d77daf0b7b0fb6c7d0")
 
     def test_006_plan_validates(self):
         bindings = tool.validate_bindings(fixture_bindings(), self.operator)
@@ -88,13 +152,21 @@ class OperationPlanWitnesses(unittest.TestCase):
     def test_007_fixed_first_barrier_precedes_probe_marks(self):
         plan = tool.compile_plan(tool.validate_bindings(fixture_bindings(), self.operator))
         self.assertEqual(plan["steps"][0]["kind"], "console-status")
-        self.assertEqual(plan["steps"][1]["code"], "BEFORE_PLAN_EXECUTION")
-        self.assertEqual(plan["steps"][2]["method"], "markAvailability")
+        self.assertEqual(plan["steps"][1], {
+            "stepId": "step:capture-preflight",
+            "kind": "probe-call",
+            "method": "exportCapture",
+            "literalArgs": {},
+            "captureUse": "preflight",
+        })
+        self.assertEqual(plan["steps"][2]["code"], "BEFORE_PLAN_EXECUTION")
+        self.assertEqual(plan["steps"][3]["method"], "markAvailability")
 
     def test_008_export_barrier_precedes_capture(self):
         plan = tool.compile_plan(tool.validate_bindings(fixture_bindings(), self.operator))
         self.assertEqual(plan["steps"][-2]["code"], "BEFORE_CAPTURE_EXPORT")
         self.assertEqual(plan["steps"][-1]["method"], "exportCapture")
+        self.assertEqual(plan["steps"][-1]["captureUse"], "download")
 
     def test_009_member_results_are_saved_and_reused(self):
         plan = tool.compile_plan(tool.validate_bindings(fixture_bindings(), self.operator))
@@ -292,12 +364,138 @@ vm.runInThisContext(fs.readFileSync({json.dumps(str(ANCHOR / 'browser_audition_o
         self.assertIn("BEFORE_PLAN_EXECUTION", contract)
         self.assertIn("BEFORE_CAPTURE_EXPORT", contract)
 
-    def test_033_profile_contains_no_supplier_identity(self):
+    def test_033_pristine_capture_accepts_passive_observations(self):
+        result = run_panel_harness(r"""
+const capture={schema:'axm-head/browser-probe-private-capture@1',installedBeforeApplication:true,refused:null,events:[{type:'probe-installed'},{type:'fetch-observation'}]};
+test.requirePristineCapture(capture);
+console.log(JSON.stringify({status:'PASS'}));
+""")
+        self.assertEqual(result, {"status": "PASS"})
+
+    def test_034_pristine_capture_refuses_prior_plan_mark(self):
+        result = run_panel_harness(r"""
+let code=null;
+try { test.requirePristineCapture({schema:'axm-head/browser-probe-private-capture@1',installedBeforeApplication:true,refused:null,events:[{type:'probe-installed'},{type:'availability-observation'}]}); }
+catch (error) { code=error.code; }
+console.log(JSON.stringify({code}));
+""")
+        self.assertEqual(result, {"code": "PROBE_LEDGER_ALREADY_MARKED"})
+
+    def test_035_pristine_capture_refuses_late_installation(self):
+        result = run_panel_harness(r"""
+let code=null;
+try { test.requirePristineCapture({schema:'axm-head/browser-probe-private-capture@1',installedBeforeApplication:false,refused:null,events:[{type:'probe-installed'}]}); }
+catch (error) { code=error.code; }
+console.log(JSON.stringify({code}));
+""")
+        self.assertEqual(result, {"code": "PROBE_INSTALLATION_LATE"})
+
+    def test_036_download_checks_the_exact_written_representation(self):
+        result = run_panel_harness(r"""
+const capture={rows:Array(430000).fill(0)};
+const compact=test.serializeCaptureForDownload(capture);
+const compactBytes=new TextEncoder().encode(compact).byteLength;
+const prettyBytes=new TextEncoder().encode(JSON.stringify(capture,null,2)+'\n').byteLength;
+test.downloadCapture(capture);
+console.log(JSON.stringify({compactBytes,prettyBytes,blobBytes:lastBlob.size,limit:AXMOperatorContract.MAX_CAPTURE_BYTES}));
+""")
+        self.assertLessEqual(result["compactBytes"], result["limit"])
+        self.assertGreater(result["prettyBytes"], result["limit"])
+        self.assertEqual(result["blobBytes"], result["compactBytes"])
+
+    def test_037_download_refuses_actual_bytes_above_ceiling(self):
+        result = run_panel_harness(r"""
+let code=null;
+try { test.serializeCaptureForDownload({rows:Array(530000).fill(0)}); }
+catch (error) { code=error.code; }
+console.log(JSON.stringify({code}));
+""")
+        self.assertEqual(result, {"code": "CAPTURE_DOWNLOAD_LIMIT_EXCEEDED"})
+
+    def test_038_pre_mutation_session_loss_resets_execution_cursor(self):
+        result = run_panel_harness(r"""
+test.state.plan={steps:[{stepId:'a'}]}; test.state.bindings={}; test.state.nextIndex=3; test.state.resultRefs.set('member:a','opaque:'+'1'.repeat(32)); test.state.barrierCode='BEFORE_PLAN_EXECUTION'; test.state.barrierAcknowledged=true; test.state.probeMutationPossible=false; test.state.terminal='AWAITING_OPERATOR_BARRIER';
+test.settleSessionLoss('LOADED');
+console.log(JSON.stringify({terminal:test.state.terminal,nextIndex:test.state.nextIndex,results:test.state.resultRefs.size,barrier:test.state.barrierCode,mutation:test.state.probeMutationPossible}));
+""")
+        self.assertEqual(result, {"terminal": "LOADED", "nextIndex": 0, "results": 0, "barrier": None, "mutation": False})
+
+    def test_039_post_mutation_session_loss_seals_partial_capture(self):
+        result = run_panel_harness(r"""
+test.state.plan={steps:[{stepId:'a'}]}; test.state.bindings={}; test.state.nextIndex=4; test.state.probeMutationPossible=true; test.state.terminal='RUNNING';
+test.settleSessionLoss('LOADED'); test.refreshControls();
+console.log(JSON.stringify({terminal:test.state.terminal,nextIndex:test.state.nextIndex,loadDisabled:test.el.load.disabled,openDisabled:test.el.open.disabled}));
+""")
+        self.assertEqual(result, {"terminal": "HALTED_PARTIAL_CAPTURE", "nextIndex": 4, "loadDisabled": True, "openDisabled": True})
+
+    def test_040_full_panel_sequence_preflights_before_mutation_and_halts_after_mark(self):
+        bindings = fixture_bindings()
+        body = r"""
+const bindings=JSON.parse(BINDINGS_JSON);
+const plan={steps:[
+  {stepId:'step:status-preflight',kind:'console-status'},
+  {stepId:'step:capture-preflight',kind:'probe-call',method:'exportCapture',literalArgs:{},captureUse:'preflight'},
+  {stepId:'step:barrier-before-execution',kind:'operator-barrier',code:'BEFORE_PLAN_EXECUTION',statement:'review'},
+  {stepId:'step:availability',kind:'probe-call',method:'markAvailability',argsRef:'values.availability'},
+  {stepId:'step:barrier-before-export',kind:'operator-barrier',code:'BEFORE_CAPTURE_EXPORT',statement:'export'},
+]};
+const messageListeners=[]; const disconnectListeners=[];
+setPortFactory(() => ({
+  onMessage:{addListener(fn){messageListeners.push(fn);}},
+  onDisconnect:{addListener(fn){disconnectListeners.push(fn);}},
+  postMessage(message){
+    let response={protocol:AXMOperatorContract.PROTOCOL,status:'PASS',requestId:message.requestId,inspection:{status:'PASS',probeVersion:'1',installedBeforeApplication:true,observedEventCount:1}};
+    if(message.kind==='invoke' && message.method==='exportCapture') response.result={schema:'axm-head/browser-probe-private-capture@1',installedBeforeApplication:true,refused:null,events:[{type:'probe-installed'}]};
+    if(message.kind==='invoke' && message.method==='markAvailability') response.result=null;
+    queueMicrotask(()=>messageListeners.forEach(fn=>fn(response)));
+  },
+}));
+test.connectPort(); test.state.plan=plan; test.state.bindings=bindings; test.state.sessionId='session:'+'1'.repeat(32); test.state.tabId=7; test.state.terminal='SESSION_OPEN';
+await test.runPlan();
+const first={terminal:test.state.terminal,nextIndex:test.state.nextIndex,mutation:test.state.probeMutationPossible};
+test.acknowledgeBarrier(); await test.runPlan();
+const second={terminal:test.state.terminal,nextIndex:test.state.nextIndex,mutation:test.state.probeMutationPossible};
+await test.closeSession();
+const third={terminal:test.state.terminal,nextIndex:test.state.nextIndex,mutation:test.state.probeMutationPossible};
+console.log(JSON.stringify({first,second,third}));
+""".replace("BINDINGS_JSON", json.dumps(json.dumps(bindings)))
+        result = run_panel_harness(body)
+        self.assertEqual(result["first"], {"terminal": "AWAITING_OPERATOR_BARRIER", "nextIndex": 2, "mutation": False})
+        self.assertEqual(result["second"], {"terminal": "AWAITING_OPERATOR_BARRIER", "nextIndex": 4, "mutation": True})
+        self.assertEqual(result["third"], {"terminal": "HALTED_PARTIAL_CAPTURE", "nextIndex": 4, "mutation": True})
+
+    def test_041_profile_contains_no_supplier_identity(self):
         data = PROFILE_PATH.read_bytes().lower()
         self.assertNotIn(b"swarm" + b"llm", data)
         self.assertNotIn(b"neha" + b"nth", data)
 
-    def test_034_javascript_and_python_fixture_campaigns_agree(self):
+    def test_042_primary_verifier_requires_pristine_ledger_control(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = clone_minimal(pathlib.Path(temp) / "repo")
+            panel = repo / "mating_surface/anchor_node/browser_audition_operation_plan_panel.js"
+            panel.write_text(panel.read_text(encoding="utf-8").replace("PROBE_LEDGER_ALREADY_MARKED", "REMOVED_LEDGER_CONTROL"), encoding="utf-8")
+            output = pathlib.Path(temp) / "extension"
+            tool.build_extension(repo / self.profile["sourceMembers"][2], repo, output)
+            with self.assertRaises(tool.PlanError) as caught:
+                tool.verify_extension(repo / self.profile["sourceMembers"][2], repo, output)
+            self.assertEqual(caught.exception.code, "PANEL_CONTROL_MISSING")
+
+    def test_043_independent_verifier_requires_exact_download_binding(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = clone_minimal(pathlib.Path(temp) / "repo")
+            panel = repo / "mating_surface/anchor_node/browser_audition_operation_plan_panel.js"
+            panel.write_text(panel.read_text(encoding="utf-8").replace("new Blob([serialized]", "new Blob([serialized + '\\n']"), encoding="utf-8")
+            output = pathlib.Path(temp) / "extension"
+            tool.build_extension(repo / self.profile["sourceMembers"][2], repo, output)
+            completed = subprocess.run(
+                [sys.executable, str(VERIFIER_PATH), str(repo / self.profile["sourceMembers"][2]), str(repo), str(output)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 2, completed.stdout + completed.stderr)
+            self.assertEqual(json.loads(completed.stdout)["code"], "PANEL_CONTROL_MISSING")
+
+    def test_044_javascript_and_python_fixture_campaigns_agree(self):
         script = f"""
 const fs=require('fs'),vm=require('vm'),crypto=require('crypto');global.crypto=crypto.webcrypto;
 vm.runInThisContext(fs.readFileSync({json.dumps(str(ANCHOR / 'browser_physical_audition_operator_contract.js'))},'utf8'));

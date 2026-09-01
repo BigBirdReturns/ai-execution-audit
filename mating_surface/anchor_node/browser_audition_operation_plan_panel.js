@@ -4,6 +4,22 @@ const OPERATOR = globalThis.AXMOperatorContract;
 const PLAN = globalThis.AXMOperationPlanContract;
 const PORT_NAME = "axm-browser-physical-audition-operator-console-v1";
 const FILE_LIMIT = 262144;
+const PLAN_MARK_EVENT_TYPES = new Set([
+  "availability-observation",
+  "adapter-artifact",
+  "formation-declaration",
+  "formation-member",
+  "model-manifest",
+  "model-artifact",
+  "performance-start",
+  "token-mark",
+  "member-drop",
+  "output-equivalence",
+  "privacy-declaration",
+  "observation-receipt-ref",
+  "rtc-stats",
+]);
+const MUTATING_METHODS = new Set(OPERATOR.METHODS.filter((method) => method !== "exportCapture"));
 
 const state = {
   port: null,
@@ -17,6 +33,7 @@ const state = {
   barrierCode: null,
   barrierAcknowledged: false,
   running: false,
+  probeMutationPossible: false,
   terminal: "IDLE",
 };
 
@@ -67,6 +84,7 @@ function refreshControls() {
   const loaded = Boolean(state.plan && state.bindings);
   const open = Boolean(state.sessionId && Number.isInteger(state.tabId));
   const halted = state.terminal === "HALTED_PARTIAL_CAPTURE" || state.terminal === "COMPLETE";
+  el.load.disabled = open || halted || state.running;
   el.open.disabled = !loaded || open || halted;
   el.status.disabled = !open || halted || state.running;
   el.close.disabled = !open || state.running;
@@ -77,6 +95,24 @@ function refreshControls() {
   el.completed.textContent = String(state.nextIndex);
   el.saved.textContent = String(state.resultRefs.size);
   el.nextStep.textContent = state.plan?.steps[state.nextIndex]?.stepId || "none";
+}
+function resetExecutionProgress() {
+  state.nextIndex = 0;
+  state.resultRefs.clear();
+  state.barrierCode = null;
+  state.barrierAcknowledged = false;
+  state.probeMutationPossible = false;
+  el.barrier.hidden = true;
+  el.barrier.textContent = "";
+}
+function settleSessionLoss(cleanTerminal) {
+  if (state.terminal === "COMPLETE") return;
+  if (state.probeMutationPossible) {
+    state.terminal = "HALTED_PARTIAL_CAPTURE";
+    return;
+  }
+  resetExecutionProgress();
+  state.terminal = cleanTerminal;
 }
 function discardSessionState(reason) {
   for (const pending of state.pending.values()) {
@@ -102,8 +138,10 @@ function connectPort() {
     if (state.port !== port) return;
     state.port = null;
     discardSessionState("extension service worker disconnected");
-    if (state.nextIndex > 0 && state.terminal !== "COMPLETE") state.terminal = "HALTED_PARTIAL_CAPTURE";
-    log("REFUSED", "service worker disconnected; document session discarded");
+    settleSessionLoss(state.plan && state.bindings ? "LOADED" : "IDLE");
+    log("REFUSED", state.terminal === "HALTED_PARTIAL_CAPTURE"
+      ? "service worker disconnected after probe mutation may have occurred; discard this page ledger"
+      : "service worker disconnected before probe mutation; execution cursor reset");
     refreshControls();
   });
   return port;
@@ -149,10 +187,7 @@ async function readJsonFile(input, label) {
 function resetLoadedState() {
   state.plan = null;
   state.bindings = null;
-  state.nextIndex = 0;
-  state.resultRefs.clear();
-  state.barrierCode = null;
-  state.barrierAcknowledged = false;
+  resetExecutionProgress();
   state.terminal = "IDLE";
   el.bundleState.textContent = "NOT LOADED";
   el.planId.textContent = "none";
@@ -162,6 +197,9 @@ function resetLoadedState() {
   el.barrier.textContent = "";
 }
 async function loadBundle() {
+  if (state.terminal === "HALTED_PARTIAL_CAPTURE" || state.terminal === "COMPLETE") {
+    return log("REFUSED", "this panel lifecycle is sealed; discard the target document ledger and reload the panel before another operation");
+  }
   if (state.sessionId) return log("REFUSED", "close the existing document session before loading another bundle");
   resetLoadedState();
   try {
@@ -211,22 +249,48 @@ async function closeSession() {
   catch (error) { log("REFUSED", `${error.code || "CLOSE_FAILED"}: ${error.message}`); }
   finally {
     discardSessionState("session closed");
-    if (state.nextIndex > 0 && state.terminal !== "COMPLETE") state.terminal = "HALTED_PARTIAL_CAPTURE";
-    else if (state.terminal !== "COMPLETE") state.terminal = "LOADED";
+    settleSessionLoss(state.plan && state.bindings ? "LOADED" : "IDLE");
     refreshControls();
   }
 }
 async function halt(error) {
-  state.terminal = state.nextIndex > 0 ? "HALTED_PARTIAL_CAPTURE" : "REFUSED";
+  settleSessionLoss("REFUSED");
   log("REFUSED", `${error.code || "PLAN_EXECUTION_FAILED"}: ${error.message}. Discard this page ledger before retrying.`);
   try { if (state.sessionId) await sessionMessage("close-session"); } catch { /* best effort only */ }
   discardSessionState("plan execution halted");
   refreshControls();
 }
+function requirePristineCapture(capture) {
+  if (!capture || capture.schema !== "axm-head/browser-probe-private-capture@1" || !Array.isArray(capture.events)) {
+    throw Object.assign(new Error("preflight capture shape differs"), { code: "PREFLIGHT_CAPTURE_INVALID" });
+  }
+  if (capture.installedBeforeApplication !== true) {
+    throw Object.assign(new Error("probe was not installed before the application"), { code: "PROBE_INSTALLATION_LATE" });
+  }
+  if (capture.refused !== null) {
+    throw Object.assign(new Error("probe has already refused capture"), { code: "PROBE_CAPTURE_REFUSED" });
+  }
+  const installed = capture.events.filter((row) => row && row.type === "probe-installed");
+  if (installed.length !== 1 || capture.events[0]?.type !== "probe-installed") {
+    throw Object.assign(new Error("probe installation event denominator differs"), { code: "PROBE_INSTALL_EVENT_INVALID" });
+  }
+  const priorMark = capture.events.find((row) => row && PLAN_MARK_EVENT_TYPES.has(row.type));
+  if (priorMark) {
+    throw Object.assign(new Error(`probe ledger already contains ${priorMark.type}`), { code: "PROBE_LEDGER_ALREADY_MARKED" });
+  }
+  return capture;
+}
+function serializeCaptureForDownload(capture) {
+  const serialized = JSON.stringify(capture);
+  const bytes = new TextEncoder().encode(serialized).byteLength;
+  if (bytes > OPERATOR.MAX_CAPTURE_BYTES) {
+    throw Object.assign(new Error("capture exceeds admitted byte ceiling"), { code: "CAPTURE_DOWNLOAD_LIMIT_EXCEEDED" });
+  }
+  return serialized;
+}
 function downloadCapture(capture) {
-  const bytes = new TextEncoder().encode(JSON.stringify(capture)).byteLength;
-  if (bytes > OPERATOR.MAX_CAPTURE_BYTES) throw new Error("capture exceeds admitted byte ceiling");
-  const blob = new Blob([JSON.stringify(capture, null, 2) + "\n"], { type: "application/json" });
+  const serialized = serializeCaptureForDownload(capture);
+  const blob = new Blob([serialized], { type: "application/json" });
   const localObject = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = localObject;
@@ -264,13 +328,17 @@ async function runPlan() {
         updateInspection(response.inspection);
       } else if (current.kind === "probe-call") {
         const args = PLAN.resolveStepArgs(current, state.bindings, state.resultRefs);
+        if (MUTATING_METHODS.has(current.method)) state.probeMutationPossible = true;
         const response = await sessionMessage("invoke", { method: current.method, args });
         updateInspection(response.inspection);
+        if (current.method === "exportCapture" && current.captureUse === "preflight") {
+          requirePristineCapture(response.result);
+        }
         if (current.saveResultAs) {
           if (typeof response.result !== "string" || !/^opaque:[0-9a-f]{32}$/.test(response.result)) throw Object.assign(new Error("saved member result is not an admitted opaque identifier"), { code: "RESULT_VALUE_INVALID" });
           state.resultRefs.set(current.saveResultAs, response.result);
         }
-        if (current.method === "exportCapture") downloadCapture(response.result);
+        if (current.method === "exportCapture" && current.captureUse === "download") downloadCapture(response.result);
       } else throw Object.assign(new Error(`unsupported step kind ${current.kind}`), { code: "STEP_KIND_INVALID" });
       state.nextIndex += 1;
       el.completed.textContent = String(state.nextIndex);
