@@ -1,0 +1,221 @@
+name: STC MARY Packet Evidence Admission 01
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/stc-mary-packet-evidence-admission-01.yml"
+      - "mating_surface/anchor_node/STC-MARY-PACKET-EVIDENCE-ADMISSION-01.md"
+      - "mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json"
+      - "mating_surface/anchor_node/stc-mary-packet-evidence-admission.ps1"
+      - "mating_surface/anchor_node/stc_mary_packet_evidence_admission.py"
+      - "mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py"
+      - "mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py"
+      - "mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/stc-mary-packet-evidence-admission-01.yml"
+      - "mating_surface/anchor_node/STC-MARY-PACKET-EVIDENCE-ADMISSION-01.md"
+      - "mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json"
+      - "mating_surface/anchor_node/stc-mary-packet-evidence-admission.ps1"
+      - "mating_surface/anchor_node/stc_mary_packet_evidence_admission.py"
+      - "mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py"
+      - "mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py"
+      - "mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+        coordinate: ${{ fromJSON(github.event_name == 'pull_request' && '["head","merge"]' || '["head"]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve exact Git coordinate
+        id: coordinate
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ matrix.coordinate }}" == "head" ]]; then
+            echo "ref=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out exact coordinate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.coordinate.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Materialize authoritative source from exact Git blobs
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+
+          ref = os.environ["SOURCE_REF"]
+          profile_path = "mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json"
+          profile = json.loads(subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{profile_path}"]))
+          for relative in profile["admissionSourceMembers"]:
+              data = subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{relative}"])
+              path = pathlib.Path(relative)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+              if b"\r" in data:
+                  raise SystemExit(f"authoritative source contains CR bytes: {relative}")
+          PY
+
+      - name: Refuse any frozen packet-runtime change on this branch
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          ref = os.environ["SOURCE_REF"]
+          profile_path = "mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json"
+          profile = json.loads(subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{profile_path}"]))
+          frozen = set(profile["frozenRuntimeMembers"])
+          admission = set(profile["admissionSourceMembers"])
+          overlap = frozen & admission
+          if overlap:
+              sys.exit(f"admission source claims frozen packet-runtime members: {sorted(overlap)}")
+
+          base = subprocess.check_output(["git", "merge-base", "origin/main", ref], text=True).strip()
+          changed = set(
+              subprocess.check_output(["git", "diff", "--name-only", base, ref], text=True).split()
+          )
+          touched = sorted(frozen & changed)
+          if touched:
+              sys.exit(
+                  "this transaction may not modify the frozen packet runtime; "
+                  f"the future-runtime repair is a separate issue and branch: {touched}"
+              )
+
+          # The additive product boundary is closed: this branch may add only its own
+          # eight members. Anything else is a different transaction.
+          added = sorted(path for path in changed if path not in admission)
+          if added:
+              sys.exit(f"this transaction may only carry its own eight admission source members: {added}")
+          print("frozen packet runtime is untouched and the product boundary is closed")
+          PY
+
+      - name: Compile source
+        shell: bash
+        run: |
+          python -m py_compile \
+            mating_surface/anchor_node/stc_mary_packet_evidence_admission.py \
+            mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py \
+            mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py
+
+      - name: Report admitted profile digest
+        shell: bash
+        run: |
+          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py profile-digest
+
+      - name: Report admission source set
+        shell: bash
+        run: |
+          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py source-set
+
+      - name: Report the closed evidence denominator
+        shell: bash
+        run: |
+          python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py denominator
+
+      - name: Refuse any path from this gate to the frozen packet recorder
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          profile = json.loads(
+              pathlib.Path(
+                  "mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json"
+              ).read_text(encoding="utf-8")
+          )
+          # The gate must be structurally incapable of recording a stage. It may not name
+          # the frozen recorder module, and it may not emit or assign the recorder's
+          # self-declared operator Boolean. `operatorConfirmedFlagsSet` is this product's
+          # own always-zero counter and is deliberately not the same token.
+          forbidden = ("stc_mary_private_flight_packet", '"operatorConfirmed"', "operatorConfirmed=")
+          # The conformance witness carries the same token list, because it asserts this
+          # invariant itself over every other member. Scanning it would match its own
+          # detector rather than a real reachable path.
+          exempt = {
+              ".github/workflows/stc-mary-packet-evidence-admission-01.yml",
+              "mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py",
+          }
+          for relative in profile["admissionSourceMembers"]:
+              if relative in exempt or not relative.endswith(".py"):
+                  continue
+              text = pathlib.Path(relative).read_text(encoding="utf-8")
+              for token in forbidden:
+                  if token in text:
+                      sys.exit(f"admission source can reach the frozen recorder via {token!r}: {relative}")
+          print("no admission source member can record a packet stage")
+          PY
+
+      - name: Run closed hostile witness denominator
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_packet_evidence_admission.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/stc-mary-packet-evidence-admission-tests.txt"
+          grep -F "OK" "$RUNNER_TEMP/stc-mary-packet-evidence-admission-tests.txt"
+
+      - name: Refuse private material in the public surface
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          profile = json.loads(
+              pathlib.Path(
+                  "mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json"
+              ).read_text(encoding="utf-8")
+          )
+          forbidden = ("private-flight-local-01", "octo-", "C:\\\\Users", "D:\\\\Projects", "S:\\\\")
+          # This workflow carries the token list above, so scanning it would match its own
+          # detector rather than a leak. Every other admission source member is scanned.
+          scanner = ".github/workflows/stc-mary-packet-evidence-admission-01.yml"
+          for relative in profile["admissionSourceMembers"]:
+              if relative == scanner:
+                  continue
+              text = pathlib.Path(relative).read_text(encoding="utf-8")
+              for token in forbidden:
+                  if token in text:
+                      sys.exit(f"public source member exposes private surface {token!r}: {relative}")
+          print("public admission source carries no private campaign coordinate")
+          PY

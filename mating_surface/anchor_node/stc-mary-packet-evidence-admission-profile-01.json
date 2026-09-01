@@ -1,0 +1,1251 @@
+{
+  "admissionSourceMembers": [
+    ".github/workflows/stc-mary-packet-evidence-admission-01.yml",
+    "mating_surface/anchor_node/STC-MARY-PACKET-EVIDENCE-ADMISSION-01.md",
+    "mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py",
+    "mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json",
+    "mating_surface/anchor_node/stc-mary-packet-evidence-admission.ps1",
+    "mating_surface/anchor_node/stc_mary_packet_evidence_admission.py",
+    "mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py",
+    "mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py"
+  ],
+  "admissionSourceSetClaimBoundary": "Exact packet-evidence-admission source set. It identifies source bytes and grants no authority.",
+  "admissionSourceSetIdKey": "sourceSetId",
+  "admissionSourceSetIdPrefix": "stcmarypacketevidenceadmissionsourceset1",
+  "admissionSourceSetSchema": "stc-mary/packet-evidence-admission-source-set/1",
+  "batchConfirmation": {
+    "idKey": "batchConfirmationId",
+    "idPrefix": "stcmarypacketevidencebatchconfirmation1",
+    "keys": [
+      "actorClass",
+      "authenticationBinding",
+      "authority",
+      "batchConfirmationId",
+      "campaignId",
+      "claimBoundary",
+      "issuedAtUnixNs",
+      "packetId",
+      "schema",
+      "stageCount",
+      "stages"
+    ],
+    "requiredStageCount": 16,
+    "schema": "stc-mary/packet-evidence-batch-confirmation/1",
+    "stageKeys": [
+      "controlQuestionResponse",
+      "decisionCode",
+      "evidenceAdmissionRoot",
+      "observationDigest",
+      "requiredTerminal",
+      "sequence",
+      "stage"
+    ]
+  },
+  "bodySchemas": {
+    "accepted_predecessor_receipt": {
+      "idKey": "predecessorReceiptId",
+      "idPrefix": "stcmarypacketevidencepredecessorreceipt1",
+      "keys": [
+        "acceptedPredecessorCoordinate",
+        "authority",
+        "campaignId",
+        "canonicalMissionStateDigest",
+        "capturedAtUnixNs",
+        "claimBoundary",
+        "evidenceRole",
+        "packetId",
+        "predecessorReceiptId",
+        "provenanceClass",
+        "reuseClass",
+        "schema",
+        "semanticPredicates",
+        "sequence",
+        "sourceCampaignId",
+        "sourceReceiptId",
+        "stage"
+      ],
+      "requiredReuseClass": "reused_pre_stage_receipt",
+      "schema": "stc-mary/packet-evidence-predecessor-receipt/1"
+    },
+    "current_local_observation": {
+      "idKey": "currentObservationId",
+      "idPrefix": "stcmarypacketevidencecurrentobservation1",
+      "keys": [
+        "authority",
+        "campaignId",
+        "canonicalMissionStateDigest",
+        "capturedAtUnixNs",
+        "claimBoundary",
+        "claimsHistoricalTransition",
+        "currentObservationId",
+        "evidenceRole",
+        "observationTransactionId",
+        "packetId",
+        "provenanceClass",
+        "schema",
+        "semanticPredicates",
+        "sequence",
+        "sourceObservationId",
+        "stage"
+      ],
+      "schema": "stc-mary/packet-evidence-current-observation/1"
+    },
+    "named_human_statement": {
+      "conflictRequirements": {
+        "automaticMerge": false,
+        "retainedBranchCount": 2,
+        "terminalOrRetainedObligation": "HUMAN_REQUIRED"
+      },
+      "conflictStage": "RESTORE_LINK_HOLD_CONFLICT",
+      "forbiddenActorClasses": [
+        "agent",
+        "automation",
+        "machine",
+        "model",
+        "packet_runner",
+        "scheduler",
+        "tool",
+        "verifier"
+      ],
+      "idKey": "humanStatementId",
+      "idPrefix": "stcmarypacketevidencehumanstatement1",
+      "keys": [
+        "acceptedEvidenceIds",
+        "actorClass",
+        "authenticationBinding",
+        "authority",
+        "automaticMerge",
+        "campaignId",
+        "canonicalMissionStateDigest",
+        "claimBoundary",
+        "evidenceRole",
+        "humanStatementId",
+        "issuedAtUnixNs",
+        "packetId",
+        "provenanceClass",
+        "retainedBranches",
+        "schema",
+        "selectedWinner",
+        "semanticPredicates",
+        "sequence",
+        "stage",
+        "statementScope",
+        "terminalOrRetainedObligation"
+      ],
+      "requiredActorClass": "named_human",
+      "schema": "stc-mary/packet-evidence-human-statement/1"
+    }
+  },
+  "claimBoundary": "Pre-record admission contract for one already configured, unrecorded private flight packet. It independently reads and measures proposed private evidence bodies, validates their schema, content identity, campaign and stage binding, provenance, and exact stage semantic predicates, prepares two named-human statement forms and sixteen exact stage decision records, and emits one body-free admission receipt. It never calls the packet recorder, never sets operatorConfirmed, never records a packet stage, never signs or completes a human statement or stage confirmation, never mutates the packet, and grants no physical-Estate, representative-operator, field-network, operational-C2, production-Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority.",
+  "confirmation": {
+    "admittingDecisionCode": "RECORD_STAGE",
+    "decisionCodes": [
+      "HOLD_STAGE",
+      "RECORD_STAGE",
+      "REFUSE_STAGE"
+    ],
+    "forbiddenActorClasses": [
+      "agent",
+      "automation",
+      "machine",
+      "model",
+      "packet_runner",
+      "scheduler",
+      "tool",
+      "verifier"
+    ],
+    "holdingDecisionCode": "HOLD_STAGE",
+    "idKey": "stageConfirmationId",
+    "idPrefix": "stcmarypacketevidencestageconfirmation1",
+    "keys": [
+      "actorClass",
+      "authenticationBinding",
+      "authority",
+      "campaignId",
+      "claimBoundary",
+      "controlQuestionResponse",
+      "decisionCode",
+      "evidenceAdmissionRoot",
+      "issuedAtUnixNs",
+      "observationDigest",
+      "packetId",
+      "requiredTerminal",
+      "schema",
+      "sequence",
+      "stage",
+      "stageConfirmationId"
+    ],
+    "requiredActorClass": "named_human",
+    "schema": "stc-mary/packet-evidence-stage-confirmation/1"
+  },
+  "denominator": {
+    "availabilityClassCounts": {
+      "MISSING_HISTORICAL_PHYSICAL_EVIDENCE": 0,
+      "READY_FROM_ACCEPTED_RECEIPTS": 7,
+      "REFUSED_AS_UNRECOVERABLE": 0,
+      "REQUIRES_CURRENT_LOCAL_OBSERVATION": 7,
+      "REQUIRES_HUMAN_STATEMENT": 2
+    },
+    "evidenceRoleDenominator": 43,
+    "humanStatementRoleCount": 2,
+    "nonHumanEvidenceRoleCount": 41,
+    "stageConfirmationDenominator": 16,
+    "stageDenominator": 16
+  },
+  "descriptorKeys": [
+    "authority",
+    "bodyBytes",
+    "bodyContentId",
+    "bodyPath",
+    "bodySchema",
+    "bodySha256",
+    "claimBoundary",
+    "evidenceClass",
+    "evidenceRole",
+    "instrumentReceiptPath",
+    "mediaType",
+    "opaqueInstrumentClass",
+    "provenanceClass"
+  ],
+  "digests": {
+    "admissionRootPrefix": "stcmarypacketevidenceadmissionroot1",
+    "fencePrefix": "stcmarypacketevidenceadmissionfence1",
+    "observationDigestPrefix": "stcmarypacketevidenceobservationdigest1",
+    "stageEvidenceRootPrefix": "stcmarypacketevidencestageroot1"
+  },
+  "evidenceClassByProvenance": {
+    "accepted_predecessor_receipt": [
+      "private_instrument_receipt",
+      "private_local_attestation"
+    ],
+    "current_local_observation": [
+      "private_local_attestation"
+    ],
+    "named_human_statement": [
+      "private_operator_statement"
+    ]
+  },
+  "frozenRuntimeMembers": [
+    "mating_surface/anchor_node/stc-mary-flight-conductor-profile-01.json",
+    "mating_surface/anchor_node/stc-mary-physical-flight-profile-01.json",
+    "mating_surface/anchor_node/stc-mary-private-flight-packet-profile-01.json",
+    "mating_surface/anchor_node/stc_mary_flight_conductor.py",
+    "mating_surface/anchor_node/stc_mary_physical_flight.mjs",
+    "mating_surface/anchor_node/stc_mary_private_flight_packet.mjs"
+  ],
+  "mediaTypeByProvenance": {
+    "accepted_predecessor_receipt": [
+      "application/json"
+    ],
+    "current_local_observation": [
+      "application/json"
+    ],
+    "named_human_statement": [
+      "application/json"
+    ]
+  },
+  "observationTransaction": {
+    "idKey": "observationTransactionId",
+    "idPrefix": "stcmarypacketevidenceobservationtransaction1",
+    "keys": [
+      "endedAtUnixNs",
+      "observationTransactionId",
+      "schema",
+      "startedAtUnixNs"
+    ],
+    "maxWindowNs": 86400000000000,
+    "schema": "stc-mary/packet-evidence-observation-transaction/1"
+  },
+  "opaqueInstrument": {
+    "admittedInstrumentClasses": [
+      "local_device_enumeration_capture",
+      "local_power_and_residency_capture",
+      "local_route_enumeration_capture"
+    ],
+    "mediaTypes": [
+      "application/octet-stream"
+    ],
+    "provenanceClass": "current_local_observation",
+    "receiptIdKey": "instrumentReceiptId",
+    "receiptIdPrefix": "stcmarypacketevidenceinstrumentreceipt1",
+    "receiptKeys": [
+      "authority",
+      "campaignId",
+      "canonicalMissionStateDigest",
+      "capturedAtUnixNs",
+      "claimBoundary",
+      "evidenceRole",
+      "instrumentClass",
+      "instrumentReceiptId",
+      "observationTransactionId",
+      "opaqueBodyBytes",
+      "opaqueBodySha256",
+      "packetId",
+      "provenanceClass",
+      "schema",
+      "semanticPredicates",
+      "sequence",
+      "stage"
+    ],
+    "receiptSchema": "stc-mary/packet-evidence-instrument-receipt/1"
+  },
+  "packet": {
+    "configFile": "flight-config.json",
+    "configKeys": [
+      "authority",
+      "campaignLabel",
+      "canonicalMissionStateDigest",
+      "claimBoundary",
+      "identityClasses",
+      "schema",
+      "sourceObjectDigests"
+    ],
+    "configSchema": "stc-mary-private-flight-packet-config/1",
+    "markerFile": "PACKET-ROOT.json",
+    "markerIdKey": "markerId",
+    "markerIdPrefix": "stcmaryprivateflightpacketroot1",
+    "markerKeys": [
+      "authority",
+      "campaignLabel",
+      "claimBoundary",
+      "markerId",
+      "packetId",
+      "packetProfileId",
+      "physicalProfileId",
+      "schema"
+    ],
+    "markerSchema": "stc-mary-private-flight-packet-root/1",
+    "requiredCompletedStageCount": 0,
+    "requiredConfigurationState": "configured",
+    "requiredSealed": false,
+    "stateFile": "packet-state.json",
+    "stateIdKey": "stateId",
+    "stateIdPrefix": "stcmaryprivateflightpacketstate1",
+    "stateKeys": [
+      "authority",
+      "campaignLabel",
+      "claimBoundary",
+      "completedStageCount",
+      "configurationState",
+      "nextStage",
+      "packetId",
+      "packetProfileId",
+      "physicalProfileId",
+      "schema",
+      "sealed",
+      "sealedDispositionId",
+      "stageDenominator",
+      "stages",
+      "stateId"
+    ],
+    "stateSchema": "stc-mary-private-flight-packet-state/1"
+  },
+  "predecessorPacketProfileId": "stc-mary/private-flight-packet/0.1",
+  "predecessorPhysicalProfileId": "spectra-anchor-node/stc-mary-physical-flight/0.1",
+  "profileId": "stc-mary/packet-evidence-admission@1",
+  "provenanceClasses": [
+    "accepted_predecessor_receipt",
+    "current_local_observation",
+    "named_human_statement"
+  ],
+  "request": {
+    "acceptedPredecessorKeys": [
+      "acceptedPredecessorCoordinate",
+      "campaignId",
+      "sourceReceiptIds"
+    ],
+    "fileName": "ADMISSION-REQUEST.json",
+    "idKey": "requestId",
+    "idPrefix": "stcmarypacketevidenceadmissionrequest1",
+    "keys": [
+      "acceptedPredecessorGraph",
+      "authority",
+      "batchConfirmation",
+      "campaignId",
+      "canonicalMissionStateDigest",
+      "claimBoundary",
+      "observationTransaction",
+      "packetId",
+      "requestId",
+      "schema",
+      "stageConfirmations",
+      "stages"
+    ],
+    "schema": "stc-mary/packet-evidence-admission-request/1",
+    "stageKeys": [
+      "availabilityClass",
+      "evidence",
+      "observation",
+      "sequence",
+      "stage"
+    ]
+  },
+  "schema": "stc-mary/packet-evidence-admission-profile/1",
+  "stageSequence": [
+    "VERIFY_INPUTS",
+    "MOUNT_PERSONAL_FLOOR",
+    "BIND_GRACE",
+    "RUN_PERSONAL_FLOOR_BASELINE",
+    "ATTACH_HALO3",
+    "RUN_HALO3_ACCELERATED",
+    "REMOVE_HALO3",
+    "VERIFY_PERSONAL_FLOOR_CONTINUITY",
+    "REMOVE_LATTICE",
+    "VERIFY_LOCAL_CONTINUITY",
+    "PARTITION_TWO_CELLS",
+    "RESTORE_LINK_HOLD_CONFLICT",
+    "REPLACE_HEAD",
+    "REBUILD_PROJECTIONS",
+    "COLD_SUCCESSOR_VERIFY",
+    "SEAL_PRIVATE_EVIDENCE"
+  ],
+  "stages": {
+    "ATTACH_HALO3": {
+      "availabilityClass": "REQUIRES_CURRENT_LOCAL_OBSERVATION",
+      "controlQuestion": "Was HALO3 added as optional capacity without changing canonical state or authority?",
+      "evidenceRoleDenominator": 3,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "device attachment receipt",
+          "evidenceRoleKey": "device-attachment-receipt",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "acceleratorPresentNow": true,
+            "attachmentObservedInThisTransaction": true
+          }
+        },
+        {
+          "evidenceRole": "runtime enumeration",
+          "evidenceRoleKey": "runtime-enumeration",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "acceleratorEnumeratedAsOptional": true,
+            "runtimeEnumeratedNow": true
+          }
+        },
+        {
+          "evidenceRole": "power and residency receipt",
+          "evidenceRoleKey": "power-and-residency-receipt",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "powerObservedNow": true,
+            "residencyObservedNow": true
+          }
+        }
+      ],
+      "observation": {
+        "boundedStringFields": [
+          "halo3SeatIdentityClass"
+        ],
+        "keys": [
+          "attached",
+          "halo3SeatIdentityClass",
+          "optional"
+        ],
+        "requiredValues": {
+          "attached": true,
+          "optional": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 5
+    },
+    "BIND_GRACE": {
+      "availabilityClass": "REQUIRES_HUMAN_STATEMENT",
+      "controlQuestion": "Is the human bind explicit, current, and distinct from every machine identity?",
+      "evidenceRoleDenominator": 2,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "operator statement",
+          "evidenceRoleKey": "operator-statement",
+          "provenanceClass": "named_human_statement",
+          "requiredPredicates": {
+            "machineIdentitiesNonAuthoritative": true,
+            "namedHumanBindDeclared": true
+          }
+        },
+        {
+          "evidenceRole": "authority-boundary receipt",
+          "evidenceRoleKey": "authority-boundary-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "authoritySourceIsNamedHumanBind": true,
+            "hardwareModelSchedulerVerifierNonAuthoritative": true
+          }
+        }
+      ],
+      "observation": {
+        "boundedStringFields": [
+          "humanBindIdentityClass"
+        ],
+        "keys": [
+          "authoritySource",
+          "bound",
+          "humanBindIdentityClass"
+        ],
+        "requiredValues": {
+          "authoritySource": "named_human_bind",
+          "bound": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 3
+    },
+    "COLD_SUCCESSOR_VERIFY": {
+      "availabilityClass": "REQUIRES_CURRENT_LOCAL_OBSERVATION",
+      "controlQuestion": "Can a successor continue safely without relying on the previous operator's memory?",
+      "evidenceRoleDenominator": 3,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "cold-start receipt",
+          "evidenceRoleKey": "cold-start-receipt",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "coldStartObservedNow": true,
+            "priorOperatorMemoryNotRequired": true
+          }
+        },
+        {
+          "evidenceRole": "successor verification",
+          "evidenceRoleKey": "successor-verification",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "authorityBoundaryRecoveredNow": true,
+            "cartridgeRecoveredNow": true
+          }
+        },
+        {
+          "evidenceRole": "obligation recovery receipt",
+          "evidenceRoleKey": "obligation-recovery-receipt",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "nextSafeActionDerivable": true,
+            "obligationsRecoveredNow": true
+          }
+        }
+      ],
+      "observation": {
+        "boundedStringFields": [
+          "successorHeadIdentityClass"
+        ],
+        "keys": [
+          "recoveredAuthorityBoundary",
+          "recoveredCartridge",
+          "recoveredObligations",
+          "successorHeadIdentityClass",
+          "verificationState"
+        ],
+        "requiredValues": {
+          "recoveredAuthorityBoundary": true,
+          "recoveredCartridge": true,
+          "recoveredObligations": true,
+          "verificationState": "pass"
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 15
+    },
+    "MOUNT_PERSONAL_FLOOR": {
+      "availabilityClass": "READY_FROM_ACCEPTED_RECEIPTS",
+      "controlQuestion": "Can the personal floor hold the mission without any optional accelerator or external membrane?",
+      "evidenceRoleDenominator": 2,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "resident seat inventory",
+          "evidenceRoleKey": "resident-seat-inventory",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "acceleratorAbsentAtMount": true,
+            "residentSeatEnumerated": true
+          }
+        },
+        {
+          "evidenceRole": "mount and storage receipt",
+          "evidenceRoleKey": "mount-and-storage-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "missionClosedOnResidentFloor": true,
+            "seatMounted": true
+          }
+        }
+      ],
+      "observation": {
+        "boundedStringFields": [
+          "personalFloorSeatIdentityClass"
+        ],
+        "keys": [
+          "missionClosed",
+          "mounted",
+          "personalFloorSeatIdentityClass"
+        ],
+        "requiredValues": {
+          "missionClosed": true,
+          "mounted": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 2
+    },
+    "PARTITION_TWO_CELLS": {
+      "availabilityClass": "READY_FROM_ACCEPTED_RECEIPTS",
+      "controlQuestion": "Are both cells locally valid, independently bounded, and unable to manufacture broader authority?",
+      "evidenceRoleDenominator": 3,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "partition receipt",
+          "evidenceRoleKey": "partition-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "linkDeniedUnderPartition": true,
+            "twoCellsCreated": true
+          }
+        },
+        {
+          "evidenceRole": "left-cell state receipt",
+          "evidenceRoleKey": "left-cell-state-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "cellAuthorityNotWidened": true,
+            "cellLocallyValid": true
+          }
+        },
+        {
+          "evidenceRole": "right-cell state receipt",
+          "evidenceRoleKey": "right-cell-state-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "cellAuthorityNotWidened": true,
+            "cellLocallyValid": true
+          }
+        }
+      ],
+      "observation": {
+        "integerFields": {
+          "cellCount": [
+            2,
+            2
+          ]
+        },
+        "keys": [
+          "authorityWidened",
+          "cellCount",
+          "cellIdentityClasses",
+          "eachCellLocallyValid"
+        ],
+        "requiredValues": {
+          "authorityWidened": false,
+          "eachCellLocallyValid": true
+        },
+        "uniqueStringArrayFields": {
+          "cellIdentityClasses": 2
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 11
+    },
+    "REBUILD_PROJECTIONS": {
+      "availabilityClass": "REQUIRES_CURRENT_LOCAL_OBSERVATION",
+      "controlQuestion": "Can every destructible projection be reconstructed without becoming canonical state?",
+      "evidenceRoleDenominator": 3,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "projection deletion receipt",
+          "evidenceRoleKey": "projection-deletion-receipt",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "canonicalStateUntouched": true,
+            "projectionsDestroyedNow": true
+          }
+        },
+        {
+          "evidenceRole": "projection rebuild receipt",
+          "evidenceRoleKey": "projection-rebuild-receipt",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "projectionsRebuiltNow": true,
+            "rebuiltFromCanonicalReceiptsOnly": true
+          }
+        },
+        {
+          "evidenceRole": "projection digest root",
+          "evidenceRoleKey": "projection-digest-root",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "projectionDigestRootComputedNow": true,
+            "projectionsAreNotCanonical": true
+          }
+        }
+      ],
+      "observation": {
+        "contentIdFields": [
+          "projectionDigestRoot"
+        ],
+        "exactStringArrayFields": {
+          "projectionKinds": [
+            "graph",
+            "query",
+            "cache",
+            "review"
+          ]
+        },
+        "keys": [
+          "projectionDigestRoot",
+          "projectionKinds",
+          "rebuiltFromCanonicalReceipts"
+        ],
+        "requiredValues": {
+          "rebuiltFromCanonicalReceipts": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 14
+    },
+    "REMOVE_HALO3": {
+      "availabilityClass": "REQUIRES_CURRENT_LOCAL_OBSERVATION",
+      "controlQuestion": "Is HALO3 demonstrably absent or inaccessible while the personal floor remains intact?",
+      "evidenceRoleDenominator": 2,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "device removal receipt",
+          "evidenceRoleKey": "device-removal-receipt",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "absenceObservedInThisTransaction": true,
+            "acceleratorAbsentNow": true
+          }
+        },
+        {
+          "evidenceRole": "post-removal runtime enumeration",
+          "evidenceRoleKey": "post-removal-runtime-enumeration",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "acceleratorNotEnumerated": true,
+            "runtimeEnumeratedNow": true
+          }
+        }
+      ],
+      "observation": {
+        "boundedStringFields": [
+          "halo3SeatIdentityClass"
+        ],
+        "keys": [
+          "attached",
+          "halo3SeatIdentityClass",
+          "removalReceiptPresent"
+        ],
+        "requiredValues": {
+          "attached": false,
+          "removalReceiptPresent": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 7
+    },
+    "REMOVE_LATTICE": {
+      "availabilityClass": "REQUIRES_CURRENT_LOCAL_OBSERVATION",
+      "controlQuestion": "Is the external membrane absent without deleting or owning canonical local state?",
+      "evidenceRoleDenominator": 2,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "membrane removal receipt",
+          "evidenceRoleKey": "membrane-removal-receipt",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "absenceObservedInThisTransaction": true,
+            "membraneAbsentNow": true
+          }
+        },
+        {
+          "evidenceRole": "local route inventory",
+          "evidenceRoleKey": "local-route-inventory",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "localRoutesEnumeratedNow": true,
+            "noExternalMembraneRoute": true
+          }
+        }
+      ],
+      "observation": {
+        "boundedStringFields": [
+          "latticeIdentityClass"
+        ],
+        "keys": [
+          "latticeIdentityClass",
+          "present",
+          "removalReceiptPresent"
+        ],
+        "requiredValues": {
+          "present": false,
+          "removalReceiptPresent": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 9
+    },
+    "REPLACE_HEAD": {
+      "availabilityClass": "READY_FROM_ACCEPTED_RECEIPTS",
+      "controlQuestion": "Did the successor recover the cartridge and state while remaining a replaceable carrier rather than an authority source?",
+      "evidenceRoleDenominator": 3,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "old HEAD receipt",
+          "evidenceRoleKey": "old-head-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "carrierIsReplaceable": true,
+            "originalCarrierIdentified": true
+          }
+        },
+        {
+          "evidenceRole": "successor HEAD receipt",
+          "evidenceRoleKey": "successor-head-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "authorityNotTransferred": true,
+            "successorCarrierIdentified": true
+          }
+        },
+        {
+          "evidenceRole": "state-copy verification",
+          "evidenceRoleKey": "state-copy-verification",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "copyVerifiedAgainstCanonicalState": true,
+            "stateCopiedByDigest": true
+          }
+        }
+      ],
+      "observation": {
+        "boundedStringFields": [
+          "newHeadIdentityClass",
+          "oldHeadIdentityClass"
+        ],
+        "distinctFieldPairs": [
+          [
+            "oldHeadIdentityClass",
+            "newHeadIdentityClass"
+          ]
+        ],
+        "keys": [
+          "authorityTransferred",
+          "canonicalStateCopiedByDigest",
+          "newHeadIdentityClass",
+          "oldHeadIdentityClass",
+          "replacementAccepted"
+        ],
+        "requiredValues": {
+          "authorityTransferred": false,
+          "canonicalStateCopiedByDigest": true,
+          "replacementAccepted": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 13
+    },
+    "RESTORE_LINK_HOLD_CONFLICT": {
+      "availabilityClass": "REQUIRES_HUMAN_STATEMENT",
+      "controlQuestion": "Did reconnection preserve both divergent states and defer disposition to the named human authority?",
+      "evidenceRoleDenominator": 3,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "link restoration receipt",
+          "evidenceRoleKey": "link-restoration-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "automaticMergeProhibited": true,
+            "linkRestored": true
+          }
+        },
+        {
+          "evidenceRole": "conflict comparison",
+          "evidenceRoleKey": "conflict-comparison",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "bothBranchesRetained": true,
+            "branchDigestsDistinct": true
+          }
+        },
+        {
+          "evidenceRole": "human-required obligation receipt",
+          "evidenceRoleKey": "human-required-obligation-receipt",
+          "provenanceClass": "named_human_statement",
+          "requiredPredicates": {
+            "noWinnerSelected": true,
+            "obligationRetainedForNamedHuman": true
+          }
+        }
+      ],
+      "observation": {
+        "distinctFieldPairs": [
+          [
+            "leftStateDigest",
+            "rightStateDigest"
+          ]
+        ],
+        "keys": [
+          "automaticMerge",
+          "conflictDetected",
+          "leftStateDigest",
+          "linkRestored",
+          "resolution",
+          "rightStateDigest"
+        ],
+        "requiredValues": {
+          "automaticMerge": false,
+          "conflictDetected": true,
+          "linkRestored": true,
+          "resolution": "human_required"
+        },
+        "sha256Fields": [
+          "leftStateDigest",
+          "rightStateDigest"
+        ]
+      },
+      "requiredTerminal": "HUMAN_REQUIRED",
+      "sequence": 12
+    },
+    "RUN_HALO3_ACCELERATED": {
+      "availabilityClass": "READY_FROM_ACCEPTED_RECEIPTS",
+      "controlQuestion": "Did HALO3 accelerate the same accepted output rather than substitute a different mission result?",
+      "evidenceRoleDenominator": 4,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "accelerated command receipt",
+          "evidenceRoleKey": "accelerated-command-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "acceleratedCommandRetained": true,
+            "sameMissionWorkload": true
+          }
+        },
+        {
+          "evidenceRole": "accelerated output",
+          "evidenceRoleKey": "accelerated-output",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "outputDigestRetained": true,
+            "outputPredicatePreserved": true
+          }
+        },
+        {
+          "evidenceRole": "verifier receipt",
+          "evidenceRoleKey": "verifier-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "independentVerifierPassed": true,
+            "verifierDistinctFromRunner": true
+          }
+        },
+        {
+          "evidenceRole": "performance comparison",
+          "evidenceRoleKey": "performance-comparison",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "comparableThroughputUnits": true,
+            "fasterThanBaselineProven": true
+          }
+        }
+      ],
+      "observation": {
+        "contentIdFields": [
+          "outputDigest"
+        ],
+        "integerFields": {
+          "throughputUnits": [
+            1,
+            1000000000
+          ]
+        },
+        "keys": [
+          "fasterThanBaseline",
+          "outputDigest",
+          "throughputUnits",
+          "verifierState"
+        ],
+        "requiredValues": {
+          "fasterThanBaseline": true,
+          "verifierState": "pass"
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 6
+    },
+    "RUN_PERSONAL_FLOOR_BASELINE": {
+      "availabilityClass": "READY_FROM_ACCEPTED_RECEIPTS",
+      "controlQuestion": "Did the resident floor produce the accepted output before HALO3 was attached?",
+      "evidenceRoleDenominator": 3,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "baseline command receipt",
+          "evidenceRoleKey": "baseline-command-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "baselineCommandRetained": true,
+            "executedOnResidentFloor": true
+          }
+        },
+        {
+          "evidenceRole": "baseline output",
+          "evidenceRoleKey": "baseline-output",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "outputDigestMatchesObservation": true,
+            "outputDigestRetained": true
+          }
+        },
+        {
+          "evidenceRole": "verifier receipt",
+          "evidenceRoleKey": "verifier-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "independentVerifierPassed": true,
+            "verifierDistinctFromRunner": true
+          }
+        }
+      ],
+      "observation": {
+        "contentIdFields": [
+          "outputDigest"
+        ],
+        "integerFields": {
+          "throughputUnits": [
+            1,
+            1000000000
+          ]
+        },
+        "keys": [
+          "outputDigest",
+          "throughputUnits",
+          "verifierState"
+        ],
+        "requiredValues": {
+          "verifierState": "pass"
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 4
+    },
+    "SEAL_PRIVATE_EVIDENCE": {
+      "availabilityClass": "REQUIRES_CURRENT_LOCAL_OBSERVATION",
+      "controlQuestion": "Are all private bodies still local while the public disposition contains only content identities, counts, and claim boundaries?",
+      "evidenceRoleDenominator": 3,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "evidence manifest",
+          "evidenceRoleKey": "evidence-manifest",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "descriptorsAreDigestOnly": true,
+            "evidenceBodiesHashedNow": true
+          }
+        },
+        {
+          "evidenceRole": "sealed run",
+          "evidenceRoleKey": "sealed-run",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "privateBodiesRemainLocal": true,
+            "runSealedNow": true
+          }
+        },
+        {
+          "evidenceRole": "body-free public disposition",
+          "evidenceRoleKey": "body-free-public-disposition",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "dispositionIsBodyFree": true,
+            "privateBodiesNotCommittedToGit": true
+          }
+        }
+      ],
+      "observation": {
+        "enumFields": {
+          "sealedEvidenceClass": [
+            "private_physical_attested",
+            "synthetic_simulation"
+          ]
+        },
+        "integerFields": {
+          "evidenceDescriptorCount": [
+            1,
+            1024
+          ]
+        },
+        "keys": [
+          "evidenceDescriptorCount",
+          "privateEvidenceBodiesCommittedToGit",
+          "publicDispositionBodyFree",
+          "sealedEvidenceClass"
+        ],
+        "requiredValues": {
+          "privateEvidenceBodiesCommittedToGit": false,
+          "publicDispositionBodyFree": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 16
+    },
+    "VERIFY_INPUTS": {
+      "availabilityClass": "READY_FROM_ACCEPTED_RECEIPTS",
+      "controlQuestion": "Do the local inputs match the exact cartridge and source identities declared for this flight?",
+      "evidenceRoleDenominator": 2,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "input inventory receipt",
+          "evidenceRoleKey": "input-inventory-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "admittedInputsInventoried": true,
+            "cartridgeIdentityBound": true
+          }
+        },
+        {
+          "evidenceRole": "source digest receipt",
+          "evidenceRoleKey": "source-digest-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "digestsMatchConfiguredCampaign": true,
+            "sourceObjectDigestsBound": true
+          }
+        }
+      ],
+      "observation": {
+        "contentIdFields": [
+          "inputDigestRoot"
+        ],
+        "keys": [
+          "inputDigestRoot",
+          "profileValidated",
+          "sourceObjectsVerified"
+        ],
+        "requiredValues": {
+          "profileValidated": true,
+          "sourceObjectsVerified": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 1
+    },
+    "VERIFY_LOCAL_CONTINUITY": {
+      "availabilityClass": "REQUIRES_CURRENT_LOCAL_OBSERVATION",
+      "controlQuestion": "Can the local cell reconstruct its state and obligations without Lattice?",
+      "evidenceRoleDenominator": 2,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "canonical-state recovery receipt",
+          "evidenceRoleKey": "canonical-state-recovery-receipt",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "canonicalStateRecoveredNow": true,
+            "recoveredWithoutMembrane": true
+          }
+        },
+        {
+          "evidenceRole": "local access receipt",
+          "evidenceRoleKey": "local-access-receipt",
+          "provenanceClass": "current_local_observation",
+          "requiredPredicates": {
+            "localAccessObservedNow": true,
+            "obligationsReadableLocally": true
+          }
+        }
+      ],
+      "observation": {
+        "keys": [
+          "canonicalStateRecovered",
+          "latticeRequired",
+          "localStateAvailable"
+        ],
+        "requiredValues": {
+          "canonicalStateRecovered": true,
+          "latticeRequired": false,
+          "localStateAvailable": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 10
+    },
+    "VERIFY_PERSONAL_FLOOR_CONTINUITY": {
+      "availabilityClass": "READY_FROM_ACCEPTED_RECEIPTS",
+      "controlQuestion": "Does removal reduce optional capacity only, with the resident floor still producing the accepted output?",
+      "evidenceRoleDenominator": 3,
+      "evidenceRoles": [
+        {
+          "evidenceRole": "post-removal command receipt",
+          "evidenceRoleKey": "post-removal-command-receipt",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "executedOnResidentFloor": true,
+            "postRemovalCommandRetained": true
+          }
+        },
+        {
+          "evidenceRole": "post-removal output",
+          "evidenceRoleKey": "post-removal-output",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "acceleratorNotRequired": true,
+            "outputDigestRetained": true
+          }
+        },
+        {
+          "evidenceRole": "digest comparison",
+          "evidenceRoleKey": "digest-comparison",
+          "provenanceClass": "accepted_predecessor_receipt",
+          "requiredPredicates": {
+            "baselineDigestCompared": true,
+            "outputDigestMatchesBaseline": true
+          }
+        }
+      ],
+      "observation": {
+        "integerFields": {
+          "throughputUnits": [
+            1,
+            1000000000
+          ]
+        },
+        "keys": [
+          "halo3Required",
+          "outputDigestMatches",
+          "personalFloorAvailable",
+          "throughputUnits"
+        ],
+        "requiredValues": {
+          "halo3Required": false,
+          "outputDigestMatches": true,
+          "personalFloorAvailable": true
+        }
+      },
+      "requiredTerminal": "PASS",
+      "sequence": 8
+    }
+  },
+  "status": "candidate_contract_only",
+  "terminalStates": [
+    "READY_FOR_NAMED_HUMAN_DECISION",
+    "ADMISSIBLE_FOR_PACKET_RECORDING",
+    "HOLD",
+    "REFUSED"
+  ],
+  "workstation": {
+    "conductorProfileId": "stc-mary/private-flight-conductor/0.1",
+    "markerFile": "CONDUCTOR-ROOT.json",
+    "markerIdKey": "markerId",
+    "markerIdPrefix": "stcmaryflightconductorroot1",
+    "markerKeys": [
+      "authority",
+      "campaignId",
+      "campaignLabel",
+      "claimBoundary",
+      "configId",
+      "createdAtUnixNs",
+      "markerId",
+      "pathMapId",
+      "profileId",
+      "schema",
+      "sourceSetId"
+    ],
+    "markerSchema": "stc-mary-flight-conductor-root/1"
+  }
+}
