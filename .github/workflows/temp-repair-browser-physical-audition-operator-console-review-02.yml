@@ -38,225 +38,15 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Apply the four review repairs and five permanent witnesses
+      - name: Apply the review repairs
         shell: bash
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
           [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]] || { echo "main moved" >&2; exit 2; }
           [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]] || { echo "main tree differs" >&2; exit 2; }
-
-          python - <<'PY'
-          from pathlib import Path
-
-          ROOT = Path("mating_surface/anchor_node")
-
-          def replace_once(path: Path, old: str, new: str) -> None:
-              text = path.read_text(encoding="utf-8")
-              if text.count(old) != 1:
-                  raise SystemExit(f"replacement target differs: {path}: {old[:80]!r}: {text.count(old)}")
-              path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
-
-          verifier = ROOT / "verify_axm_head_browser_physical_audition_operator_console_01.py"
-          replace_once(
-              verifier,
-              '    profile = load(profile_path)\n',
-              '''    profile_bytes = regular(profile_path)\n    canonical_profile_bytes = regular(\n        repo / "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json"\n    )\n    if profile_bytes != canonical_profile_bytes:\n        fail("PROFILE_BYTES_INVALID", str(profile_path))\n    try:\n        profile = json.loads(profile_bytes.decode("utf-8"))\n    except (UnicodeError, json.JSONDecodeError) as exc:\n        fail("JSON_INVALID", f"{profile_path}: {exc}")\n    if not isinstance(profile, dict):\n        fail("OBJECT_REQUIRED", str(profile_path))\n\n    executed_verifier_bytes = globals().get("__AXM_MEASURED_VERIFIER_BYTES__")\n    if executed_verifier_bytes is None:\n        executed_verifier_bytes = regular(Path(__file__))\n    if not isinstance(executed_verifier_bytes, (bytes, bytearray)):\n        fail("EXECUTED_VERIFIER_BYTES_INVALID", str(type(executed_verifier_bytes)))\n    stored_verifier_bytes = regular(\n        repo / "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py"\n    )\n    if bytes(executed_verifier_bytes) != stored_verifier_bytes:\n        fail("STORED_VERIFIER_MEMBER_MISMATCH", str(profile_path))\n''',
-          )
-          replace_once(
-              verifier,
-              '''    payload_rows = []\n    for name in profile["extensionPayloadMembers"]:\n        data = regular(extension / name)\n        payload_rows.append({"path": name, "bytes": len(data), "sha256": digest(data)})\n    if build["members"] != payload_rows or build["memberCount"] != len(payload_rows):\n        fail("PAYLOAD_BINDING_INVALID", str(extension))\n''',
-              '''    expected_payload = {\n        "manifest.json": pretty_bytes(expected_manifest()),\n        "browser_distributed_inference_probe.js": regular(repo / profile["dependencies"][0]["path"]),\n    }\n    for relative in profile["extensionSourceMembers"]:\n        expected_payload[Path(relative).name] = regular(repo / relative)\n    if set(expected_payload) != set(profile["extensionPayloadMembers"]):\n        fail("PAYLOAD_SOURCE_DENOMINATOR_INVALID", str(extension))\n\n    payload_rows = []\n    for name in profile["extensionPayloadMembers"]:\n        data = regular(extension / name)\n        if data != expected_payload[name]:\n            fail("PAYLOAD_SOURCE_BYTES_INVALID", name)\n        payload_rows.append({"path": name, "bytes": len(data), "sha256": digest(data)})\n    if build["members"] != payload_rows or build["memberCount"] != len(payload_rows):\n        fail("PAYLOAD_BINDING_INVALID", str(extension))\n''',
-          )
-          replace_once(
-              verifier,
-              '    checks = static_source_checks(extension)\n',
-              '''    checks = [\n        "canonical-profile-byte-binding",\n        "payload-source-byte-binding",\n        *static_source_checks(extension),\n        "stored-verifier-byte-binding",\n    ]\n''',
-          )
-
-          bootstrap = ROOT / "verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py"
-          replace_once(
-              bootstrap,
-              '''    launcher = (\n        "import sys; data=sys.stdin.buffer.read(); "\n        "namespace={'__name__':'__main__','__file__':'<measured-verifier>'}; "\n        "exec(compile(data,'<measured-verifier>','exec'),namespace,namespace)"\n    )\n''',
-              '''    launcher = (\n        "import sys; data=sys.stdin.buffer.read(); "\n        "namespace={'__name__':'__main__','__file__':'<measured-verifier>',"\n        "'__AXM_MEASURED_VERIFIER_BYTES__':data}; "\n        "exec(compile(data,'<measured-verifier>','exec'),namespace,namespace)"\n    )\n''',
-          )
-
-          worker = ROOT / "browser_physical_audition_operator_service_worker.js"
-          replace_once(
-              worker,
-              '''async function executeInMain(tabId, func, args) {\n  const rows = await chrome.scripting.executeScript({\n    target: { tabId, frameIds: [0] },\n    world: "MAIN",\n    func,\n    args,\n  });\n  if (!Array.isArray(rows) || rows.length !== 1 || !rows[0] || !("result" in rows[0])) {\n    throw Object.assign(new Error("MAIN-world result denominator differs"), {\n      code: "MAIN_WORLD_RESULT_INVALID",\n    });\n  }\n  return rows[0].result;\n}\n''',
-              '''async function executeInMain(tabId, func, args, expectedDocumentId = null) {\n  const rows = await chrome.scripting.executeScript({\n    target: { tabId, frameIds: [0] },\n    world: "MAIN",\n    func,\n    args,\n  });\n  if (!Array.isArray(rows) || rows.length !== 1 || !rows[0] || !("result" in rows[0])) {\n    throw Object.assign(new Error("MAIN-world result denominator differs"), {\n      code: "MAIN_WORLD_RESULT_INVALID",\n    });\n  }\n  const row = rows[0];\n  if (typeof row.documentId !== "string" || row.documentId.length < 1) {\n    throw Object.assign(new Error("MAIN-world document identity is absent"), {\n      code: "MAIN_WORLD_DOCUMENT_ID_INVALID",\n    });\n  }\n  if (expectedDocumentId !== null && row.documentId !== expectedDocumentId) {\n    throw Object.assign(new Error("the target document changed during the session"), {\n      code: "SESSION_DOCUMENT_MISMATCH",\n    });\n  }\n  return { documentId: row.documentId, result: row.result };\n}\n''',
-          )
-          replace_once(
-              worker,
-              '''      const inspection = await executeInMain(message.tabId, inspectProbeInPage, [\n        CONTRACT.METHODS,\n        CONTRACT.MAX_CAPTURE_BYTES,\n      ]);\n''',
-              '''      const execution = await executeInMain(message.tabId, inspectProbeInPage, [\n        CONTRACT.METHODS,\n        CONTRACT.MAX_CAPTURE_BYTES,\n      ]);\n      const inspection = execution.result;\n''',
-          )
-          replace_once(
-              worker,
-              '''        tabId: message.tabId,\n        createdAtUnixMs: Date.now(),\n''',
-              '''        tabId: message.tabId,\n        documentId: execution.documentId,\n        createdAtUnixMs: Date.now(),\n''',
-          )
-          replace_once(
-              worker,
-              '''      const inspection = await executeInMain(message.tabId, inspectProbeInPage, [\n        CONTRACT.METHODS,\n        CONTRACT.MAX_CAPTURE_BYTES,\n      ]);\n      return CONTRACT.response("PASS", message.requestId, {\n''',
-              '''      const execution = await executeInMain(\n        message.tabId,\n        inspectProbeInPage,\n        [CONTRACT.METHODS, CONTRACT.MAX_CAPTURE_BYTES],\n        session.documentId\n      );\n      const inspection = execution.result;\n      return CONTRACT.response("PASS", message.requestId, {\n''',
-          )
-          replace_once(
-              worker,
-              '''    const invocation = await executeInMain(message.tabId, invokeProbeInPage, [\n      message.method,\n      message.args,\n      CONTRACT.METHODS,\n      CONTRACT.MAX_CAPTURE_BYTES,\n    ]);\n''',
-              '''    const execution = await executeInMain(\n      message.tabId,\n      invokeProbeInPage,\n      [message.method, message.args, CONTRACT.METHODS, CONTRACT.MAX_CAPTURE_BYTES],\n      session.documentId\n    );\n    const invocation = execution.result;\n''',
-          )
-          replace_once(
-              worker,
-              '''  } catch (error) {\n    return refusal(message?.requestId || rawMessage?.requestId, error);\n  }\n}\n''',
-              '''  } catch (error) {\n    if (error?.code === "SESSION_DOCUMENT_MISMATCH") {\n      sessions.delete(port);\n    }\n    return refusal(message?.requestId || rawMessage?.requestId, error);\n  }\n}\n''',
-          )
-
-          panel = ROOT / "browser_physical_audition_operator_panel.js"
-          replace_once(
-              panel,
-              '''const state = {\n  port: chrome.runtime.connect({ name: PORT_NAME }),\n  sessionId: null,\n''',
-              '''const state = {\n  port: null,\n  sessionId: null,\n''',
-          )
-          replace_once(
-              panel,
-              '''function send(message) {\n  return new Promise((resolve, reject) => {\n    const requestId = message.requestId || randomRequestId();\n    const timeout = setTimeout(() => {\n      state.pending.delete(requestId);\n      reject(new Error("console response timeout"));\n    }, 15000);\n    state.pending.set(requestId, { resolve, reject, timeout });\n    state.port.postMessage({ ...message, requestId });\n  });\n}\n\nstate.port.onMessage.addListener((message) => {\n  const pending = state.pending.get(message.requestId);\n  if (!pending) return;\n  clearTimeout(pending.timeout);\n  state.pending.delete(message.requestId);\n  if (message.status === "PASS") pending.resolve(message);\n  else pending.reject(Object.assign(new Error(message.message || message.code), { code: message.code }));\n});\n\nstate.port.onDisconnect.addListener(() => {\n  for (const pending of state.pending.values()) {\n    clearTimeout(pending.timeout);\n    pending.reject(new Error("operator console disconnected"));\n  }\n  state.pending.clear();\n  state.sessionId = null;\n  state.tabId = null;\n  setSessionOpen(false);\n  appendLog("REFUSED", "extension service worker disconnected");\n});\n''',
-              '''function settleResponse(message) {\n  const pending = state.pending.get(message.requestId);\n  if (!pending) return;\n  clearTimeout(pending.timeout);\n  state.pending.delete(message.requestId);\n  if (message.status === "PASS") pending.resolve(message);\n  else pending.reject(Object.assign(new Error(message.message || message.code), { code: message.code }));\n}\n\nfunction connectPort() {\n  const port = chrome.runtime.connect({ name: PORT_NAME });\n  state.port = port;\n  port.onMessage.addListener(settleResponse);\n  port.onDisconnect.addListener(() => {\n    if (state.port !== port) return;\n    for (const pending of state.pending.values()) {\n      clearTimeout(pending.timeout);\n      pending.reject(new Error("operator console disconnected"));\n    }\n    state.pending.clear();\n    state.port = null;\n    state.sessionId = null;\n    state.tabId = null;\n    state.memberHashes.clear();\n    elements.memberData.replaceChildren();\n    elements.memberList.replaceChildren();\n    try {\n      connectPort();\n    } catch {\n      // send() performs the same bounded reconnection before the next request.\n    }\n    setSessionOpen(false);\n    appendLog("REFUSED", "extension service worker disconnected; command session was discarded");\n  });\n  return port;\n}\n\nfunction ensurePort() {\n  return state.port || connectPort();\n}\n\nfunction send(message) {\n  return new Promise((resolve, reject) => {\n    const requestId = message.requestId || randomRequestId();\n    const timeout = setTimeout(() => {\n      state.pending.delete(requestId);\n      reject(new Error("console response timeout"));\n    }, 15000);\n    state.pending.set(requestId, { resolve, reject, timeout });\n    const port = ensurePort();\n    try {\n      port.postMessage({ ...message, requestId });\n    } catch (error) {\n      clearTimeout(timeout);\n      state.pending.delete(requestId);\n      if (state.port === port) state.port = null;\n      reject(error);\n    }\n  });\n}\n''',
-          )
-          replace_once(
-              panel,
-              '''    if (field.type === "integer") args[field.name] = Number.parseInt(raw, 10);\n    else if (field.type === "number") args[field.name] = Number(raw);\n    else args[field.name] = raw;\n''',
-              '''    if (field.type === "integer") {\n      const value = Number(raw);\n      if (!Number.isFinite(value) || !Number.isInteger(value)) {\n        input.classList.add("invalid");\n        throw new Error(`${field.label} must be a complete integer`);\n      }\n      args[field.name] = value;\n    } else if (field.type === "number") {\n      const value = Number(raw);\n      if (!Number.isFinite(value)) {\n        input.classList.add("invalid");\n        throw new Error(`${field.label} must be a finite number`);\n      }\n      args[field.name] = value;\n    } else args[field.name] = raw;\n''',
-          )
-          replace_once(panel, 'renderOperation();\nsetSessionOpen(false);\n', 'connectPort();\nrenderOperation();\nsetSessionOpen(false);\n')
-
-          tests = ROOT / "conformance/test_axm_head_browser_physical_audition_operator_console_01.py"
-          replace_once(tests, 'WITNESS_DENOMINATOR: "76"', 'WITNESS_DENOMINATOR: "81"')
-          replace_once(
-              tests,
-              "const root = process.argv[1]; const listeners = []; let activeTabId = 7; const events = []; const members = new Map();",
-              "const root = process.argv[1]; const listeners = []; let activeTabId = 7; let documentId = 'document-a'; const events = []; const members = new Map();",
-          )
-          replace_once(
-              tests,
-              "scripting:{async executeScript({func,args}){return [{result:await func(...args)}];}},sidePanel",
-              "scripting:{async executeScript({func,args}){return [{documentId,result:await func(...args)}];}},sidePanel",
-          )
-          extra_tests = r'''
-    def test_25_payload_mutation_cannot_recompute_itself_into_a_pass(self) -> None:
-        extension = self.build()
-        panel = extension / "browser_physical_audition_operator_panel.js"
-        panel.write_bytes(panel.read_bytes() + b"\n// hostile payload mutation\n")
-        build = json.loads((extension / "build-manifest.json").read_text(encoding="utf-8"))
-        rows = []
-        for name in self.profile["extensionPayloadMembers"]:
-            data = (extension / name).read_bytes()
-            rows.append({"path": name, "bytes": len(data), "sha256": verifier.digest(data)})
-        build["members"] = rows
-        build["memberCount"] = len(rows)
-        build["extensionId"] = verifier.identity(
-            "axmoperatorconsoleextension",
-            {"profileId": self.profile["profileId"], "sourceBindingId": build["sourceBindingId"], "members": rows},
-        )
-        (extension / "build-manifest.json").write_bytes(verifier.pretty_bytes(build))
-        with self.assertRaises(verifier.VerificationError) as context:
-            verifier.verify_extension(PROFILE, REPOSITORY_ROOT, extension)
-        self.assertEqual(context.exception.code, "PAYLOAD_SOURCE_BYTES_INVALID")
-
-    def test_26_profile_and_executed_verifier_bytes_are_repository_bound(self) -> None:
-        extension = self.build()
-        copied_profile = self.work / "profile-copy.json"
-        copied_profile.write_bytes(PROFILE.read_bytes() + b"\n")
-        with self.assertRaises(verifier.VerificationError) as context:
-            verifier.verify_extension(copied_profile, REPOSITORY_ROOT, extension)
-        self.assertEqual(context.exception.code, "PROFILE_BYTES_INVALID")
-
-        copied_verifier = self.work / "verifier-copy.py"
-        copied_verifier.write_bytes(VERIFY.read_bytes() + b"\n# hostile verifier substitution\n")
-        result = subprocess.run(
-            [sys.executable, str(copied_verifier), str(PROFILE), str(REPOSITORY_ROOT), str(extension)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
-        self.assertEqual((result.returncode, result.stderr), (2, b""))
-        self.assertEqual(json.loads(result.stdout.decode("utf-8"))["code"], "STORED_VERIFIER_MEMBER_MISMATCH")
-
-    def test_27_panel_reconnects_a_fresh_port_before_session_reopening(self) -> None:
-        source = PANEL_JS.read_text(encoding="utf-8")
-        self.assertIn("function connectPort()", source)
-        self.assertIn("function ensurePort()", source)
-        self.assertIn("state.port = null;", source)
-        self.assertIn("const port = ensurePort();", source)
-        self.assertIn("try {\n      connectPort();", source)
-        self.assertNotIn("port: chrome.runtime.connect", source)
-
-    def test_28_panel_parses_complete_integer_values_without_truncation(self) -> None:
-        source = PANEL_JS.read_text(encoding="utf-8")
-        self.assertNotIn("Number.parseInt", source)
-        self.assertIn("const value = Number(raw);", source)
-        self.assertIn("Number.isInteger(value)", source)
-        self.assertIn("must be a complete integer", source)
-
-    def test_29_service_worker_invalidates_a_session_when_document_identity_changes(self) -> None:
-        script = textwrap.dedent(
-            r"""
-            const fs = require('fs'); const vm = require('vm'); const path = require('path');
-            const root = process.argv[1]; const listeners = []; let documentId = 'document-a';
-            global.importScripts=(...names)=>{for(const name of names)vm.runInThisContext(fs.readFileSync(path.join(root,name),'utf8'),{filename:name});};
-            global.chrome={runtime:{id:'test-extension',onConnect:{addListener(fn){listeners.push(fn);}}},tabs:{async query(){return [{id:7}];}},
-              scripting:{async executeScript({func,args}){return [{documentId,result:await func(...args)}];}},sidePanel:{setPanelBehavior(){return Promise.resolve();}}};
-            vm.runInThisContext(fs.readFileSync(path.join(root,'browser_physical_audition_operator_service_worker.js'),'utf8'));
-            const methods=global.AXMOperatorContract.METHODS;const api={version:'1'};
-            for(const method of methods)api[method]=()=>null;
-            api.exportCapture=()=>({schema:'axm-head/browser-probe-private-capture@1',installedBeforeApplication:true,refused:null,observed:{eventCount:0,encodedBytes:0},events:[],summaries:{}});
-            Object.freeze(api);Object.defineProperty(globalThis,'__AXM_AUDITION__',{value:api,enumerable:false,writable:false,configurable:false});
-            function port(){const ml=[],dl=[],responses=[];return{name:'axm-browser-physical-audition-operator-console-v1',sender:{id:'test-extension'},onMessage:{addListener(f){ml.push(f);}},onDisconnect:{addListener(f){dl.push(f);}},postMessage(v){responses.push(v);},disconnect(){dl.forEach(f=>f());},send(v){ml.forEach(f=>f(v));},responses};}
-            const p=port();listeners[0](p);let seq=1;const rid=()=>`request:${String(seq++).padStart(32,'0')}`;
-            async function send(m){const n=p.responses.length;p.send({...m,requestId:rid()});for(let i=0;i<200;i++){if(p.responses.length>n)return p.responses.at(-1);await new Promise(r=>setTimeout(r,2));}throw new Error('timeout');}
-            (async()=>{const base={protocol:'axm-head/browser-physical-audition-operator-console@1',tabId:7};const open=await send({...base,kind:'open-session'});documentId='document-b';const changed=await send({...base,kind:'status',sessionId:open.sessionId});const stale=await send({...base,kind:'status',sessionId:open.sessionId});process.stdout.write(JSON.stringify({open,changed,stale}));})().catch(e=>{console.error(e);process.exit(2);});
-            """
-        )
-        result = subprocess.run(["node", "-e", script, str(ROOT)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
-        self.assertEqual((result.returncode, result.stderr), (0, b""))
-        body = json.loads(result.stdout)
-        self.assertEqual(body["open"]["status"], "PASS")
-        self.assertEqual(body["changed"]["code"], "SESSION_DOCUMENT_MISMATCH")
-        self.assertEqual(body["stale"]["code"], "SESSION_INVALID")
-'''
-          replace_once(tests, '\n\ndef _fixture_test(row: dict, group: str):\n', extra_tests + '\n\ndef _fixture_test(row: dict, group: str):\n')
-
-          workflow = Path(".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml")
-          replace_once(workflow, 'WITNESS_DENOMINATOR: "76"', 'WITNESS_DENOMINATOR: "81"')
-          replace_once(
-              workflow,
-              '''          for name in ("direct-verdict.json", "bootstrap-verdict.json"):\n              body = json.loads((root / name).read_text(encoding="utf-8"))\n              if body.get("status") != "PASS" or body.get("actualSupplierQualified") is not False:\n                  raise SystemExit(body)\n          bootstrap = json.loads((root / "bootstrap-verdict.json").read_text(encoding="utf-8"))\n          if bootstrap.get("bootstrapAuthenticated") is not True:\n              raise SystemExit(bootstrap)\n''',
-              '''          required_checks = {\n              "canonical-profile-byte-binding",\n              "payload-source-byte-binding",\n              "stored-verifier-byte-binding",\n          }\n          for name in ("direct-verdict.json", "bootstrap-verdict.json"):\n              body = json.loads((root / name).read_text(encoding="utf-8"))\n              if body.get("status") != "PASS" or body.get("actualSupplierQualified") is not False:\n                  raise SystemExit(body)\n              if not required_checks.issubset(set(body.get("checks", []))):\n                  raise SystemExit(f"repaired custody checks absent: {name}: {body.get('checks')}")\n          bootstrap = json.loads((root / "bootstrap-verdict.json").read_text(encoding="utf-8"))\n          if bootstrap.get("bootstrapAuthenticated") is not True:\n              raise SystemExit(bootstrap)\n''',
-          )
-
-          documentation = ROOT / "AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md"
-          replace_once(
-              documentation,
-              'The target page never receives the extension port, session ledger, or service-worker return path. The service worker retains no private capture after responding. Closing the side panel destroys the in-memory session and request ledger.\n',
-              'The target page never receives the extension port, session ledger, or service-worker return path. The service worker binds each session to the exact MAIN-world document identity returned by Chromium, invalidates the session after navigation or reload, and retains no private capture after responding. A disconnected Manifest V3 worker port is replaced before the panel permits a new session request. Closing the side panel destroys the in-memory session and request ledger.\n',
-          )
-          replace_once(
-              documentation,
-              'The command contract applies exact-key validation before any page execution. It refuses unknown methods, missing or extra fields, arrays above the closed ceiling, commands above 65,536 encoded bytes, nonfinite numbers, wrong integer types, negative or excessive values, malformed SHA-256 references, invalid layer ranges, unknown partition modes, unknown pipeline roles, unknown receipt classes, raw URL or file coordinates, raw IPv4 identities, and malformed opaque member identifiers.\n',
-              'The command contract applies exact-key validation before any page execution. The panel parses complete numeric values and refuses a fractional integer instead of truncating the operator input. The contract refuses unknown methods, missing or extra fields, arrays above the closed ceiling, commands above 65,536 encoded bytes, nonfinite numbers, wrong integer types, negative or excessive values, malformed SHA-256 references, invalid layer ranges, unknown partition modes, unknown pipeline roles, unknown receipt classes, raw URL or file coordinates, raw IPv4 identities, and malformed opaque member identifiers.\n',
-          )
-          replace_once(
-              documentation,
-              'The direct verifier ignores the stored extension identity until it has independently reconstructed the source set, dependencies, manifest, probe digest, payload members, extension identity, static no-network law, closed method denominator, service-worker mechanism, and extension-page content-security posture. The external bootstrap measures the verifier once, executes only the measured byte string under an isolated interpreter, binds the stored verifier member back to those bytes, and only then marks the verdict bootstrap-authenticated.\n',
-              'The direct verifier ignores the stored extension identity until it has independently reconstructed the source set, dependencies, manifest, probe digest, payload members, extension identity, static no-network law, closed method denominator, service-worker mechanism, and extension-page content-security posture. It now requires the supplied profile bytes to equal the canonical repository member, every generated payload byte to equal its deterministic manifest, admitted dependency, or source member, and the executing verifier bytes to equal the stored source member. The external bootstrap measures the verifier once, injects those measured bytes into the isolated verifier namespace, binds the stored verifier member back to them, and only then marks the verdict bootstrap-authenticated.\n',
-          )
-          replace_once(
-              documentation,
-              'The source campaign contains fifty-two command and envelope cases. The permanent hostile suite retains the contract in both Python and JavaScript, executes a complete synthetic side-panel-to-service-worker-to-frozen-probe sequence, and proves deterministic extension construction and independent verification.\n',
-              'The source campaign contains fifty-two command and envelope cases. The permanent eighty-one-witness hostile suite retains the contract in both Python and JavaScript, executes a complete synthetic side-panel-to-service-worker-to-frozen-probe sequence, and proves deterministic extension construction, payload-to-source custody, canonical profile and verifier binding, worker-port recovery, navigation-bound session invalidation, complete integer parsing, and independent verification.\n',
-          )
-          PY
+          python -m py_compile .agent/temp-repair-browser-physical-audition-operator-console-review-02.py
+          python .agent/temp-repair-browser-physical-audition-operator-console-review-02.py
 
       - name: Qualify the repaired candidate
         shell: bash
@@ -309,7 +99,8 @@ jobs:
           carrier_head="$(git rev-parse HEAD)"
           rm -f \
             .github/workflows/temp-materialize-axm-browser-physical-audition-operator-console-repair-01.yml \
-            .github/workflows/temp-repair-browser-physical-audition-operator-console-review-02.yml
+            .github/workflows/temp-repair-browser-physical-audition-operator-console-review-02.yml \
+            .agent/temp-repair-browser-physical-audition-operator-console-review-02.py
           git reset origin/main
           expected=(
             '.github/workflows/axm-head-browser-physical-audition-operator-console-01.yml'
