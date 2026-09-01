@@ -52,7 +52,7 @@ evidence roles                          43
 stage-confirmation decisions            16
 ```
 
-The two statement bodies supply campaign substance. The sixteen confirmations answer
+The three statement bodies supply campaign substance. The sixteen confirmations answer
 whether each exact stage observation and admitted evidence set may be recorded.
 Neither is reducible to one Boolean written by an operator process.
 
@@ -195,6 +195,24 @@ frozen 0.1 packet    -> DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN
 successor 0.2 packet -> eligible, once its lineage contract verifies
 ```
 
+### The boundary holds at every object layer that carries a profile identity
+
+A packet root marker declaring `0.2` while the packet state still declares `0.1` is the
+same decoration one object layer down, and it re-identifies perfectly, so nothing but an
+explicit agreement rule catches it. Four objects must name one single succession:
+
+```text
+admission profile   successorPacketProfileId / predecessorPhysicalProfileId
+packet marker       packetProfileId / physicalProfileId
+packet state        packetProfileId / physicalProfileId
+successor contract  successorPacketProfileId / predecessorPacketProfileId
+```
+
+```text
+state still naming 0.1        -> DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN
+any other disagreement        -> PACKET_PROFILE_SUCCESSION_SPLIT
+```
+
 A version string alone is not lineage. The successor packet must carry a separately
 authenticated `SUCCESSOR-CONTRACT.json` whose content identity is recomputed here and
 which binds:
@@ -215,6 +233,41 @@ authority: none
 It is refused if it names another campaign, another packet, another admission profile,
 another canonical mission state, or itself as its own predecessor. It is fenced with the
 packet before and after the run.
+
+### A content-addressed contract authenticates its bytes, not its referents
+
+Recomputing `successorContractId` proves that the contract's own bytes are
+self-consistent. It proves nothing about whether the predecessor packet, the handoff, or
+the successor source set it names exists or belongs to this transaction. A perfectly
+re-signed contract can carry three minted strings.
+
+Each named coordinate is therefore supplied as an object inside the packet, read,
+re-identified from its own bytes, and bound:
+
+```text
+lineage/predecessor-packet/PACKET-ROOT.json    markerId recomputed; packetId equals the
+                                              named predecessor; profile is exactly 0.1;
+                                              campaign matches
+lineage/predecessor-packet/packet-state.json   stateId recomputed; same packet, campaign,
+                                              profiles, and sixteen-stage denominator
+lineage/PACKET-HANDOFF.json                    packetHandoffId recomputed and equal to the
+                                              named handoff; binds campaign, both packet
+                                              identities, both packet profiles, and the
+                                              canonical mission state
+lineage/SUCCESSOR-SOURCE-SET.json              every declared member is read from
+lineage/successor-source/                      lineage/successor-source/, digested, and the
+                                              whole set reproduced; the recomputed identity
+                                              must equal the named successorSourceSetId
+```
+
+```text
+referent absent, unreadable, or not re-identifying -> SUCCESSOR_LINEAGE_REFERENT_INVALID
+referent present but bound to something else       -> SUCCESSOR_LINEAGE_BINDING_INVALID
+```
+
+The predecessor packet is read and never written; predecessor mutation stays forbidden.
+Every lineage object, and every measured source member, joins the before-and-after packet
+fence.
 
 Stage 16's observation contract here carries pre-seal facts only:
 
@@ -329,7 +382,7 @@ reconstruction, and the pre-seal denominator are all held to that rule.
 
 ## Named-human statements
 
-The gate prepares the two statement forms. It cannot sign them.
+The gate prepares the three statement forms. It cannot sign them.
 
 ```text
 requiredActorClass:   named_human
@@ -339,6 +392,27 @@ forbiddenActorClasses: agent, automation, machine, model, packet_runner, schedul
 A statement may accept only evidence identities this gate actually admitted for the
 statement's own stage, and its `terminalOrRetainedObligation` must equal the stage's
 required terminal.
+
+### A statement authorizes on the complete non-human evidence, exactly
+
+An accepted-identity list is not a root, and a subset is not an authorization. Without an
+exact rule a named human could authorize sealing while accepting none of the pre-seal
+manifest or Git-custody evidence, and that statement would still enter the final evidence
+root and receive a later confirmation. Every statement therefore carries:
+
+```text
+acceptedEvidenceIds             exactly the stage's complete admitted non-human set
+nonHumanEvidenceAdmissionRoot   the exact root this gate recomputed from that set
+```
+
+```text
+empty, short, or padded accepted set  -> HUMAN_STATEMENT_EVIDENCE_SET_INCOMPLETE
+identity from another stage           -> HUMAN_STATEMENT_SCOPE_INVALID
+absent, foreign, or all-roles root    -> HUMAN_STATEMENT_EVIDENCE_ROOT_INVALID
+```
+
+The non-human root and the all-roles `evidenceAdmissionRoot` are deliberately distinct
+objects: binding the wrong one is refused, not silently accepted.
 
 `RESTORE_LINK_HOLD_CONFLICT` additionally requires:
 
@@ -377,12 +451,12 @@ non-human evidence
 ```
 
 A stage confirmation may bind only the **final** root. The sixteen decision records
-therefore become invitable only once both statements have landed and all sixteen final
+therefore become invitable only once all three statements have landed and all sixteen final
 roots exist — not merely once a given stage happens to be complete. Until then every
 stage reports:
 
 ```text
-evidenceAdmissionRootFinal: false   (the two statement-owing stages)
+evidenceAdmissionRootFinal: false   (the three statement-owing stages)
 confirmationInvitable:      false   (all sixteen, until the denominator settles)
 ```
 

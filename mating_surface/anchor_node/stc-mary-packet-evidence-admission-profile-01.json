@@ -97,6 +97,15 @@
         "terminalOrRetainedObligation": "HUMAN_REQUIRED"
       },
       "conflictStage": "RESTORE_LINK_HOLD_CONFLICT",
+      "evidenceAdmissionBinding": {
+        "acceptedIdentitiesKey": "acceptedEvidenceIds",
+        "requiresCompleteNonHumanAdmissionSet": true,
+        "rootKey": "nonHumanEvidenceAdmissionRoot",
+        "rootPrefix": "stcmarypacketevidencestageroot1",
+        "rootRefusalCode": "HUMAN_STATEMENT_EVIDENCE_ROOT_INVALID",
+        "rule": "A named-human statement authorizes on the complete non-human evidence this gate admitted for its own stage. It must accept exactly that identity set -- no fewer, no more, and never its own identity -- and must bind the exact non-human evidence-admission root recomputed from that set. An accepted-identity list is not a root: without the exact-set rule a statement could authorize sealing while accepting no evidence at all.",
+        "setRefusalCode": "HUMAN_STATEMENT_EVIDENCE_SET_INCOMPLETE"
+      },
       "forbiddenActorClasses": [
         "agent",
         "automation",
@@ -121,6 +130,7 @@
         "evidenceRole",
         "humanStatementId",
         "issuedAtUnixNs",
+        "nonHumanEvidenceAdmissionRoot",
         "packetId",
         "provenanceClass",
         "retainedBranches",
@@ -136,7 +146,7 @@
       "schema": "stc-mary/packet-evidence-human-statement/1"
     }
   },
-  "claimBoundary": "Pre-record admission contract for one already configured, unrecorded private flight packet. It independently reads and measures proposed private evidence bodies, validates their schema, content identity, campaign and stage binding, provenance, and exact stage semantic predicates, prepares two named-human statement forms and sixteen exact stage decision records, and emits one body-free admission receipt. It never calls the packet recorder, never sets operatorConfirmed, never records a packet stage, never signs or completes a human statement or stage confirmation, never mutates the packet, and grants no physical-Estate, representative-operator, field-network, operational-C2, production-Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority.",
+  "claimBoundary": "Pre-record admission contract for one already configured, unrecorded private flight packet. It independently reads and measures proposed private evidence bodies, validates their schema, content identity, campaign and stage binding, provenance, and exact stage semantic predicates, prepares three named-human statement forms and sixteen exact stage decision records, and emits one body-free admission receipt. It never calls the packet recorder, never sets operatorConfirmed, never records a packet stage, never signs or completes a human statement or stage confirmation, never mutates the packet, and grants no physical-Estate, representative-operator, field-network, operational-C2, production-Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority.",
   "confirmation": {
     "admittingDecisionCode": "RECORD_STAGE",
     "decisionCodes": [
@@ -340,6 +350,17 @@
     ],
     "stateSchema": "stc-mary-private-flight-packet-state/1"
   },
+  "packetProfileAgreement": {
+    "agreedFields": [
+      "packetProfileId",
+      "physicalProfileId"
+    ],
+    "frozenPredecessorInStateRefusalCode": "DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN",
+    "requiredPacketProfileId": "stc-mary/private-flight-packet/0.2",
+    "requiredPhysicalProfileId": "spectra-anchor-node/stc-mary-physical-flight/0.1",
+    "rule": "The admission profile, the packet root marker, the packet state, and the successor contract must name one and the same successor packet profile and one and the same predecessor physical profile. A packet whose root marker declares the successor while its state still declares the frozen predecessor is a decorated boundary, not a successor packet, and is refused at the same object layer the split appears in.",
+    "splitRefusalCode": "PACKET_PROFILE_SUCCESSION_SPLIT"
+  },
   "postSealClosureContract": {
     "authority": "none",
     "mayBeAssertedBeforeSealing": false,
@@ -418,6 +439,7 @@
       "bounded batch-confirmation identity when present",
       "final packet-stage record root"
     ],
+    "statementRootKey": "nonHumanEvidenceAdmissionRoot",
     "statementTimeBindings": [
       "campaignId",
       "successorPacketId",
@@ -1321,6 +1343,45 @@
       "successorPacketProfileId",
       "successorSourceSetId"
     ],
+    "lineage": {
+      "bindingRefusalCode": "SUCCESSOR_LINEAGE_BINDING_INVALID",
+      "claimBoundary": "Measured referents for the three lineage coordinates the successor contract names. Each is read from the packet, re-identified from its own bytes, and bound to this campaign, this predecessor, this successor packet, and this canonical mission state. They identify objects and grant no authority.",
+      "handoff": {
+        "file": "lineage/PACKET-HANDOFF.json",
+        "idKey": "packetHandoffId",
+        "idPrefix": "stcmarypacketevidencepackethandoff1",
+        "keys": [
+          "authority",
+          "campaignId",
+          "campaignLabel",
+          "canonicalMissionStateDigest",
+          "claimBoundary",
+          "packetHandoffId",
+          "predecessorPacketId",
+          "predecessorPacketProfileId",
+          "schema",
+          "successorPacketId",
+          "successorPacketProfileId"
+        ],
+        "schema": "stc-mary/packet-evidence-packet-handoff/1"
+      },
+      "predecessorPacket": {
+        "markerFile": "lineage/predecessor-packet/PACKET-ROOT.json",
+        "mutationAllowed": false,
+        "stateFile": "lineage/predecessor-packet/packet-state.json"
+      },
+      "referentRefusalCode": "SUCCESSOR_LINEAGE_REFERENT_INVALID",
+      "rule": "A content-addressed lineage coordinate proves only that the naming object's own bytes are self-consistent. It proves nothing about the object it names. Every coordinate the successor contract carries -- predecessor packet, packet handoff, successor source set -- must therefore be supplied as a measured object, re-identified from its bytes, and bound to this campaign and this packet before any positive terminal is reachable.",
+      "successorSourceSet": {
+        "claimBoundary": "Exact successor packet source set. It identifies source bytes and grants no authority.",
+        "file": "lineage/SUCCESSOR-SOURCE-SET.json",
+        "idKey": "successorSourceSetId",
+        "idPrefix": "stcmarysuccessorsourceset1",
+        "minimumMemberCount": 1,
+        "root": "lineage/successor-source",
+        "schema": "stc-mary/packet-evidence-successor-source-set/1"
+      }
+    },
     "schema": "stc-mary/packet-evidence-successor-contract/1"
   },
   "successorPacketProfileId": "stc-mary/private-flight-packet/0.2",
