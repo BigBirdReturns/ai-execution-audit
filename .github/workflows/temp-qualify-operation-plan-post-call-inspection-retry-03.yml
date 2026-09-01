@@ -1,0 +1,125 @@
+name: TEMP Qualify Operation Plan Post Call Inspection Retry 03
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - ".github/workflows/temp-qualify-operation-plan-post-call-inspection-retry-03.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-qualify-operation-plan-post-call-inspection-retry-03
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  BASE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+  BASE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+  PRODUCT_BRANCH: work/axm-head-browser-audition-operation-plan-product-01
+  PRODUCT_HEAD: dca19d3b934594457c63df0ef815c4180cc14ee6
+  PRODUCT_TREE: 7a8fcb551329dc6ca571b089e6368622c8271f8f
+  PATCH_BLOB: 5a1f06d36fc0ca5a00afd6e9d8da94d11b66c2c8
+  WITNESS_DENOMINATOR: "78"
+  PREDECESSOR_WORKFLOW_BLOB: f61adfacf5a639ceb91a473ab1d5b54693d057e6
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-browser-audition-operation-plan-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Execute the exact corrected predecessor transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          PREDECESSOR=.github/workflows/temp-qualify-operation-plan-post-call-inspection-01.yml
+          [[ "$(git hash-object "$PREDECESSOR")" == "$PREDECESSOR_WORKFLOW_BLOB" ]] || {
+            echo "predecessor workflow blob differs" >&2
+            exit 2
+          }
+
+          python - "$PREDECESSOR" "$RUNNER_TEMP" <<'PY'
+          import pathlib
+          import sys
+
+          source = pathlib.Path(sys.argv[1])
+          output = pathlib.Path(sys.argv[2])
+          lines = source.read_text(encoding="utf-8").splitlines()
+          blocks = []
+          index = 0
+          while index < len(lines):
+              if lines[index] != "        run: |":
+                  index += 1
+                  continue
+              index += 1
+              block = []
+              while index < len(lines):
+                  line = lines[index]
+                  if line and not line.startswith("          "):
+                      break
+                  block.append(line[10:] if line.startswith("          ") else "")
+                  index += 1
+              blocks.append("\n".join(block).rstrip() + "\n")
+          if len(blocks) != 4:
+              raise SystemExit(f"expected four predecessor shell bodies, observed {len(blocks)}")
+          for number, block in enumerate(blocks, start=1):
+              target = output / f"post-call-predecessor-step-{number}.sh"
+              target.write_text(block, encoding="utf-8", newline="\n")
+          PY
+
+          for step in "$RUNNER_TEMP"/post-call-predecessor-step-*.sh; do
+            bash -n "$step"
+          done
+          bash "$RUNNER_TEMP/post-call-predecessor-step-1.sh"
+
+          python - "$RUNNER_TEMP/patch-operation-plan-post-call-inspection-01.py" <<'PY'
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          text = path.read_text(encoding="utf-8")
+          corrections = (
+              (
+                  "        postMessage() { throw new Error('unconfigured port'); },",
+                  "        postMessage() {{ throw new Error('unconfigured port'); }},",
+                  2,
+              ),
+              (
+                  "        disconnect() { disconnectListeners.forEach((fn) => fn()); },",
+                  "        disconnect() {{ disconnectListeners.forEach((fn) => fn()); }},",
+                  1,
+              ),
+              (
+                  "`\\n;globalThis.__AXM_PANEL_TEST__=",
+                  "`\\\\n;globalThis.__AXM_PANEL_TEST__=",
+                  2,
+              ),
+          )
+          for old, new, count in corrections:
+              observed = text.count(old)
+              if observed != count:
+                  raise SystemExit(f"patch correction denominator differs: expected={count} observed={observed}")
+              text = text.replace(old, new)
+          path.write_text(text, encoding="utf-8", newline="\n")
+          PY
+          python -m py_compile "$RUNNER_TEMP/patch-operation-plan-post-call-inspection-01.py"
+
+          bash "$RUNNER_TEMP/post-call-predecessor-step-2.sh"
+          bash "$RUNNER_TEMP/post-call-predecessor-step-3.sh"
+          bash "$RUNNER_TEMP/post-call-predecessor-step-4.sh"
