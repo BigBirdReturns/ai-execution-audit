@@ -15,11 +15,18 @@ Constructing the completed final state directly would prove nothing about order,
 traversal is built once per class and every ordering claim is asserted against what the
 walk actually produced.
 
-The hostile witnesses prove that a self-confirmed draft, an unauthenticated confirmation,
-an out-of-order stage, an unbootstrapped admission receipt, a synthetic authentication
-receipt aimed at a live campaign, a pre-seal object carrying a post-seal assertion, and a
-post-seal closure over an unsealed packet are all incapable of manufacturing a completed
-flight.
+The evidence the packet carries is the admitted evidence and nothing else. The traversal
+runs the evidence-materialization bridge over the same candidate workspace the admitted
+gate measured, materializes exactly the forty-three admitted bodies into deterministic
+per-role coordinates, and every stage evidence-admission root in the packet is
+reconstructed from those bodies rather than copied from the receipt.
+
+The hostile witnesses prove that a self-confirmed draft, a draft describing its own
+evidence class, an unauthenticated confirmation, an out-of-order stage, an unbootstrapped
+admission receipt, a synthetic authentication receipt aimed at a live campaign, a pre-seal
+object carrying a post-seal assertion, a post-seal closure over an unsealed packet, and --
+the one this transaction exists to refuse -- a packet carrying generic bodies beside a
+forty-three-role root are all incapable of manufacturing a completed flight.
 """
 
 from __future__ import annotations
@@ -46,6 +53,7 @@ import stc_mary_successor_packet_compiler as compiler  # noqa: E402
 import stc_mary_successor_packet_orchestrator as orchestrator  # noqa: E402
 import stc_mary_successor_packet_runtime as runtime  # noqa: E402
 import stc_mary_successor_seal_adapter as seal_adapter  # noqa: E402
+import verify_stc_mary_successor_evidence_materialization as materialization_bridge  # noqa: E402
 import verify_stc_mary_successor_packet as packet_verifier  # noqa: E402
 import verify_stc_mary_successor_post_seal_closure as post_seal  # noqa: E402
 import verify_stc_mary_successor_pre_seal_closure as pre_seal  # noqa: E402
@@ -506,7 +514,21 @@ class SuccessorFlightWalk:
         write_json(path, signed)
         return path
 
-    # -- step 6: draft each stage, then record it -------------------------------
+    # -- step 6: bridge the admitted roles to packet coordinates ------------------
+    def run_materialization(self, name: str = "evidence-materialization.json") -> dict:
+        """Replay the admitted candidate-body mapping into one exact materialization receipt."""
+        receipt = materialization_bridge.materialize_evidence(
+            packet=self.packet,
+            admission_receipt=self.receipts / "admission-admissible.json",
+            candidates=self.candidates,
+            repository=REPOSITORY_ROOT,
+            profile_path=PROFILE,
+        )
+        self.materialization_path = self.receipts / name
+        law.write_canonical_json(self.materialization_path, receipt)
+        return receipt
+
+    # -- step 7: draft each stage, then record it -------------------------------
     def write_stage_drafts(self, admission_receipt: Mapping[str, Any]) -> list[dict]:
         profile = law.load_profile(PROFILE)
         admission = law.load_admission_profile(REPOSITORY_ROOT, profile)
@@ -524,20 +546,12 @@ class SuccessorFlightWalk:
                 observation=self.observations[stage],
                 canonical_mission_state_digest=self.canonical_mission_state_digest,
                 stage_confirmation_id=authorization["stageConfirmationId"],
-                evidence_class="private_local_attestation",
-                media_type="application/json",
             )
             row = state["stages"][index]
             law.write_canonical_json(self.packet / row["draftPath"], draft)
-            body = {
-                "schema": "stc-mary/successor-flight-synthetic-evidence/1",
-                "stage": stage,
-                "sequence": index + 1,
-                "packetId": self.packet_id,
-                "authority": "none",
-                "claimBoundary": "Synthetic private evidence body for conformance only. It grants no authority.",
-            }
-            law.write_canonical_json(self.packet / row["evidenceDirectory"] / "stage-evidence.json", body)
+        # No evidence body is written here. A draft proposes an observation; the bodies a
+        # stage records are materialized from the admitted set by the orchestrator, and a
+        # file this fixture invented would be refused before the first stage is recorded.
         return authorizations
 
     # -- the whole order, once ---------------------------------------------------
@@ -555,18 +569,29 @@ class SuccessorFlightWalk:
         self.admission_receipt = self.run_admission("admission-admissible.json")
 
         self.authentication_path = self.write_authentication_receipt(admission_receipt=self.admission_receipt)
+        self.materialization_receipt = self.run_materialization()
         self.authorizations = self.write_stage_drafts(self.admission_receipt)
+
+        # The estate is copied here, drafted and bridged but with zero stages recorded, so
+        # the hostile witnesses can attack the recording step itself without paying for a
+        # second admission.
+        self.pre_record_snapshot = self.root.parent / "snapshot-pre-record"
+        shutil.copytree(self.root, self.pre_record_snapshot)
 
         self.orchestration_receipt = orchestrator.orchestrate(
             packet=self.packet,
             admission_receipt=self.receipts / "admission-admissible.json",
+            materialization_receipt=self.materialization_path,
             authentication_receipt=self.authentication_path,
+            candidates=self.candidates,
             repository=REPOSITORY_ROOT,
         )
         self.pre_seal_closure = pre_seal.close_pre_seal(
             packet=self.packet,
             admission_receipt=self.receipts / "admission-admissible.json",
+            materialization_receipt=self.materialization_path,
             authentication_receipt=self.authentication_path,
+            candidates=self.candidates,
             profile_path=PROFILE,
             repository=REPOSITORY_ROOT,
         )
@@ -744,6 +769,147 @@ class LegalOrderTraversal(unittest.TestCase):
         self.assertNotIn("operatorConfirmed", keys)
         self.assertIn("stageConfirmationId", keys)
 
+    # -- materialized evidence --------------------------------------------------------
+    def test_the_bridge_materializes_every_admitted_evidence_role(self) -> None:
+        """43 / 43, with nothing extra, nothing missing and nothing repeated."""
+        receipt = self.walk.materialization_receipt
+        denominator = self.walk.profile["denominator"]
+        self.assertEqual(receipt["status"], "PASS")
+        self.assertEqual(receipt["materializedRoleCount"], 43)
+        self.assertEqual(receipt["materializedRoleCount"], denominator["evidenceRoleDenominator"])
+        self.assertEqual(receipt["nonHumanEvidenceRoleCount"], 40)
+        self.assertEqual(receipt["humanStatementRoleCount"], 3)
+        self.assertEqual(receipt["extraEvidenceRoleCount"], 0)
+        self.assertEqual(receipt["missingEvidenceRoleCount"], 0)
+        self.assertEqual(receipt["duplicateBodyIdentityCount"], 0)
+        self.assertEqual(len(receipt["roles"]), 43)
+        self.assertEqual(len({row["bodyContentId"] for row in receipt["roles"]}), 43)
+        self.assertEqual(len({(row["stage"], row["evidenceRole"]) for row in receipt["roles"]}), 43)
+
+    def test_the_bridge_reproduces_the_roots_the_gate_published(self) -> None:
+        """The stage roots and the complete admission root are recomputed, not copied."""
+        receipt = self.walk.materialization_receipt
+        admitted = self.walk.admission_receipt
+        self.assertEqual(
+            receipt["evidenceAdmissionDigestRoot"], admitted["evidenceAdmissionDigestRoot"]
+        )
+        published = {row["stage"]: row["evidenceAdmissionRoot"] for row in admitted["stages"]}
+        measured = {row["stage"]: row["evidenceAdmissionRoot"] for row in receipt["stages"]}
+        self.assertEqual(measured, published)
+        self.assertEqual(len(measured), 16)
+
+    def test_every_admitted_role_occupies_its_own_packet_coordinate(self) -> None:
+        receipt = self.walk.materialization_receipt
+        destinations = [row["packetDestination"] for row in receipt["roles"]]
+        self.assertEqual(len(set(destinations)), len(destinations))
+        self.assertEqual(receipt["physicalBodyCount"], len(destinations))
+        for row in receipt["roles"]:
+            # The coordinate carries the role, so a body cannot be moved between roles
+            # without moving the file the record hashes.
+            self.assertTrue(
+                row["packetDestination"].endswith(f"/{row['evidenceRoleKey']}.json"),
+                row["packetDestination"],
+            )
+            self.assertTrue((self.walk.packet / row["packetDestination"]).is_file())
+
+    def test_the_packet_carries_the_admitted_bodies_and_no_others(self) -> None:
+        receipt = self.walk.materialization_receipt
+        expected = {row["packetDestination"] for row in receipt["roles"]}
+        present = {
+            path.relative_to(self.walk.packet).as_posix()
+            for path in self.walk.packet.glob("*/evidence/*")
+            if path.is_file()
+        }
+        self.assertEqual(present, expected)
+        for row in receipt["roles"]:
+            candidate = (self.walk.candidates / row["candidateBodyPath"]).read_bytes()
+            self.assertEqual((self.walk.packet / row["packetDestination"]).read_bytes(), candidate)
+
+    def test_each_recorded_body_carries_its_own_role_and_provenance(self) -> None:
+        by_destination = {
+            row["packetDestination"]: row for row in self.walk.materialization_receipt["roles"]
+        }
+        seen = 0
+        for record_path in sorted(self.walk.packet.glob("*/stage-record.json")):
+            for evidence in load_json(record_path)["evidenceFiles"]:
+                role_row = by_destination[evidence["relativePath"]]
+                self.assertEqual(evidence["evidenceRole"], role_row["evidenceRole"])
+                self.assertEqual(evidence["provenanceClass"], role_row["provenanceClass"])
+                self.assertEqual(evidence["evidenceClass"], role_row["evidenceClass"])
+                self.assertEqual(evidence["bodyContentId"], role_row["bodyContentId"])
+                seen += 1
+        self.assertEqual(seen, 43)
+
+    def test_a_stage_of_mixed_provenance_is_not_flattened_to_one_class(self) -> None:
+        """BIND_GRACE combines accepted receipts with a named-human statement.
+
+        One draft-wide evidenceClass could not describe both, which is why the draft no
+        longer carries one at all.
+        """
+        record = load_json(next(self.walk.packet.glob("03-BIND_GRACE/stage-record.json")))
+        provenance = {row["provenanceClass"] for row in record["evidenceFiles"]}
+        classes = {row["evidenceClass"] for row in record["evidenceFiles"]}
+        self.assertIn("named_human_statement", provenance)
+        self.assertGreater(len(provenance), 1)
+        self.assertGreater(len(classes), 1)
+        draft = load_json(next(self.walk.packet.glob("03-BIND_GRACE/stage-attestation.json")))
+        self.assertNotIn("evidenceClass", draft)
+        self.assertNotIn("mediaType", draft)
+
+    def test_every_recorded_root_is_reconstructed_from_the_bodies_beside_it(self) -> None:
+        """Recompute each stage root here, from the packet, and require the record to match."""
+        profile = law.load_profile(PROFILE)
+        admission = law.load_admission_profile(REPOSITORY_ROOT, profile)
+        by_stage: dict[str, list[dict]] = {}
+        for row in self.walk.materialization_receipt["roles"]:
+            by_stage.setdefault(row["stage"], []).append(row)
+        published = {row["stage"]: row["evidenceAdmissionRoot"] for row in self.walk.admission_receipt["stages"]}
+        for index, stage in enumerate(self.walk.stages):
+            record = load_json(
+                next(self.walk.packet.glob(f"{index + 1:02d}-{stage}/stage-record.json"))
+            )
+            measured = law.stage_evidence_root(
+                admission,
+                scope=law.ALL_ROLES_SCOPE,
+                sequence=index + 1,
+                stage=stage,
+                rows=by_stage[stage],
+            )
+            self.assertEqual(record["evidenceAdmissionRoot"], measured, stage)
+            self.assertEqual(record["evidenceAdmissionRoot"], published[stage], stage)
+
+    def test_the_three_statements_are_bound_to_an_exact_stage_and_role(self) -> None:
+        bindings = self.walk.materialization_receipt["statementBindings"]
+        self.assertEqual(len(bindings), 3)
+        self.assertEqual(len({row["stage"] for row in bindings}), 3)
+        by_stage = {row["stage"]: row for row in bindings}
+        self.assertIn("BIND_GRACE", by_stage)
+        self.assertIn("RESTORE_LINK_HOLD_CONFLICT", by_stage)
+        authenticated = load_json(self.walk.authentication_path)["statementIds"]
+        self.assertEqual(sorted(row["statementId"] for row in bindings), sorted(authenticated))
+        # Each bound statement is that stage's named-human role, not merely an identity
+        # the stage happened to admit.
+        roles = {
+            (row["stage"], row["evidenceRole"]): row
+            for row in self.walk.materialization_receipt["roles"]
+        }
+        for binding in bindings:
+            role_row = roles[(binding["stage"], binding["evidenceRole"])]
+            self.assertEqual(role_row["provenanceClass"], "named_human_statement")
+            self.assertEqual(role_row["bodyContentId"], binding["statementId"])
+
+    def test_the_orchestration_receipt_reports_the_materialized_denominator(self) -> None:
+        receipt = self.walk.orchestration_receipt
+        self.assertEqual(
+            receipt["materializationReceiptId"],
+            self.walk.materialization_receipt["materializationReceiptId"],
+        )
+        self.assertEqual(receipt["materializedEvidenceRoleCount"], 43)
+        self.assertEqual(receipt["materializedPrivateEvidenceBodyCount"], 43)
+        self.assertEqual(receipt["unadmittedEvidenceBodiesRecorded"], 0)
+        self.assertEqual(len(receipt["namedHumanStatementBindings"]), 3)
+        self.assertEqual(sum(row["evidenceBodyCount"] for row in receipt["recordedStages"]), 43)
+
     # -- pre-seal closure -------------------------------------------------------------
     def test_pre_seal_closure_binds_the_authenticated_decisions_and_roots(self) -> None:
         closure = self.walk.pre_seal_closure
@@ -760,6 +926,12 @@ class LegalOrderTraversal(unittest.TestCase):
         self.assertEqual(
             closure["evidenceAdmissionDigestRoot"], self.walk.admission_receipt["evidenceAdmissionDigestRoot"]
         )
+        self.assertEqual(
+            closure["materializationReceiptId"],
+            self.walk.materialization_receipt["materializationReceiptId"],
+        )
+        self.assertEqual(closure["materializedEvidenceRoleCount"], 43)
+        self.assertEqual(closure["privateEvidenceBodyCount"], 43)
 
     def test_pre_seal_closure_retains_two_distinct_conflict_branches(self) -> None:
         closure = self.walk.pre_seal_closure
@@ -806,7 +978,11 @@ class LegalOrderTraversal(unittest.TestCase):
             run["preSealClosureId"], self.walk.pre_seal_closure["preSealClosureId"]
         )
         self.assertEqual(run["stageCount"], 16)
-        self.assertEqual(run["privatePhysicalEvidenceBodyCount"], 16)
+        self.assertEqual(
+            run["privatePhysicalEvidenceBodyCount"],
+            self.walk.materialization_receipt["physicalBodyCount"],
+        )
+        self.assertEqual(run["privatePhysicalEvidenceBodyCount"], 43)
 
     def test_detached_verification_reproduces_from_the_sealed_run_alone(self) -> None:
         verification = self.walk.detached_verification
@@ -843,6 +1019,7 @@ class LegalOrderTraversal(unittest.TestCase):
             ("compile", self.walk.compile_receipt),
             ("verify", self.walk.packet_verification),
             ("admission", self.walk.admission_receipt),
+            ("materialization", self.walk.materialization_receipt),
             ("orchestration", self.walk.orchestration_receipt),
             ("pre-seal", self.walk.pre_seal_closure),
             ("detached", self.walk.detached_verification),
@@ -874,8 +1051,6 @@ class RecordingConsentWitnesses(unittest.TestCase):
             ),
             canonical_mission_state_digest=sha256_text("canonical"),
             stage_confirmation_id=cid("stcmarypacketevidencestageconfirmation1", {"synthetic": True}),
-            evidence_class="private_local_attestation",
-            media_type="application/json",
         )
         widened = {**draft, "operatorConfirmed": True}
         with self.assertRaises(law.SuccessorFlightError) as caught:
@@ -1024,7 +1199,9 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
         return pre_seal.close_pre_seal(
             packet=estate / "campaign" / "stc-mary-private-flight-successor",
             admission_receipt=estate / "receipts" / "admission-admissible.json",
+            materialization_receipt=estate / "receipts" / "evidence-materialization.json",
             authentication_receipt=estate / "receipts" / "authentication.json",
+            candidates=estate / "admission",
             profile_path=PROFILE,
             repository=REPOSITORY_ROOT,
         )
@@ -1064,12 +1241,29 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
         self.assertEqual(caught.exception.code, "PRE_SEAL_CLOSURE_DENOMINATOR_INCOMPLETE")
 
     def test_recorded_evidence_edited_after_recording_refuses(self) -> None:
+        """The closure replays the admitted mapping before it reads a stage record.
+
+        A body replaced in the packet therefore refuses as a substitution against the
+        candidate the gate admitted, which is a stronger statement than drift against the
+        record's own digest. The drift check itself is witnessed separately below.
+        """
         estate = self.copy_pre_seal_estate()
         packet = estate / "campaign" / "stc-mary-private-flight-successor"
         body = next(packet.glob("01-*/evidence/*.json"))
         body.write_bytes(b'{"schema": "quietly-replaced"}\n')
         with self.assertRaises(pre_seal.PreSealClosureError) as caught:
             self.close_pre_seal(estate)
+        self.assertEqual(caught.exception.code, "EVIDENCE_BODY_SUBSTITUTED")
+
+    def test_recorded_evidence_still_fails_its_own_custody_check(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        next(packet.glob("01-*/evidence/*.json")).write_bytes(b'{"schema": "quietly-replaced"}\n')
+        profile = law.load_profile(PROFILE)
+        state = law.load_packet(profile, packet)["state"]
+        records = runtime.read_stage_records(profile=profile, packet=packet, state=state)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            runtime.verify_evidence_custody(packet=packet, records=records)
         self.assertEqual(caught.exception.code, "STAGE_EVIDENCE_DRIFT")
 
     # -- sealing --------------------------------------------------------------------
@@ -1280,6 +1474,7 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 campaign_id=self.walk.campaign_id,
                 campaign_label=LIVE_CAMPAIGN_LABEL,
                 authorizations=self.walk.authorizations,
+                statement_bindings=self.walk.materialization_receipt["statementBindings"],
             )
         self.assertEqual(caught.exception.code, "SYNTHETIC_AUTHENTICATION_APPLIED_TO_LIVE_CAMPAIGN")
 
@@ -1295,10 +1490,359 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
             campaign_id=self.walk.campaign_id,
             campaign_label=SYNTHETIC_CAMPAIGN_LABEL,
             authorizations=self.walk.authorizations,
+            statement_bindings=self.walk.materialization_receipt["statementBindings"],
         )
         self.assertEqual(body["principalClass"], "named_human")
         self.assertEqual(len(body["statementIds"]), 3)
         self.assertEqual(len(body["confirmationIds"]), 16)
+
+
+class MaterializedEvidenceHostileWitnesses(unittest.TestCase):
+    """Attacks on the bridge between admitted roles and packet bodies.
+
+    Each works on a private copy of the estate at the drafted-and-bridged moment, before
+    any stage was recorded, so a refusal here is a refusal *before the first stage record
+    exists* rather than after a packet was already built.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.walk = shared_walk()
+
+    def copy_pre_record_estate(self) -> Path:
+        target = Path(tempfile.mkdtemp(prefix="stc-mary-successor-materialize-")) / "estate"
+        self.addCleanup(shutil.rmtree, target.parent, ignore_errors=True)
+        shutil.copytree(self.walk.pre_record_snapshot, target)
+        return target
+
+    def orchestrate(self, estate: Path) -> dict:
+        return orchestrator.orchestrate(
+            packet=estate / "campaign" / "stc-mary-private-flight-successor",
+            admission_receipt=estate / "receipts" / "admission-admissible.json",
+            materialization_receipt=estate / "receipts" / "evidence-materialization.json",
+            authentication_receipt=estate / "receipts" / "authentication.json",
+            candidates=estate / "admission",
+            repository=REPOSITORY_ROOT,
+        )
+
+    def resign_materialization(self, estate: Path, mutate) -> Path:
+        path = estate / "receipts" / "evidence-materialization.json"
+        body = load_json(path)
+        law_block = self.walk.profile["evidenceMaterialization"]
+        body.pop(law_block["idKey"], None)
+        mutate(body)
+        law.write_canonical_json(path, sign(body, law_block["idKey"], law_block["idPrefix"]))
+        return path
+
+    def assert_no_stage_was_recorded(self, estate: Path) -> None:
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        self.assertEqual(list(packet.glob("*/stage-record.json")), [])
+        self.assertEqual(law.load_packet(law.load_profile(PROFILE), packet)["state"]["completedStageCount"], 0)
+
+    # -- the defect this transaction exists to refuse --------------------------------
+    def test_one_generic_body_per_stage_refuses_before_the_first_record(self) -> None:
+        """The traversal this source set previously qualified must now refuse.
+
+        Writing one invented ``stage-evidence.json`` into each stage and recording sixteen
+        stages used to reach a detached-verified seal reporting sixteen private bodies
+        beside forty-three-role admission roots. It is now refused at materialization,
+        before a single stage record is written.
+        """
+        estate = self.copy_pre_record_estate()
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        for index, stage in enumerate(self.walk.stages):
+            directory = packet / f"{index + 1:02d}-{stage}" / "evidence"
+            law.write_canonical_json(
+                directory / "stage-evidence.json",
+                {
+                    "schema": "stc-mary/successor-flight-synthetic-evidence/1",
+                    "stage": stage,
+                    "sequence": index + 1,
+                    "authority": "none",
+                },
+            )
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "PACKET_EVIDENCE_UNMATERIALIZED")
+        self.assert_no_stage_was_recorded(estate)
+
+    def test_one_extra_body_beside_the_admitted_set_refuses(self) -> None:
+        estate = self.copy_pre_record_estate()
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        directory = packet / f"01-{self.walk.stages[0]}" / "evidence"
+        law.write_canonical_json(directory / "extra.json", {"authority": "none"})
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "PACKET_EVIDENCE_UNMATERIALIZED")
+        self.assert_no_stage_was_recorded(estate)
+
+    # -- the materialization receipt itself -------------------------------------------
+    def test_a_hand_written_materialization_receipt_does_not_reidentify(self) -> None:
+        estate = self.copy_pre_record_estate()
+        path = estate / "receipts" / "evidence-materialization.json"
+        body = load_json(path)
+        body["roles"][0]["bodySha256"] = sha256_text("substituted")
+        law.write_canonical_json(path, body)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "MATERIALIZATION_RECEIPT_INVALID")
+        self.assert_no_stage_was_recorded(estate)
+
+    def test_a_materialization_receipt_missing_one_role_refuses(self) -> None:
+        estate = self.copy_pre_record_estate()
+        self.resign_materialization(
+            estate,
+            lambda body: body.update(
+                {"roles": body["roles"][:-1], "materializedRoleCount": len(body["roles"]) - 1}
+            ),
+        )
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "MATERIALIZATION_ROLE_DENOMINATOR_INVALID")
+        self.assert_no_stage_was_recorded(estate)
+
+    def test_a_role_stripped_of_its_retained_provenance_refuses(self) -> None:
+        """Retention nothing checks is a column a hand-written receipt can null out."""
+        def strip(body: dict) -> None:
+            row = next(
+                entry for entry in body["roles"]
+                if entry["provenanceClass"] == "accepted_predecessor_receipt"
+            )
+            row["sourceReceiptId"] = None
+
+        estate = self.copy_pre_record_estate()
+        self.resign_materialization(estate, strip)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "MATERIALIZATION_RECEIPT_INVALID")
+        self.assert_no_stage_was_recorded(estate)
+
+    def test_a_materialization_receipt_for_another_request_refuses(self) -> None:
+        estate = self.copy_pre_record_estate()
+        self.resign_materialization(
+            estate,
+            lambda body: body.update(
+                {"requestId": cid("stcmarypacketevidenceadmissionrequest1", {"another": True})}
+            ),
+        )
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "MATERIALIZATION_BINDING_INVALID")
+        self.assert_no_stage_was_recorded(estate)
+
+    def test_a_candidate_body_edited_after_admission_refuses(self) -> None:
+        estate = self.copy_pre_record_estate()
+        row = load_json(estate / "receipts" / "evidence-materialization.json")["roles"][0]
+        (estate / "admission" / row["candidateBodyPath"]).write_bytes(b'{"schema": "swapped"}\n')
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "EVIDENCE_BODY_SUBSTITUTED")
+        self.assert_no_stage_was_recorded(estate)
+
+    # -- a row is a member of one receipt, never a portable assertion -----------------
+    def test_a_row_extracted_from_its_parent_receipt_is_not_a_receipt(self) -> None:
+        """A single row, lifted out and offered on its own, authenticates nothing."""
+        estate = self.copy_pre_record_estate()
+        path = estate / "receipts" / "evidence-materialization.json"
+        row = load_json(path)["roles"][0]
+        law_block = self.walk.profile["evidenceMaterialization"]
+        law.write_canonical_json(path, sign(dict(row), law_block["idKey"], law_block["idPrefix"]))
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "MATERIALIZATION_RECEIPT_INVALID")
+        self.assert_no_stage_was_recorded(estate)
+
+    def test_a_receipt_resigned_for_another_campaign_refuses(self) -> None:
+        """The bodies are untouched; only the receipt's top-level campaign moved."""
+        estate = self.copy_pre_record_estate()
+        self.resign_materialization(
+            estate,
+            lambda body: body.update(
+                {"campaignId": cid("stcmaryflightconductorcampaign1", {"campaignLabel": "SYNTHETIC-OTHER"})}
+            ),
+        )
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "MATERIALIZATION_BINDING_INVALID")
+        self.assert_no_stage_was_recorded(estate)
+
+    def test_a_receipt_resigned_for_another_packet_refuses(self) -> None:
+        estate = self.copy_pre_record_estate()
+        self.resign_materialization(
+            estate,
+            lambda body: body.update(
+                {"packetId": cid("stcmaryprivateflightpacket1", {"another": True})}
+            ),
+        )
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "MATERIALIZATION_BINDING_INVALID")
+        self.assert_no_stage_was_recorded(estate)
+
+    def test_a_row_moved_to_another_stage_refuses_before_any_record(self) -> None:
+        """Refused with the packet untouched, not after earlier stages were written."""
+        def move(body: dict) -> None:
+            row = next(entry for entry in body["roles"] if entry["stage"] == self.walk.stages[13])
+            row["stage"] = self.walk.stages[0]
+
+        estate = self.copy_pre_record_estate()
+        self.resign_materialization(estate, move)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "MATERIALIZATION_BINDING_INVALID")
+        self.assert_no_stage_was_recorded(estate)
+
+    def test_a_row_moved_to_another_evidence_role_refuses_before_any_record(self) -> None:
+        """A late-stage rebinding must not let the earlier fifteen stages be recorded."""
+        def rebind(body: dict) -> None:
+            row = next(entry for entry in body["roles"] if entry["stage"] == self.walk.stages[13])
+            row["evidenceRole"] = f"{row['evidenceRole']} (rebound)"
+
+        estate = self.copy_pre_record_estate()
+        self.resign_materialization(estate, rebind)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.orchestrate(estate)
+        self.assertEqual(caught.exception.code, "STAGE_EVIDENCE_ROOT_MISMATCH")
+        self.assert_no_stage_was_recorded(estate)
+
+    # -- a body re-signed for another coordinate --------------------------------------
+    def replay_one_role(self, *, mutate) -> None:
+        """Drive replay_role directly over a body re-signed for another coordinate.
+
+        Campaign and packet identity live at receipt level, so the predicate that catches
+        a re-signed body is the per-body check inside the bridge. It is exercised here
+        directly rather than through a whole traversal.
+        """
+        walk = self.walk
+        stage = walk.stages[0]
+        stage_law = walk.admission_profile["stages"][stage]
+        role_law = stage_law["evidenceRoles"][0]
+        schema_law = walk.admission_profile["bodySchemas"][role_law["provenanceClass"]]
+
+        root = Path(tempfile.mkdtemp(prefix="stc-mary-successor-rebind-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        body = walk.evidence_body(stage, 1, role_law, stage_law)
+        body.pop(schema_law["idKey"], None)
+        mutate(body)
+        body = sign(body, schema_law["idKey"], schema_law["idPrefix"])
+        relative = f"bodies/01-{stage}/{role_law['evidenceRoleKey']}.json"
+        write_json(root / relative, body)
+        data = (root / relative).read_bytes()
+        descriptor = {
+            "evidenceRole": role_law["evidenceRole"],
+            "provenanceClass": role_law["provenanceClass"],
+            "evidenceClass": EVIDENCE_CLASS_BY_PROVENANCE[role_law["provenanceClass"]],
+            "mediaType": "application/json",
+            "bodyPath": relative,
+            "bodySha256": law.sha256_bytes(data),
+            "bodyBytes": len(data),
+            "bodySchema": schema_law["schema"],
+            "bodyContentId": body[schema_law["idKey"]],
+            "opaqueInstrumentClass": None,
+            "instrumentReceiptPath": None,
+            "authority": "none",
+            "claimBoundary": "Synthetic evidence descriptor for conformance only. It grants no authority.",
+        }
+        with self.assertRaises(materialization_bridge.MaterializationError) as caught:
+            materialization_bridge.replay_role(
+                profile=load_json(PROFILE),
+                admission=walk.admission_profile,
+                descriptor=descriptor,
+                role_law=role_law,
+                stage=stage,
+                sequence=1,
+                candidates=root,
+                packet=walk.packet,
+                evidence_directory=f"01-{stage}/evidence",
+                campaign_id=walk.campaign_id,
+                packet_id=walk.packet_id,
+            )
+        self.assertEqual(caught.exception.code, "EVIDENCE_BODY_SUBSTITUTED")
+
+    def test_a_body_resigned_for_another_campaign_refuses(self) -> None:
+        self.replay_one_role(
+            mutate=lambda body: body.update(
+                {"campaignId": cid("stcmaryflightconductorcampaign1", {"campaignLabel": "SYNTHETIC-OTHER"})}
+            )
+        )
+
+    def test_a_body_resigned_for_another_packet_refuses(self) -> None:
+        self.replay_one_role(
+            mutate=lambda body: body.update(
+                {"packetId": cid("stcmaryprivateflightpacket1", {"another": True})}
+            )
+        )
+
+    # -- the bridge refuses on its own inputs -----------------------------------------
+    def bridge(self, estate: Path) -> dict:
+        return materialization_bridge.materialize_evidence(
+            packet=estate / "campaign" / "stc-mary-private-flight-successor",
+            admission_receipt=estate / "receipts" / "admission-admissible.json",
+            candidates=estate / "admission",
+            repository=REPOSITORY_ROOT,
+            profile_path=PROFILE,
+        )
+
+    def test_the_bridge_refuses_a_request_edited_after_admission(self) -> None:
+        estate = self.copy_pre_record_estate()
+        path = estate / "admission" / "ADMISSION-REQUEST.json"
+        body = load_json(path)
+        body["stages"][0]["evidence"] = body["stages"][0]["evidence"][:-1]
+        write_json(path, body)
+        with self.assertRaises(materialization_bridge.MaterializationError) as caught:
+            self.bridge(estate)
+        self.assertEqual(caught.exception.code, "ADMISSION_REQUEST_BINDING_INVALID")
+
+    def test_the_bridge_refuses_a_candidate_body_edited_after_admission(self) -> None:
+        estate = self.copy_pre_record_estate()
+        body = next((estate / "admission" / "bodies").rglob("*.json"))
+        body.write_bytes(b'{"schema": "swapped"}\n')
+        with self.assertRaises(materialization_bridge.MaterializationError) as caught:
+            self.bridge(estate)
+        self.assertEqual(caught.exception.code, "EVIDENCE_BODY_SUBSTITUTED")
+
+    def test_the_bridge_refuses_an_unbootstrapped_admission_receipt(self) -> None:
+        estate = self.copy_pre_record_estate()
+        path = estate / "receipts" / "admission-admissible.json"
+        body = load_json(path)
+        body["bootstrapAuthenticated"] = False
+        write_json(path, body)
+        with self.assertRaises(materialization_bridge.MaterializationError) as caught:
+            self.bridge(estate)
+        self.assertEqual(caught.exception.code, "ADMISSION_RECEIPT_NOT_BOOTSTRAP_AUTHENTICATED")
+
+    def test_the_bridge_refuses_to_write_inside_the_packet(self) -> None:
+        """Exercised through the real entrypoint, in its own process.
+
+        The refusal document goes to stdout, so it is captured here rather than left to
+        interleave with the witness report the hosted gate parses.
+        """
+        estate = self.copy_pre_record_estate()
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(ANCHOR / "verify_stc_mary_successor_evidence_materialization.py"),
+                "--packet",
+                str(packet),
+                "--admission-receipt",
+                str(estate / "receipts" / "admission-admissible.json"),
+                "--candidates",
+                str(estate / "admission"),
+                "--repository-root",
+                str(REPOSITORY_ROOT),
+                "--profile",
+                str(PROFILE),
+                "--out",
+                str(packet / "smuggled.json"),
+            ],
+            check=False,
+            capture_output=True,
+        )
+        self.assertEqual(completed.returncode, 1)
+        refusal = json.loads(completed.stdout.decode("utf-8"))
+        self.assertEqual(refusal["code"], "RECEIPT_INSIDE_MEASURED_SURFACE")
+        self.assertFalse((packet / "smuggled.json").exists())
 
 
 class OrderingWitnesses(unittest.TestCase):
@@ -1334,6 +1878,7 @@ class OrderingWitnesses(unittest.TestCase):
                 packet=self.walk.packet,
                 stage=second,
                 authorization=self.authorization(second),
+                role_rows=[],
             )
         self.assertEqual(caught.exception.code, "STAGE_OUT_OF_ORDER")
 
@@ -1394,10 +1939,11 @@ class SourceBoundaryWitnesses(unittest.TestCase):
             self.assertNotIn("stc_mary_private_flight_packet", text, relative)
             self.assertNotIn("operatorConfirmed=", text, relative)
 
-    def test_the_three_verifiers_import_nothing_from_the_construction_law(self) -> None:
+    def test_the_four_verifiers_import_nothing_from_the_construction_law(self) -> None:
         """Independence is the whole point: a defect in the law may not authenticate it."""
         for name in (
             "verify_stc_mary_successor_packet.py",
+            "verify_stc_mary_successor_evidence_materialization.py",
             "verify_stc_mary_successor_pre_seal_closure.py",
             "verify_stc_mary_successor_post_seal_closure.py",
         ):
@@ -1408,9 +1954,82 @@ class SourceBoundaryWitnesses(unittest.TestCase):
     def test_every_declared_source_member_exists(self) -> None:
         members = self.profile["successorSourceMembers"]
         self.assertEqual(len(members), self.profile["successorSourceMemberDenominator"])
+        self.assertEqual(self.profile["successorSourceMemberDenominator"], 15)
         self.assertEqual(len(set(members.values())), len(members))
         for relative in members:
             self.assertTrue((REPOSITORY_ROOT / relative).is_file(), relative)
+
+    def test_every_generated_packet_coordinate_is_portable_and_unique(self) -> None:
+        """Enumerate the admitted denominator and prove the generated paths are safe.
+
+        Two admitted role keys already differ only by stage -- ``verifier-receipt`` appears
+        in RUN_PERSONAL_FLOOR_BASELINE and RUN_HALO3_ACCELERATED -- so uniqueness is proved
+        over the complete stage-scoped destination rather than over the key. A future role
+        key that collides only by case must refuse here, not on the Windows hosted leg
+        half way through materializing a packet.
+        """
+        admitted = load_json(REPOSITORY_ROOT / self.profile["admissionProfile"]["relativePath"])
+        destination_law = self.profile["evidenceMaterialization"]["destination"]
+        path_law = destination_law["pathSafety"]
+        destinations = []
+        keys = []
+        for sequence, stage in enumerate(admitted["stageSequence"], start=1):
+            for role_law in admitted["stages"][stage]["evidenceRoles"]:
+                key = role_law["evidenceRoleKey"]
+                keys.append(key)
+                destinations.append(
+                    f"{sequence:02d}-{stage}/evidence/"
+                    + destination_law["bodyFileTemplate"].format(evidenceRoleKey=key)
+                )
+        self.assertEqual(len(destinations), self.profile["denominator"]["evidenceRoleDenominator"])
+        self.assertEqual(len(destinations), 43)
+        # The keys are not unique; the destinations must be, exactly and under casefold.
+        self.assertLess(len(set(keys)), len(keys))
+        self.assertEqual(len(set(destinations)), 43)
+        self.assertEqual(len({row.casefold() for row in destinations}), 43)
+        for destination in destinations:
+            materialization_bridge.assert_safe_destination(
+                destination, law=path_law, code="EVIDENCE_DESTINATION_INVALID", label="destination"
+            )
+        materialization_bridge.assert_portable_destination_set(
+            destinations, law=path_law, code="EVIDENCE_DESTINATION_INVALID"
+        )
+
+    def test_a_case_insensitive_coordinate_collision_refuses(self) -> None:
+        path_law = self.profile["evidenceMaterialization"]["destination"]["pathSafety"]
+        with self.assertRaises(materialization_bridge.MaterializationError) as caught:
+            materialization_bridge.assert_portable_destination_set(
+                ["01-A/evidence/verifier-receipt.json", "01-A/evidence/Verifier-Receipt.json"],
+                law=path_law,
+                code="EVIDENCE_DESTINATION_INVALID",
+            )
+        self.assertEqual(caught.exception.code, "EVIDENCE_DESTINATION_INVALID")
+
+    def test_a_reserved_windows_component_refuses(self) -> None:
+        path_law = self.profile["evidenceMaterialization"]["destination"]["pathSafety"]
+        for unsafe in ("01-A/evidence/nul.json", "01-A/evidence/COM1.json", "01-A/evidence/aux.json"):
+            with self.assertRaises(materialization_bridge.MaterializationError) as caught:
+                materialization_bridge.assert_safe_destination(
+                    unsafe, law=path_law, code="EVIDENCE_DESTINATION_INVALID", label="destination"
+                )
+            self.assertEqual(caught.exception.code, "EVIDENCE_DESTINATION_INVALID", unsafe)
+
+    def test_the_materialized_row_is_declared_receipt_subordinate(self) -> None:
+        """The classification is law the surfaces read, not prose beside the schema."""
+        block = self.profile["evidenceMaterialization"]
+        self.assertEqual(block["rowClass"], "receipt-subordinate")
+        for name in (
+            "verify_stc_mary_successor_evidence_materialization.py",
+            "stc_mary_successor_packet_orchestrator.py",
+            "verify_stc_mary_successor_pre_seal_closure.py",
+        ):
+            text = (ANCHOR / name).read_text(encoding="utf-8")
+            self.assertIn('"rowClass"', text, name)
+        # Campaign and packet identity are carried once, at receipt level, and never
+        # repeated on a row.
+        for key in ("campaignId", "packetId"):
+            self.assertIn(key, block["keys"])
+            self.assertNotIn(key, block["roleRowKeys"])
 
     def test_the_admitted_profile_is_pinned_by_canonical_digest(self) -> None:
         pin = self.profile["admissionProfile"]

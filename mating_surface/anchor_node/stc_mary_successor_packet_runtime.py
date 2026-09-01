@@ -11,6 +11,16 @@ names a ``stageConfirmationId`` and the caller supplies the matching authenticat
 recording authorization derived from an admission receipt. There is no path by which this
 module can record a stage from a self-declared flag.
 
+The second is where a stage's evidence comes from and what its evidence-admission root
+means. This runtime does not hash whatever files happen to sit in a stage's evidence
+directory, and it does not copy the root the admission receipt published. It is handed the
+exact admitted role rows of an evidence-materialization receipt, requires the stage
+directory to hold exactly those coordinates and nothing else, recomputes every body's own
+content identity from the bytes in the packet, and then *reconstructs* the stage
+evidence-admission root from those rows. A stage is recordable only when the reconstructed
+root equals the authorized one, so the root in a stage record is a measurement of the
+bodies beside it rather than a value inherited from elsewhere.
+
 The Stage 16 observation contract is not restated here either. Every stage observation is
 validated against the admitted packet-evidence-admission@2 profile, read through the
 successor profile's canonical-digest pin, so this runtime cannot record a Stage 16
@@ -44,7 +54,8 @@ STATE_CLAIM = (
 )
 DRAFT_CLAIM = (
     "Local stage draft. It proposes one stage observation and names the named-human stage "
-    "confirmation that must authorize it. It grants no authority and records nothing."
+    "confirmation that must authorize it. It describes no evidence body, carries no evidence "
+    "class or media type, grants no authority and records nothing."
 )
 
 AUTHORIZATION_KEYS = (
@@ -121,8 +132,6 @@ def build_stage_draft(
     observation: Mapping[str, Any],
     canonical_mission_state_digest: str,
     stage_confirmation_id: str,
-    evidence_class: str,
-    media_type: str,
     notes: str = "",
 ) -> dict[str, Any]:
     draft_law = profile["packet"]["stageDraft"]
@@ -136,8 +145,6 @@ def build_stage_draft(
         "canonicalMissionStateIdAfter": canonical_mission_state_digest,
         "observation": dict(observation),
         "stageConfirmationId": stage_confirmation_id,
-        "evidenceClass": evidence_class,
-        "mediaType": media_type,
         "notes": notes,
         "authority": law.AUTHORITY,
         "claimBoundary": DRAFT_CLAIM,
@@ -156,13 +163,26 @@ def validate_stage_draft(
     canonical_mission_state_digest: str,
 ) -> Mapping[str, Any]:
     draft_law = profile["packet"]["stageDraft"]
-    packet_law = profile["packet"]
     code = "STAGE_DRAFT_INVALID"
     label = f"{stage} stage draft"
     law.exact_keys(draft, draft_law["keys"], code, label)
     # The frozen recorder's self-declared operator Boolean has no coordinate in this
     # schema, so a draft cannot even offer one without failing the exact key denominator.
-    law.require("operatorConfirmed" not in draft, "STAGE_DRAFT_SELF_CONFIRMED", f"{label} carries a self-declared operator confirmation")
+    law.require(
+        "operatorConfirmed" not in draft,
+        "STAGE_DRAFT_SELF_CONFIRMED",
+        f"{label} carries a self-declared operator confirmation",
+    )
+    # Nor may a draft describe the evidence beside it. One draft-wide evidenceClass cannot
+    # truthfully describe a stage that combines an accepted predecessor receipt with a
+    # named-human statement, and a draft-authored class would be a second self-declaration
+    # in a schema built to remove the first. Class, media type and provenance are carried
+    # per admitted body by the evidence-materialization receipt.
+    law.require(
+        "evidenceClass" not in draft and "mediaType" not in draft,
+        "STAGE_DRAFT_DESCRIBES_ITS_OWN_EVIDENCE",
+        f"{label} describes its own evidence class or media type",
+    )
     law.require(draft["schema"] == draft_law["schema"], code, f"{label} schema differs")
     law.require(
         draft["stage"] == stage and draft["sequence"] == sequence,
@@ -183,12 +203,6 @@ def validate_stage_draft(
     validate_observation(stage, admission["stages"][stage]["observation"], draft["observation"])
     law.assert_content_id(draft["stageConfirmationId"], code, f"{label} stage confirmation identity")
     law.require(
-        draft["evidenceClass"] in packet_law["evidenceClasses"],
-        code,
-        f"{label} evidence class is not an admitted private evidence class",
-    )
-    law.assert_bounded_text(draft["mediaType"], code, f"{label} media type", 256)
-    law.require(
         isinstance(draft["notes"], str) and len(draft["notes"]) <= 16384,
         code,
         f"{label} notes are invalid or unbounded",
@@ -202,33 +216,141 @@ def validate_stage_draft(
 # --------------------------------------------------------------------------------
 
 
-def evidence_rows(*, packet: Path, evidence_directory: str, draft: Mapping[str, Any], maximum: int) -> list[dict[str, Any]]:
+def recompute_body_identity(
+    *, admission: Mapping[str, Any], role_row: Mapping[str, Any], data: bytes, label: str
+) -> str:
+    """Recompute one admitted body's own content identity from the bytes in the packet.
+
+    This is the step that makes the reconstructed stage root a measurement. Without it the
+    runtime would be re-hashing files it was merely told about, and a body could be
+    replaced by another body of the same length and digest lineage without the identity
+    that entered the gate's root ever being checked against the packet.
+    """
+    provenance = role_row["provenanceClass"]
+    if role_row["opaqueInstrumentClass"] is None:
+        schema_law = admission["bodySchemas"][provenance]
+        body = law.read_json_bytes(data, code="STAGE_EVIDENCE_INVALID", label=label)
+        law.exact_keys(body, schema_law["keys"], "STAGE_EVIDENCE_INVALID", label)
+        return law.assert_identity(
+            body, schema_law["idKey"], schema_law["idPrefix"], "STAGE_EVIDENCE_IDENTITY_INVALID", label
+        )
+    opaque_law = admission["opaqueInstrument"]
+    instrument = law.read_json_bytes(data, code="STAGE_EVIDENCE_INVALID", label=label)
+    law.exact_keys(instrument, opaque_law["receiptKeys"], "STAGE_EVIDENCE_INVALID", label)
+    return law.assert_identity(
+        instrument,
+        opaque_law["receiptIdKey"],
+        opaque_law["receiptIdPrefix"],
+        "STAGE_EVIDENCE_IDENTITY_INVALID",
+        label,
+    )
+
+
+def evidence_rows(
+    *,
+    profile: Mapping[str, Any],
+    admission: Mapping[str, Any],
+    packet: Path,
+    stage: str,
+    evidence_directory: str,
+    role_rows: Sequence[Mapping[str, Any]],
+    maximum: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Measure exactly the materialized admitted bodies, and nothing else.
+
+    Returns the stage record's evidence rows and the role rows the stage evidence-admission
+    root is reconstructed from. The two differ: an opaque instrument body and its separately
+    admitted instrument receipt are two physical bodies but one evidence role.
+    """
+    record_law = profile["packet"]["stageRecord"]
     directory = packet / evidence_directory
     law.require(directory.is_dir(), "STAGE_EVIDENCE_INVALID", "stage evidence directory is absent")
-    names = sorted(entry.name for entry in directory.iterdir())
+
+    expected: dict[str, tuple[Mapping[str, Any], bool]] = {}
+    for role_row in role_rows:
+        expected[role_row["packetDestination"]] = (role_row, False)
+        if role_row["instrumentReceiptDestination"] is not None:
+            expected[role_row["instrumentReceiptDestination"]] = (role_row, True)
+    present = {
+        f"{evidence_directory}/{entry.name}" for entry in directory.iterdir()
+    }
+    # An unadmitted file in a stage's evidence directory is the exact defect this runtime
+    # exists to refuse: it would be hashed into the manifest, counted as private evidence,
+    # and sealed beside a root that never covered it.
     law.require(
-        0 < len(names) <= maximum,
+        present == set(expected),
+        "PACKET_EVIDENCE_UNMATERIALIZED",
+        f"{stage} evidence directory does not hold exactly the admitted materialized bodies",
+    )
+    law.require(
+        0 < len(expected) <= maximum,
         "STAGE_EVIDENCE_INVALID",
         "stage evidence file denominator is empty or unbounded",
     )
+
     rows: list[dict[str, Any]] = []
-    for name in names:
-        path = directory / name
-        law.require(path.is_file(), "STAGE_EVIDENCE_INVALID", f"stage evidence entry is not a regular file: {name}")
+    root_rows: list[dict[str, Any]] = []
+    for relative in sorted(expected):
+        role_row, is_instrument_receipt = expected[relative]
+        label = f"{stage} evidence role {role_row['evidenceRoleKey']}"
+        path = directory / Path(relative).name
+        law.require(path.is_file(), "STAGE_EVIDENCE_INVALID", f"stage evidence entry is not a regular file: {relative}")
         data = law.read_bounded_bytes(
-            path, law.MAX_EVIDENCE_BYTES, code="STAGE_EVIDENCE_INVALID", label=f"stage evidence {name}"
+            path, law.MAX_EVIDENCE_BYTES, code="STAGE_EVIDENCE_INVALID", label=f"stage evidence {relative}"
         )
-        law.require(len(data) > 0, "STAGE_EVIDENCE_INVALID", f"stage evidence body is empty: {name}")
-        rows.append(
-            {
-                "relativePath": path.relative_to(packet).as_posix(),
-                "sha256": law.sha256_bytes(data),
-                "bytes": len(data),
-                "mediaType": draft["mediaType"],
-                "evidenceClass": draft["evidenceClass"],
-            }
+        law.require(len(data) > 0, "STAGE_EVIDENCE_INVALID", f"stage evidence body is empty: {relative}")
+        measured = law.sha256_bytes(data)
+        if is_instrument_receipt:
+            law.require(
+                measured == role_row["instrumentReceiptSha256"] and len(data) == role_row["instrumentReceiptBytes"],
+                "STAGE_EVIDENCE_SUBSTITUTED",
+                f"{label} instrument receipt in the packet is not the admitted receipt",
+            )
+            body_content_id = role_row["instrumentReceiptId"]
+            media_type = "application/json"
+        else:
+            law.require(
+                measured == role_row["bodySha256"] and len(data) == role_row["bodyBytes"],
+                "STAGE_EVIDENCE_SUBSTITUTED",
+                f"{label} body in the packet is not the admitted body",
+            )
+            body_content_id = recompute_body_identity(
+                admission=admission, role_row=role_row, data=data, label=label
+            )
+            law.require(
+                body_content_id == role_row["bodyContentId"],
+                "STAGE_EVIDENCE_IDENTITY_INVALID",
+                f"{label} body identity recomputed from the packet differs from the admitted identity",
+            )
+            media_type = role_row["mediaType"]
+            root_rows.append(
+                {
+                    "evidenceRole": role_row["evidenceRole"],
+                    "provenanceClass": role_row["provenanceClass"],
+                    "evidenceClass": role_row["evidenceClass"],
+                    "bodyContentId": body_content_id,
+                    "bodySha256": measured,
+                    "bodyBytes": len(data),
+                }
+            )
+        law.require(
+            role_row["evidenceClass"] in profile["packet"]["evidenceClasses"],
+            "STAGE_EVIDENCE_INVALID",
+            f"{label} evidence class is not an admitted private evidence class",
         )
-    return rows
+        row = {
+            "relativePath": relative,
+            "sha256": measured,
+            "bytes": len(data),
+            "mediaType": media_type,
+            "evidenceClass": role_row["evidenceClass"],
+            "evidenceRole": role_row["evidenceRole"],
+            "provenanceClass": role_row["provenanceClass"],
+            "bodyContentId": body_content_id,
+        }
+        law.exact_keys(row, record_law["evidenceRowKeys"], "STAGE_EVIDENCE_INVALID", f"{stage} stage evidence row")
+        rows.append(row)
+    return rows, root_rows
 
 
 def validate_authorization(authorization: Mapping[str, Any], *, stage: str) -> Mapping[str, Any]:
@@ -256,6 +378,7 @@ def record_stage(
     packet: Path,
     stage: str,
     authorization: Mapping[str, Any],
+    role_rows: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Record exactly one stage, in order, under one authenticated authorization."""
     law.require_supported_python()
@@ -314,16 +437,35 @@ def record_stage(
         f"{stage} draft observation is not the observation the named human decided over",
     )
 
-    rows = evidence_rows(
+    law.require(
+        bool(role_rows) and all(entry["stage"] == stage and entry["sequence"] == sequence for entry in role_rows),
+        "STAGE_EVIDENCE_ROLE_BINDING_INVALID",
+        f"{stage} was handed materialized evidence roles belonging to another stage",
+    )
+    rows, root_rows = evidence_rows(
+        profile=profile,
+        admission=admission,
         packet=packet,
+        stage=stage,
         evidence_directory=row["evidenceDirectory"],
-        draft=draft,
+        role_rows=role_rows,
         maximum=packet_law["maxEvidenceFilesPerStage"],
     )
-    for evidence in rows:
-        law.exact_keys(
-            evidence, record_law["evidenceRowKeys"], "STAGE_EVIDENCE_INVALID", f"{stage} stage evidence row"
-        )
+    law.require(
+        len(root_rows) == admission["stages"][stage]["evidenceRoleDenominator"],
+        "STAGE_EVIDENCE_ROLE_DENOMINATOR_INVALID",
+        f"{stage} does not carry its admitted evidence-role denominator",
+    )
+    # The recorded root is reconstructed from the bodies in the packet, never copied from
+    # the authorization. Equality with the authorized root is what admits the stage.
+    reconstructed_root = law.stage_evidence_root(
+        admission, scope=law.ALL_ROLES_SCOPE, sequence=sequence, stage=stage, rows=root_rows
+    )
+    law.require(
+        reconstructed_root == authorization["evidenceAdmissionRoot"],
+        "STAGE_EVIDENCE_ROOT_MISMATCH",
+        f"{stage} evidence-admission root reconstructed from the packet differs from the authorized root",
+    )
 
     body = {
         "schema": record_law["schema"],
@@ -336,7 +478,7 @@ def record_stage(
         "observation": dict(draft["observation"]),
         "observationDigest": measured_observation_digest,
         "evidenceFiles": rows,
-        "evidenceAdmissionRoot": authorization["evidenceAdmissionRoot"],
+        "evidenceAdmissionRoot": reconstructed_root,
         "admissionId": authorization["admissionId"],
         "stageConfirmationId": authorization["stageConfirmationId"],
         "authority": law.AUTHORITY,

@@ -3,14 +3,23 @@
 This is the only surface in the source set that causes a stage to be recorded, and it can
 do so only from evidence somebody else already admitted.
 
-Two inputs are mandatory and neither is produced here:
+Three inputs are mandatory and none is produced here:
 
     1. an externally bootstrap-authenticated ADMISSIBLE_FOR_PACKET_RECORDING receipt
        from the admitted packet-evidence-admission@2 gate, for this exact packet
-    2. a named-human authentication verification receipt satisfying the closed interface
+    2. an evidence-materialization receipt from the separately authenticated bridge
+       verifier, naming all forty-three admitted evidence roles, the body identity and
+       digest of each, and one deterministic packet coordinate per role
+    3. a named-human authentication verification receipt satisfying the closed interface
        issue #94 owns, covering all three statements and all sixteen confirmations
 
-The second exists because the first cannot carry it. The admission receipt's human
+The second exists because the admission receipt publishes forty-three evidence roles but
+places no body in the packet. Without it this orchestrator would record whatever files
+happened to sit in each stage directory while copying the gate's forty-three-role roots
+beside them, and the packet's denominator would be unrelated to the admitted one. Nothing
+enters a stage's evidence directory here except the closed set that receipt names.
+
+The third exists because the first cannot carry it. The admission receipt's human
 statements and stage confirmations each carry an ``authenticationBinding`` string beside a
 self-declared ``actorClass``. A machine can write both. This orchestrator therefore
 refuses to read either as proof that the human principal acted, and requires a separate
@@ -28,7 +37,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
@@ -65,7 +74,8 @@ def signed_admission_body(receipt: Mapping[str, Any], id_key: str) -> dict[str, 
 
 ORCHESTRATION_CLAIM = (
     "Recording receipt for one synthetic successor packet. It reports which admitted evidence "
-    "and which authenticated named-human decisions caused each stage to be recorded. It seals "
+    "bodies were materialized into which packet coordinates, and which authenticated named-human "
+    "decisions caused each stage to be recorded. It seals "
     "nothing, asserts nothing about a sealed run, public disposition, sealed manifest or "
     "detached verification, qualifies no physical estate, operator, field network, operational "
     "C2 or production Lattice, and grants no mission, command, targeting, engagement, effector "
@@ -278,6 +288,241 @@ def stage_authorizations(
 
 
 # --------------------------------------------------------------------------------
+# the materialized evidence denominator
+# --------------------------------------------------------------------------------
+
+
+def load_materialization_receipt(
+    *,
+    profile: Mapping[str, Any],
+    admission: Mapping[str, Any],
+    path: Path,
+    receipt: Mapping[str, Any],
+    packet: Mapping[str, Any],
+    campaign_id: str,
+) -> Mapping[str, Any]:
+    """Require the separately authenticated bridge between admitted roles and packet bodies.
+
+    This orchestrator does not replay the candidate workspace itself. It requires a receipt
+    from a verifier that did, re-identifies it, and binds it to the same admission receipt,
+    request, packet, campaign and admission root the gate published. A hand-written receipt
+    cannot survive: its identity is over its own complete body, including all forty-three
+    role rows.
+    """
+    law_block = profile["evidenceMaterialization"]
+    codes = law_block["refusalCodes"]
+    # A role row is a member of one authenticated receipt. Nothing here reads a row until
+    # the complete parent receipt has re-identified and bound itself to this campaign,
+    # packet, request and admission root.
+    law.require(
+        law_block["rowClass"] == "receipt-subordinate",
+        "PROFILE_INVALID",
+        "the profile does not classify materialized evidence rows as receipt-subordinate",
+    )
+    law.require(path.is_file(), codes["absent"], "no evidence-materialization receipt was supplied")
+    body = law.read_json_file(path, code=codes["invalid"], label="evidence materialization receipt")
+    law.exact_keys(body, law_block["keys"], codes["invalid"], "evidence materialization receipt")
+    law.require(
+        body["schema"] == law_block["schema"] and body["status"] == law_block["requiredStatus"],
+        codes["invalid"],
+        "evidence materialization receipt schema or status differs",
+    )
+    law.require(
+        body["profileId"] == law.PROFILE_ID
+        and body["admissionProfileId"] == profile["admissionProfile"]["profileId"],
+        codes["invalid"],
+        "the materialization receipt was issued under another profile succession",
+    )
+    law.assert_identity(
+        body, law_block["idKey"], law_block["idPrefix"], codes["invalid"], "evidence materialization receipt"
+    )
+    law.require(
+        body["authority"] == law.AUTHORITY,
+        "AUTHORITY_WIDENED",
+        "evidence materialization receipt grants authority",
+    )
+
+    receipt_id_key = profile["admissionProfile"]["receiptIdKey"]
+    law.require(
+        body["admissionId"] == receipt[receipt_id_key]
+        and body["requestId"] == receipt["requestId"]
+        and body["packetId"] == packet["marker"]["packetId"]
+        and body["campaignId"] == campaign_id
+        and body["canonicalMissionStateDigest"] == packet["config"]["canonicalMissionStateDigest"]
+        and body["successorContractId"] == packet["successorContractId"]
+        and body["evidenceAdmissionDigestRoot"] == receipt["evidenceAdmissionDigestRoot"],
+        codes["binding"],
+        "the materialization receipt does not bind this admission receipt, request, packet and admission root",
+    )
+
+    denominator = profile["denominator"]
+    law.require(
+        body["evidenceRoleDenominator"] == denominator["evidenceRoleDenominator"]
+        and body["materializedRoleCount"] == denominator["evidenceRoleDenominator"]
+        and body["nonHumanEvidenceRoleCount"] == denominator["nonHumanEvidenceRoleCount"]
+        and body["humanStatementRoleCount"] == denominator["humanStatementRoleCount"],
+        codes["denominator"],
+        "the materialization receipt does not carry the admitted forty-three-role denominator",
+    )
+    law.require(
+        body["extraEvidenceRoleCount"] == 0
+        and body["missingEvidenceRoleCount"] == 0
+        and body["duplicateBodyIdentityCount"] == 0,
+        codes["denominator"],
+        "the materialization receipt reports extra, missing or duplicated evidence roles",
+    )
+
+    stages = law.stage_sequence(admission)
+    sequence_by_stage = {stage: index + 1 for index, stage in enumerate(stages)}
+    rows = body["roles"]
+    law.require(
+        isinstance(rows, list) and len(rows) == denominator["evidenceRoleDenominator"],
+        codes["denominator"],
+        "the materialization receipt does not carry one row per admitted evidence role",
+    )
+    destinations: set[str] = set()
+    for row in rows:
+        law.exact_keys(row, law_block["roleRowKeys"], codes["invalid"], "materialized evidence role row")
+        law.require(row["stage"] in stages, codes["binding"], "a materialized role names an unknown stage")
+        # A row carried over to another stage keeps the sequence of the stage it was
+        # admitted for, so the two are required to agree.
+        law.require(
+            row["sequence"] == sequence_by_stage[row["stage"]],
+            codes["binding"],
+            f"a materialized role names {row['stage']} at another stage's sequence",
+        )
+        law.assert_content_id(row["bodyContentId"], codes["invalid"], "materialized body identity")
+        law.assert_sha256(row["bodySha256"], codes["invalid"], "materialized body digest")
+        law.assert_content_id(
+            row["evidenceAdmissionRoot"], codes["invalid"], "materialized stage evidence-admission root"
+        )
+        # Every retained provenance column is required to be present exactly when its
+        # provenance class calls for it. Retention that nothing checks is a column a
+        # hand-written receipt can null out, so each one is load-bearing here.
+        provenance = row["provenanceClass"]
+        law.require(
+            (row["sourceReceiptId"] is not None) == (provenance == "accepted_predecessor_receipt")
+            and (row["reuseClass"] is not None) == (provenance == "accepted_predecessor_receipt")
+            and (row["sourceObservationId"] is not None) == (provenance == "current_local_observation")
+            and (row["bodySchema"] is None) == (row["opaqueInstrumentClass"] is not None)
+            and (row["instrumentReceiptId"] is not None) == (row["opaqueInstrumentClass"] is not None)
+            and (row["instrumentReceiptDestination"] is not None) == (row["opaqueInstrumentClass"] is not None),
+            codes["invalid"],
+            f"a materialized {provenance} role does not retain the provenance its class requires",
+        )
+        for destination in (row["packetDestination"], row["instrumentReceiptDestination"]):
+            if destination is None:
+                continue
+            law.require(
+                law.RELATIVE_MEMBER_RE.fullmatch(destination) is not None and "\\" not in destination,
+                codes["destinationInvalid"],
+                f"materialized packet coordinate is not an admitted relative member: {destination}",
+            )
+            law.require(
+                destination not in destinations,
+                codes["destinationInvalid"],
+                f"two materialized bodies claim one packet coordinate: {destination}",
+            )
+            destinations.add(destination)
+    law.require(
+        body["physicalBodyCount"] == len(destinations),
+        codes["destinationInvalid"],
+        "the materialization receipt's physical body count is not the set of coordinates it names",
+    )
+
+    bindings = body["statementBindings"]
+    law.require(
+        isinstance(bindings, list) and len(bindings) == denominator["humanStatementRoleCount"],
+        codes["statementBinding"],
+        "the materialization receipt does not bind three named-human statements",
+    )
+    for binding in bindings:
+        law.exact_keys(
+            binding, law_block["statementBindingKeys"], codes["statementBinding"], "named-human statement binding"
+        )
+        law.assert_content_id(binding["statementId"], codes["statementBinding"], "named-human statement identity")
+    return body
+
+
+def materialize_stage_evidence(
+    *, profile: Mapping[str, Any], packet: Path, candidates: Path, role_rows: Sequence[Mapping[str, Any]]
+) -> int:
+    """Copy exactly the admitted bodies into their deterministic packet coordinates.
+
+    Every stage evidence directory must be empty first. A directory that already holds a
+    file is refused here, before a single stage record exists: a body nobody admitted
+    would otherwise be hashed into the stage record, counted as private evidence, and
+    sealed beside a root that never covered it.
+    """
+    codes = profile["evidenceMaterialization"]["refusalCodes"]
+    directories = sorted({str(Path(row["packetDestination"]).parent.as_posix()) for row in role_rows})
+    for relative in directories:
+        directory = packet / relative
+        law.require(
+            directory.is_dir(),
+            codes["destinationInvalid"],
+            f"the packet has no evidence directory at {relative}",
+        )
+        existing = sorted(entry.name for entry in directory.iterdir())
+        if existing:
+            law.fail(
+                codes["unmaterializedEvidence"],
+                f"{relative} already holds evidence this transaction did not admit: {existing[0]}",
+            )
+
+    written = 0
+    for row in role_rows:
+        pairs = [(row["candidateBodyPath"], row["packetDestination"], row["bodySha256"], row["bodyBytes"])]
+        if row["instrumentReceiptDestination"] is not None:
+            pairs.append(
+                (
+                    row["instrumentReceiptPath"],
+                    row["instrumentReceiptDestination"],
+                    row["instrumentReceiptSha256"],
+                    row["instrumentReceiptBytes"],
+                )
+            )
+        for source_relative, destination_relative, digest, size in pairs:
+            source = law.validate_lexical_coordinate(
+                candidates / source_relative, label="admitted evidence body", code=codes["bodySubstituted"]
+            )
+            law.require(
+                law.is_within(source, candidates),
+                codes["bodySubstituted"],
+                f"an admitted body escapes the candidate workspace: {source_relative}",
+            )
+            data = law.read_bounded_bytes(
+                source,
+                law.MAX_EVIDENCE_BYTES,
+                code=codes["bodySubstituted"],
+                label=f"admitted evidence body {source_relative}",
+            )
+            law.require(
+                law.sha256_bytes(data) == digest and len(data) == size,
+                codes["bodySubstituted"],
+                f"the candidate body changed since it was admitted: {source_relative}",
+            )
+            destination = law.validate_lexical_coordinate(
+                packet / destination_relative, label="packet evidence coordinate", code=codes["destinationInvalid"]
+            )
+            law.require(
+                law.is_within(destination, packet),
+                codes["destinationInvalid"],
+                f"a materialized coordinate escapes the packet: {destination_relative}",
+            )
+            law.require(
+                not destination.exists(),
+                codes["destinationInvalid"],
+                f"a materialized coordinate already exists: {destination_relative}",
+            )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with destination.open("wb") as handle:
+                handle.write(data)
+            written += 1
+    return written
+
+
+# --------------------------------------------------------------------------------
 # the closed named-human authentication interface (issue #94)
 # --------------------------------------------------------------------------------
 
@@ -292,6 +537,7 @@ def verify_named_human_authentication(
     campaign_id: str,
     campaign_label: str,
     authorizations: list[dict[str, Any]],
+    statement_bindings: Sequence[Mapping[str, Any]],
 ) -> Mapping[str, Any]:
     """Require a separate receipt that a human principal actually acted.
 
@@ -373,21 +619,32 @@ def verify_named_human_authentication(
         codes["incomplete"],
         "the authentication receipt does not authenticate three distinct named-human statements",
     )
-    identities_by_stage = {row["stage"]: set(row["admittedEvidenceIdentities"]) for row in receipt["stages"]}
-    remaining = list(statements)
-    for stage in statement_stages:
-        matched = [row for row in remaining if row in identities_by_stage[stage]]
-        law.require(
-            len(matched) >= 1,
-            codes["incomplete"],
-            f"no authenticated statement identity was admitted for {stage}",
-        )
-        remaining.remove(matched[0])
+    # The admission receipt publishes every evidence identity a stage admitted, not which
+    # of them is the named-human statement, so membership in that set proves only that an
+    # identity belongs to the stage -- it could be the stage's accepted receipt or its
+    # current observation. The materialization bridge derived the exact statement of each
+    # statement-owing stage from the admitted provenance class, and this binds to that.
+    bindings_by_stage = {row["stage"]: row for row in statement_bindings}
     law.require(
-        not remaining,
+        sorted(bindings_by_stage) == sorted(statement_stages),
         codes["incomplete"],
-        "the authentication receipt names a statement identity this gate did not admit for a statement-owing stage",
+        "the materialized statement bindings do not cover exactly the statement-owing stages",
     )
+    law.require(
+        sorted(statements) == sorted(row["statementId"] for row in statement_bindings),
+        codes["incomplete"],
+        "the authentication receipt does not authenticate the exact named-human statement of each "
+        "statement-owing stage",
+    )
+    for stage in statement_stages:
+        binding = bindings_by_stage[stage]
+        law.require(
+            binding["evidenceAdmissionRoot"] == next(
+                row["evidenceAdmissionRoot"] for row in authorizations if row["stage"] == stage
+            ),
+            codes["binding"],
+            f"the {stage} statement binds another evidence-admission root than the authorized one",
+        )
 
     # ---- and every one of them was actually authenticated ---------------------------
     authenticated = body["authenticatedStatementIds"]
@@ -435,7 +692,9 @@ def orchestrate(
     *,
     packet: Path,
     admission_receipt: Path,
+    materialization_receipt: Path,
     authentication_receipt: Path,
+    candidates: Path,
     repository: Path,
     profile_path: Path = PROFILE_PATH,
 ) -> dict[str, Any]:
@@ -465,6 +724,62 @@ def orchestrate(
         campaign_id=lineage["campaignId"],
     )
     authorizations = stage_authorizations(profile=profile, admission=admission, receipt=receipt)
+    candidates = law.validate_lexical_coordinate(
+        candidates, label="candidate evidence workspace", code="CANDIDATE_WORKSPACE_INVALID"
+    )
+    law.require(
+        not law.is_within(candidates, packet),
+        profile["evidenceMaterialization"]["refusalCodes"]["invalid"],
+        "the candidate evidence workspace may not live inside the packet it feeds",
+    )
+    materialization = load_materialization_receipt(
+        profile=profile,
+        admission=admission,
+        path=law.validate_lexical_coordinate(
+            materialization_receipt,
+            label="evidence materialization receipt",
+            code=profile["evidenceMaterialization"]["refusalCodes"]["absent"],
+        ),
+        receipt=receipt,
+        packet=surface,
+        campaign_id=lineage["campaignId"],
+    )
+    roles_by_stage: dict[str, list[Mapping[str, Any]]] = {}
+    for row in materialization["roles"]:
+        roles_by_stage.setdefault(row["stage"], []).append(row)
+    # Every stage root is reconstructed from the materialized rows here, before a single
+    # body is copied and long before a stage is recorded. Doing it only inside the
+    # recorder would let a row rebound in stage fourteen pass while stages one to thirteen
+    # were already written; a rebinding anywhere must refuse with the packet untouched.
+    for index, authorization in enumerate(authorizations):
+        stage = authorization["stage"]
+        stage_rows = roles_by_stage.get(stage, [])
+        law.require(
+            bool(stage_rows)
+            and all(
+                row["evidenceAdmissionRoot"] == authorization["evidenceAdmissionRoot"] for row in stage_rows
+            ),
+            profile["evidenceMaterialization"]["refusalCodes"]["stageRootMismatch"],
+            f"{stage} materialized roles do not carry the evidence-admission root the named human decided over",
+        )
+        law.require(
+            len(stage_rows) == admission["stages"][stage]["evidenceRoleDenominator"],
+            profile["evidenceMaterialization"]["refusalCodes"]["denominator"],
+            f"{stage} did not materialize its admitted evidence-role denominator",
+        )
+        law.require(
+            law.stage_evidence_root(
+                admission,
+                scope=law.ALL_ROLES_SCOPE,
+                sequence=index + 1,
+                stage=stage,
+                rows=stage_rows,
+            )
+            == authorization["evidenceAdmissionRoot"],
+            profile["evidenceMaterialization"]["refusalCodes"]["stageRootMismatch"],
+            f"{stage} evidence-admission root reconstructed from the materialized roles differs "
+            "from the root the named human decided over",
+        )
     authentication = verify_named_human_authentication(
         profile=profile,
         admission=admission,
@@ -478,12 +793,22 @@ def orchestrate(
         campaign_id=lineage["campaignId"],
         campaign_label=lineage["campaignLabel"],
         authorizations=authorizations,
+        statement_bindings=materialization["statementBindings"],
     )
 
     law.require(
         loaded["state"]["completedStageCount"] == 0,
         "PACKET_STAGES_ALREADY_RECORDED",
         "this orchestrator records a packet that begins at zero of sixteen",
+    )
+
+    materialized_bodies = materialize_stage_evidence(
+        profile=profile, packet=packet, candidates=candidates, role_rows=materialization["roles"]
+    )
+    law.require(
+        materialized_bodies == materialization["physicalBodyCount"],
+        profile["evidenceMaterialization"]["refusalCodes"]["denominator"],
+        "the materialized body count differs from the count the materialization receipt names",
     )
 
     recorded: list[dict[str, Any]] = []
@@ -495,6 +820,7 @@ def orchestrate(
             packet=packet,
             stage=authorization["stage"],
             authorization=authorization,
+            role_rows=roles_by_stage[authorization["stage"]],
         )
         record = result["record"]
         terminal_counts[record["terminalState"]] += 1
@@ -553,6 +879,14 @@ def orchestrate(
         "humanStatementRoleDenominator": profile["denominator"]["humanStatementRoleCount"],
         "stageConfirmationDenominator": profile["denominator"]["stageConfirmationDenominator"],
         "evidenceAdmissionDigestRoot": receipt["evidenceAdmissionDigestRoot"],
+        "materializationReceiptId": materialization[profile["evidenceMaterialization"]["idKey"]],
+        "materializedEvidenceRoleCount": materialization["materializedRoleCount"],
+        "materializedPrivateEvidenceBodyCount": materialized_bodies,
+        "namedHumanStatementBindings": [
+            {"stage": row["stage"], "evidenceRole": row["evidenceRole"], "statementId": row["statementId"]}
+            for row in materialization["statementBindings"]
+        ],
+        "unadmittedEvidenceBodiesRecorded": 0,
         "completedStageCount": final["completedStageCount"],
         "recordedTerminalCounts": terminal_counts,
         "recordedStages": recorded,
@@ -595,7 +929,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--packet", type=Path, required=True)
     parser.add_argument("--admission-receipt", type=Path, required=True)
+    parser.add_argument("--materialization-receipt", type=Path, required=True)
     parser.add_argument("--authentication-receipt", type=Path, required=True)
+    parser.add_argument("--candidates", type=Path, required=True)
     parser.add_argument("--repository-root", type=Path, default=HERE.parent.parent)
     parser.add_argument("--out", type=Path)
     return parser.parse_args(argv)
@@ -607,7 +943,9 @@ def main(argv: list[str] | None = None) -> int:
         receipt = orchestrate(
             packet=args.packet,
             admission_receipt=args.admission_receipt,
+            materialization_receipt=args.materialization_receipt,
             authentication_receipt=args.authentication_receipt,
+            candidates=args.candidates,
             repository=args.repository_root,
         )
         data = law.canonical_json_bytes(receipt)

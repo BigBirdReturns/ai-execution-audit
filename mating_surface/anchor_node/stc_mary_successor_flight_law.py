@@ -228,8 +228,7 @@ def read_bounded_bytes(path: Path, maximum: int, *, code: str, label: str) -> by
     return data
 
 
-def read_json_file(path: Path, *, code: str, label: str) -> Mapping[str, Any]:
-    data = read_bounded_bytes(path, MAX_JSON_BYTES, code=code, label=label)
+def read_json_bytes(data: bytes, *, code: str, label: str) -> Mapping[str, Any]:
     try:
         value = json.loads(data.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -237,6 +236,12 @@ def read_json_file(path: Path, *, code: str, label: str) -> Mapping[str, Any]:
         raise
     require(isinstance(value, Mapping), code, f"{label} must be a JSON object")
     return value
+
+
+def read_json_file(path: Path, *, code: str, label: str) -> Mapping[str, Any]:
+    return read_json_bytes(
+        read_bounded_bytes(path, MAX_JSON_BYTES, code=code, label=label), code=code, label=label
+    )
 
 
 def write_canonical_json(path: Path, value: Any) -> bytes:
@@ -325,6 +330,47 @@ def stage_sequence(admission: Mapping[str, Any]) -> list[str]:
 
 def required_terminals(admission: Mapping[str, Any]) -> dict[str, str]:
     return {stage: admission["stages"][stage]["requiredTerminal"] for stage in admission["stageSequence"]}
+
+
+# The scope string the admitted gate computes a stage's complete role root under. The
+# non-human scope is the gate's own two-pass concern and never reaches a stage record.
+ALL_ROLES_SCOPE = "all-admitted-evidence-roles"
+
+
+def stage_evidence_root(
+    admission: Mapping[str, Any], *, scope: str, sequence: int, stage: str, rows: Sequence[Mapping[str, Any]]
+) -> str:
+    """Recompute one stage evidence-admission root the way the admitted gate computes it.
+
+    The producer needs this because a stage record may no longer *copy* the root the
+    admission receipt published. It must reconstruct the root from the bodies the packet
+    actually carries and prove the two agree; a copied root says nothing about the files
+    beside it. The six fields, the sort key and the scope string belong to the admitted
+    profile, so a change to any of them moves that profile's canonical digest and the pin
+    refuses before this function is ever reached.
+    """
+    return content_id(
+        admission["digests"]["stageEvidenceRootPrefix"],
+        {
+            "scope": scope,
+            "sequence": sequence,
+            "stage": stage,
+            "roles": sorted(
+                (
+                    {
+                        "evidenceRole": row["evidenceRole"],
+                        "provenanceClass": row["provenanceClass"],
+                        "evidenceClass": row["evidenceClass"],
+                        "bodyContentId": row["bodyContentId"],
+                        "bodySha256": row["bodySha256"],
+                        "bodyBytes": row["bodyBytes"],
+                    }
+                    for row in rows
+                ),
+                key=lambda row: row["evidenceRole"],
+            ),
+        },
+    )
 
 
 def recorded_terminal_counts(admission: Mapping[str, Any]) -> dict[str, int]:

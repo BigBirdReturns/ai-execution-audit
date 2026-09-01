@@ -6,7 +6,7 @@
     Drives the admitted legal order for one stc-mary/private-flight-packet/0.2 successor
     packet, in the only sequence the source set admits:
 
-        compile -> verify -> (admit, outside this script) -> record
+        compile -> verify -> (admit, outside this script) -> materialize -> record
                 -> close-pre-seal -> seal -> verify-detached -> close-post-seal
 
     This script orchestrates nothing on its own authority. Every step shells out to the
@@ -18,8 +18,14 @@
     live in production and are not part of this source set. Run that gate yourself and
     pass its bootstrap-authenticated receipt to -AdmissionReceipt.
 
+    The materialize step is the bridge between that receipt and the packet. The admitted
+    gate publishes forty-three evidence roles but places no body anywhere, so materialize
+    replays the admitted candidate-body mapping and issues the receipt record consumes.
+    Without it a packet could carry any bodies at all beside a forty-three-role root, and
+    record refuses rather than let that happen.
+
 .PARAMETER Command
-    One of: compile, verify, record, close-pre-seal, seal, verify-detached,
+    One of: compile, verify, materialize, record, close-pre-seal, seal, verify-detached,
     close-post-seal, qualify.
 
 .NOTES
@@ -35,7 +41,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('compile', 'verify', 'record', 'close-pre-seal', 'seal', 'verify-detached', 'close-post-seal', 'qualify')]
+    [ValidateSet('compile', 'verify', 'materialize', 'record', 'close-pre-seal', 'seal', 'verify-detached', 'close-post-seal', 'qualify')]
     [string] $Command,
 
     [string] $Workstation,
@@ -43,7 +49,9 @@ param(
     [string] $Packet,
     [string] $Sealed,
     [string] $AdmissionReceipt,
+    [string] $MaterializationReceipt,
     [string] $AuthenticationReceipt,
+    [string] $Candidates,
     [string] $PreSealClosure,
     [string] $DetachedVerification,
     [string] $Out,
@@ -105,14 +113,36 @@ switch ($Command) {
         Invoke-Surface -Module 'verify_stc_mary_successor_packet_bootstrap.py' -Arguments $arguments
     }
 
-    'record' {
+    'materialize' {
+        # The bridge between the admitted evidence denominator and the packet. It writes
+        # nothing into the packet and records nothing; it only says which admitted body
+        # belongs at which packet coordinate under which admitted role.
         Assert-Supplied -Name 'Packet' -Value $Packet
         Assert-Supplied -Name 'AdmissionReceipt' -Value $AdmissionReceipt
-        Assert-Supplied -Name 'AuthenticationReceipt' -Value $AuthenticationReceipt
+        Assert-Supplied -Name 'Candidates' -Value $Candidates
         $arguments = @(
             '--packet', $Packet,
             '--admission-receipt', $AdmissionReceipt,
+            '--candidates', $Candidates,
+            '--profile', $profilePath,
+            '--repository-root', $repositoryRoot
+        )
+        if ($Out) { $arguments += @('--out', $Out) }
+        Invoke-Surface -Module 'verify_stc_mary_successor_evidence_materialization.py' -Arguments $arguments
+    }
+
+    'record' {
+        Assert-Supplied -Name 'Packet' -Value $Packet
+        Assert-Supplied -Name 'AdmissionReceipt' -Value $AdmissionReceipt
+        Assert-Supplied -Name 'MaterializationReceipt' -Value $MaterializationReceipt
+        Assert-Supplied -Name 'AuthenticationReceipt' -Value $AuthenticationReceipt
+        Assert-Supplied -Name 'Candidates' -Value $Candidates
+        $arguments = @(
+            '--packet', $Packet,
+            '--admission-receipt', $AdmissionReceipt,
+            '--materialization-receipt', $MaterializationReceipt,
             '--authentication-receipt', $AuthenticationReceipt,
+            '--candidates', $Candidates,
             '--repository-root', $repositoryRoot
         )
         if ($Out) { $arguments += @('--out', $Out) }
@@ -122,11 +152,15 @@ switch ($Command) {
     'close-pre-seal' {
         Assert-Supplied -Name 'Packet' -Value $Packet
         Assert-Supplied -Name 'AdmissionReceipt' -Value $AdmissionReceipt
+        Assert-Supplied -Name 'MaterializationReceipt' -Value $MaterializationReceipt
         Assert-Supplied -Name 'AuthenticationReceipt' -Value $AuthenticationReceipt
+        Assert-Supplied -Name 'Candidates' -Value $Candidates
         $arguments = @(
             '--packet', $Packet,
             '--admission-receipt', $AdmissionReceipt,
+            '--materialization-receipt', $MaterializationReceipt,
             '--authentication-receipt', $AuthenticationReceipt,
+            '--candidates', $Candidates,
             '--profile', $profilePath,
             '--repository-root', $repositoryRoot
         )

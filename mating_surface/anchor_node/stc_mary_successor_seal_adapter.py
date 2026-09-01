@@ -153,6 +153,14 @@ def seal_packet(
 
     records = runtime.read_stage_records(profile=profile, packet=packet, state=state)
     private_bodies = runtime.verify_evidence_custody(packet=packet, records=records)
+    # The sealed body count is measured from the packet, and the deciding closure already
+    # measured the same set against the admitted materialization. Requiring the two to
+    # agree is what stops a body being added or removed between closing and sealing.
+    law.require(
+        private_bodies == closure["privateEvidenceBodyCount"],
+        "PRE_SEAL_CLOSURE_BINDING_INVALID",
+        "the packet carries a different number of private evidence bodies than the closure measured",
+    )
 
     attestations = []
     successful = 0

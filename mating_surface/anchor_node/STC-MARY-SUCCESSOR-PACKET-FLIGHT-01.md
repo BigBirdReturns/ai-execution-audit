@@ -60,13 +60,14 @@ A successor packet therefore cannot carry a Stage 16 contract the admission gate
 admitted. Editing the admitted profile breaks every surface in this set at once, which is
 the intended blast radius.
 
-## The ten members
+## The eleven components
 
 ```text
 stc_mary_successor_flight_law.py               shared construction law (producers only)
 stc_mary_successor_packet_compiler.py          0.2 compiler and materializer
 stc_mary_successor_packet_runtime.py           0.2 packet runtime
 stc_mary_successor_packet_orchestrator.py      admission-driven recording orchestrator
+verify_stc_mary_successor_evidence_materialization.py  admitted-role to packet-body bridge
 verify_stc_mary_successor_packet.py            independent successor packet verifier
 verify_stc_mary_successor_packet_bootstrap.py  measured-source bootstrap
 verify_stc_mary_successor_pre_seal_closure.py  pre-seal closure verifier
@@ -79,9 +80,149 @@ conformance/test_stc_mary_successor_packet_flight_01.py   the witness denominato
 .github/workflows/stc-mary-successor-packet-flight-01.yml pinned hosted qualification
 ```
 
-The three verifiers import **nothing** from the shared law module. Each re-implements
+The four verifiers import **nothing** from the shared law module. Each re-implements
 canonical JSON, content identity, bounded reads and source-set measurement, so a defect in
 the construction law cannot authenticate the objects that law produced.
+
+## The forty-three admitted roles reach the packet, or nothing does
+
+The admitted gate decides that forty-three exact evidence bodies are admissible and
+publishes a per-stage evidence-admission root over them. It then stops: it places no body
+anywhere, because a gate that wrote into the packet it judges would be judging its own
+work. Nothing previously connected those roles to the files a stage record hashes, so a
+packet could carry any non-empty bodies at all while copying the gate's forty-three-role
+roots beside them. The seal, the manifest and the detached verification would all agree —
+with each other, over a denominator unrelated to the admitted one.
+
+The bridge closes that. It consumes only objects the gate itself identified:
+
+```text
+the bootstrap-authenticated ADMISSIBLE_FOR_PACKET_RECORDING receipt
+the ADMISSION-REQUEST.json that receipt names by requestId
+the candidate evidence workspace the request's body paths resolve inside
+the successor packet the roles are destined for
+the admitted @2 profile, through this profile's canonical-digest pin
+```
+
+and independently replays the mapping: it re-measures every candidate body, recomputes
+each body's own content identity, recomputes every stage evidence-admission root and the
+complete admission digest root exactly as the gate computes them, and requires all of it
+to equal what the receipt published. It then names one deterministic packet coordinate per
+role, derived from the admitted evidence role key, so the packet path itself carries role
+attribution.
+
+```text
+role denominator          43 / 43, 0 extra, 0 missing, 0 duplicate identities
+per-body columns          evidenceRole, provenanceClass, evidenceClass, mediaType,
+                          bodySchema, bodyContentId, bodySha256, bodyBytes,
+                          sourceReceiptId | sourceObservationId, reuseClass,
+                          opaqueInstrumentClass, instrumentReceiptId
+destination               NN-STAGE/evidence/<evidence-role-key>.json
+opaque instrument bodies  two coordinates, the body and its admitted instrument receipt,
+                          both counted in physicalBodyCount
+statement bindings        stage, sequence, evidenceRole, statementId, bodySha256,
+                          nonHumanEvidenceAdmissionRoot, evidenceAdmissionRoot
+```
+
+### A role row is receipt-subordinate
+
+Campaign and packet identity are carried once, at receipt level, not repeated on each of
+the forty-three rows. Repeating a constant forty-three times adds fields that can drift
+without establishing a new predicate. What makes receipt-level binding sufficient is that
+each of the following is independently enforced:
+
+```text
+receipt identity        recomputed over the complete receipt body
+receipt campaignId      equals the successor contract campaignId
+receipt packetId        equals the packet marker and state
+each candidate body     independently parsed, identity recomputed, and its own
+                        campaignId, packetId, stage, sequence, evidenceRole and
+                        provenanceClass checked against the transaction
+each row                accepted only as a member of the authenticated parent receipt
+each row sequence       equals the admitted sequence of the stage it names
+stage root              reconstructed from the complete admitted row set, before any
+                        stage is recorded
+packet-side body        re-read and compared with its exact row at recording time
+```
+
+The profile classifies the row schema as `receipt-subordinate`, and every surface that
+reads rows requires that classification before it reads one. No runtime, verifier or
+closure surface accepts a detached row.
+
+```text
+row lifted out of its receipt          -> MATERIALIZATION_RECEIPT_INVALID
+receipt re-signed for another campaign -> MATERIALIZATION_BINDING_INVALID
+receipt re-signed for another packet   -> MATERIALIZATION_BINDING_INVALID
+row moved to another stage             -> MATERIALIZATION_BINDING_INVALID
+row moved to another evidence role     -> STAGE_EVIDENCE_ROOT_MISMATCH
+body re-signed for another campaign    -> EVIDENCE_BODY_SUBSTITUTED
+body re-signed for another packet      -> EVIDENCE_BODY_SUBSTITUTED
+```
+
+Every one of those refuses **before a packet stage is recorded**. Root reconstruction runs
+across all sixteen stages ahead of the record loop rather than only inside the recorder, so
+a row rebound in stage fourteen cannot let stages one to thirteen be written first.
+
+### The generated coordinates must be portable, not merely locally valid
+
+The packet coordinate derives from the admitted evidence role key, so the admitted profile
+decides these paths. Two admitted keys already differ only by stage — `verifier-receipt`
+appears in both `RUN_PERSONAL_FLOOR_BASELINE` and `RUN_HALO3_ACCELERATED` — so uniqueness
+is proved over the complete stage-scoped destination, not over the key, and under casefold
+comparison as well as exactly.
+
+```text
+43 generated destinations, 43 exact-unique, 43 casefold-unique
+no forbidden character: / \ : * ? " < > |
+no parent-directory segment
+no leading or trailing whitespace, no trailing dot
+no reserved component stem: CON PRN AUX NUL COM1..COM9 LPT1..LPT9
+bounded component length and bounded relative-path length
+```
+
+A witness enumerates the real admitted denominator and proves the invariant, so a future
+role key that collides only by case refuses here rather than on the Windows hosted leg,
+half way through materializing a packet.
+
+Downstream, nothing may soften this:
+
+```text
+orchestrator   requires the receipt, refuses a stage evidence directory that already
+               holds anything, and materializes only the closed set it names
+runtime        requires each stage directory to hold exactly those coordinates,
+               recomputes each body's content identity from the bytes in the packet,
+               and RECONSTRUCTS the stage evidence-admission root from those bodies --
+               a stage records only when the reconstructed root equals the authorized one
+pre-seal       replays the mapping again, independently of the bridge, and requires
+               packet rows == materialization receipt == request and candidate bodies
+               == the gate's own stage roots, then recomputes the complete admission root
+seal           requires the measured private body count to equal the closure's
+```
+
+```text
+MATERIALIZATION_RECEIPT_ABSENT | _INVALID       no receipt, or it does not re-identify
+MATERIALIZATION_BINDING_INVALID                 it names another admission, request or packet
+MATERIALIZATION_ROLE_DENOMINATOR_INVALID        not 43 / 43
+ADMISSION_REQUEST_BINDING_INVALID               the request on disk is not the admitted one
+EVIDENCE_ROLE_UNADMITTED | _MISSING | _DUPLICATED
+EVIDENCE_BODY_SUBSTITUTED                       candidate or packet body is not the admitted one
+EVIDENCE_BODY_IDENTITY_FORGED                   the body does not recompute its own identity
+STAGE_EVIDENCE_ROOT_MISMATCH                    the root was copied, not reconstructed
+ADMISSION_DIGEST_ROOT_MISMATCH                  the complete root does not recompute
+PACKET_EVIDENCE_UNMATERIALIZED                  a body nobody admitted is in the packet
+```
+
+### The draft no longer describes its own evidence
+
+The `0.2` stage draft has no `evidenceClass` and no `mediaType`. One draft-wide class
+cannot truthfully describe `BIND_GRACE`, which combines accepted predecessor receipts with
+a named-human statement, and a draft-authored class would have been a second
+self-declaration in a schema built to remove the first. Class, media type and provenance
+are carried per admitted body and independently verified.
+
+```text
+STAGE_DRAFT_DESCRIBES_ITS_OWN_EVIDENCE
+```
 
 ## What the compiler materializes
 
@@ -94,7 +235,7 @@ lineage/predecessor-packet/PACKET-ROOT.json    predecessor marker, copied verbat
 lineage/predecessor-packet/packet-state.json   predecessor state, copied verbatim
 lineage/PACKET-HANDOFF.json                    binds both packets and both profiles
 lineage/SUCCESSOR-SOURCE-SET.json              measured over the member bytes below
-lineage/successor-source/**                    all fourteen source members, verbatim
+lineage/successor-source/**                    all fifteen source members, verbatim
 NN-STAGE/evidence/                             the empty stage skeleton
 ```
 
@@ -124,16 +265,17 @@ platforms; pin the members.
 2  verify            measured-source bootstrap         -> successor packet verification
 3  admit             admitted @2 gate + its bootstrap  -> ADMISSIBLE_FOR_PACKET_RECORDING
 4  authenticate      issue #94 mechanism               -> authentication verification
-5  record            orchestrator                      -> 16 stage records, in order
-6  close pre-seal    pre-seal closure verifier         -> pre-seal closure
-7  seal              seal adapter                      -> sealed root
-8  verify detached   seal adapter                      -> detached verification
-9  close post-seal   post-seal closure verifier        -> post-seal closure
+5  materialize       evidence-materialization bridge   -> 43 admitted roles, 43 coordinates
+6  record            orchestrator                      -> 16 stage records, in order
+7  close pre-seal    pre-seal closure verifier         -> pre-seal closure
+8  seal              seal adapter                      -> sealed root
+9  verify detached   seal adapter                      -> detached verification
+10 close post-seal   post-seal closure verifier        -> post-seal closure
 ```
 
 Step 3 is **not** part of this source set. Evidence admission belongs to the separately
 admitted gate in production. Run it yourself and hand its bootstrap-authenticated receipt
-to the orchestrator.
+to step 5, which turns it into the receipt the orchestrator is held to.
 
 ## Recording consent has exactly one channel
 
@@ -195,13 +337,25 @@ short denominator -> HUMAN_AUTHENTICATION_DENOMINATOR_INCOMPLETE
 synthetic on live -> SYNTHETIC_AUTHENTICATION_APPLIED_TO_LIVE_CAMPAIGN
 ```
 
-**A known boundary.** The admission receipt publishes each stage's admitted evidence
-identities but does not mark which of them is the named-human statement. The orchestrator
-therefore requires each authenticated statement identity to be one the gate admitted for a
-distinct statement-owing stage, and relies on the authentication mechanism to have picked
-the right one. Distinguishing them mechanically would require the admission gate to
-publish provenance per identity — a candidate for `@3`, not something this source set may
-add to a profile it is bound to by digest.
+**The statement of each stage is now derived, not guessed.** The admission receipt
+publishes each stage's admitted evidence identities but does not mark which of them is the
+named-human statement, so stage membership alone proved only that an identity belonged to
+the stage — it could equally have been that stage's accepted receipt or current
+observation. The materialization bridge derives the exact statement from the admitted
+provenance class of each role and publishes one binding per statement-owing stage:
+
+```text
+stage, sequence, evidenceRole, statementId, bodySha256,
+nonHumanEvidenceAdmissionRoot, evidenceAdmissionRoot
+```
+
+The orchestrator and the pre-seal closure both require the authenticated statement
+identities to be exactly those three, each on its own stage and its own named-human role.
+No `@3` profile change was needed: the request the gate identified and the candidate
+bodies it measured are enough to recover the provenance the receipt does not publish.
+
+Issue #94's future receipt should authenticate those exact bindings, and the sixteen exact
+confirmation bindings, rather than a flat set of three identities.
 
 The only mechanism this source set can exercise is the synthetic fixture, which
 authenticates nobody and is refused against any campaign label without the `SYNTHETIC-`
@@ -210,16 +364,27 @@ prefix. Real Campaign A application stays held until #94 admits a mechanism.
 ## Pre-seal closure binds only pre-seal facts
 
 ```text
-three authenticated named-human statement identities
+forty-three admitted evidence roles, re-measured in the candidate workspace and again
+    in the packet, and required to be the same bytes in both
+one exact evidence-materialization receipt, re-identified and bound to the request
+every stage evidence-admission root, recomputed from the bodies the packet carries
+the complete evidence-admission digest root, recomputed from those stage roots
+three authenticated named-human statement identities, on an exact stage and role
 sixteen authenticated stage-confirmation identities
 final packet-stage record identity root
-complete evidence-admission digest root
-pre-seal evidence-manifest root, re-hashed from the bodies on disk
+pre-seal evidence-manifest root, re-hashed from the bodies on disk and carrying role
+    and provenance per body
 retained two-branch HUMAN_REQUIRED conflict
 unsealed packet state
 absent sealed root
 authority none
 ```
+
+The closure replays the admitted mapping itself rather than trusting the bridge that
+produced the receipt, so a body quietly replaced in the packet refuses as
+`EVIDENCE_BODY_SUBSTITUTED` against the candidate the gate admitted — a stronger statement
+than drift against the record's own digest, which the runtime's custody check still makes
+separately.
 
 A scan refuses any post-seal field appearing in the pre-seal object at all:
 
@@ -279,8 +444,9 @@ number of witnesses, on any skip, and on any drift in the pinned admitted profil
 ```powershell
 .\stc-mary-successor-packet-flight-01.ps1 compile         -Workstation <dir> -Predecessor <dir> -Packet <dir> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 verify          -Packet <dir> -Out <verdict>
-.\stc-mary-successor-packet-flight-01.ps1 record          -Packet <dir> -AdmissionReceipt <file> -AuthenticationReceipt <file> -Out <receipt>
-.\stc-mary-successor-packet-flight-01.ps1 close-pre-seal  -Packet <dir> -AdmissionReceipt <file> -AuthenticationReceipt <file> -Out <closure>
+.\stc-mary-successor-packet-flight-01.ps1 materialize     -Packet <dir> -AdmissionReceipt <file> -Candidates <dir> -Out <receipt>
+.\stc-mary-successor-packet-flight-01.ps1 record          -Packet <dir> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <receipt>
+.\stc-mary-successor-packet-flight-01.ps1 close-pre-seal  -Packet <dir> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <closure>
 .\stc-mary-successor-packet-flight-01.ps1 seal            -Packet <dir> -Sealed <dir> -PreSealClosure <file> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 verify-detached -Sealed <dir> -Out <verification>
 .\stc-mary-successor-packet-flight-01.ps1 close-post-seal -Packet <dir> -Sealed <dir> -PreSealClosure <file> -DetachedVerification <file> -Out <closure>

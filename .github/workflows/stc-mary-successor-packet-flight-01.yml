@@ -13,6 +13,7 @@ on:
       - "mating_surface/anchor_node/stc_mary_successor_packet_orchestrator.py"
       - "mating_surface/anchor_node/stc_mary_successor_packet_runtime.py"
       - "mating_surface/anchor_node/stc_mary_successor_seal_adapter.py"
+      - "mating_surface/anchor_node/verify_stc_mary_successor_evidence_materialization.py"
       - "mating_surface/anchor_node/verify_stc_mary_successor_packet.py"
       - "mating_surface/anchor_node/verify_stc_mary_successor_packet_bootstrap.py"
       - "mating_surface/anchor_node/verify_stc_mary_successor_post_seal_closure.py"
@@ -31,6 +32,7 @@ on:
       - "mating_surface/anchor_node/stc_mary_successor_packet_orchestrator.py"
       - "mating_surface/anchor_node/stc_mary_successor_packet_runtime.py"
       - "mating_surface/anchor_node/stc_mary_successor_seal_adapter.py"
+      - "mating_surface/anchor_node/verify_stc_mary_successor_evidence_materialization.py"
       - "mating_surface/anchor_node/verify_stc_mary_successor_packet.py"
       - "mating_surface/anchor_node/verify_stc_mary_successor_packet_bootstrap.py"
       - "mating_surface/anchor_node/verify_stc_mary_successor_post_seal_closure.py"
@@ -45,7 +47,7 @@ permissions:
 # unittest would still print OK. The conformance suite asserts that this number equals the
 # number of witnesses it actually discovers, so the pin cannot drift.
 env:
-  WITNESS_DENOMINATOR: "58"
+  WITNESS_DENOMINATOR: "90"
 
 jobs:
   qualify:
@@ -183,6 +185,7 @@ jobs:
             mating_surface/anchor_node/stc_mary_successor_packet_orchestrator.py \
             mating_surface/anchor_node/stc_mary_successor_packet_runtime.py \
             mating_surface/anchor_node/stc_mary_successor_seal_adapter.py \
+            mating_surface/anchor_node/verify_stc_mary_successor_evidence_materialization.py \
             mating_surface/anchor_node/verify_stc_mary_successor_packet.py \
             mating_surface/anchor_node/verify_stc_mary_successor_packet_bootstrap.py \
             mating_surface/anchor_node/verify_stc_mary_successor_post_seal_closure.py \
