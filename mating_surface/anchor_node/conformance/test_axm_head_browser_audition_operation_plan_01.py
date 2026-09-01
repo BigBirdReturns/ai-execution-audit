@@ -79,6 +79,7 @@ global.chrome = {{
         onMessage: {{ addListener(fn) {{ messageListeners.push(fn); }} }},
         onDisconnect: {{ addListener(fn) {{ disconnectListeners.push(fn); }} }},
         postMessage() {{ throw new Error('unconfigured port'); }},
+        disconnect() {{ disconnectListeners.forEach((fn) => fn()); }},
         __messageListeners: messageListeners,
         __disconnectListeners: disconnectListeners,
       }};
@@ -95,7 +96,7 @@ const nativeURL = global.URL;
 global.URL = {{ createObjectURL() {{ return 'blob:test'; }}, revokeObjectURL() {{}}, }};
 vm.runInThisContext(fs.readFileSync({json.dumps(str(operator_path))}, 'utf8'));
 vm.runInThisContext(fs.readFileSync({json.dumps(str(plan_path))}, 'utf8'));
-const panelSource = fs.readFileSync({json.dumps(str(panel_path))}, 'utf8') + `\n;globalThis.__AXM_PANEL_TEST__={{state,el,refreshControls,resetExecutionProgress,settleSessionLoss,discardSessionState,connectPort,requireHealthyInspection,requirePristineCapture,serializeCaptureForDownload,downloadCapture,runPlan,acknowledgeBarrier,closeSession}};`;
+const panelSource = fs.readFileSync({json.dumps(str(panel_path))}, 'utf8') + `\n;globalThis.__AXM_PANEL_TEST__={{state,el,refreshControls,resetExecutionProgress,settleSessionLoss,discardSessionState,disconnectCurrentPort,releaseFailedOpenSession,connectPort,openSession,requireHealthyInspection,requirePostInvocationInspection,requirePristineCapture,serializeCaptureForDownload,downloadCapture,runPlan,acknowledgeBarrier,closeSession}};`;
 vm.runInThisContext(panelSource);
 (async () => {{
   const test = globalThis.__AXM_PANEL_TEST__;
@@ -181,7 +182,7 @@ class OperationPlanWitnesses(unittest.TestCase):
 
     def test_011_probe_invocations_fit_operator_session(self):
         plan = tool.compile_plan(tool.validate_bindings(fixture_bindings(), self.operator))
-        self.assertLessEqual(plan["probeInvocationCount"] + 4, tool.MAX_SESSION_REQUESTS)
+        self.assertLessEqual(plan["probeInvocationCount"] * 2 + 4, tool.MAX_SESSION_REQUESTS)
 
     def test_012_source_set_is_content_bound(self):
         result = tool.source_set(self.profile, REPOSITORY)
@@ -563,6 +564,7 @@ setPortFactory(() => ({
       response.result=null;
       response.inspection={status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:invocations.length===2?{code:'EVENT_LIMIT_EXCEEDED'}:null,observedEventCount:invocations.length};
     }
+    if(message.kind==='status') response.inspection={status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:null,observedEventCount:invocations.length};
     if(message.kind==='close-session') response.kind='session-closed';
     queueMicrotask(()=>messageListeners.forEach(fn=>fn(response)));
   },
@@ -590,6 +592,176 @@ console.log(JSON.stringify({terminal:test.state.terminal,nextIndex:test.state.ne
             "openDisabled": True,
             "invocations": ["markAvailability", "markAdapterArtifact"],
         })
+
+
+    def test_049_post_call_status_catches_the_first_refusing_invocation(self):
+        bindings = fixture_bindings()
+        body = r"""
+const bindings=JSON.parse(BINDINGS_JSON);
+const messageListeners=[]; const disconnectListeners=[]; const invocations=[]; let statusRequests=0;
+setPortFactory(() => ({
+  onMessage:{addListener(fn){messageListeners.push(fn);}},
+  onDisconnect:{addListener(fn){disconnectListeners.push(fn);}},
+  disconnect(){disconnectListeners.forEach(fn=>fn());},
+  postMessage(message){
+    let response={protocol:AXMOperatorContract.PROTOCOL,status:'PASS',requestId:message.requestId};
+    if(message.kind==='invoke') {
+      invocations.push(message.method);
+      response.result=null;
+      response.inspection={status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:null,observedEventCount:invocations.length-1};
+    }
+    if(message.kind==='status') {
+      statusRequests += 1;
+      response.inspection={status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:statusRequests===1?{code:'EVENT_LIMIT_EXCEEDED'}:null,observedEventCount:invocations.length};
+    }
+    if(message.kind==='close-session') response.kind='session-closed';
+    queueMicrotask(()=>messageListeners.forEach(fn=>fn(response)));
+  },
+}));
+test.connectPort();
+test.state.plan={steps:[
+  {stepId:'step:first-mark',kind:'probe-call',method:'markAvailability',argsRef:'values.availability'},
+  {stepId:'step:must-not-run',kind:'probe-call',method:'markAdapterArtifact',argsRef:'values.adapterArtifact'},
+]};
+test.state.bindings=bindings;
+test.state.sessionId='session:'+'1'.repeat(32);
+test.state.tabId=7;
+test.state.terminal='SESSION_OPEN';
+await test.runPlan();
+console.log(JSON.stringify({terminal:test.state.terminal,nextIndex:test.state.nextIndex,mutation:test.state.probeMutationPossible,sessionId:test.state.sessionId,loadDisabled:test.el.load.disabled,openDisabled:test.el.open.disabled,invocations,statusRequests}));
+""".replace("BINDINGS_JSON", json.dumps(json.dumps(bindings)))
+        result = run_panel_harness(body)
+        self.assertEqual(result, {
+            "terminal": "HALTED_PARTIAL_CAPTURE",
+            "nextIndex": 0,
+            "mutation": True,
+            "sessionId": None,
+            "loadDisabled": True,
+            "openDisabled": True,
+            "invocations": ["markAvailability"],
+            "statusRequests": 1,
+        })
+
+    def test_050_healthy_post_call_status_precedes_cursor_advance(self):
+        bindings = fixture_bindings()
+        body = r"""
+const bindings=JSON.parse(BINDINGS_JSON);
+const messageListeners=[]; const disconnectListeners=[]; const messages=[];
+setPortFactory(() => ({
+  onMessage:{addListener(fn){messageListeners.push(fn);}},
+  onDisconnect:{addListener(fn){disconnectListeners.push(fn);}},
+  disconnect(){disconnectListeners.forEach(fn=>fn());},
+  postMessage(message){
+    messages.push(message.kind);
+    const response={protocol:AXMOperatorContract.PROTOCOL,status:'PASS',requestId:message.requestId,result:null,inspection:{status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:null,observedEventCount:1}};
+    queueMicrotask(()=>messageListeners.forEach(fn=>fn(response)));
+  },
+}));
+test.connectPort();
+test.state.plan={steps:[
+  {stepId:'step:first-mark',kind:'probe-call',method:'markAvailability',argsRef:'values.availability'},
+  {stepId:'step:barrier',kind:'operator-barrier',code:'BEFORE_CAPTURE_EXPORT',statement:'review'},
+]};
+test.state.bindings=bindings;
+test.state.sessionId='session:'+'1'.repeat(32);
+test.state.tabId=7;
+test.state.terminal='SESSION_OPEN';
+await test.runPlan();
+console.log(JSON.stringify({terminal:test.state.terminal,nextIndex:test.state.nextIndex,messages}));
+""".replace("BINDINGS_JSON", json.dumps(json.dumps(bindings)))
+        result = run_panel_harness(body)
+        self.assertEqual(result, {
+            "terminal": "AWAITING_OPERATOR_BARRIER",
+            "nextIndex": 1,
+            "messages": ["invoke", "status"],
+        })
+
+    def test_051_failed_open_inspection_closes_the_returned_worker_session(self):
+        result = run_panel_harness(r"""
+const messageListeners=[]; const disconnectListeners=[]; const messages=[]; let disconnected=false;
+setPortFactory(() => ({
+  onMessage:{addListener(fn){messageListeners.push(fn);}},
+  onDisconnect:{addListener(fn){disconnectListeners.push(fn);}},
+  disconnect(){disconnected=true; disconnectListeners.forEach(fn=>fn());},
+  postMessage(message){
+    messages.push(message.kind);
+    let response={protocol:AXMOperatorContract.PROTOCOL,status:'PASS',requestId:message.requestId};
+    if(message.kind==='open-session') Object.assign(response,{sessionId:'session:'+'1'.repeat(32),tabId:7,inspection:{status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:{code:'EVENT_LIMIT_EXCEEDED'},observedEventCount:1}});
+    if(message.kind==='close-session') response.kind='session-closed';
+    queueMicrotask(()=>messageListeners.forEach(fn=>fn(response)));
+  },
+}));
+test.state.plan={steps:[]}; test.state.bindings={}; test.state.terminal='LOADED';
+await test.openSession();
+console.log(JSON.stringify({messages,disconnected,terminal:test.state.terminal,sessionId:test.state.sessionId,portConnected:Boolean(test.state.port)}));
+""")
+        self.assertEqual(result, {
+            "messages": ["open-session", "close-session"],
+            "disconnected": False,
+            "terminal": "LOADED",
+            "sessionId": None,
+            "portConnected": True,
+        })
+
+    def test_052_failed_open_close_refusal_disconnects_and_allows_a_fresh_port(self):
+        result = run_panel_harness(r"""
+let generation=0; let disconnects=0; const messages=[];
+setPortFactory(() => {
+  generation += 1;
+  const own=generation; const messageListeners=[]; const disconnectListeners=[];
+  return {
+    onMessage:{addListener(fn){messageListeners.push(fn);}},
+    onDisconnect:{addListener(fn){disconnectListeners.push(fn);}},
+    disconnect(){disconnects += 1; messages.push(`${own}:disconnect`); disconnectListeners.forEach(fn=>fn());},
+    postMessage(message){
+      messages.push(`${own}:${message.kind}`);
+      let response={protocol:AXMOperatorContract.PROTOCOL,status:'PASS',requestId:message.requestId};
+      if(message.kind==='open-session') Object.assign(response,{sessionId:'session:'+String(own).repeat(32),tabId:7,inspection:{status:'PASS',probeVersion:'1',installedBeforeApplication:true,probeRefused:own===1?{code:'EVENT_LIMIT_EXCEEDED'}:null,observedEventCount:1}});
+      if(message.kind==='close-session' && own===1) Object.assign(response,{status:'REFUSED',code:'CLOSE_FAILED',message:'close refused'});
+      queueMicrotask(()=>messageListeners.forEach(fn=>fn(response)));
+    },
+  };
+});
+test.state.plan={steps:[]}; test.state.bindings={}; test.state.terminal='LOADED';
+await test.openSession();
+const first={terminal:test.state.terminal,sessionId:test.state.sessionId,portConnected:Boolean(test.state.port)};
+await test.openSession();
+const second={terminal:test.state.terminal,sessionId:test.state.sessionId,portConnected:Boolean(test.state.port)};
+console.log(JSON.stringify({generation,disconnects,messages,first,second}));
+""")
+        self.assertEqual(result, {
+            "generation": 2,
+            "disconnects": 1,
+            "messages": ["1:open-session", "1:close-session", "1:disconnect", "2:open-session"],
+            "first": {"terminal": "LOADED", "sessionId": None, "portConnected": False},
+            "second": {"terminal": "SESSION_OPEN", "sessionId": "session:" + "2" * 32, "portConnected": True},
+        })
+
+    def test_053_primary_verifier_requires_post_invocation_inspection(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = clone_minimal(pathlib.Path(temp) / "repo")
+            panel = repo / "mating_surface/anchor_node/browser_audition_operation_plan_panel.js"
+            panel.write_text(panel.read_text(encoding="utf-8").replace("await requirePostInvocationInspection();", "/* post-call inspection removed */"), encoding="utf-8")
+            output = pathlib.Path(temp) / "extension"
+            tool.build_extension(repo / self.profile["sourceMembers"][2], repo, output)
+            with self.assertRaises(tool.PlanError) as caught:
+                tool.verify_extension(repo / self.profile["sourceMembers"][2], repo, output)
+            self.assertIn(caught.exception.code, {"PANEL_CONTROL_MISSING", "PANEL_CONTROL_ORDER_INVALID"})
+
+    def test_054_independent_verifier_requires_failed_open_session_release(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = clone_minimal(pathlib.Path(temp) / "repo")
+            panel = repo / "mating_surface/anchor_node/browser_audition_operation_plan_panel.js"
+            panel.write_text(panel.read_text(encoding="utf-8").replace("await releaseFailedOpenSession(response);", "discardSessionState(\"session open failed\");"), encoding="utf-8")
+            output = pathlib.Path(temp) / "extension"
+            tool.build_extension(repo / self.profile["sourceMembers"][2], repo, output)
+            completed = subprocess.run(
+                [sys.executable, str(VERIFIER_PATH), str(repo / self.profile["sourceMembers"][2]), str(repo), str(output)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 2, completed.stdout + completed.stderr)
+            self.assertIn(json.loads(completed.stdout)["code"], {"PANEL_CONTROL_MISSING", "PANEL_CONTROL_ORDER_INVALID"})
 
 
 def add_fixture_witnesses() -> None:

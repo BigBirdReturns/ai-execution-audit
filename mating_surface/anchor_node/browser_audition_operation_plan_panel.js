@@ -142,6 +142,28 @@ function discardSessionState(reason) {
   state.sessionId = null;
   state.tabId = null;
 }
+function disconnectCurrentPort() {
+  const port = state.port;
+  if (!port) return;
+  state.port = null;
+  try { port.disconnect(); } catch { /* the browser owns final port disposal */ }
+}
+async function releaseFailedOpenSession(response) {
+  let closed = false;
+  if (response && typeof response.sessionId === "string" && Number.isInteger(response.tabId)) {
+    state.sessionId = response.sessionId;
+    state.tabId = response.tabId;
+    try {
+      await sessionMessage("close-session");
+      closed = true;
+    } catch {
+      // Disconnecting the owning port is the authoritative worker-session fallback.
+    }
+  }
+  if (!closed) disconnectCurrentPort();
+  discardSessionState("session open failed");
+  return closed;
+}
 function connectPort() {
   const port = chrome.runtime.connect({ name: PORT_NAME });
   state.port = port;
@@ -193,6 +215,10 @@ async function sessionMessage(kind, extra = {}) {
   if (!state.sessionId || !Number.isInteger(state.tabId)) throw new Error("document session is not open");
   return send({ protocol: OPERATOR.PROTOCOL, kind, tabId: state.tabId, sessionId: state.sessionId, ...extra });
 }
+async function requirePostInvocationInspection() {
+  const response = await sessionMessage("status");
+  return requireHealthyInspection(response.inspection);
+}
 async function readJsonFile(input, label) {
   const file = input.files?.[0];
   if (!file) throw new Error(`${label} file is required`);
@@ -240,16 +266,18 @@ async function loadBundle() {
   refreshControls();
 }
 async function openSession() {
+  let response = null;
   try {
     const tabId = await activeTabId();
-    const response = await send({ protocol: OPERATOR.PROTOCOL, kind: "open-session", tabId });
-    requireHealthyInspection(response.inspection);
+    response = await send({ protocol: OPERATOR.PROTOCOL, kind: "open-session", tabId });
     state.sessionId = response.sessionId;
     state.tabId = response.tabId;
+    requireHealthyInspection(response.inspection);
     state.terminal = "SESSION_OPEN";
     log("PASS", "exact active document bound to a fresh console session");
   } catch (error) {
-    discardSessionState("session open failed");
+    await releaseFailedOpenSession(response);
+    settleSessionLoss(state.plan && state.bindings ? "LOADED" : "IDLE");
     log("REFUSED", `${error.code || "OPEN_FAILED"}: ${error.message}`);
   }
   refreshControls();
@@ -350,6 +378,7 @@ async function runPlan() {
         if (MUTATING_METHODS.has(current.method)) state.probeMutationPossible = true;
         const response = await sessionMessage("invoke", { method: current.method, args });
         requireHealthyInspection(response.inspection);
+        await requirePostInvocationInspection();
         if (current.method === "exportCapture" && current.captureUse === "preflight") {
           requirePristineCapture(response.result);
         }

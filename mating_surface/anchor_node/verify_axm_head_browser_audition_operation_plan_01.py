@@ -197,6 +197,9 @@ def verify(profile_path: Path, repository_root: Path, extension_root: Path) -> d
         "probeMutationPossible",
         "settleSessionLoss",
         "requireHealthyInspection",
+        "requirePostInvocationInspection",
+        "releaseFailedOpenSession",
+        "disconnectCurrentPort",
         "PROBE_REFUSAL_STATE_ABSENT",
         "PROBE_CAPTURE_REFUSED",
         "serializeCaptureForDownload",
@@ -204,8 +207,34 @@ def verify(profile_path: Path, repository_root: Path, extension_root: Path) -> d
     ):
         if marker not in panel_source:
             fail("PANEL_CONTROL_MISSING", marker)
-    if panel_source.count('requireHealthyInspection(response.inspection)') != 4:
+    if panel_source.count('requireHealthyInspection(response.inspection)') != 5:
         fail("PANEL_CONTROL_COUNT_INVALID", "healthy inspection call denominator")
+    invoke_marker = 'const response = await sessionMessage("invoke", { method: current.method, args });'
+    post_marker = 'await requirePostInvocationInspection();'
+    invoke_index = panel_source.find(invoke_marker)
+    post_index = panel_source.find(post_marker, invoke_index + 1)
+    save_index = panel_source.find('state.resultRefs.set(current.saveResultAs, response.result);', post_index + 1)
+    download_index = panel_source.find('downloadCapture(response.result)', post_index + 1)
+    cursor_index = panel_source.find('state.nextIndex += 1;', post_index + 1)
+    if min(invoke_index, post_index, save_index, download_index, cursor_index) < 0 or not (
+        invoke_index < post_index < save_index < cursor_index and post_index < download_index < cursor_index
+    ):
+        fail("PANEL_CONTROL_ORDER_INVALID", "post-invocation inspection")
+    open_index = panel_source.find('async function openSession()')
+    open_send_index = panel_source.find('response = await send({ protocol: OPERATOR.PROTOCOL, kind: "open-session", tabId });', open_index)
+    session_index = panel_source.find('state.sessionId = response.sessionId;', open_send_index)
+    open_inspection_index = panel_source.find('requireHealthyInspection(response.inspection);', session_index)
+    release_index = panel_source.find('await releaseFailedOpenSession(response);', open_inspection_index)
+    if min(open_index, open_send_index, session_index, open_inspection_index, release_index) < 0 or not (
+        open_index < open_send_index < session_index < open_inspection_index < release_index
+    ):
+        fail("PANEL_CONTROL_ORDER_INVALID", "failed-open session release")
+    release_start = panel_source.find('async function releaseFailedOpenSession(response)')
+    release_end = panel_source.find('function connectPort()', release_start)
+    release_block = panel_source[release_start:release_end]
+    for marker in ('sessionMessage("close-session")', 'disconnectCurrentPort()', 'discardSessionState("session open failed")'):
+        if marker not in release_block:
+            fail("PANEL_CONTROL_MISSING", marker)
     if "JSON.stringify(capture, null, 2)" in panel_source:
         fail("CAPTURE_SERIALIZATION_DIVERGENCE", "pretty capture serialization")
 
@@ -220,7 +249,7 @@ def verify(profile_path: Path, repository_root: Path, extension_root: Path) -> d
         "extensionId": extension_id,
         "sourceMemberCount": len(source_rows),
         "extensionMemberCount": len(EXPECTED_EXTENSION),
-        "checks": ["exact-admitted-console-binding", "independent-source-reconstruction", "payload-source-byte-binding", "deterministic-plan-controls", "pristine-ledger-preflight", "mutation-uncertainty-stop", "probe-refusal-state-stop", "exact-download-byte-binding", "closed-local-extension-surface", "supplier-neutral-executable-surface"],
+        "checks": ["exact-admitted-console-binding", "independent-source-reconstruction", "payload-source-byte-binding", "deterministic-plan-controls", "pristine-ledger-preflight", "mutation-uncertainty-stop", "probe-refusal-state-stop", "post-invocation-inspection-stop", "failed-open-session-release", "exact-download-byte-binding", "closed-local-extension-surface", "supplier-neutral-executable-surface"],
         "bootstrapAuthenticated": False,
         "storedVerifierMemberBound": False,
         **claim,
