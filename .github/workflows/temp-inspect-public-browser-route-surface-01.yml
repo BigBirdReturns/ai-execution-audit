@@ -1,0 +1,219 @@
+name: TEMP Inspect Public Browser Route Surface 01
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - .github/workflows/temp-inspect-public-browser-route-surface-01.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-inspect-public-browser-route-surface-01
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Inspect only the public, unauthenticated browser surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/surface"
+          python - "$RUNNER_TEMP/surface/report.json" <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import re
+          import sys
+          import urllib.parse
+          import urllib.request
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          OUTPUT = Path(sys.argv[1])
+          ORIGIN = "https://swarmllm.ai"
+          ENTRYPOINTS = (f"{ORIGIN}/", f"{ORIGIN}/room")
+          MAX_ASSETS = 64
+          MAX_BYTES = 12 * 1024 * 1024
+          NEEDLES = (
+              "qwen",
+              "model",
+              "layer",
+              "shard",
+              "token",
+              "webrtc",
+              "rtcpeerconnection",
+              "datachannel",
+              "webgpu",
+              "room",
+              "device",
+              "memory",
+              "download",
+              "cache",
+              "worker",
+              "inference",
+              "generate",
+          )
+
+
+          def sha256(data: bytes) -> str:
+              return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+          def fetch(url: str) -> tuple[bytes, dict[str, object]]:
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "text/html,application/javascript,text/javascript,text/css,*/*;q=0.1",
+                      "User-Agent": "AXM-Public-Surface-Inspection/1.0",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  body = response.read(MAX_BYTES + 1)
+                  if len(body) > MAX_BYTES:
+                      raise RuntimeError(f"asset exceeds byte ceiling: {url}")
+                  metadata = {
+                      "requestedUrl": url,
+                      "finalUrl": response.geturl(),
+                      "status": response.status,
+                      "contentType": response.headers.get_content_type(),
+                      "contentLengthHeader": response.headers.get("Content-Length"),
+                      "etag": response.headers.get("ETag"),
+                      "lastModified": response.headers.get("Last-Modified"),
+                      "bytes": len(body),
+                      "sha256": sha256(body),
+                  }
+                  return body, metadata
+
+
+          class SurfaceParser(HTMLParser):
+              def __init__(self) -> None:
+                  super().__init__(convert_charrefs=True)
+                  self.assets: list[str] = []
+                  self.elements: list[dict[str, object]] = []
+                  self.forms: list[dict[str, object]] = []
+
+              def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+                  values = {key: value for key, value in attrs}
+                  element = {
+                      "tag": tag,
+                      "id": values.get("id"),
+                      "class": values.get("class"),
+                      "name": values.get("name"),
+                      "type": values.get("type"),
+                      "role": values.get("role"),
+                  }
+                  if any(value is not None for key, value in element.items() if key != "tag"):
+                      self.elements.append(element)
+                  if tag in {"input", "select", "button", "textarea"}:
+                      self.forms.append(element)
+                  if tag == "script" and values.get("src"):
+                      self.assets.append(values["src"] or "")
+                  if tag == "link" and values.get("href"):
+                      rel = set((values.get("rel") or "").lower().split())
+                      if rel & {"stylesheet", "modulepreload", "preload"}:
+                          self.assets.append(values["href"] or "")
+
+
+          def same_origin_asset(base: str, value: str) -> str | None:
+              candidate = urllib.parse.urljoin(base, value)
+              parsed = urllib.parse.urlparse(candidate)
+              if parsed.scheme != "https" or parsed.netloc != "swarmllm.ai":
+                  return None
+              return urllib.parse.urlunparse(parsed._replace(fragment=""))
+
+
+          def contexts(text: str) -> dict[str, list[str]]:
+              lowered = text.lower()
+              result: dict[str, list[str]] = {}
+              for needle in NEEDLES:
+                  rows: list[str] = []
+                  start = 0
+                  while len(rows) < 12:
+                      offset = lowered.find(needle, start)
+                      if offset < 0:
+                          break
+                      left = max(0, offset - 120)
+                      right = min(len(text), offset + len(needle) + 180)
+                      snippet = re.sub(r"\s+", " ", text[left:right]).strip()
+                      if snippet not in rows:
+                          rows.append(snippet)
+                      start = offset + len(needle)
+                  if rows:
+                      result[needle] = rows
+              return result
+
+
+          pages: list[dict[str, object]] = []
+          assets_to_fetch: list[str] = []
+          for entrypoint in ENTRYPOINTS:
+              body, metadata = fetch(entrypoint)
+              text = body.decode("utf-8", errors="strict")
+              parser = SurfaceParser()
+              parser.feed(text)
+              page_assets = []
+              for raw in parser.assets:
+                  normalized = same_origin_asset(metadata["finalUrl"], raw)
+                  if normalized and normalized not in page_assets:
+                      page_assets.append(normalized)
+                  if normalized and normalized not in assets_to_fetch:
+                      assets_to_fetch.append(normalized)
+              pages.append(
+                  {
+                      **metadata,
+                      "assets": page_assets,
+                      "forms": parser.forms,
+                      "elements": parser.elements,
+                      "semanticContexts": contexts(text),
+                  }
+              )
+
+          assets: list[dict[str, object]] = []
+          for url in assets_to_fetch[:MAX_ASSETS]:
+              body, metadata = fetch(url)
+              content_type = str(metadata["contentType"])
+              row: dict[str, object] = dict(metadata)
+              if content_type.startswith("text/") or "javascript" in content_type or url.endswith((".js", ".css", ".mjs")):
+                  text = body.decode("utf-8", errors="strict")
+                  row["semanticContexts"] = contexts(text)
+                  row["sourceMapReference"] = re.findall(r"sourceMappingURL=([^\s*]+)", text)[-1:] or []
+                  row["absoluteUrls"] = sorted(set(re.findall(r"https://[^\"'`\\s)]+", text)))[:100]
+              assets.append(row)
+
+          report = {
+              "schema": "axm-head/public-browser-route-surface-inspection@1",
+              "status": "PASS",
+              "scope": "public-unauthenticated-static-surface-only",
+              "origin": ORIGIN,
+              "entrypoints": list(ENTRYPOINTS),
+              "pageCount": len(pages),
+              "assetCount": len(assets),
+              "pages": pages,
+              "assets": assets,
+              "claimBoundary": "Static public HTTP bytes and browser-facing element inventory only. No room was created, no device joined, no model was selected or downloaded, no peer connection formed, no inference ran, and no privacy or supplier claim was verified.",
+          }
+          OUTPUT.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(report, sort_keys=True, separators=(",", ":")))
+          PY
+
+      - name: Upload the bounded public-surface report
+        uses: actions/upload-artifact@v4
+        with:
+          name: temp-public-browser-route-surface
+          path: ${{ runner.temp }}/surface/report.json
+          if-no-files-found: error
+          retention-days: 1
