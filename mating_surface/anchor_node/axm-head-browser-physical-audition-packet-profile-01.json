@@ -1,0 +1,207 @@
+{
+  "admittedAudition": {
+    "admissionCommit": "e32cf641cddd00ab1c97d7d6af1708c84ea491b6",
+    "admissionTree": "271956e4a5068c0d71f5223b032cd2e19d4a7c8d",
+    "candidateCommit": "351f1f1e54e4d454137b69ad64e571590db134dd",
+    "interface": "axm/distributed-model-inference@1",
+    "probeSha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e",
+    "profileId": "axm-head/browser-distributed-inference-audition/0.1",
+    "sourceMembers": [
+      {
+        "gitBlobSha": "bda298075ce2516eb138f818479a2be102cb6916",
+        "path": ".github/workflows/axm-head-browser-distributed-inference-audition-01.yml"
+      },
+      {
+        "gitBlobSha": "3c3b2664eb5c31aa29427fffc13b6b8a17ac6f98",
+        "path": "mating_surface/anchor_node/AXM-HEAD-BROWSER-DISTRIBUTED-INFERENCE-AUDITION-01.md"
+      },
+      {
+        "gitBlobSha": "b78eb859fa49bfa3bd7d993e4788af0cb225e667",
+        "path": "mating_surface/anchor_node/axm-head-browser-distributed-inference-audition-profile-01.json"
+      },
+      {
+        "gitBlobSha": "c1007897f73a4a41a3be47635d040d8745bb578e",
+        "path": "mating_surface/anchor_node/axm-head-browser-distributed-inference-audition.ps1"
+      },
+      {
+        "gitBlobSha": "93afd1fd2ac0af290287d4a5aba622835bcf2e28",
+        "path": "mating_surface/anchor_node/axm_head_browser_distributed_inference_audition.py"
+      },
+      {
+        "gitBlobSha": "f8489140c119b8513a7569ff95c3900dc1672496",
+        "path": "mating_surface/anchor_node/browser_distributed_inference_probe.js"
+      },
+      {
+        "gitBlobSha": "01d55294bff5200b44e58c5489dd61220f3230ce",
+        "path": "mating_surface/anchor_node/verify_axm_head_browser_distributed_inference_audition.py"
+      },
+      {
+        "gitBlobSha": "3199e60a885c416d49d8af5607a27f8bbb243333",
+        "path": "mating_surface/anchor_node/verify_axm_head_browser_distributed_inference_audition_bootstrap.py"
+      },
+      {
+        "gitBlobSha": "f836be0df843615553b512e6e29103e94f5d016a",
+        "path": "mating_surface/anchor_node/conformance/test_axm_head_browser_distributed_inference_audition.py"
+      },
+      {
+        "gitBlobSha": "eb72bc18745c6808188a04531f5e2ae977dbb94c",
+        "path": "mating_surface/anchor_node/fixtures/axm-head-browser-distributed-inference-audition-cases-01.json"
+      }
+    ]
+  },
+  "claimBoundary": "Supplier-neutral source-qualified preparation for one private two-seat browser audition. Synthetic fixtures qualify only the packet compiler, generated extension, and independent reconstruction law. They do not establish a browser launch, endpoint contact, model download, peer connection, inference, physical execution, supplier qualification, physical Estate qualification, or any mission, command, targeting, engagement, effector, or weapons authority.",
+  "commands": [
+    "validate-profile",
+    "validate-fixtures",
+    "campaign",
+    "build-kit",
+    "assemble",
+    "verify",
+    "public-projection",
+    "source-set"
+  ],
+  "confirmationPolicy": {
+    "actorClass": "named-human",
+    "actorEvidenceRequired": true,
+    "decision": "CONFIRM_OBSERVED_ROUTE_CANDIDATE",
+    "futureSkewMs": 300000,
+    "maximumValidityMs": 86400000
+  },
+  "extensionContract": {
+    "manifestVersion": 3,
+    "runAt": "document_start",
+    "script": "browser_distributed_inference_probe.js",
+    "world": "MAIN"
+  },
+  "fixtureCaseIds": [
+    "synthetic-complete-route",
+    "prepared-not-executed",
+    "physical-ready-for-named-human",
+    "hold-one-seat-substitution",
+    "hold-seat-replay",
+    "hold-duplicate-physical-member-evidence",
+    "hold-cross-seat-member-set-disagreement",
+    "hold-late-instrumentation",
+    "hold-supplier-pinned-work-unit",
+    "hold-model-denominator-disagreement",
+    "hold-output-disagreement",
+    "hold-selected-topology-missing",
+    "hold-unreliable-activation-channel",
+    "hold-performance-denominator-incomplete",
+    "hold-controlled-drop-incomplete",
+    "hold-privacy-overclaim",
+    "hold-private-projection-leak",
+    "hold-mixed-source-kind",
+    "refused-nonphysical-source-kind",
+    "refused-physical-uniqueness-unproved",
+    "refused-unknown-raw-event",
+    "refused-probe-byte-drift",
+    "refused-confirmation-not-applicable"
+  ],
+  "fixtureTerminalCounts": {
+    "HOLD": 15,
+    "OBSERVED_ROUTE_CANDIDATE": 1,
+    "PREPARED_NOT_EXECUTED": 1,
+    "READY_FOR_NAMED_HUMAN": 1,
+    "REFUSED": 5
+  },
+  "issueRef": "BigBirdReturns/ai-execution-audit#98",
+  "kitSourceBindings": [
+    {
+      "bytes": 4638,
+      "path": "axm-head-browser-distributed-inference-audition-profile-01.json",
+      "sha256": "sha256:82712b3ab7278036395bf9487759006af98cd8449f84684f70374a9986a4cdb4"
+    },
+    {
+      "bytes": 64861,
+      "path": "axm_head_browser_distributed_inference_audition.py",
+      "sha256": "sha256:3a3c480e53fad99e86b2fa1771fd60387d029a844db141645afb3b71e4e86761"
+    },
+    {
+      "bytes": 22384,
+      "path": "browser_distributed_inference_probe.js",
+      "sha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e"
+    },
+    {
+      "bytes": 53326,
+      "path": "verify_axm_head_browser_distributed_inference_audition.py",
+      "sha256": "sha256:deb5c8d474e5c3482692e579094fc44db11f1fbf152dabb91af410ddf4e49969"
+    },
+    {
+      "bytes": 4676,
+      "path": "verify_axm_head_browser_distributed_inference_audition_bootstrap.py",
+      "sha256": "sha256:c1ce74c66fa6558bde1ac3e598beb4a9bb2f4c37128bc83b3cbc86981960b03d"
+    }
+  ],
+  "packetSourceBindings": [
+    {
+      "bytes": 1509,
+      "path": "axm-head-browser-physical-audition-controller-template-01.json",
+      "sha256": "sha256:7dca9ed124b3afdfc067291282df2bc8bcd41f444d0f587921ed71d034ed27a9"
+    },
+    {
+      "bytes": 1254,
+      "path": "axm-head-browser-physical-audition-packet-01.ps1",
+      "sha256": "sha256:a7bad228abc68e558d8fff6935a062805f23711033de3755cb438bcc9ed2d838"
+    },
+    {
+      "bytes": 78374,
+      "path": "axm_head_browser_physical_audition_packet_01.py",
+      "sha256": "sha256:4ce9469235f402ffd64a3c94a7ad666feeb63f6ee58257c49e8ad5037b0d419f"
+    },
+    {
+      "bytes": 53169,
+      "path": "verify_axm_head_browser_physical_audition_packet_01.py",
+      "sha256": "sha256:d89abb313487d2b04da721d6fcc964850224f6632975e6824a66f4bbcc8fca47"
+    },
+    {
+      "bytes": 12930,
+      "path": "verify_axm_head_browser_physical_audition_packet_01_bootstrap.py",
+      "sha256": "sha256:8b5afcadf34e77bcd893f7c15456da43cab831aeeaa1edecd3d3fde684af313f"
+    }
+  ],
+  "physicalMemberEvidenceCount": 2,
+  "profileId": "axm-head/browser-physical-audition-packet/0.1",
+  "publicProjectionAllowedKeys": [
+    "actualSupplierQualified",
+    "commandAuthority",
+    "effectorAuthority",
+    "engagementAuthority",
+    "missionAuthority",
+    "namedHumanConfirmed",
+    "packetEvidenceRoot",
+    "physicalEstateQualified",
+    "physicalExecutionObserved",
+    "reasonCodes",
+    "schema",
+    "seatCount",
+    "sourceBindingId",
+    "supplierAdmissionReceiptPresent",
+    "syntheticConformanceOnly",
+    "targetingAuthority",
+    "terminal",
+    "weaponsAuthority"
+  ],
+  "schema": "axm-head/browser-physical-audition-packet-profile@1",
+  "seatCount": 2,
+  "sourceMembers": [
+    ".github/workflows/axm-head-browser-physical-audition-packet-01.yml",
+    "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-PACKET-01.md",
+    "mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json",
+    "mating_surface/anchor_node/axm-head-browser-physical-audition-controller-template-01.json",
+    "mating_surface/anchor_node/axm-head-browser-physical-audition-packet-01.ps1",
+    "mating_surface/anchor_node/axm_head_browser_physical_audition_packet_01.py",
+    "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_packet_01.py",
+    "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_packet_01_bootstrap.py",
+    "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_packet_01.py",
+    "mating_surface/anchor_node/fixtures/axm-head-browser-physical-audition-packet-cases-01.json"
+  ],
+  "status": "candidate_source_only",
+  "terminalStates": [
+    "PREPARED_NOT_EXECUTED",
+    "READY_FOR_NAMED_HUMAN",
+    "OBSERVED_ROUTE_CANDIDATE",
+    "HOLD",
+    "REFUSED"
+  ]
+}

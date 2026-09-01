@@ -1,0 +1,44 @@
+{
+  "control": {
+    "applicationStartMonotonicMs": 0,
+    "memberUniquenessAssertions": [
+      {
+        "evidenceRef": "REPLACE_WITH_SHA256_PHYSICAL_MEMBER_EVIDENCE_REF_01",
+        "physicallyUnique": false,
+        "probeMemberId": "REPLACE_WITH_OPAQUE_PROBE_MEMBER_ID_01"
+      },
+      {
+        "evidenceRef": "REPLACE_WITH_SHA256_PHYSICAL_MEMBER_EVIDENCE_REF_02",
+        "physicallyUnique": false,
+        "probeMemberId": "REPLACE_WITH_OPAQUE_PROBE_MEMBER_ID_02"
+      }
+    ],
+    "probeSha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e",
+    "proposedPublicProjection": {},
+    "schema": "axm-head/browser-distributed-inference-audition-control@1",
+    "sourceKind": "physical-private-local",
+    "supplierAdmissionReceipt": null,
+    "supplierObservationRef": null,
+    "syntheticConformanceOnly": false,
+    "workUnit": {
+      "authorityClass": "compute-only",
+      "requiredCapabilities": [
+        "distributed-model-inference",
+        "structured-output"
+      ],
+      "requiredInterface": "axm/distributed-model-inference@1",
+      "requiredValidatorRefs": [
+        "validator:formation-capacity@1",
+        "validator:model-output-equivalence@1"
+      ],
+      "supplierRef": null
+    }
+  },
+  "instructions": {
+    "privateBodiesPermitted": false,
+    "requiredPhysicalMemberEvidenceReferences": 2,
+    "unchangedTemplateIsValid": false
+  },
+  "schema": "axm-head/browser-physical-audition-controller-template@1",
+  "seatId": "REPLACE_WITH_SEAT_ID"
+}
