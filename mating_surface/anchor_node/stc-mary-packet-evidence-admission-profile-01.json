@@ -354,6 +354,22 @@
       "all stronger qualifications false"
     ]
   },
+  "preSealDecisionSurface": {
+    "forbiddenPresentTenseObjects": [
+      "detached verification",
+      "public disposition",
+      "sealed manifest",
+      "sealed run"
+    ],
+    "forbiddenStateFields": [
+      "detachedVerificationPassed",
+      "dispositionIsBodyFree",
+      "publicDispositionBodyFree",
+      "runSealedNow",
+      "sealedManifestValid"
+    ],
+    "rule": "The complete stage-16 pre-seal decision surface -- control question, observation fields, evidence role names and role predicates -- may require that a sealed run, public disposition, sealed manifest and detached verification be produced and verified later. It may not assert anything about their actual present state."
+  },
   "predecessorPacketProfileId": "stc-mary/private-flight-packet/0.1",
   "predecessorPhysicalProfileId": "spectra-anchor-node/stc-mary-physical-flight/0.1",
   "profileId": "stc-mary/packet-evidence-admission@2",
@@ -404,7 +420,7 @@
     ],
     "statementTimeBindings": [
       "campaignId",
-      "successorPacketIdentityClass",
+      "successorPacketId",
       "stageSixteenNonHumanEvidenceRoot",
       "requiredTerminal",
       "sealPermittedOnlyAfterExactSixteenOfSixteen",
@@ -415,10 +431,12 @@
   "sourceSuccession": {
     "claimBoundary": "This profile defines evidence-role and pre-seal observation succession for a source-authenticated successor packet. It does not claim direct applicability to the frozen Campaign A packet, whose stage-16 observation contract cannot be satisfied truthfully before sealing. It establishes no packet completion and no physical flight.",
     "directFrozenPacketApplication": false,
+    "frozenPacketRefusalCode": "DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN",
     "predecessorEvidenceAdmissionProfileId": "stc-mary/packet-evidence-admission@1",
     "predecessorPacketMutationAllowed": false,
     "predecessorPacketProfileId": "stc-mary/private-flight-packet/0.1",
-    "successorPacketObservationContractRequired": true
+    "successorPacketObservationContractRequired": true,
+    "successorPacketProfileId": "stc-mary/private-flight-packet/0.2"
   },
   "stageRoleSuccession": {
     "deferredToPostSealClosure": [
@@ -439,6 +457,8 @@
     ],
     "predecessorProfileId": "stc-mary/packet-evidence-admission@1",
     "reason": "The frozen packet profile names 'sealed run' and 'body-free public disposition' as stage-16 required evidence. Those objects do not exist until after sealing, and the frozen sealer refuses to run until all sixteen stages are already recorded. The frozen recorder never enforces those advisory names, so the ordering is satisfiable, but predecessor profile @1 turned them into current-observation roles with predicates runSealedNow and dispositionIsBodyFree and thereby made READY_FOR_NAMED_HUMAN_DECISION unreachable for any real zero-stage packet. This profile replaces exactly those three roles with evidence that is truthful at admission time, when no stage record exists.",
+    "supersededControlQuestion": "Are all private bodies still local while the public disposition contains only content identities, counts, and claim boundaries?",
+    "supersededControlQuestionReason": "Each exact stage confirmation binds the stage control question and the named human's response to it. The frozen stage-16 question asks whether the public disposition contains only content identities, counts and claim boundaries. No public disposition exists when that question is answered, so the human decision surface would certify a future object. The successor question asks only about facts observable before sealing.",
     "supersededFrozenObservationFields": [
       "evidenceDescriptorCount",
       "publicDispositionBodyFree",
@@ -1094,7 +1114,7 @@
     },
     "SEAL_PRIVATE_EVIDENCE": {
       "availabilityClass": "REQUIRES_HUMAN_STATEMENT",
-      "controlQuestion": "Are all private bodies still local while the public disposition contains only content identities, counts, and claim boundaries?",
+      "controlQuestion": "Are all proposed private evidence bodies fully enumerated and hashed, proven outside Git, and authorized for sealing only after this exact successor packet reaches verified 16 / 16, with post-seal closure required before any completion claim?",
       "evidenceRoleDenominator": 3,
       "evidenceRoles": [
         {
@@ -1280,6 +1300,30 @@
     }
   },
   "status": "candidate_contract_only",
+  "successorContract": {
+    "claimBoundary": "Lineage receipt for one successor packet. It binds the exact predecessor packet and profile, the campaign, the packet handoff, the canonical mission state, and the successor source set. It grants no authority and establishes no completion.",
+    "file": "SUCCESSOR-CONTRACT.json",
+    "idKey": "successorContractId",
+    "idPrefix": "stcmarypacketevidencesuccessorcontract1",
+    "keys": [
+      "admissionProfileId",
+      "authority",
+      "campaignId",
+      "campaignLabel",
+      "canonicalMissionStateDigest",
+      "claimBoundary",
+      "packetHandoffId",
+      "predecessorPacketId",
+      "predecessorPacketProfileId",
+      "schema",
+      "successorContractId",
+      "successorPacketId",
+      "successorPacketProfileId",
+      "successorSourceSetId"
+    ],
+    "schema": "stc-mary/packet-evidence-successor-contract/1"
+  },
+  "successorPacketProfileId": "stc-mary/private-flight-packet/0.2",
   "supersedes": "stc-mary/packet-evidence-admission@1",
   "terminalStates": [
     "READY_FOR_NAMED_HUMAN_DECISION",

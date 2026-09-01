@@ -311,13 +311,21 @@ class Fixture:
             "stcmaryprivateflightpacket1",
             {
                 "campaignLabel": self.campaign_label,
+                "packetProfileId": self.profile["successorPacketProfileId"],
+                "physicalProfileId": self.profile["predecessorPhysicalProfileId"],
+            },
+        )
+        self.predecessor_packet_id = cid(
+            "stcmaryprivateflightpacket1",
+            {
+                "campaignLabel": self.campaign_label,
                 "packetProfileId": self.profile["predecessorPacketProfileId"],
                 "physicalProfileId": self.profile["predecessorPhysicalProfileId"],
             },
         )
         marker = {
             "schema": packet_law["markerSchema"],
-            "packetProfileId": self.profile["predecessorPacketProfileId"],
+            "packetProfileId": self.profile["successorPacketProfileId"],
             "physicalProfileId": self.profile["predecessorPhysicalProfileId"],
             "campaignLabel": self.campaign_label,
             "packetId": self.packet_id,
@@ -328,6 +336,7 @@ class Fixture:
             self.packet / packet_law["markerFile"],
             sign(marker, packet_law["markerIdKey"], packet_law["markerIdPrefix"]),
         )
+        self.write_successor_contract()
 
         stages = [
             {
@@ -380,6 +389,28 @@ class Fixture:
             "claimBoundary": "Synthetic packet configuration for conformance only. It grants no authority.",
         }
         write_json(self.packet / packet_law["configFile"], config)
+
+    def write_successor_contract(self, **overrides: Any) -> dict:
+        law_block = self.profile["successorContract"]
+        body = {
+            "schema": law_block["schema"],
+            "campaignId": self.campaign_id,
+            "campaignLabel": self.campaign_label,
+            "predecessorPacketId": self.predecessor_packet_id,
+            "predecessorPacketProfileId": self.profile["predecessorPacketProfileId"],
+            "successorPacketId": self.packet_id,
+            "successorPacketProfileId": self.profile["successorPacketProfileId"],
+            "packetHandoffId": cid("stcmarypacketevidencepackethandoff1", {"campaignLabel": self.campaign_label}),
+            "canonicalMissionStateDigest": self.canonical_mission_state_digest,
+            "successorSourceSetId": cid("stcmarysuccessorsourceset1", {"campaignLabel": self.campaign_label}),
+            "admissionProfileId": self.profile["profileId"],
+            "authority": "none",
+            "claimBoundary": "Synthetic successor contract for conformance only. It grants no authority.",
+        }
+        body.update(overrides)
+        signed = sign(body, law_block["idKey"], law_block["idPrefix"])
+        write_json(self.packet / law_block["file"], signed)
+        return signed
 
     # -- admission workspace ----------------------------------------------
     def stage_directory(self, sequence: int, stage: str) -> str:
@@ -1099,6 +1130,111 @@ class Stage16OrderingWitnesses(AdmissionWitnessCase):
                 {key: True for key in result["frozenStageSixteenObservationKeys"]},
             )
         self.assertEqual(caught.exception.code, "STAGE_OBSERVATION_INVALID")
+
+    def test_frozen_predecessor_packet_is_refused_outright(self) -> None:
+        """The successor boundary must be runtime law, not profile prose.
+
+        An otherwise perfectly valid, configured, zero-stage frozen 0.1 packet must not
+        reach a positive terminal, because this gate has declared it out of scope.
+        """
+        path = self.fixture.packet / self.profile["packet"]["markerFile"]
+        marker = load_json(path)
+        marker["packetProfileId"] = self.profile["predecessorPacketProfileId"]
+        marker.pop("markerId", None)
+        write_json(path, sign(marker, "markerId", self.profile["packet"]["markerIdPrefix"]))
+        self.assert_refuses("DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN")
+
+    def test_successor_packet_identity_is_required(self) -> None:
+        path = self.fixture.packet / self.profile["packet"]["markerFile"]
+        marker = load_json(path)
+        marker["packetProfileId"] = "stc-mary/private-flight-packet/9.9"
+        marker.pop("markerId", None)
+        write_json(path, sign(marker, "markerId", self.profile["packet"]["markerIdPrefix"]))
+        self.assert_refuses("PACKET_MARKER_INVALID")
+
+    def test_successor_contract_must_bind_this_packet(self) -> None:
+        self.fixture.write_successor_contract(
+            successorPacketId=cid("stcmaryprivateflightpacket1", {"other": True})
+        )
+        self.assert_refuses("SUCCESSOR_CONTRACT_BINDING_INVALID")
+
+    def test_successor_contract_may_not_name_itself_as_predecessor(self) -> None:
+        self.fixture.write_successor_contract(predecessorPacketId=self.fixture.packet_id)
+        self.assert_refuses("SUCCESSOR_CONTRACT_BINDING_INVALID")
+
+    def test_successor_contract_from_another_campaign_refuses(self) -> None:
+        self.fixture.write_successor_contract(
+            campaignId=cid("stcmaryflightconductorcampaign1", {"campaignLabel": OTHER_CAMPAIGN_LABEL})
+        )
+        self.assert_refuses("SUCCESSOR_CONTRACT_BINDING_INVALID")
+
+    def test_forged_successor_contract_identity_refuses(self) -> None:
+        law_block = self.profile["successorContract"]
+        path = self.fixture.packet / law_block["file"]
+        contract = load_json(path)
+        contract["claimBoundary"] = "quietly widened after signing"
+        write_json(path, contract)
+        self.assert_refuses("SUCCESSOR_CONTRACT_ID_INVALID")
+
+    def test_successor_contract_lineage_is_reported(self) -> None:
+        receipt = self.fixture.run()
+        self.assertEqual(receipt["predecessorPacketId"], self.fixture.predecessor_packet_id)
+        self.assertEqual(receipt["successorPacketProfileId"], self.profile["successorPacketProfileId"])
+        self.assertEqual(receipt["predecessorPacketProfileId"], self.profile["predecessorPacketProfileId"])
+        self.assertFalse(receipt["directFrozenPacketApplication"])
+        self.assertTrue(receipt["successorContractId"].startswith("stcmarypacketevidencesuccessorcontract1_"))
+        self.assertTrue(receipt["packetHandoffId"].startswith("stcmarypacketevidencepackethandoff1_"))
+
+    def test_stage_16_control_question_asks_only_about_pre_seal_facts(self) -> None:
+        """Each confirmation binds this question, so it may not certify a future object."""
+        stage = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]
+        frozen = load_json(FROZEN_PACKET_PROFILE)
+        question = stage["controlQuestion"]
+        self.assertNotEqual(question, frozen["stages"]["SEAL_PRIVATE_EVIDENCE"]["controlQuestion"])
+        self.assertEqual(
+            self.profile["stageRoleSuccession"]["supersededControlQuestion"],
+            frozen["stages"]["SEAL_PRIVATE_EVIDENCE"]["controlQuestion"],
+        )
+        for token in self.profile["preSealDecisionSurface"]["forbiddenPresentTenseObjects"]:
+            self.assertNotIn(token, question.lower(), token)
+
+    def test_stage_16_decision_surface_asserts_no_post_seal_object_state(self) -> None:
+        """The complete surface the human decides over, scanned as one object."""
+        stage = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]
+        law_block = self.profile["preSealDecisionSurface"]
+        surface_text = " ".join(
+            [stage["controlQuestion"]]
+            + list(stage["observation"]["keys"])
+            + [row["evidenceRole"] for row in stage["evidenceRoles"]]
+            + [key for row in stage["evidenceRoles"] for key in row["requiredPredicates"]]
+        ).lower()
+        for token in law_block["forbiddenPresentTenseObjects"]:
+            self.assertNotIn(token, surface_text, token)
+        for field in law_block["forbiddenStateFields"]:
+            self.assertNotIn(field.lower(), surface_text, field)
+
+        # And the same holds for what the gate actually publishes to the human.
+        receipt = self.fixture.run()
+        row = next(
+            entry
+            for entry in receipt["stageConfirmationRequirements"]
+            if entry["stage"] == "SEAL_PRIVATE_EVIDENCE"
+        )
+        published = json.dumps(row).lower()
+        for token in law_block["forbiddenPresentTenseObjects"]:
+            self.assertNotIn(token, published, token)
+
+    def test_seal_authorization_binds_the_exact_successor_packet(self) -> None:
+        self.fixture.add_human_statements()
+        request = self.fixture.load_request()
+        descriptor = self.fixture.descriptor(
+            request, "SEAL_PRIVATE_EVIDENCE", "named-human seal authorization"
+        )
+        body = load_json(self.fixture.candidates / descriptor["bodyPath"])
+        self.assertEqual(body["packetId"], self.fixture.packet_id)
+        self.assertEqual(body["campaignId"], self.fixture.campaign_id)
+        self.assertEqual(body["terminalOrRetainedObligation"], "PASS")
+        self.assertIn("successorPacketId", self.profile["sealAuthorization"]["statementTimeBindings"])
 
     def test_frozen_sealer_still_refuses_an_incomplete_packet(self) -> None:
         """The other arm of the original circularity, asserted from frozen source."""

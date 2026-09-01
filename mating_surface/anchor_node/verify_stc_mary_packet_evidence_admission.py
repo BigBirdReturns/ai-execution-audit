@@ -53,7 +53,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 PROFILE_SCHEMA = "stc-mary/packet-evidence-admission-profile/1"
 PROFILE_ID = "stc-mary/packet-evidence-admission@2"
-PROFILE_CANONICAL_SHA256 = "43a9679e70321061cb348c47b6f5df572db3c43cfe6dc1b2ba0af35dfade80fb"
+PROFILE_CANONICAL_SHA256 = "5eca257adb0bf6de20bb3f3a7114b6faa7da2ea2739c1fcb412d9117a088baeb"
 RECEIPT_SCHEMA = "stc-mary/packet-evidence-admission-receipt/1"
 RECEIPT_ID_KEY = "admissionId"
 RECEIPT_ID_PREFIX = "stcmarypacketevidenceadmission1"
@@ -493,8 +493,23 @@ def read_frozen_surface(
         "PACKET_CAMPAIGN_BINDING_INVALID",
         "packet marker belongs to another campaign than the frozen workstation",
     )
+    # The successor boundary is runtime law, not profile prose. The frozen predecessor
+    # packet cannot satisfy stage 16 truthfully, so this gate refuses to govern it at all
+    # rather than returning a positive terminal for a packet it has declared out of scope.
+    succession = profile["sourceSuccession"]
     require(
-        packet_marker["packetProfileId"] == profile["predecessorPacketProfileId"]
+        succession["directFrozenPacketApplication"] is False,
+        "PROFILE_INVALID",
+        "admission profile claims direct applicability to the frozen predecessor packet",
+    )
+    require(
+        packet_marker["packetProfileId"] != profile["predecessorPacketProfileId"],
+        succession["frozenPacketRefusalCode"],
+        "this gate may not govern the frozen predecessor packet; its stage-16 observation "
+        "contract cannot be satisfied truthfully before sealing",
+    )
+    require(
+        packet_marker["packetProfileId"] == profile["successorPacketProfileId"]
         and packet_marker["physicalProfileId"] == profile["predecessorPhysicalProfileId"],
         "PACKET_MARKER_INVALID",
         "packet marker names another packet or physical-flight profile",
@@ -572,10 +587,78 @@ def read_frozen_surface(
         config["canonicalMissionStateDigest"], "PACKET_CONFIG_INVALID", "canonical mission state digest"
     )
 
+    # ---- successor lineage, separately authenticated ------------------------
+    contract_law = profile["successorContract"]
+    contract = read_json_file(
+        packet / contract_law["file"], code="SUCCESSOR_CONTRACT_INVALID", label="successor contract"
+    )
+    exact_keys(contract, contract_law["keys"], "SUCCESSOR_CONTRACT_INVALID", "successor contract")
+    require(
+        contract["schema"] == contract_law["schema"],
+        "SUCCESSOR_CONTRACT_INVALID",
+        "successor contract schema differs",
+    )
+    require(contract["authority"] == AUTHORITY, "AUTHORITY_WIDENED", "successor contract grants authority")
+    successor_contract_id = assert_identity(
+        contract,
+        contract_law["idKey"],
+        contract_law["idPrefix"],
+        "SUCCESSOR_CONTRACT_ID_INVALID",
+        "successor contract",
+    )
+    require(
+        contract["admissionProfileId"] == PROFILE_ID,
+        "SUCCESSOR_CONTRACT_INVALID",
+        "successor contract names another admission profile",
+    )
+    require(
+        contract["successorPacketId"] == packet_id
+        and contract["successorPacketProfileId"] == profile["successorPacketProfileId"],
+        "SUCCESSOR_CONTRACT_BINDING_INVALID",
+        "successor contract does not bind this packet",
+    )
+    require(
+        contract["predecessorPacketProfileId"] == profile["predecessorPacketProfileId"],
+        "SUCCESSOR_CONTRACT_BINDING_INVALID",
+        "successor contract names another predecessor packet profile",
+    )
+    predecessor_packet_id = assert_content_id(
+        contract["predecessorPacketId"], "SUCCESSOR_CONTRACT_INVALID", "predecessor packet identity"
+    )
+    require(
+        predecessor_packet_id != packet_id,
+        "SUCCESSOR_CONTRACT_BINDING_INVALID",
+        "successor contract names itself as its own predecessor",
+    )
+    require(
+        contract["campaignId"] == campaign_id and contract["campaignLabel"] == campaign_label,
+        "SUCCESSOR_CONTRACT_BINDING_INVALID",
+        "successor contract belongs to another campaign",
+    )
+    require(
+        contract["canonicalMissionStateDigest"] == canonical_mission_state_digest,
+        "CANONICAL_MISSION_STATE_CHANGED",
+        "successor contract names another canonical mission state than the configured packet",
+    )
+    packet_handoff_id = assert_content_id(
+        contract["packetHandoffId"], "SUCCESSOR_CONTRACT_INVALID", "packet handoff identity"
+    )
+    successor_source_set_id = assert_content_id(
+        contract["successorSourceSetId"], "SUCCESSOR_CONTRACT_INVALID", "successor source set identity"
+    )
+    assert_bounded_text(
+        contract["claimBoundary"], "SUCCESSOR_CONTRACT_INVALID", "successor contract claim boundary"
+    )
+
     return {
         "campaignId": campaign_id,
         "campaignLabel": campaign_label,
         "packetId": packet_id,
+        "successorContractId": successor_contract_id,
+        "predecessorPacketId": predecessor_packet_id,
+        "packetHandoffId": packet_handoff_id,
+        "successorSourceSetId": successor_source_set_id,
+        "contractPath": packet / contract_law["file"],
         "canonicalMissionStateDigest": canonical_mission_state_digest,
         "statePath": state_path,
         "markerPath": packet / packet_law["markerFile"],
@@ -1285,6 +1368,9 @@ def verify_packet_evidence_admission(
     fence_prefix = profile["digests"]["fencePrefix"]
     packet_fence_before = [
         file_fence(frozen["markerPath"], fence_prefix, code="PACKET_MARKER_INVALID", label="packet marker"),
+        file_fence(
+            frozen["contractPath"], fence_prefix, code="SUCCESSOR_CONTRACT_INVALID", label="successor contract"
+        ),
         file_fence(frozen["statePath"], fence_prefix, code="PACKET_STATE_INVALID", label="packet state"),
         file_fence(frozen["configPath"], fence_prefix, code="PACKET_CONFIG_INVALID", label="packet configuration"),
         file_fence(
@@ -1646,6 +1732,9 @@ def verify_packet_evidence_admission(
     # ---- nothing moved while we read ----------------------------------------
     packet_fence_after = [
         file_fence(frozen["markerPath"], fence_prefix, code="PACKET_MARKER_INVALID", label="packet marker"),
+        file_fence(
+            frozen["contractPath"], fence_prefix, code="SUCCESSOR_CONTRACT_INVALID", label="successor contract"
+        ),
         file_fence(frozen["statePath"], fence_prefix, code="PACKET_STATE_INVALID", label="packet state"),
         file_fence(frozen["configPath"], fence_prefix, code="PACKET_CONFIG_INVALID", label="packet configuration"),
         file_fence(
@@ -1667,6 +1756,10 @@ def verify_packet_evidence_admission(
         "packet-state-identity",
         "packet-campaign-binding-exact",
         "packet-configured-and-unrecorded",
+        "successor-packet-identity-required",
+        "frozen-predecessor-packet-refused",
+        "successor-contract-identity",
+        "successor-contract-lineage-binding",
         "packet-canonical-mission-state-bound",
         "admission-request-identity",
         "admission-request-campaign-and-packet-binding",
@@ -1714,6 +1807,13 @@ def verify_packet_evidence_admission(
         "requestId": request[profile["request"]["idKey"]],
         "observationTransactionId": transaction["transactionId"],
         "canonicalMissionStateDigest": frozen["canonicalMissionStateDigest"],
+        "successorContractId": frozen["successorContractId"],
+        "predecessorPacketId": frozen["predecessorPacketId"],
+        "packetHandoffId": frozen["packetHandoffId"],
+        "successorSourceSetId": frozen["successorSourceSetId"],
+        "successorPacketProfileId": profile["successorPacketProfileId"],
+        "predecessorPacketProfileId": profile["predecessorPacketProfileId"],
+        "directFrozenPacketApplication": False,
         "stageDenominator": denominator["stageDenominator"],
         "evidenceRoleDenominator": denominator["evidenceRoleDenominator"],
         "nonHumanEvidenceRoleDenominator": denominator["nonHumanEvidenceRoleCount"],

@@ -180,10 +180,41 @@ contract**. It makes no claim of direct applicability to Campaign A's frozen pac
 
 ```text
 predecessor packet profile            stc-mary/private-flight-packet/0.1
+successor packet profile              stc-mary/private-flight-packet/0.2
 direct frozen-packet application      false
 successor observation contract        required
 predecessor packet mutation           forbidden
 ```
+
+That boundary is **runtime law, not profile prose**. The gate refuses the frozen
+predecessor outright rather than returning a positive terminal for a packet it has
+declared out of scope:
+
+```text
+frozen 0.1 packet    -> DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN
+successor 0.2 packet -> eligible, once its lineage contract verifies
+```
+
+A version string alone is not lineage. The successor packet must carry a separately
+authenticated `SUCCESSOR-CONTRACT.json` whose content identity is recomputed here and
+which binds:
+
+```text
+predecessor packet identity
+predecessor packet profile
+successor packet identity
+successor packet profile
+campaign identity and label
+packet handoff identity
+canonical mission state
+successor source set identity
+admission profile identity
+authority: none
+```
+
+It is refused if it names another campaign, another packet, another admission profile,
+another canonical mission state, or itself as its own predecessor. It is fenced with the
+packet before and after the run.
 
 Stage 16's observation contract here carries pre-seal facts only:
 
@@ -197,6 +228,33 @@ postSealClosureRequired:         true
 Actual disposition body-freedom is reserved **exclusively** to the post-seal closure
 contract, alongside the sealed run, the sealed manifest, detached verification, the zero
 public-body count, and flight completion. None of them may be asserted before sealing.
+
+### The control question is part of the decision surface
+
+Each exact stage confirmation binds its stage's control question *and the named human's
+response to it*, so a future-tense question puts a future claim straight onto the human
+decision surface. The frozen stage-16 question asks:
+
+```text
+Are all private bodies still local while the public disposition contains only
+content identities, counts, and claim boundaries?
+```
+
+No public disposition exists when that is answered. It is superseded here by:
+
+```text
+Are all proposed private evidence bodies fully enumerated and hashed, proven
+outside Git, and authorized for sealing only after this exact successor packet
+reaches verified 16 / 16, with post-seal closure required before any completion
+claim?
+```
+
+A witness scans the complete stage-16 pre-seal decision surface -- control question,
+observation fields, evidence role names, role predicates, and what the receipt actually
+publishes to the human -- and requires that none of them mention a sealed run, public
+disposition, sealed manifest, or detached verification. **Requiring** that those objects
+be produced and verified later is valid. **Asserting** anything about their present state
+is not.
 
 Objects the frozen profile implies are deferred, not discarded. They belong to later
 surfaces where they can actually exist:
