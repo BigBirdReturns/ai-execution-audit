@@ -114,6 +114,17 @@ def verify(profile_path: Path, repository_root: Path, extension_root: Path) -> d
     profile = load(profile_path)
     if profile.get("schema") != PROFILE_SCHEMA or profile.get("profileId") != PROFILE_ID:
         fail("PROFILE_IDENTITY_INVALID", str(profile_path))
+    limits = profile.get("limits")
+    if not isinstance(limits, dict) or {
+        "operatorMaximumSessionRequests": limits.get("operatorMaximumSessionRequests"),
+        "sessionRequestReserve": limits.get("sessionRequestReserve"),
+        "sessionRequestsPerProbeInvocation": limits.get("sessionRequestsPerProbeInvocation"),
+    } != {
+        "operatorMaximumSessionRequests": 512,
+        "sessionRequestReserve": 4,
+        "sessionRequestsPerProbeInvocation": 2,
+    }:
+        fail("PLAN_SESSION_BUDGET_INVALID", "profile limits")
     admitted = profile.get("admittedConsole")
     if admitted != {"commit": ADMITTED_COMMIT, "tree": ADMITTED_TREE, "profileId": "axm-head/browser-physical-audition-operator-console/0.1", "sourceBindingId": ADMITTED_SOURCE, "extensionId": ADMITTED_EXTENSION}:
         fail("ADMITTED_CONSOLE_BINDING_INVALID", str(profile_path))
@@ -181,9 +192,26 @@ def verify(profile_path: Path, repository_root: Path, extension_root: Path) -> d
     if min(order) < 0 or order != sorted(order):
         fail("PANEL_SCRIPT_ORDER_INVALID", str(order))
     plan_source = text["browser_audition_operation_plan_contract.js"]
-    for marker in ("BEFORE_PLAN_EXECUTION", "BEFORE_CAPTURE_EXPORT", "validateBundle", "resolveStepArgs", "PLAN_NOT_DETERMINISTIC", "RESULT_REFERENCE_UNRESOLVED"):
+    for marker in (
+        "BEFORE_PLAN_EXECUTION",
+        "BEFORE_CAPTURE_EXPORT",
+        "validateBundle",
+        "resolveStepArgs",
+        "PLAN_NOT_DETERMINISTIC",
+        "RESULT_REFERENCE_UNRESOLVED",
+        "SESSION_REQUESTS_PER_PROBE_INVOCATION",
+        "SESSION_REQUEST_RESERVE",
+        "requiredSessionRequests",
+    ):
         if marker not in plan_source:
             fail("PLAN_CONTROL_MISSING", marker)
+    javascript_budget = "probeInvocationCount * SESSION_REQUESTS_PER_PROBE_INVOCATION + SESSION_REQUEST_RESERVE"
+    if plan_source.count(javascript_budget) != 1:
+        fail("PLAN_SESSION_BUDGET_INVALID", "JavaScript compiler")
+    python_plan_source = regular(repo / "mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py").decode("utf-8")
+    python_budget = "probe_invocation_count * SESSION_REQUESTS_PER_PROBE_INVOCATION + SESSION_REQUEST_RESERVE"
+    if python_plan_source.count(python_budget) != 1:
+        fail("PLAN_SESSION_BUDGET_INVALID", "Python compiler")
     panel_source = text["browser_audition_operation_plan_panel.js"]
     for marker in (
         "HALTED_PARTIAL_CAPTURE",
@@ -249,7 +277,7 @@ def verify(profile_path: Path, repository_root: Path, extension_root: Path) -> d
         "extensionId": extension_id,
         "sourceMemberCount": len(source_rows),
         "extensionMemberCount": len(EXPECTED_EXTENSION),
-        "checks": ["exact-admitted-console-binding", "independent-source-reconstruction", "payload-source-byte-binding", "deterministic-plan-controls", "pristine-ledger-preflight", "mutation-uncertainty-stop", "probe-refusal-state-stop", "post-invocation-inspection-stop", "failed-open-session-release", "exact-download-byte-binding", "closed-local-extension-surface", "supplier-neutral-executable-surface"],
+        "checks": ["exact-admitted-console-binding", "independent-source-reconstruction", "payload-source-byte-binding", "deterministic-plan-controls", "pristine-ledger-preflight", "mutation-uncertainty-stop", "probe-refusal-state-stop", "post-invocation-inspection-stop", "post-invocation-session-budget", "failed-open-session-release", "exact-download-byte-binding", "closed-local-extension-surface", "supplier-neutral-executable-surface"],
         "bootstrapAuthenticated": False,
         "storedVerifierMemberBound": False,
         **claim,

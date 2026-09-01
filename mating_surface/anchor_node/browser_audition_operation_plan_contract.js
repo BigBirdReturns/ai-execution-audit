@@ -17,6 +17,8 @@
   const MIN_MEMBER_COUNT = 2;
   const MAX_MEMBER_COUNT = 32;
   const MAX_ARTIFACT_COUNT = 256;
+  const SESSION_REQUESTS_PER_PROBE_INVOCATION = 2;
+  const SESSION_REQUEST_RESERVE = 4;
   const RECEIPT_KINDS = Object.freeze([
     "current-availability-observation",
     "executable-adapter-artifact",
@@ -236,7 +238,8 @@
     await validateBindings(bindings);
     const steps = expectedSteps(bindings);
     const probeInvocationCount = steps.filter((row) => row.kind === "probe-call").length;
-    if (steps.length > MAX_PLAN_STEPS || probeInvocationCount > MAX_PROBE_INVOCATIONS || probeInvocationCount + 4 > OPERATOR.MAX_SESSION_REQUESTS) fail("PLAN_LIMIT_EXCEEDED", `${steps.length}/${probeInvocationCount}`);
+    const requiredSessionRequests = probeInvocationCount * SESSION_REQUESTS_PER_PROBE_INVOCATION + SESSION_REQUEST_RESERVE;
+    if (steps.length > MAX_PLAN_STEPS || probeInvocationCount > MAX_PROBE_INVOCATIONS || requiredSessionRequests > OPERATOR.MAX_SESSION_REQUESTS) fail("PLAN_LIMIT_EXCEEDED", `${steps.length}/${probeInvocationCount}/${requiredSessionRequests}`);
     const plan = {
       schema: PLAN_SCHEMA,
       planId: null,
@@ -302,6 +305,7 @@
   const api = Object.freeze({
     PROFILE_ID, PLAN_SCHEMA, BINDINGS_SCHEMA, PLAN_PROTOCOL, INTERFACE,
     CLAIM_BOUNDARY, RECEIPT_KINDS, MAX_PLAN_BYTES, MAX_BINDINGS_BYTES, MAX_PLAN_STEPS,
+    SESSION_REQUESTS_PER_PROBE_INVOCATION, SESSION_REQUEST_RESERVE,
     PlanContractError, encodedBytes, validateBindings, validatePlan, validateBundle,
     compilePlan, resolveStepArgs,
   });

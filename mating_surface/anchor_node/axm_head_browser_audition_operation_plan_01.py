@@ -41,6 +41,8 @@ MAX_MEMBER_COUNT = 32
 MAX_ARTIFACT_COUNT = 256
 MAX_RECEIPT_COUNT = 9
 MAX_SESSION_REQUESTS = 512
+SESSION_REQUESTS_PER_PROBE_INVOCATION = 2
+SESSION_REQUEST_RESERVE = 4
 
 RECEIPT_KINDS = (
     "current-availability-observation",
@@ -457,6 +459,8 @@ def validate_profile(path: str | os.PathLike[str]) -> dict[str, Any]:
         "maximumArtifactCount": MAX_ARTIFACT_COUNT,
         "maximumReceiptCount": MAX_RECEIPT_COUNT,
         "operatorMaximumSessionRequests": MAX_SESSION_REQUESTS,
+        "sessionRequestReserve": SESSION_REQUEST_RESERVE,
+        "sessionRequestsPerProbeInvocation": SESSION_REQUESTS_PER_PROBE_INVOCATION,
     }:
         refuse("PROFILE_LIMITS_INVALID", str(path))
     if profile["manifestContract"] != extension_manifest():
@@ -764,11 +768,19 @@ def normalized_plan_body(plan: dict[str, Any]) -> dict[str, Any]:
     return body
 
 
+def required_session_requests(probe_invocation_count: int) -> int:
+    return probe_invocation_count * SESSION_REQUESTS_PER_PROBE_INVOCATION + SESSION_REQUEST_RESERVE
+
+
 def compile_plan(bindings: dict[str, Any]) -> dict[str, Any]:
     steps = expected_steps(bindings)
     invocation_count = sum(row["kind"] == "probe-call" for row in steps)
-    if len(steps) > MAX_PLAN_STEPS or invocation_count > MAX_PROBE_INVOCATIONS or invocation_count + 4 > MAX_SESSION_REQUESTS:
-        refuse("PLAN_LIMIT_EXCEEDED", f"steps={len(steps)} invocations={invocation_count}")
+    session_request_count = required_session_requests(invocation_count)
+    if len(steps) > MAX_PLAN_STEPS or invocation_count > MAX_PROBE_INVOCATIONS or session_request_count > MAX_SESSION_REQUESTS:
+        refuse(
+            "PLAN_LIMIT_EXCEEDED",
+            f"steps={len(steps)} invocations={invocation_count} sessionRequests={session_request_count}",
+        )
     plan = {
         "schema": PLAN_SCHEMA,
         "planId": None,

@@ -146,7 +146,9 @@
     "maximumReceiptCount": 9,
     "maximumTokenMarks": 400,
     "minimumMemberCount": 2,
-    "operatorMaximumSessionRequests": 512
+    "operatorMaximumSessionRequests": 512,
+    "sessionRequestReserve": 4,
+    "sessionRequestsPerProbeInvocation": 2
   },
   "manifestContract": {
     "action": {

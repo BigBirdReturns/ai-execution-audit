@@ -45,6 +45,52 @@ def fixture_bindings(case_id: str = "pass-two-seat-plan") -> dict:
     raise KeyError(case_id)
 
 
+def bindings_with_probe_invocations(probe_invocation_count: int) -> dict:
+    bindings = fixture_bindings()
+    base_count = sum(row["kind"] == "probe-call" for row in tool.expected_steps(bindings))
+    if probe_invocation_count < base_count:
+        raise ValueError(f"probe invocation target {probe_invocation_count} is below base {base_count}")
+    token_count = len(bindings["values"]["tokenMarks"]) + probe_invocation_count - base_count
+    if token_count > tool.MAX_TOKEN_MARKS:
+        raise ValueError(f"token target {token_count} exceeds {tool.MAX_TOKEN_MARKS}")
+    bindings["values"]["tokenMarks"] = [
+        {"index": index, "monotonicMs": 1010 + index * 10}
+        for index in range(token_count)
+    ]
+    bindings["values"]["equivalence"]["outputTokenCount"] = token_count
+    bindings["bindingsId"] = tool.content_identity(
+        "axmoperationbindings",
+        tool.normalized_bindings_body(bindings),
+    )
+    return bindings
+
+
+def run_contract_compile(bindings: dict) -> dict:
+    with tempfile.TemporaryDirectory(prefix="axm-operation-plan-contract-") as temp:
+        binding_path = pathlib.Path(temp) / "bindings.json"
+        binding_path.write_text(json.dumps(bindings), encoding="utf-8")
+        script = f"""
+const fs=require('fs'),vm=require('vm'),crypto=require('crypto');
+global.crypto=crypto.webcrypto;
+vm.runInThisContext(fs.readFileSync({json.dumps(str(ANCHOR / 'browser_physical_audition_operator_contract.js'))},'utf8'));
+vm.runInThisContext(fs.readFileSync({json.dumps(str(ANCHOR / 'browser_audition_operation_plan_contract.js'))},'utf8'));
+(async()=>{{
+  const bindings=JSON.parse(fs.readFileSync({json.dumps(str(binding_path))},'utf8'));
+  try {{
+    const plan=await AXMOperationPlanContract.compilePlan(bindings);
+    const requests=plan.probeInvocationCount * AXMOperationPlanContract.SESSION_REQUESTS_PER_PROBE_INVOCATION + AXMOperationPlanContract.SESSION_REQUEST_RESERVE;
+    console.log(JSON.stringify({{status:'PASS',probeInvocationCount:plan.probeInvocationCount,sessionRequestCount:requests}}));
+  }} catch (error) {{
+    console.log(JSON.stringify({{status:'REFUSED',code:error.code || 'ERROR'}}));
+  }}
+}})().catch((error)=>{{console.error(error.stack || error);process.exit(2);}});
+"""
+        completed = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+        if completed.returncode != 0:
+            raise AssertionError(completed.stdout + completed.stderr)
+        return json.loads(completed.stdout)
+
+
 def run_panel_harness(body: str) -> dict:
     panel_path = ANCHOR / "browser_audition_operation_plan_panel.js"
     operator_path = ANCHOR / "browser_physical_audition_operator_contract.js"
@@ -762,6 +808,46 @@ console.log(JSON.stringify({generation,disconnects,messages,first,second}));
             )
             self.assertEqual(completed.returncode, 2, completed.stdout + completed.stderr)
             self.assertIn(json.loads(completed.stdout)["code"], {"PANEL_CONTROL_MISSING", "PANEL_CONTROL_ORDER_INVALID"})
+
+
+    def test_055_python_compiler_accepts_exact_session_request_boundary(self):
+        bindings = tool.validate_bindings(bindings_with_probe_invocations(254), self.operator)
+        plan = tool.compile_plan(bindings)
+        self.assertEqual(plan["probeInvocationCount"], 254)
+        self.assertEqual(tool.required_session_requests(plan["probeInvocationCount"]), tool.MAX_SESSION_REQUESTS)
+
+    def test_056_python_compiler_refuses_first_session_request_overrun(self):
+        bindings = tool.validate_bindings(bindings_with_probe_invocations(255), self.operator)
+        with self.assertRaises(tool.PlanError) as caught:
+            tool.compile_plan(bindings)
+        self.assertEqual(caught.exception.code, "PLAN_LIMIT_EXCEEDED")
+        self.assertIn("sessionRequests=514", str(caught.exception))
+
+    def test_057_javascript_compiler_accepts_exact_session_request_boundary(self):
+        result = run_contract_compile(bindings_with_probe_invocations(254))
+        self.assertEqual(result, {"status": "PASS", "probeInvocationCount": 254, "sessionRequestCount": 512})
+
+    def test_058_javascript_compiler_refuses_first_session_request_overrun(self):
+        result = run_contract_compile(bindings_with_probe_invocations(255))
+        self.assertEqual(result, {"status": "REFUSED", "code": "PLAN_LIMIT_EXCEEDED"})
+
+    def test_059_independent_verifier_requires_post_invocation_session_budget(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = clone_minimal(pathlib.Path(temp) / "repo")
+            contract = repo / "mating_surface/anchor_node/browser_audition_operation_plan_contract.js"
+            expression = "probeInvocationCount * SESSION_REQUESTS_PER_PROBE_INVOCATION + SESSION_REQUEST_RESERVE"
+            source = contract.read_text(encoding="utf-8")
+            self.assertEqual(source.count(expression), 1)
+            contract.write_text(source.replace(expression, "probeInvocationCount + SESSION_REQUEST_RESERVE"), encoding="utf-8")
+            output = pathlib.Path(temp) / "extension"
+            tool.build_extension(repo / self.profile["sourceMembers"][2], repo, output)
+            completed = subprocess.run(
+                [sys.executable, str(VERIFIER_PATH), str(repo / self.profile["sourceMembers"][2]), str(repo), str(output)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 2, completed.stdout + completed.stderr)
+            self.assertEqual(json.loads(completed.stdout)["code"], "PLAN_SESSION_BUDGET_INVALID")
 
 
 def add_fixture_witnesses() -> None:
