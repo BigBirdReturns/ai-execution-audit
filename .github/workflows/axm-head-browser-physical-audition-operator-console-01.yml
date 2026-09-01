@@ -1,0 +1,382 @@
+name: AXM HEAD Browser Physical-Audition Operator Console 01
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md"
+      - "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json"
+      - "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-01.ps1"
+      - "mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_contract.js"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_service_worker.js"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_panel.html"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_panel.js"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_panel.css"
+      - "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py"
+      - "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-browser-physical-audition-operator-console-cases-01.json"
+      - "mating_surface/anchor_node/browser_distributed_inference_probe.js"
+      - "mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml"
+      - "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md"
+      - "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json"
+      - "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-01.ps1"
+      - "mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_contract.js"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_service_worker.js"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_panel.html"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_panel.js"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_panel.css"
+      - "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py"
+      - "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py"
+      - "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-browser-physical-audition-operator-console-cases-01.json"
+      - "mating_surface/anchor_node/browser_distributed_inference_probe.js"
+      - "mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: axm-head-browser-physical-audition-operator-console-01-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  WITNESS_DENOMINATOR: "76"
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        coordinate: ${{ fromJSON(github.event_name == 'pull_request' && '["head","merge"]' || '["head"]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+
+    steps:
+      - name: Resolve exact Git coordinate
+        id: coordinate
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ matrix.coordinate }}" == "head" ]]; then
+            echo "ref=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out exact coordinate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.coordinate.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Materialize candidate and admitted dependency bytes
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+
+          ref = os.environ["SOURCE_REF"]
+          profile_path = "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json"
+          profile_bytes = subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{profile_path}"])
+          profile = json.loads(profile_bytes)
+          members = [*profile["sourceMembers"], *(row["path"] for row in profile["dependencies"])]
+          for relative in members:
+              data = subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{relative}"])
+              if b"\r" in data:
+                  raise SystemExit(f"authoritative source contains CR bytes: {relative}")
+              path = pathlib.Path(relative)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+          PY
+
+      - name: Verify the admitted packet and dependency identities
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import subprocess
+
+          profile = json.loads(pathlib.Path(
+              "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json"
+          ).read_text(encoding="utf-8"))
+          admitted = profile["admittedPacket"]
+          tree = subprocess.check_output(["git", "rev-parse", f"{admitted['commit']}^{{tree}}"], text=True).strip()
+          if tree != admitted["tree"]:
+              raise SystemExit(f"admitted packet tree differs: {tree}")
+          for row in profile["dependencies"]:
+              blob = subprocess.check_output(["git", "rev-parse", f"{admitted['commit']}:{row['path']}"], text=True).strip()
+              data = pathlib.Path(row["path"]).read_bytes()
+              observed = "sha256:" + hashlib.sha256(data).hexdigest()
+              if blob != row["gitBlobSha"] or observed != row["sha256"] or len(data) != row["bytes"]:
+                  raise SystemExit(f"dependency differs: {row['path']}")
+          print("admitted packet coordinate and both dependencies are exact")
+          PY
+
+      - name: Require the exact additive source denominator
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+
+          profile = json.loads(pathlib.Path(
+              "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json"
+          ).read_text(encoding="utf-8"))
+          expected = set(profile["sourceMembers"])
+          changed = set(subprocess.check_output(
+              ["git", "diff", "--name-only", os.environ["BASE_SHA"], os.environ["SOURCE_REF"]], text=True
+          ).splitlines())
+          if changed != expected:
+              raise SystemExit(f"source denominator differs: missing={sorted(expected-changed)} extra={sorted(changed-expected)}")
+          for relative in expected:
+              status = subprocess.check_output(
+                  ["git", "diff", "--name-status", os.environ["BASE_SHA"], os.environ["SOURCE_REF"], "--", relative],
+                  text=True,
+              ).strip()
+              if not status.startswith("A\t"):
+                  raise SystemExit(f"source path is not additive: {relative}: {status}")
+          PY
+
+      - name: Compile and inspect source
+        shell: bash
+        run: |
+          ROOT=mating_surface/anchor_node
+          python -m py_compile \
+            "$ROOT/axm_head_browser_physical_audition_operator_console_01.py" \
+            "$ROOT/verify_axm_head_browser_physical_audition_operator_console_01.py" \
+            "$ROOT/verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py" \
+            "$ROOT/conformance/test_axm_head_browser_physical_audition_operator_console_01.py"
+          node --check "$ROOT/browser_physical_audition_operator_contract.js"
+          node --check "$ROOT/browser_physical_audition_operator_service_worker.js"
+          node --check "$ROOT/browser_physical_audition_operator_panel.js"
+
+      - name: Qualify profile, command campaign, extension, and verifier
+        shell: bash
+        env:
+          RECEIPT_ROOT: ${{ runner.temp }}/axm-operator-console-receipts
+          EXTENSION_ROOT: ${{ runner.temp }}/axm-operator-console-extension
+        run: |
+          set -euo pipefail
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-physical-audition-operator-console-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-physical-audition-operator-console-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_physical_audition_operator_console_01.py"
+          VERIFIER="$ROOT/verify_axm_head_browser_physical_audition_operator_console_01.py"
+          BOOTSTRAP="$ROOT/verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py"
+          mkdir -p "$RECEIPT_ROOT"
+
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPT_ROOT/profile-validation.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPT_ROOT/fixture-validation.json"
+          python "$TOOL" campaign "$PROFILE" "$FIXTURES" > "$RECEIPT_ROOT/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" > "$RECEIPT_ROOT/source-set.json"
+
+          python -m unittest discover \
+            -s "$ROOT/conformance" \
+            -p 'test_axm_head_browser_physical_audition_operator_console_01.py' \
+            -v 2>&1 | tee "$RECEIPT_ROOT/tests.txt"
+          grep -F "Ran $WITNESS_DENOMINATOR tests" "$RECEIPT_ROOT/tests.txt"
+          grep -Fx "OK" "$RECEIPT_ROOT/tests.txt"
+
+          python "$TOOL" build-extension "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION_ROOT" > "$RECEIPT_ROOT/build-manifest.json"
+          cmp "$RECEIPT_ROOT/build-manifest.json" "$EXTENSION_ROOT/build-manifest.json"
+          python "$VERIFIER" "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION_ROOT" > "$RECEIPT_ROOT/direct-verdict.json"
+          python "$BOOTSTRAP" "$VERIFIER" "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION_ROOT" > "$RECEIPT_ROOT/bootstrap-verdict.json"
+          python - "$RECEIPT_ROOT" <<'PY'
+          import json
+          import pathlib
+          import sys
+          root = pathlib.Path(sys.argv[1])
+          campaign = json.loads((root / "campaign.json").read_text(encoding="utf-8"))
+          if campaign.get("status") != "PASS" or campaign.get("caseCount") != 52:
+              raise SystemExit(campaign)
+          for name in ("direct-verdict.json", "bootstrap-verdict.json"):
+              body = json.loads((root / name).read_text(encoding="utf-8"))
+              if body.get("status") != "PASS" or body.get("actualSupplierQualified") is not False:
+                  raise SystemExit(body)
+          bootstrap = json.loads((root / "bootstrap-verdict.json").read_text(encoding="utf-8"))
+          if bootstrap.get("bootstrapAuthenticated") is not True:
+              raise SystemExit(bootstrap)
+          PY
+
+      - name: Exercise the PowerShell entrypoint
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $Root = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node'
+          $Tool = Join-Path $Root 'axm-head-browser-physical-audition-operator-console-01.ps1'
+          $Profile = Join-Path $Root 'axm-head-browser-physical-audition-operator-console-profile-01.json'
+          $Fixtures = Join-Path $Root 'fixtures\axm-head-browser-physical-audition-operator-console-cases-01.json'
+          $Output = Join-Path $env:RUNNER_TEMP 'axm-operator-console-extension-powershell'
+          & $Tool validate-profile $Profile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $Tool validate-fixtures $Profile $Fixtures
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $Tool campaign $Profile $Fixtures
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $Tool build-extension $Profile $env:GITHUB_WORKSPACE $Output
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $Tool verify-extension $Profile $env:GITHUB_WORKSPACE $Output
+          exit $LASTEXITCODE
+
+      - name: Emit exact-coordinate custody receipt
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
+          PLATFORM: ${{ matrix.os }}
+          COORDINATE: ${{ matrix.coordinate }}
+          RECEIPT_ROOT: ${{ runner.temp }}/axm-operator-console-receipts
+        run: |
+          python - "$RECEIPT_ROOT" <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import sys
+
+          out = pathlib.Path(sys.argv[1])
+          ref = os.environ["SOURCE_REF"]
+          profile_path = "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json"
+          profile = json.loads(subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{profile_path}"]))
+          exact = True
+          differences = []
+          for relative in [*profile["sourceMembers"], *(row["path"] for row in profile["dependencies"])]:
+              expected = subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{relative}"])
+              path = pathlib.Path(relative)
+              if not path.is_file() or path.read_bytes() != expected:
+                  exact = False
+                  differences.append(relative)
+          excluded = [*profile["sourceMembers"], *(row["path"] for row in profile["dependencies"])]
+          status = subprocess.check_output(
+              ["git", "status", "--porcelain=v1", "--untracked-files=all", "--", ".", *[f":(exclude){p}" for p in excluded]],
+              text=True,
+          )
+          body = {
+              "schema": "axm-head/browser-physical-audition-operator-console-coordinate@1",
+              "status": "PASS" if exact and status == "" else "REFUSED",
+              "platform": os.environ["PLATFORM"],
+              "coordinate": os.environ["COORDINATE"],
+              "expectedSha": ref,
+              "observedSha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "tree": subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip(),
+              "membersExact": exact,
+              "memberDifferences": differences,
+              "outsideMembersClean": status == "",
+          }
+          (out / "source-coordinate.json").write_text(json.dumps(body, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          if body["status"] != "PASS" or body["observedSha"] != ref:
+              raise SystemExit(body)
+          PY
+
+      - name: Preserve qualification receipts and extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-operator-console-${{ matrix.os }}-${{ matrix.coordinate }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/axm-operator-console-receipts/
+            ${{ runner.temp }}/axm-operator-console-extension/
+          if-no-files-found: error
+          retention-days: 14
+
+  compare:
+    needs: qualify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: axm-operator-console-*-${{ github.sha }}
+          path: qualification-download
+      - name: Require platform and coordinate byte identity
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          roots = sorted(path for path in Path("qualification-download").iterdir() if path.is_dir())
+          expected = 4 if os.environ["EVENT_NAME"] == "pull_request" else 2
+          if len(roots) != expected:
+              raise SystemExit(f"expected {expected} receipt sets, found {len(roots)}")
+          receipt_names = (
+              "profile-validation.json",
+              "fixture-validation.json",
+              "campaign.json",
+              "source-set.json",
+              "build-manifest.json",
+              "direct-verdict.json",
+              "bootstrap-verdict.json",
+          )
+          extension_names = (
+              "manifest.json",
+              "browser_distributed_inference_probe.js",
+              "browser_physical_audition_operator_contract.js",
+              "browser_physical_audition_operator_service_worker.js",
+              "browser_physical_audition_operator_panel.html",
+              "browser_physical_audition_operator_panel.js",
+              "browser_physical_audition_operator_panel.css",
+              "build-manifest.json",
+          )
+          for name in receipt_names:
+              rows = [(root / "axm-operator-console-receipts" / name).read_bytes() for root in roots]
+              if any(row != rows[0] for row in rows[1:]):
+                  raise SystemExit(f"receipt bytes differ: {name}")
+          for name in extension_names:
+              rows = [(root / "axm-operator-console-extension" / name).read_bytes() for root in roots]
+              if any(row != rows[0] for row in rows[1:]):
+                  raise SystemExit(f"extension bytes differ: {name}")
+          body = {
+              "schema": "axm-head/browser-physical-audition-operator-console-cross-coordinate@1",
+              "status": "PASS",
+              "receiptSets": len(roots),
+              "platformByteIdentity": True,
+              "coordinateByteIdentity": True,
+              "headMergeByteIdentity": True if os.environ["EVENT_NAME"] == "pull_request" else None,
+              "browserLaunched": False,
+              "supplierEndpointContacted": False,
+              "inferenceExecuted": False,
+              "actualSupplierQualified": False,
+          }
+          Path("cross-coordinate.json").write_text(json.dumps(body, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: axm-operator-console-cross-coordinate-${{ github.sha }}
+          path: cross-coordinate.json
+          if-no-files-found: error
+          retention-days: 14

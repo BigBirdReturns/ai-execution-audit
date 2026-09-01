@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AXM Physical Audition Console</title>
+  <link rel="stylesheet" href="browser_physical_audition_operator_panel.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">AXM HEAD</p>
+        <h1>Physical Audition Console</h1>
+      </div>
+      <output id="session-state" class="state" aria-live="polite">CLOSED</output>
+    </header>
+
+    <section class="notice">
+      <strong>Operator declaration is not evidence.</strong>
+      This console only calls the exact admitted probe. It cannot prove physical uniqueness,
+      create a route terminal, admit a supplier, or grant authority.
+    </section>
+
+    <section class="card controls" aria-labelledby="session-heading">
+      <h2 id="session-heading">Session</h2>
+      <div class="button-row">
+        <button id="open-session" type="button">Open on active tab</button>
+        <button id="refresh-status" type="button" disabled>Refresh probe status</button>
+        <button id="close-session" type="button" disabled>Close</button>
+      </div>
+      <dl id="probe-status">
+        <div><dt>Probe</dt><dd id="probe-available">not inspected</dd></div>
+        <div><dt>Installed early</dt><dd id="probe-early">unknown</dd></div>
+        <div><dt>Observed events</dt><dd id="probe-events">0</dd></div>
+        <div><dt>Capture refusal</dt><dd id="probe-refusal">none observed</dd></div>
+      </dl>
+    </section>
+
+    <section class="card" aria-labelledby="operation-heading">
+      <h2 id="operation-heading">Bounded probe command</h2>
+      <label for="operation">Operation</label>
+      <select id="operation"></select>
+      <form id="operation-form" novalidate></form>
+      <div class="button-row">
+        <button id="execute-operation" type="button" disabled>Record declaration</button>
+        <button id="sample-peer-stats" type="button" disabled>Sample peer stats</button>
+        <button id="export-capture" type="button" disabled>Export private capture</button>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="members-heading">
+      <h2 id="members-heading">Opaque probe member identifiers</h2>
+      <p>These identifiers coordinate later commands. They are not physical-member evidence.</p>
+      <ol id="member-list"></ol>
+      <datalist id="member-hashes"></datalist>
+    </section>
+
+    <section class="card" aria-labelledby="log-heading">
+      <h2 id="log-heading">Local command log</h2>
+      <p class="muted">The log exists only in this panel and is not included in the probe capture.</p>
+      <ol id="command-log" class="log" aria-live="polite"></ol>
+    </section>
+  </main>
+  <script src="browser_physical_audition_operator_panel.js"></script>
+</body>
+</html>
