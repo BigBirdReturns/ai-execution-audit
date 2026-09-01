@@ -1,0 +1,215 @@
+name: TEMP Admit Browser Audition Operation Plan Retry 01
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - ".github/workflows/temp-admit-axm-browser-audition-operation-plan-retry-01.yml"
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
+concurrency:
+  group: temp-admit-browser-audition-operation-plan-01
+  cancel-in-progress: true
+
+env:
+  BASE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+  BASE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+  OLD_PRODUCT_HEAD: 878bab5c81de51dcdb55b6da7578be21d21c533c
+  PRODUCT_BRANCH: work/axm-head-browser-audition-operation-plan-product-01
+  PR_NUMBER: "107"
+  ISSUE_NUMBER: "105"
+
+jobs:
+  admit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-browser-audition-operation-plan-01
+          fetch-depth: 0
+
+      - name: Wait for and verify the strengthened product head
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          head="$OLD_PRODUCT_HEAD"
+          for attempt in $(seq 1 90); do
+            git fetch --no-tags origin main "$PRODUCT_BRANCH"
+            head="$(git rev-parse "origin/$PRODUCT_BRANCH")"
+            [[ "$head" != "$OLD_PRODUCT_HEAD" ]] && break
+            sleep 10
+          done
+          [[ "$head" != "$OLD_PRODUCT_HEAD" ]] || { echo "strengthened product head did not arrive" >&2; exit 2; }
+          [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]] || { echo "main moved before candidate validation" >&2; exit 2; }
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]] || { echo "main tree differs before candidate validation" >&2; exit 2; }
+          [[ "$(git merge-base "$BASE_COMMIT" "$head")" == "$BASE_COMMIT" ]] || { echo "candidate is not descended from admitted base" >&2; exit 2; }
+
+          expected=(
+            '.github/workflows/axm-head-browser-audition-operation-plan-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md'
+            'mating_surface/anchor_node/axm-head-browser-audition-operation-plan-profile-01.json'
+            'mating_surface/anchor_node/axm-head-browser-audition-operation-plan-01.ps1'
+            'mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/browser_audition_operation_plan_contract.js'
+            'mating_surface/anchor_node/browser_audition_operation_plan_panel.html'
+            'mating_surface/anchor_node/browser_audition_operation_plan_panel.js'
+            'mating_surface/anchor_node/browser_audition_operation_plan_panel.css'
+            'mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01_bootstrap.py'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/fixtures/axm-head-browser-audition-operation-plan-cases-01.json'
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          mapfile -t observed < <(git diff --name-only "$BASE_COMMIT" "$head" | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]] || {
+            echo "candidate denominator differs" >&2
+            printf 'observed:\n%s\nexpected:\n%s\n' "$(printf '%s\n' "${observed[@]}")" "$(printf '%s\n' "${wanted[@]}")" >&2
+            exit 2
+          }
+          for path in "${expected[@]}"; do
+            status="$(git diff --name-status "$BASE_COMMIT" "$head" -- "$path")"
+            [[ "$status" == $'A\t'* ]] || { echo "candidate member is not additive: $path: $status" >&2; exit 2; }
+          done
+
+          declare -A strengthened=(
+            ['mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md']='1cdd2111241f9b6081c5d6bcce9d6988332a01e1'
+            ['mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py']='82b8f56834fc51c67b2d5ba1580802ce15ae8411'
+            ['mating_surface/anchor_node/browser_audition_operation_plan_contract.js']='f8e707b96fccca0684753e7cd295c069d44c1de5'
+            ['mating_surface/anchor_node/browser_audition_operation_plan_panel.js']='24e94dd9a3da9208209f88efc9d9768ffe68adc9'
+            ['mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py']='41baf610a37da0cfd6b781c5a5bd73f290c70e30'
+            ['mating_surface/anchor_node/fixtures/axm-head-browser-audition-operation-plan-cases-01.json']='f5e03c485b20941e6fed23207736fc0415aba54f'
+            ['mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py']='de684b129521268696337508b48adf4280de8bf6'
+          )
+          for path in "${!strengthened[@]}"; do
+            observed_blob="$(git rev-parse "$head:$path")"
+            [[ "$observed_blob" == "${strengthened[$path]}" ]] || { echo "strengthened source differs: $path: $observed_blob" >&2; exit 2; }
+          done
+
+          pr_head="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha)"
+          [[ "$pr_head" == "$head" ]] || { echo "pull-request head differs from product branch" >&2; exit 2; }
+          printf '%s\n' "$head" > "$RUNNER_TEMP/candidate-head.txt"
+
+      - name: Require all permanent workflow families green on the exact head
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          head="$(cat "$RUNNER_TEMP/candidate-head.txt")"
+          for attempt in $(seq 1 120); do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs?branch=$PRODUCT_BRANCH&event=pull_request&per_page=100" > "$RUNNER_TEMP/runs.json"
+            python - "$RUNNER_TEMP/runs.json" "$head" > "$RUNNER_TEMP/gate.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          head = sys.argv[2]
+          required = {
+              "AXM HEAD Browser Audition Operation Plan 01",
+              "Standards-first mating surface qualification",
+              "Spectra Anchor Node Mission Profile 01",
+          }
+          latest = {}
+          for row in payload.get("workflow_runs", []):
+              if row.get("head_sha") != head or row.get("name") not in required:
+                  continue
+              current = latest.get(row["name"])
+              if current is None or row.get("created_at", "") > current.get("created_at", ""):
+                  latest[row["name"]] = row
+          missing = sorted(required - set(latest))
+          pending = sorted(name for name, row in latest.items() if row.get("status") != "completed")
+          failed = sorted(name for name, row in latest.items() if row.get("status") == "completed" and row.get("conclusion") != "success")
+          print(json.dumps({
+              "head": head,
+              "required": sorted(required),
+              "observed": {name: {"id": row.get("id"), "status": row.get("status"), "conclusion": row.get("conclusion")} for name, row in latest.items()},
+              "missing": missing,
+              "pending": pending,
+              "failed": failed,
+              "ready": not missing and not pending and not failed,
+          }, sort_keys=True, indent=2))
+          PY
+            cat "$RUNNER_TEMP/gate.json"
+            if python - "$RUNNER_TEMP/gate.json" <<'PY'
+          import json, pathlib, sys
+          body = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          if body.get("failed"):
+              raise SystemExit(2)
+          raise SystemExit(0 if body.get("ready") else 1)
+          PY
+            then
+              exit 0
+            else
+              code=$?
+              [[ "$code" -ne 2 ]] || exit 2
+            fi
+            sleep 10
+          done
+          echo "permanent workflow families did not become ready" >&2
+          exit 2
+
+      - name: Recheck admitted base, squash-admit exact head, and checkpoint Issue 105
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          head="$(cat "$RUNNER_TEMP/candidate-head.txt")"
+          git fetch --no-tags origin main "$PRODUCT_BRANCH"
+          [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]] || { echo "main moved before merge" >&2; exit 2; }
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]] || { echo "main tree differs before merge" >&2; exit 2; }
+          [[ "$(git rev-parse "origin/$PRODUCT_BRANCH")" == "$head" ]] || { echo "product branch moved before merge" >&2; exit 2; }
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha)" == "$head" ]] || { echo "pull-request head moved before merge" >&2; exit 2; }
+
+          response="$(gh api -X PUT "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/merge" \
+            -f sha="$head" \
+            -f merge_method='squash' \
+            -f commit_title='Add the supplier-neutral browser audition operation plan (#107)' \
+            -f commit_message='Admit the deterministic 28-step operation-plan compiler, local human-gated panel, 68 hostile witnesses, 24 binding cases, exact console dependency custody, and source-neutral no-authority boundary. The transaction performs no browser launch, endpoint contact, model download, peer connection, inference, route disposition, supplier qualification, physical Estate qualification, or authority grant.')"
+          merged="$(python -c 'import json,sys; print(str(json.load(sys.stdin).get("merged", False)).lower())' <<< "$response")"
+          [[ "$merged" == 'true' ]] || { echo "$response" >&2; exit 2; }
+          merge_sha="$(python -c 'import json,sys; print(json.load(sys.stdin)["sha"])' <<< "$response")"
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$merge_sha" ]] || { echo "main does not equal returned merge SHA" >&2; exit 2; }
+          merge_tree="$(git rev-parse 'origin/main^{tree}')"
+
+          cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
+          PR #107 admitted the supplier-neutral browser audition operation plan after the exact strengthened candidate passed the permanent operation-plan matrix, standards-first qualification, and Mission Profile gates on the same head.
+
+          \`\`\`text
+          source candidate: $head
+          admission commit: $merge_sha
+          admission tree: $merge_tree
+          source binding: axmoperationplansource_d281a42ef1f3ba0b620e0421c18966b9c06b167f3450d973e1fd33273b05b107
+          extension identity: axmoperationplanextension_e36fe4a52fee3096311dd3f985cb6b0badc25062c9a8b460bf610d82e3c39b8d
+          hostile witnesses: 68 / 68 PASS
+          binding cases: 24 / 24 PASS
+
+          operation plan physically executed: false
+          browser launched: false
+          supplier endpoint contacted: false
+          model downloaded: false
+          peer connection formed: false
+          inference executed: false
+          route terminal produced: false
+          actual supplier qualified: false
+          physical Estate qualified: false
+          mission authority: none
+          command authority: none
+          \`\`\`
+
+          The admitted object removes manual command transcription from the two-seat transaction while preserving the operator-console, packet, named-human, public-projection, supplier-neutrality, and no-authority boundaries. Issue #105 remains open for the still-unperformed private physical audition.
+          EOF
+          sed -i 's/^          //' "$RUNNER_TEMP/issue-comment.md"
+          gh issue comment "$ISSUE_NUMBER" --body-file "$RUNNER_TEMP/issue-comment.md"
