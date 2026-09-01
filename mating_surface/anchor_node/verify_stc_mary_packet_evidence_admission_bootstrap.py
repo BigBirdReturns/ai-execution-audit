@@ -1,18 +1,21 @@
 """External bootstrap for the packet evidence admission gate.
 
 The standalone gate reports ``bootstrapAuthenticated: false`` when it is called
-directly, and it is structurally incapable of setting that flag itself. Only this
-external bootstrap may set it, and only after it has:
+directly, and it is structurally incapable of setting that flag itself. This external
+bootstrap does not mutate that identity-bearing receipt. It may emit a separate
+content-addressed wrapper with ``bootstrapAuthenticated: true`` only after it has:
 
 1. measured the frozen gate bytes on disk;
 2. copied those measured bytes into a foreign temporary directory outside the
    repository, outside the packet, and outside the admission workspace;
 3. executed the measured copy in an isolated interpreter (``-I -S``) whose working
    directory is that foreign temporary directory;
-4. validated the direct receipt, including that the gate bound the stored admission
-   source member to the exact bytes that executed, and that the run recorded no packet
-   stage, set no operator confirmation, called no packet recorder, mutated no packet
-   byte, and generated no human statement or stage confirmation of its own.
+4. reconstructed the direct receipt identity and validated that the gate bound the
+   stored admission source member to the exact bytes that executed, and that the run
+   recorded no packet stage, set no operator confirmation, called no packet recorder,
+   mutated no packet byte, and generated no human statement or stage confirmation;
+5. bound the unmodified direct receipt and its digest into a separately reconstructable
+   bootstrap verdict identity.
 
 The gate is never imported, and the on-disk file is never executed in place.
 """
@@ -30,7 +33,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-BOOTSTRAP_SCHEMA = "stc-mary/packet-evidence-admission-bootstrap-verdict/1"
+BOOTSTRAP_SCHEMA = "stc-mary/packet-evidence-admission-bootstrap-verdict/2"
+BOOTSTRAP_VERDICT_ID_KEY = "bootstrapVerdictId"
+BOOTSTRAP_VERDICT_ID_PREFIX = "stcmarypacketevidenceadmissionbootstrapverdict2"
+DIRECT_RECEIPT_ID_KEY = "admissionId"
+DIRECT_RECEIPT_ID_PREFIX = "stcmarypacketevidenceadmission1"
 VERIFIER_FILENAME = "verify_stc_mary_packet_evidence_admission.py"
 AUTHORITY = "none"
 MINIMUM_PYTHON = (3, 12)
@@ -78,6 +85,26 @@ def canonical_json_bytes(value: Any) -> bytes:
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def content_id(prefix: str, value: Any) -> str:
+    return f"{prefix}_{sha256_bytes(json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode('utf-8'))}"
+
+
+def content_addressed_bootstrap_document(body: dict[str, Any]) -> dict[str, Any]:
+    return {**body, BOOTSTRAP_VERDICT_ID_KEY: content_id(BOOTSTRAP_VERDICT_ID_PREFIX, body)}
+
+
+def validate_direct_receipt_identity(receipt: dict[str, Any]) -> str:
+    observed = receipt.get(DIRECT_RECEIPT_ID_KEY)
+    if not isinstance(observed, str):
+        fail("DIRECT_RECEIPT_ID_INVALID", "the measured gate emitted no direct admission identity")
+    body = dict(receipt)
+    body.pop(DIRECT_RECEIPT_ID_KEY, None)
+    expected = content_id(DIRECT_RECEIPT_ID_PREFIX, body)
+    if observed != expected:
+        fail("DIRECT_RECEIPT_ID_INVALID", "the measured gate emitted a direct receipt whose content identity does not reconstruct")
+    return observed
 
 
 def coordinate_component_is_link(path: Path, *, code: str, label: str) -> bool:
@@ -250,11 +277,29 @@ def main(argv: list[str] | None = None) -> int:
                 "the measured gate reported manufacturing a human statement or stage confirmation",
             )
 
-        receipt["bootstrapAuthenticated"] = True
-        receipt["bootstrapVerifierSha256"] = observed
-        receipt["bootstrapVerifier"] = "external-measured-bytes-isolated-before-execution"
-        receipt["bootstrapSchema"] = BOOTSTRAP_SCHEMA
-        data = canonical_json_bytes(receipt)
+        admission_id = validate_direct_receipt_identity(receipt)
+        receipt_bytes = canonical_json_bytes(receipt)
+        verdict_body = {
+            "schema": BOOTSTRAP_SCHEMA,
+            "status": "PASS",
+            "terminal": receipt["terminal"],
+            "admissionId": admission_id,
+            "admissionReceiptSha256": sha256_bytes(receipt_bytes),
+            "admissionReceipt": receipt,
+            "bootstrapAuthenticated": True,
+            "bootstrapVerifierSha256": observed,
+            "bootstrapVerifier": "external-measured-bytes-isolated-before-execution",
+            "verifierExecuted": True,
+            "packetStagesRecorded": receipt["packetStagesRecorded"],
+            "operatorConfirmedFlagsSet": receipt["operatorConfirmedFlagsSet"],
+            "packetRecorderInvoked": receipt["packetRecorderInvoked"],
+            "packetMutated": receipt["packetMutated"],
+            "humanStatementsGeneratedByThisGate": receipt["humanStatementsGeneratedByThisGate"],
+            "stageConfirmationsIssuedByThisGate": receipt["stageConfirmationsIssuedByThisGate"],
+            "authority": AUTHORITY,
+        }
+        verdict = content_addressed_bootstrap_document(verdict_body)
+        data = canonical_json_bytes(verdict)
         if output is None:
             sys.stdout.buffer.write(data)
         else:
@@ -264,33 +309,38 @@ def main(argv: list[str] | None = None) -> int:
     except BootstrapError as exc:
         sys.stdout.buffer.write(
             canonical_json_bytes(
-                {
-                    "schema": BOOTSTRAP_SCHEMA,
-                    "status": "REFUSED",
-                    "code": exc.code,
-                    "message": str(exc),
-                    "bootstrapAuthenticated": False,
-                    "verifierExecuted": exc.code not in {"VERIFIER_MISSING", "VERIFIER_SIZE_INVALID"},
-                    "packetStagesRecorded": 0,
-                    "operatorConfirmedFlagsSet": 0,
-                    "authority": AUTHORITY,
-                }
+                content_addressed_bootstrap_document(
+                    {
+                        "schema": BOOTSTRAP_SCHEMA,
+                        "status": "REFUSED",
+                        "code": exc.code,
+                        "message": str(exc),
+                        "bootstrapAuthenticated": False,
+                        "verifierExecuted": exc.code not in {"VERIFIER_MISSING", "VERIFIER_SIZE_INVALID"},
+                        "packetStagesRecorded": 0,
+                        "operatorConfirmedFlagsSet": 0,
+                        "authority": AUTHORITY,
+                    }
+                )
             )
         )
         return 1
     except (OSError, ValueError) as exc:
         sys.stdout.buffer.write(
             canonical_json_bytes(
-                {
-                    "schema": BOOTSTRAP_SCHEMA,
-                    "status": "REFUSED",
-                    "code": "BOOTSTRAP_FILESYSTEM_ERROR",
-                    "message": str(exc),
-                    "bootstrapAuthenticated": False,
-                    "packetStagesRecorded": 0,
-                    "operatorConfirmedFlagsSet": 0,
-                    "authority": AUTHORITY,
-                }
+                content_addressed_bootstrap_document(
+                    {
+                        "schema": BOOTSTRAP_SCHEMA,
+                        "status": "REFUSED",
+                        "code": "BOOTSTRAP_FILESYSTEM_ERROR",
+                        "message": str(exc),
+                        "bootstrapAuthenticated": False,
+                        "verifierExecuted": False,
+                        "packetStagesRecorded": 0,
+                        "operatorConfirmedFlagsSet": 0,
+                        "authority": AUTHORITY,
+                    }
+                )
             )
         )
         return 1

@@ -99,8 +99,10 @@ For each proposed evidence body it independently:
 reads the bytes under a bounded, symlink-refusing allocation
 measures SHA-256 and byte count, and refuses if the descriptor disagrees
 parses the recognized JSON schema and exact-key validates it
-recomputes the content identity from the body and refuses a forged one
+recomputes the content identity from the body while excluding only its detached signature binding
+verifies a scope-separated RSA PKCS#1 v1.5 SHA-256 signature against the profile-pinned trust root
 binds campaign, packet, stage, sequence, evidence role, canonical mission state
+binds the exact stage-observation digest into every authenticated evidence object
 requires the exact semantic predicate denominator that role owes the stage
 ```
 
@@ -109,10 +111,16 @@ not copied from the descriptor. An operator may not assert that a current observ
 is an operator statement.
 
 Opaque instrument bodies are supported, but never on the operator's word: the body must
-be accompanied by an admitted `stc-mary/packet-evidence-instrument-receipt/1` that binds
+be accompanied by a signed `stc-mary/packet-evidence-instrument-receipt/1` that binds
 the measured opaque digest, byte count, instrument class, stage, role, campaign, packet,
-and the current observation transaction. An opaque body inherits nothing from a draft
-string.
+current observation transaction, and stage-observation digest. An opaque body inherits
+nothing from a draft string.
+
+The detached `authenticationBinding` is itself exact-key validated. It carries the
+algorithm, profile-selected key identity, scope, authenticated-payload digest, and
+canonical base64url signature. The content identity is computed without that detached
+binding, then the signature covers the complete identity-bearing object. Recomputing a
+content ID after editing a body therefore cannot repair a stale signature.
 
 No two roles may share an evidence identity or the same body bytes. One blob is not a
 denominator.
@@ -125,20 +133,24 @@ A predecessor receipt is admitted only as:
 reuseClass: reused_pre_stage_receipt
 ```
 
-and only when its schema and content identity verify, it belongs to Campaign A, its
-`acceptedPredecessorCoordinate` is in the request's accepted predecessor graph, its
-`sourceReceiptId` is in that coordinate, and it **predates** the current observation
-transaction. A receipt that backdates itself into the observation window is refused as
-misrepresented-as-fresh. The receipt is never serialized as though it were captured
-during the packet stage.
+and only when its schema, content identity, and external signature verify, it belongs
+to Campaign A, its `acceptedPredecessorCoordinate` is in the request's accepted
+predecessor graph, its `sourceReceiptId` is in that coordinate, and it **predates** the
+current observation transaction. The graph is not trusted merely because it appears in
+the same request. A separate scope-separated signature binds the exact campaign, packet,
+canonical mission state, coordinate set, and source-receipt allowlist. A receipt that
+backdates itself into the observation window is refused as misrepresented-as-fresh. The
+receipt is never serialized as though it were captured during the packet stage.
 
 ## Current local observations
 
-A current observation must name the declared observation transaction, be captured
-inside its bounded window, and carry `claimsHistoricalTransition: false`. It proves
-only what is observable now. It cannot reconstruct a transition that was never
-measured — attachment, removal, Lattice absence, projection rebuild, cold-start
-reconstruction, and the pre-seal denominator are all held to that rule.
+The observation transaction is signed before its time window can delimit freshness. A
+current observation must then carry its own verified signature, name that authenticated
+transaction, be captured inside its bounded window, bind the exact stage-observation
+digest, and carry `claimsHistoricalTransition: false`. It proves only what is observable
+now. It cannot reconstruct a transition that was never measured: attachment, removal,
+Lattice absence, projection rebuild, cold-start reconstruction, and the pre-seal
+denominator are all held to that rule.
 
 ## Named-human statements
 
@@ -149,9 +161,11 @@ requiredActorClass:   named_human
 forbiddenActorClasses: agent, automation, machine, model, packet_runner, scheduler, tool, verifier
 ```
 
-A statement may accept only evidence identities this gate actually admitted for the
-statement's own stage, and its `terminalOrRetainedObligation` must equal the stage's
-required terminal.
+A statement must carry a valid named-human-scope signature under the profile-selected
+external root. Its `acceptedEvidenceIds` must exactly equal the complete sorted set of
+non-human identities the gate admitted for that stage. Empty, partial, duplicate, or
+foreign identity sets are refused. Its `terminalOrRetainedObligation` must equal the
+stage's required terminal.
 
 `RESTORE_LINK_HOLD_CONFLICT` additionally requires:
 
@@ -164,14 +178,16 @@ terminal:          HUMAN_REQUIRED
 
 ## Sixteen exact stage confirmations
 
-Every stage requires a separately authenticated named-human confirmation bound to that
-stage's evidence-admission root and observation digest. A partial set is not a
-denominator; a replayed confirmation is refused; a confirmation bound to another root,
-observation, campaign, packet, stage, or terminal is refused.
+Every stage requires a separately signed named-human confirmation bound to that stage's
+evidence-admission root and observation digest. The signature uses a distinct
+`stage-confirmation` scope under the profile-selected external root. A partial set is not
+a denominator; a replayed confirmation is refused; a confirmation bound to another
+root, observation, campaign, packet, stage, or terminal is refused.
 
-A bounded batch confirmation may accompany the sixteen exact decisions. It may not
-replace them, and it must exact-enumerate every stage with matching roots, digests,
-terminals, and decisions. An unbounded blanket approval is refused.
+A bounded batch confirmation may accompany the sixteen exact decisions. It carries its
+own `batch-confirmation` scope signature, may not replace the exact decisions, and must
+exact-enumerate every stage with matching roots, digests, terminals, and decisions. An
+unbounded blanket approval is refused.
 
 ### The ordering, and why it is not circular
 
@@ -272,11 +288,42 @@ incapable of setting that flag itself.
 
 The external bootstrap measures the frozen gate bytes, executes the measured copy in an
 isolated interpreter (`-I -S`) from a foreign temporary directory, validates the direct
-receipt — including that the gate bound the *stored* admission source member to the
-bytes that actually executed, that the terminal is inside the admitted denominator, and
-that the run recorded no stage, set no confirmation flag, invoked no recorder, mutated
-no packet byte, and manufactured no human decision — and only then sets
-`bootstrapAuthenticated: true`.
+receipt, and reconstructs its `admissionId`. It then emits a separately content-addressed
+bootstrap verdict. The nested direct receipt remains byte-for-byte unchanged with
+`bootstrapAuthenticated: false`; the wrapper alone carries `bootstrapAuthenticated:
+true`, the verifier digest, the direct receipt digest, and a reconstructable
+`bootstrapVerdictId`. This preserves both identity domains instead of mutating fields
+already covered by the direct receipt identity.
+
+The bootstrap also requires that the gate bound the *stored* admission source member to
+the bytes that actually executed, that the terminal is inside the admitted denominator,
+and that the run recorded no stage, set no confirmation flag, invoked no recorder,
+mutated no packet byte, and manufactured no human decision.
+
+## Authentication principals
+
+The profile pins one production public trust root whose private counterpart remains
+outside this repository. The same admitted root is reused from the physical-long-haul
+private-evidence provenance contract, while scope separation prevents a signature for
+one object class from authenticating another. The eight scopes are the accepted
+predecessor graph, observation transaction, predecessor receipt, current observation,
+opaque instrument receipt, named-human statement, stage confirmation, and batch
+confirmation.
+
+The conformance suite carries a different synthetic private key solely to exercise the
+cryptographic mechanism. Its public root is admitted only when the frozen campaign label
+begins `SYNTHETIC-ADMISSION-WITNESS-`. A real Campaign A packet selects the production
+root before any request-authored value is considered, so the public test key cannot
+authenticate a real packet. The receipt exposes the selected key identity and a
+`syntheticConformanceOnly` Boolean without exposing any signature or private evidence
+body.
+
+The permanent hostile denominator contains 121 witnesses. It includes stale-signature
+attacks after content-ID recomputation for the graph, transaction, parsed evidence,
+opaque instrument receipt, named-human statement, stage confirmation, and batch
+confirmation; structurally valid stage-observation drift; empty and partial human
+acceptance sets; synthetic-key use against a non-synthetic campaign; and independent
+reconstruction of both bootstrap identities.
 
 ## Operator lanes
 

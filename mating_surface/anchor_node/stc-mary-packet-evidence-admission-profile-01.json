@@ -13,6 +13,42 @@
   "admissionSourceSetIdKey": "sourceSetId",
   "admissionSourceSetIdPrefix": "stcmarypacketevidenceadmissionsourceset1",
   "admissionSourceSetSchema": "stc-mary/packet-evidence-admission-source-set/1",
+  "authentication": {
+    "algorithm": "rsa-pkcs1v15-sha256",
+    "bindingKeys": [
+      "algorithm",
+      "keyId",
+      "payloadSha256",
+      "schema",
+      "scope",
+      "signatureBase64Url"
+    ],
+    "bindingSchema": "stc-mary/packet-evidence-authentication-binding/1",
+    "payloadSchema": "stc-mary/packet-evidence-authentication-payload/1",
+    "productionTrustRoot": {
+      "algorithm": "rsa-pkcs1v15-sha256",
+      "keyId": "axmheadprivateevidencetrustroot1_a7433c79c93efa9af76915fbac14a65807425c73e1a156068e0645fb1fa1301e",
+      "modulusHex": "cfcca8d34a7a813578450b4796b64dc5d925e776e69eb47bc396f00c42f583be3d435a78a88f67fc569ace656f4167d50a2a5c5fe1a4eaf607f3c0dcc390c643685c731e2f4d3b16da76bd00858500a5c3162fafb03587c26309a2251079396afdffd5554a14bc664406cd7d9a3b02e391453c3f40fa72512791172995bfb9600a6378e7e39680f5dd6ea7aaf93f7ab248c85abc03f7ba110416703a7c03d863e258f59754c1a79ec69ff39973916c4e9b8eba7ace15a511f41d3b5b2c1587fc330d302766b2645b90c05e9c3630a431373a0c1af9224d9eeb91a42dbc784617a3d097093a1195e66c8a68201756197df892c90cdc80b2ebe6d346af15442e99",
+      "publicExponent": 65537
+    },
+    "scopes": {
+      "acceptedPredecessorGraph": "accepted-predecessor-graph",
+      "acceptedPredecessorReceipt": "accepted-predecessor-receipt",
+      "batchConfirmation": "batch-confirmation",
+      "currentLocalObservation": "current-local-observation",
+      "namedHumanStatement": "named-human-statement",
+      "observationTransaction": "observation-transaction",
+      "opaqueInstrumentReceipt": "opaque-instrument-receipt",
+      "stageConfirmation": "stage-confirmation"
+    },
+    "syntheticCampaignLabelPrefix": "SYNTHETIC-ADMISSION-WITNESS-",
+    "syntheticConformanceTrustRoot": {
+      "algorithm": "rsa-pkcs1v15-sha256",
+      "keyId": "axmheadprivateevidencetrustroot1_ec9e1acaccc1eff237313d49279afd800b44f4e7bdac017fe0af682486d4ef44",
+      "modulusHex": "ab9273a16704ef7f7599443400988752cfb0d14bc5df3e7b05a69f9fb4c42400a0228f77814937dd605b67ab56f9e72cbc008443662aa22dd8c043b743e6cc2f1a4c170a68bf30dcbc453359a9f4b3f84369e7e44dd90698c8bc54d91aecb1f5a46accf1ffb6d9d52d6374432d99dc87adb314dd453060633b38f0fdf2f4556fd3e4d31f6e5822cc587773bc6f96dc68bff64084ded195993e6886cd77517a24fefe5031a4e03bb1129bfc31f4b8b7712c2c51fea78587486c60cc76cc10780423364b781cbd14936828eec12ca8a8c16d4d4ca52fc53ecad6112944fd3a757179c1c686c7ad4db01c1d06386e2935df1f84974147107a4686e88072b42ab727",
+      "publicExponent": 65537
+    }
+  },
   "batchConfirmation": {
     "idKey": "batchConfirmationId",
     "idPrefix": "stcmarypacketevidencebatchconfirmation1",
@@ -47,6 +83,7 @@
       "idPrefix": "stcmarypacketevidencepredecessorreceipt1",
       "keys": [
         "acceptedPredecessorCoordinate",
+        "authenticationBinding",
         "authority",
         "campaignId",
         "canonicalMissionStateDigest",
@@ -62,7 +99,8 @@
         "sequence",
         "sourceCampaignId",
         "sourceReceiptId",
-        "stage"
+        "stage",
+        "stageObservationDigest"
       ],
       "requiredReuseClass": "reused_pre_stage_receipt",
       "schema": "stc-mary/packet-evidence-predecessor-receipt/1"
@@ -71,6 +109,7 @@
       "idKey": "currentObservationId",
       "idPrefix": "stcmarypacketevidencecurrentobservation1",
       "keys": [
+        "authenticationBinding",
         "authority",
         "campaignId",
         "canonicalMissionStateDigest",
@@ -86,7 +125,8 @@
         "semanticPredicates",
         "sequence",
         "sourceObservationId",
-        "stage"
+        "stage",
+        "stageObservationDigest"
       ],
       "schema": "stc-mary/packet-evidence-current-observation/1"
     },
@@ -129,6 +169,7 @@
         "semanticPredicates",
         "sequence",
         "stage",
+        "stageObservationDigest",
         "statementScope",
         "terminalOrRetainedObligation"
       ],
@@ -136,7 +177,7 @@
       "schema": "stc-mary/packet-evidence-human-statement/1"
     }
   },
-  "claimBoundary": "Pre-record admission contract for one already configured, unrecorded private flight packet. It independently reads and measures proposed private evidence bodies, validates their schema, content identity, campaign and stage binding, provenance, and exact stage semantic predicates, prepares two named-human statement forms and sixteen exact stage decision records, and emits one body-free admission receipt. It never calls the packet recorder, never sets operatorConfirmed, never records a packet stage, never signs or completes a human statement or stage confirmation, never mutates the packet, and grants no physical-Estate, representative-operator, field-network, operational-C2, production-Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority.",
+  "claimBoundary": "Pre-record admission contract for one already configured, unrecorded private flight packet. It independently reads and measures proposed private evidence bodies, validates their schema, content identity, campaign and stage binding, provenance, exact stage semantic predicates, and RSA PKCS#1 v1.5 SHA-256 authentication against a profile-pinned external trust root. The accepted predecessor graph, observation transaction, every predecessor receipt, current observation, opaque instrument receipt, named-human statement, stage confirmation, and optional batch confirmation must carry a scope-separated signature. It prepares two named-human statement forms and sixteen exact stage decision records, and emits one body-free admission receipt. It never calls the packet recorder, never sets operatorConfirmed, never records a packet stage, never signs or completes a human statement or stage confirmation, never mutates the packet, and grants no physical-Estate, representative-operator, field-network, operational-C2, production-Lattice, mission, command, targeting, engagement, effector, or weapons qualification or authority.",
   "confirmation": {
     "admittingDecisionCode": "RECORD_STAGE",
     "decisionCodes": [
@@ -248,6 +289,7 @@
     "idKey": "observationTransactionId",
     "idPrefix": "stcmarypacketevidenceobservationtransaction1",
     "keys": [
+      "authenticationBinding",
       "endedAtUnixNs",
       "observationTransactionId",
       "schema",
@@ -269,6 +311,7 @@
     "receiptIdKey": "instrumentReceiptId",
     "receiptIdPrefix": "stcmarypacketevidenceinstrumentreceipt1",
     "receiptKeys": [
+      "authenticationBinding",
       "authority",
       "campaignId",
       "canonicalMissionStateDigest",
@@ -285,7 +328,8 @@
       "schema",
       "semanticPredicates",
       "sequence",
-      "stage"
+      "stage",
+      "stageObservationDigest"
     ],
     "receiptSchema": "stc-mary/packet-evidence-instrument-receipt/1"
   },
@@ -359,6 +403,7 @@
     "idPrefix": "stcmarypacketevidenceadmissionrequest1",
     "keys": [
       "acceptedPredecessorGraph",
+      "acceptedPredecessorGraphAuthentication",
       "authority",
       "batchConfirmation",
       "campaignId",
