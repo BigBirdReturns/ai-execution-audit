@@ -49,7 +49,7 @@ jobs:
             '391176fbd9e882fa3a6b40620f850814bb87ccbd262a36c868e221ea2cf7c758' \
             "$RUNNER_TEMP/hotfix.patch" | sha256sum --check --status
 
-      - name: Build and qualify exact five-file intermediate tree
+      - name: Build and qualify exact six-file candidate tree
         shell: bash
         run: |
           set -euo pipefail
@@ -63,7 +63,20 @@ jobs:
           git apply --check "$RUNNER_TEMP/hotfix.patch"
           git apply "$RUNNER_TEMP/hotfix.patch"
 
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/stc-mary-packet-evidence-admission-01.yml')
+          text = path.read_text(encoding='utf-8')
+          old = '  WITNESS_DENOMINATOR: "107"\n'
+          new = '  WITNESS_DENOMINATOR: "121"\n'
+          if text.count(old) != 1:
+              raise SystemExit('permanent workflow witness denominator target differs')
+          path.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
+          PY
+
           expected=(
+            '.github/workflows/stc-mary-packet-evidence-admission-01.yml'
             'mating_surface/anchor_node/STC-MARY-PACKET-EVIDENCE-ADMISSION-01.md'
             'mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py'
             'mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json'
@@ -96,19 +109,20 @@ jobs:
           python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py source-set
           python mating_surface/anchor_node/stc_mary_packet_evidence_admission.py denominator
 
-      - name: Freeze intermediate tree for connector completion
+      - name: Freeze exact six-file candidate
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
+            .github/workflows/stc-mary-packet-evidence-admission-01.yml \
             mating_surface/anchor_node/STC-MARY-PACKET-EVIDENCE-ADMISSION-01.md \
             mating_surface/anchor_node/conformance/test_stc_mary_packet_evidence_admission.py \
             mating_surface/anchor_node/stc-mary-packet-evidence-admission-profile-01.json \
             mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission.py \
             mating_surface/anchor_node/verify_stc_mary_packet_evidence_admission_bootstrap.py
           git commit -m 'Repair packet evidence source authentication'
-          echo "INTERMEDIATE_HEAD=$(git rev-parse HEAD)"
-          echo "INTERMEDIATE_TREE=$(git rev-parse 'HEAD^{tree}')"
-          git push origin HEAD:refs/heads/fix/stc-mary-packet-evidence-authentication-97
+          echo "FINAL_HEAD=$(git rev-parse HEAD)"
+          echo "FINAL_TREE=$(git rev-parse 'HEAD^{tree}')"
+          git push --force origin HEAD:refs/heads/fix/stc-mary-packet-evidence-authentication-97
