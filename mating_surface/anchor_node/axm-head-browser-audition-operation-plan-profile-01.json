@@ -1,0 +1,220 @@
+{
+  "admittedConsole": {
+    "commit": "ce93cf8856b7fcc9b172b9251b9665df50fdeda4",
+    "extensionId": "axmoperatorconsoleextension_ab926ed5afc19f66c1b898abd832925c3f3e3c719d7fa814c5751f570b9c8231",
+    "profileId": "axm-head/browser-physical-audition-operator-console/0.1",
+    "sourceBindingId": "axmoperatorconsolesource_aefa481bc33a9c4500f5fe1d4398b90c2159ac1833bf67c9d42ec321592d987c",
+    "tree": "664784d10309665eb3b993ce8f6df4eb5b10baf7"
+  },
+  "claimBoundary": {
+    "actualSupplierQualified": false,
+    "browserLaunched": false,
+    "commandAuthority": "none",
+    "inferenceExecuted": false,
+    "missionAuthority": "none",
+    "modelDownloaded": false,
+    "namedHumanConfirmationSupplied": false,
+    "operationPlanExecuted": false,
+    "operationPlanSourceAdmitted": false,
+    "operationPlanSourceConstructed": true,
+    "peerConnectionFormed": false,
+    "physicalAuditionCompleted": false,
+    "physicalEstateQualified": false,
+    "supplierEndpointContacted": false
+  },
+  "commands": [
+    "validate-profile",
+    "validate-bindings",
+    "compile-plan",
+    "validate-plan",
+    "validate-fixtures",
+    "campaign",
+    "source-set",
+    "build-extension",
+    "verify-extension"
+  ],
+  "dependencies": [
+    {
+      "bytes": 7871,
+      "gitBlobSha": "468e83fe979085f4254795fb2d6c7e0d90602e30",
+      "path": "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json",
+      "sha256": "sha256:0d089884b8854d4e4e26cf24d7e994fdddd4d4db6793e0be9c3169900de0a957"
+    },
+    {
+      "bytes": 34547,
+      "gitBlobSha": "1bc7226114724af04d08909237482c209ae0d497",
+      "path": "mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py",
+      "sha256": "sha256:bdeea07d9041468c9aba76fc22d1d7738f3106fef5451286e91e42c1cb37bd90"
+    },
+    {
+      "bytes": 22384,
+      "gitBlobSha": "f8489140c119b8513a7569ff95c3900dc1672496",
+      "path": "mating_surface/anchor_node/browser_distributed_inference_probe.js",
+      "sha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e"
+    },
+    {
+      "bytes": 14749,
+      "gitBlobSha": "649007fbf08db899630ad8f9fb972f01146feade",
+      "path": "mating_surface/anchor_node/browser_physical_audition_operator_contract.js",
+      "sha256": "sha256:fe826434bc9fe2a3e47a0d991273bddd9e54852618b86b97914976d514336042"
+    },
+    {
+      "bytes": 11228,
+      "gitBlobSha": "9c3854efd2859ab21747672d4916989aff550a04",
+      "path": "mating_surface/anchor_node/browser_physical_audition_operator_service_worker.js",
+      "sha256": "sha256:260eb0a5f6edd0f2a448e5665245d29962bb5ab28fb21829fc9fe196abd8bb03"
+    },
+    {
+      "bytes": 15287,
+      "gitBlobSha": "90966f61233c3c8132cfc6a576adb68dd5d625f5",
+      "path": "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py",
+      "sha256": "sha256:86f6eb791c0c264342f8a6422e28913d42c9a917b6393c3f29de7690d133bede"
+    }
+  ],
+  "extensionDependencyMembers": [
+    "mating_surface/anchor_node/browser_distributed_inference_probe.js",
+    "mating_surface/anchor_node/browser_physical_audition_operator_contract.js",
+    "mating_surface/anchor_node/browser_physical_audition_operator_service_worker.js"
+  ],
+  "extensionMembers": [
+    "manifest.json",
+    "browser_distributed_inference_probe.js",
+    "browser_physical_audition_operator_contract.js",
+    "browser_physical_audition_operator_service_worker.js",
+    "browser_audition_operation_plan_contract.js",
+    "browser_audition_operation_plan_panel.html",
+    "browser_audition_operation_plan_panel.js",
+    "browser_audition_operation_plan_panel.css",
+    "build-manifest.json"
+  ],
+  "extensionPayloadMembers": [
+    "manifest.json",
+    "browser_distributed_inference_probe.js",
+    "browser_physical_audition_operator_contract.js",
+    "browser_physical_audition_operator_service_worker.js",
+    "browser_audition_operation_plan_contract.js",
+    "browser_audition_operation_plan_panel.html",
+    "browser_audition_operation_plan_panel.js",
+    "browser_audition_operation_plan_panel.css"
+  ],
+  "extensionSourceMembers": [
+    "mating_surface/anchor_node/browser_audition_operation_plan_contract.js",
+    "mating_surface/anchor_node/browser_audition_operation_plan_panel.html",
+    "mating_surface/anchor_node/browser_audition_operation_plan_panel.js",
+    "mating_surface/anchor_node/browser_audition_operation_plan_panel.css"
+  ],
+  "fixtureCaseIds": [
+    "pass-minimal-plan",
+    "pass-two-seat-plan",
+    "pass-three-stage-plan",
+    "refuse-bindings-id",
+    "refuse-supplier-field",
+    "refuse-one-member",
+    "refuse-duplicate-member-alias",
+    "refuse-duplicate-member-id",
+    "refuse-member-role-denominator",
+    "refuse-unresolved-artifact-member",
+    "refuse-layer-gap",
+    "refuse-capacity-mismatch",
+    "refuse-token-gap",
+    "refuse-token-time-regression",
+    "refuse-fractional-monotonic-time",
+    "refuse-output-count-mismatch",
+    "refuse-prompt-count-mismatch",
+    "refuse-receipt-order",
+    "refuse-receipt-evidence-mismatch",
+    "refuse-raw-model-coordinate",
+    "refuse-claim-boundary",
+    "refuse-plan-step-mutation",
+    "refuse-plan-id-mutation",
+    "refuse-plan-extra-step"
+  ],
+  "fixtureCounts": {
+    "hostile": 21,
+    "positive": 3,
+    "total": 24
+  },
+  "interface": "axm/distributed-model-inference@1",
+  "issueRef": "BigBirdReturns/ai-execution-audit#105",
+  "limits": {
+    "maximumArtifactCount": 256,
+    "maximumBindingsBytes": 262144,
+    "maximumMemberCount": 32,
+    "maximumPlanBytes": 262144,
+    "maximumPlanSteps": 480,
+    "maximumProbeInvocations": 500,
+    "maximumReceiptCount": 9,
+    "maximumTokenMarks": 400,
+    "minimumMemberCount": 2,
+    "operatorMaximumSessionRequests": 512,
+    "sessionRequestReserve": 4,
+    "sessionRequestsPerProbeInvocation": 2
+  },
+  "manifestContract": {
+    "action": {
+      "default_title": "Open AXM audition operation plan"
+    },
+    "background": {
+      "service_worker": "browser_physical_audition_operator_service_worker.js"
+    },
+    "content_scripts": [
+      {
+        "all_frames": false,
+        "js": [
+          "browser_distributed_inference_probe.js"
+        ],
+        "matches": [
+          "<all_urls>"
+        ],
+        "run_at": "document_start",
+        "world": "MAIN"
+      }
+    ],
+    "content_security_policy": {
+      "extension_pages": "script-src 'self'; object-src 'none'"
+    },
+    "manifest_version": 3,
+    "minimum_chrome_version": "116",
+    "name": "AXM Browser Audition Operation Plan",
+    "permissions": [
+      "activeTab",
+      "scripting",
+      "sidePanel"
+    ],
+    "side_panel": {
+      "default_path": "browser_audition_operation_plan_panel.html"
+    },
+    "version": "0.1.0"
+  },
+  "operatorProtocol": "axm-head/browser-physical-audition-operator-console@1",
+  "profileId": "axm-head/browser-audition-operation-plan/0.1",
+  "protocol": "axm-head/browser-audition-operation-plan@1",
+  "receiptKinds": [
+    "current-availability-observation",
+    "executable-adapter-artifact",
+    "formation-capacity-receipt",
+    "formation-topology-receipt",
+    "member-drop-behavior-receipt",
+    "model-output-equivalence-receipt",
+    "performance-receipt",
+    "network-exposure-observation",
+    "privacy-declaration"
+  ],
+  "schema": "axm-head/browser-audition-operation-plan-profile@1",
+  "sourceMembers": [
+    ".github/workflows/axm-head-browser-audition-operation-plan-01.yml",
+    "mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md",
+    "mating_surface/anchor_node/axm-head-browser-audition-operation-plan-profile-01.json",
+    "mating_surface/anchor_node/axm-head-browser-audition-operation-plan-01.ps1",
+    "mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py",
+    "mating_surface/anchor_node/browser_audition_operation_plan_contract.js",
+    "mating_surface/anchor_node/browser_audition_operation_plan_panel.html",
+    "mating_surface/anchor_node/browser_audition_operation_plan_panel.js",
+    "mating_surface/anchor_node/browser_audition_operation_plan_panel.css",
+    "mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py",
+    "mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01_bootstrap.py",
+    "mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py",
+    "mating_surface/anchor_node/fixtures/axm-head-browser-audition-operation-plan-cases-01.json"
+  ],
+  "status": "candidate_source_only"
+}
