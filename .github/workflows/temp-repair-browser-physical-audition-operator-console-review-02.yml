@@ -45,6 +45,7 @@ jobs:
           git fetch --no-tags origin main
           [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]] || { echo "main moved" >&2; exit 2; }
           [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]] || { echo "main tree differs" >&2; exit 2; }
+          python .agent/temp-fix-operator-console-review-repair-anchor-02.py
           python -m py_compile .agent/temp-repair-browser-physical-audition-operator-console-review-02.py
           python .agent/temp-repair-browser-physical-audition-operator-console-review-02.py
 
@@ -100,7 +101,8 @@ jobs:
           rm -f \
             .github/workflows/temp-materialize-axm-browser-physical-audition-operator-console-repair-01.yml \
             .github/workflows/temp-repair-browser-physical-audition-operator-console-review-02.yml \
-            .agent/temp-repair-browser-physical-audition-operator-console-review-02.py
+            .agent/temp-repair-browser-physical-audition-operator-console-review-02.py \
+            .agent/temp-fix-operator-console-review-repair-anchor-02.py
           git reset origin/main
           expected=(
             '.github/workflows/axm-head-browser-physical-audition-operator-console-01.yml'
