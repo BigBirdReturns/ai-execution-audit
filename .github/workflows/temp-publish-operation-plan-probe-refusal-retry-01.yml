@@ -1,0 +1,103 @@
+name: TEMP Publish Operation Plan Probe Refusal Retry 01
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - ".github/workflows/temp-publish-operation-plan-probe-refusal-retry-01.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-publish-operation-plan-probe-refusal-retry-01
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  BASE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+  BASE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+  PRODUCT_BRANCH: work/axm-head-browser-audition-operation-plan-product-01
+  PRODUCT_HEAD: 7c52a3efb805c926f7e8b1b8c398f11ba5c61ab8
+  PRODUCT_TREE: 95306550ce6c3bfc2cb53223f18138377045b62c
+  PATCH_BLOB: ccd20a9386618ad62b47e93b52a58c3af00f647d
+  WITNESS_DENOMINATOR: "72"
+  PREDECESSOR_WORKFLOW_BLOB: 9294d1f357afa7ef69aeb86ea9da0d5a2d43ba37
+  WITNESS_REPAIR_BLOB: 605dc1aafecd8538653fb1dcc9acd755b6d28011
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-browser-audition-operation-plan-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Execute the bound predecessor transaction with the admitted-argument witness repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          PREDECESSOR=.github/workflows/temp-publish-operation-plan-probe-refusal-01.yml
+          REPAIR=.agent-carriers/repair-operation-plan-probe-refusal-witness-01.py
+          [[ "$(git hash-object "$PREDECESSOR")" == "$PREDECESSOR_WORKFLOW_BLOB" ]] || {
+            echo "predecessor workflow blob differs" >&2
+            exit 2
+          }
+          [[ "$(git hash-object "$REPAIR")" == "$WITNESS_REPAIR_BLOB" ]] || {
+            echo "witness repair blob differs" >&2
+            exit 2
+          }
+          cp "$REPAIR" "$RUNNER_TEMP/repair-operation-plan-probe-refusal-witness-01.py"
+
+          python - "$PREDECESSOR" "$RUNNER_TEMP" <<'PY'
+          import pathlib
+          import sys
+
+          source = pathlib.Path(sys.argv[1])
+          output = pathlib.Path(sys.argv[2])
+          lines = source.read_text(encoding="utf-8").splitlines()
+          blocks = []
+          index = 0
+          while index < len(lines):
+              if lines[index] != "        run: |":
+                  index += 1
+                  continue
+              index += 1
+              block = []
+              while index < len(lines):
+                  line = lines[index]
+                  if line and not line.startswith("          "):
+                      break
+                  block.append(line[10:] if line.startswith("          ") else "")
+                  index += 1
+              blocks.append("\n".join(block).rstrip() + "\n")
+          if len(blocks) != 4:
+              raise SystemExit(f"expected four predecessor shell bodies, observed {len(blocks)}")
+          needle = 'python "$RUNNER_TEMP/patch-operation-plan-probe-refusal-01.py" "$GITHUB_WORKSPACE"\n'
+          if blocks[1].count(needle) != 1:
+              raise SystemExit("patch invocation denominator differs")
+          blocks[1] = blocks[1].replace(
+              needle,
+              needle + 'python "$RUNNER_TEMP/repair-operation-plan-probe-refusal-witness-01.py" "$GITHUB_WORKSPACE"\n',
+          )
+          for number, block in enumerate(blocks, start=1):
+              target = output / f"probe-refusal-predecessor-step-{number}.sh"
+              target.write_text(block, encoding="utf-8", newline="\n")
+          PY
+
+          for step in "$RUNNER_TEMP"/probe-refusal-predecessor-step-*.sh; do
+            bash -n "$step"
+            bash "$step"
+          done
