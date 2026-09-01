@@ -46,8 +46,8 @@ denominators and this object never collapses one into the other.
 
 ```text
 evidence roles                          43
-  machine-verifiable or freshly observable 41
-  substantive named-human statements        2
+  machine-verifiable or freshly observable 40
+  substantive named-human statements        3
 
 stage-confirmation decisions            16
 ```
@@ -62,8 +62,8 @@ Carried by the admitted profile, not hardcoded in the gate:
 
 ```text
 READY_FROM_ACCEPTED_RECEIPTS          7
-REQUIRES_CURRENT_LOCAL_OBSERVATION    7
-REQUIRES_HUMAN_STATEMENT              2
+REQUIRES_CURRENT_LOCAL_OBSERVATION    6
+REQUIRES_HUMAN_STATEMENT              3
 MISSING_HISTORICAL_PHYSICAL_EVIDENCE  0
 REFUSED_AS_UNRECOVERABLE              0
 ```
@@ -84,12 +84,13 @@ REFUSED_AS_UNRECOVERABLE              0
 13 REPLACE_HEAD                       READY_FROM_ACCEPTED_RECEIPTS          3 roles
 14 REBUILD_PROJECTIONS                REQUIRES_CURRENT_LOCAL_OBSERVATION    3 roles
 15 COLD_SUCCESSOR_VERIFY              REQUIRES_CURRENT_LOCAL_OBSERVATION    3 roles
-16 SEAL_PRIVATE_EVIDENCE              REQUIRES_CURRENT_LOCAL_OBSERVATION    3 roles
+16 SEAL_PRIVATE_EVIDENCE              REQUIRES_HUMAN_STATEMENT              3 roles
 ```
 
-Every role name is the exact string the frozen packet profile already declares under
-that stage's `requiredEvidence`. The gate adds, per role, a provenance class and a
-closed set of semantic predicates the body must prove.
+For fifteen of the sixteen stages, every role name is the exact string the frozen packet
+profile declares under that stage's `requiredEvidence`. Stage 16 is the one declared
+divergence; see **Stage 16 and the seal ordering** below. The gate adds, per role, a
+provenance class and a closed set of semantic predicates the body must prove.
 
 ## What the gate actually does to a body
 
@@ -116,6 +117,89 @@ string.
 
 No two roles may share an evidence identity or the same body bytes. One blob is not a
 denominator.
+
+## Stage 16 and the seal ordering
+
+The frozen packet profile lists stage 16's `requiredEvidence` as:
+
+```text
+evidence manifest
+sealed run
+body-free public disposition
+```
+
+Two of those name objects that do not exist until **after** sealing, and the frozen
+sealer refuses to run until all sixteen stages are already recorded:
+
+```text
+"all sixteen stages must be recorded before sealing"   PRIVATE_FLIGHT_PACKET_INCOMPLETE
+```
+
+The frozen recorder never enforces those advisory names -- it accepts any one to
+sixty-four non-empty files -- so the ordering itself is satisfiable. Predecessor profile
+`stc-mary/packet-evidence-admission@1` nevertheless turned them into
+`current_local_observation` roles carrying `runSealedNow` and `dispositionIsBodyFree`,
+which made `READY_FOR_NAMED_HUMAN_DECISION` unreachable for any real zero-stage packet:
+it topped out at `HOLD`, 38 of 41 non-human roles, with those three outstanding forever.
+
+This profile supersedes exactly those three roles with evidence that is truthful at
+**admission time**, when no stage record exists:
+
+```text
+pre-seal evidence manifest       current_local_observation
+private-body Git custody proof   current_local_observation
+named-human seal authorization   named_human_statement
+```
+
+The total evidence denominator stays at 43. The split moves from 41/2 to 40/3, and
+stage 16 joins `BIND_GRACE` and `RESTORE_LINK_HOLD_CONFLICT` as a
+`REQUIRES_HUMAN_STATEMENT` stage.
+
+The frozen stage-16 **observation** contract is untouched. It was always satisfiable
+before sealing and is not ours to move:
+
+```text
+keys            evidenceDescriptorCount, privateEvidenceBodiesCommittedToGit,
+                publicDispositionBodyFree, sealedEvidenceClass
+requiredValues  privateEvidenceBodiesCommittedToGit: false
+                publicDispositionBodyFree: true
+```
+
+Two objects the frozen profile implies are deferred, not discarded. They belong to later
+surfaces where they can actually exist:
+
+```text
+seal preflight receipt            -> pre-seal closure, at 16 / 16
+final packet-stage identity root  -> pre-seal closure, at 16 / 16
+sealed run                        -> post-seal closure, after sealing
+body-free public disposition      -> post-seal closure, after sealing
+detached verification             -> post-seal closure, after sealing
+```
+
+The divergence is declared in the profile under `stageRoleSuccession`, and a witness
+proves it is confined to exactly one stage: the other fifteen still match the frozen
+`requiredEvidence` strings byte for byte.
+
+## The executable ordering witness
+
+A final-state fixture can prove schema behaviour. It cannot prove that a real packet can
+traverse the sequence, which is the only question that matters here. So the conformance
+suite drives the **frozen, unpatched** recorder over a throwaway synthetic packet:
+
+```text
+initialize            0 / 16   unconfigured
+configure             0 / 16   configured
+record x16            1..16    one stage at a time, in the closed order
+  stage 16 evidence   pre-seal roles only; no sealed run, no disposition
+seal                  runId, dispositionId
+detached verify       PASS   15 PASS / 1 HUMAN_REQUIRED
+                             body-free, 0 public bodies, authority none
+```
+
+The witness asserts that no post-seal object was offered to stage 16, that the packet was
+at `16 / 16` and still unsealed before sealing ran, and that detached verification then
+passed. That is the positive answer to the ordering question, produced by execution
+rather than by construction.
 
 ## Reused predecessor receipts
 
@@ -217,8 +301,8 @@ REFUSED
 `READY_FOR_NAMED_HUMAN_DECISION`
 
 ```text
-all 41 non-human evidence roles independently verified
-two human-statement requirements prepared, unsupplied
+all 40 non-human evidence roles independently verified
+three human-statement requirements prepared, unsupplied
 sixteen stage-confirmation records prepared, unsupplied
 packetStagesRecorded: 0
 operatorConfirmedFlagsSet: 0
@@ -228,7 +312,7 @@ authority: none
 `ADMISSIBLE_FOR_PACKET_RECORDING`
 
 ```text
-all 43 evidence roles independently verified, including both statements
+all 43 evidence roles independently verified, including all three statements
 sixteen stage confirmations authenticated and exact-bound, all RECORD_STAGE
 no missing or duplicate evidence role
 one complete evidence-admission digest root

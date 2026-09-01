@@ -33,7 +33,7 @@ permissions:
 # though unittest would still print OK. The conformance suite asserts that this number
 # equals the number of witnesses it actually discovers, so the pin cannot drift.
 env:
-  WITNESS_DENOMINATOR: "107"
+  WITNESS_DENOMINATOR: "114"
 
 jobs:
   qualify:
@@ -68,6 +68,14 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+
+      # The executable ordering witness drives the frozen packet recorder, which is ESM
+      # under Node. The version is pinned rather than inherited so that witness cannot
+      # silently stop running because a runner image changed.
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
 
       - name: Materialize authoritative source from exact Git blobs
         shell: bash

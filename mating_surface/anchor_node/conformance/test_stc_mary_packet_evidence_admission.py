@@ -61,6 +61,155 @@ ENVELOPE_TEMPLATE = {
     "note": "REPLACE_WITH_LOCAL_EVIDENCE",
 }
 
+FROZEN_PACKET_PROFILE = ANCHOR / "stc-mary-private-flight-packet-profile-01.json"
+
+# Executable ordering witness. This drives the FROZEN, UNPATCHED packet recorder over a
+# throwaway synthetic packet, from a configured zero-stage packet to detached-verified
+# sealing, in legal order. It exists because a final-state fixture cannot prove that a
+# real packet can traverse the sequence; it can only prove schema behaviour.
+#
+# Stage 16 is recorded with evidence that is true BEFORE sealing. No sealed run and no
+# public disposition is offered to it, because neither exists yet. That is the whole
+# point of the repair, and this witness is what proves the ordering is satisfiable.
+ORDERING_WITNESS_DRIVER = r"""
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+const anchor = process.argv[2].replaceAll('\\', '/');
+const root = process.argv[3];
+const preSealStageSixteenEvidence = JSON.parse(process.argv[4]);
+const packetModule = await import(`file://${anchor}/stc_mary_private_flight_packet.mjs`);
+const { STC_MARY_STAGES } = await import(`file://${anchor}/stc_mary_physical_flight.mjs`);
+
+const packet = join(root, 'stc-mary-private-flight-orderingwitness');
+const sealed = join(root, 'stc-mary-private-flight-sealed-orderingwitness');
+const sha256 = (t) => createHash('sha256').update(t, 'utf8').digest('hex');
+const cid = (p, t) => `${p}_${sha256(t)}`;
+const OUTPUT = cid('syntheticoutput1', 'accepted-mission-output');
+
+const readJson = async (p) => JSON.parse(await readFile(p, 'utf8'));
+const writeJson = async (p, v) => writeFile(p, `${JSON.stringify(v, null, 2)}\n`, 'utf8');
+
+function observation(stage, o) {
+  const v = structuredClone(o);
+  switch (stage) {
+    case 'VERIFY_INPUTS':
+      v.profileValidated = true; v.sourceObjectsVerified = true;
+      v.inputDigestRoot = cid('syntheticinputroot1', 'inputs'); break;
+    case 'MOUNT_PERSONAL_FLOOR': v.mounted = true; v.missionClosed = true; break;
+    case 'BIND_GRACE': v.bound = true; v.authoritySource = 'named_human_bind'; break;
+    case 'RUN_PERSONAL_FLOOR_BASELINE':
+      v.outputDigest = OUTPUT; v.throughputUnits = 100; v.verifierState = 'pass'; break;
+    case 'ATTACH_HALO3': v.attached = true; v.optional = true; break;
+    case 'RUN_HALO3_ACCELERATED':
+      v.outputDigest = OUTPUT; v.throughputUnits = 400; v.verifierState = 'pass';
+      v.fasterThanBaseline = true; break;
+    case 'REMOVE_HALO3': v.attached = false; v.removalReceiptPresent = true; break;
+    case 'VERIFY_PERSONAL_FLOOR_CONTINUITY':
+      v.personalFloorAvailable = true; v.outputDigestMatches = true;
+      v.halo3Required = false; v.throughputUnits = 100; break;
+    case 'REMOVE_LATTICE': v.present = false; v.removalReceiptPresent = true; break;
+    case 'VERIFY_LOCAL_CONTINUITY':
+      v.localStateAvailable = true; v.latticeRequired = false;
+      v.canonicalStateRecovered = true; break;
+    case 'PARTITION_TWO_CELLS':
+      v.cellCount = 2; v.eachCellLocallyValid = true; v.authorityWidened = false; break;
+    case 'RESTORE_LINK_HOLD_CONFLICT':
+      v.linkRestored = true; v.conflictDetected = true; v.automaticMerge = false;
+      v.resolution = 'human_required';
+      v.leftStateDigest = sha256('left-cell'); v.rightStateDigest = sha256('right-cell'); break;
+    case 'REPLACE_HEAD':
+      v.replacementAccepted = true; v.canonicalStateCopiedByDigest = true;
+      v.authorityTransferred = false; break;
+    case 'REBUILD_PROJECTIONS':
+      v.projectionKinds = ['graph', 'query', 'cache', 'review'];
+      v.rebuiltFromCanonicalReceipts = true;
+      v.projectionDigestRoot = cid('syntheticprojectionroot1', 'projections'); break;
+    case 'COLD_SUCCESSOR_VERIFY':
+      v.recoveredCartridge = true; v.recoveredAuthorityBoundary = true;
+      v.recoveredObligations = true; v.verificationState = 'pass'; break;
+    case 'SEAL_PRIVATE_EVIDENCE':
+      v.sealedEvidenceClass = 'private_physical_attested';
+      v.evidenceDescriptorCount = 16;
+      v.publicDispositionBodyFree = true;
+      v.privateEvidenceBodiesCommittedToGit = false; break;
+    default: throw new Error(`unhandled stage ${stage}`);
+  }
+  return v;
+}
+
+await mkdir(root, { recursive: true });
+const init = await packetModule.initializePrivateFlightPacket(packet, 'SYNTHETIC-ORDERING-WITNESS-01');
+
+const config = await readJson(join(packet, 'flight-config.json'));
+config.sourceObjectDigests = [sha256('synthetic-source-object')];
+config.canonicalMissionStateDigest = sha256('synthetic-canonical-mission-state');
+config.identityClasses = {
+  personalFloor: 'synthetic-personal-floor', halo3: 'synthetic-halo3',
+  initialHead: 'synthetic-initial-head', successorHead: 'synthetic-successor-head',
+  graceBind: 'synthetic-named-human-bind', lattice: 'synthetic-lattice',
+  leftCell: 'synthetic-left-cell', rightCell: 'synthetic-right-cell',
+};
+const configPath = join(root, 'config.json');
+await writeJson(configPath, config);
+const configured = await packetModule.configurePrivateFlightPacket(packet, configPath);
+
+let postSealObjectOfferedToStageSixteen = false;
+const stageOrder = [];
+
+for (const [index, stage] of STC_MARY_STAGES.entries()) {
+  const sequence = index + 1;
+  const dir = join(packet, `${String(sequence).padStart(2, '0')}-${stage}`);
+  const draftPath = join(dir, 'stage-attestation.json');
+  const draft = await readJson(draftPath);
+  draft.observation = observation(stage, draft.observation);
+  draft.operatorConfirmed = true;
+  draft.evidenceClass = 'private_local_attestation';
+  draft.mediaType = 'application/json';
+  await writeJson(draftPath, draft);
+  const names = stage === 'SEAL_PRIVATE_EVIDENCE'
+    ? preSealStageSixteenEvidence
+    : [`${stage.toLowerCase()}-receipt`];
+  for (const name of names) {
+    if (name.includes('sealed run') || name.includes('public disposition')) {
+      postSealObjectOfferedToStageSixteen = true;
+    }
+    await writeJson(join(dir, 'evidence', `${name.replaceAll(' ', '-')}.json`), { stage, sequence, role: name });
+  }
+  const { state } = await packetModule.recordPrivateFlightStage(packet, stage);
+  stageOrder.push({ sequence, stage, completed: state.completedStageCount });
+}
+
+const preSeal = await packetModule.privateFlightPacketStatus(packet);
+const result = await packetModule.sealPrivateFlightPacket(packet, sealed);
+const verification = await packetModule.verifySealedPrivateFlightPacket(sealed);
+const disposition = await readJson(join(sealed, 'public-disposition.json'));
+
+process.stdout.write(JSON.stringify({
+  initialConfigurationState: init.state.configurationState,
+  initialCompletedStageCount: init.state.completedStageCount,
+  configuredState: configured.configurationState,
+  configuredCompletedStageCount: configured.completedStageCount,
+  stageOrder,
+  preSealCompletedStageCount: preSeal.completedStageCount,
+  preSealSealed: preSeal.sealed,
+  postSealObjectOfferedToStageSixteen,
+  runId: result.run.runId,
+  dispositionId: result.disposition.dispositionId,
+  verificationStatus: verification.status,
+  stageCount: verification.stageCount,
+  privateEvidenceBodies: verification.privatePhysicalEvidenceBodyCount,
+  publicEvidenceBodies: verification.publicEvidenceBodyCount,
+  bodyFreePublicDisposition: verification.bodyFreePublicDisposition,
+  successfulStageCount: disposition.successfulStageCount,
+  humanRequiredStageCount: disposition.humanRequiredStageCount,
+  privatePhysicalFlightCompleted: disposition.privatePhysicalFlightCompleted,
+  physicalEstateQualified: disposition.physicalEstateQualified,
+  authority: verification.authority,
+}));
+"""
+
 
 def cid(prefix: str, body: Any) -> str:
     return law.content_id(prefix, body)
@@ -555,14 +704,14 @@ class PositiveTerminals(AdmissionWitnessCase):
         self.assertEqual(receipt["terminal"], "READY_FOR_NAMED_HUMAN_DECISION")
         self.assertEqual(receipt["stageDenominator"], 16)
         self.assertEqual(receipt["evidenceRoleDenominator"], 43)
-        self.assertEqual(receipt["nonHumanEvidenceRoleDenominator"], 41)
-        self.assertEqual(receipt["humanStatementRoleDenominator"], 2)
-        self.assertEqual(receipt["admittedEvidenceRoleCount"], 41)
-        self.assertEqual(receipt["admittedNonHumanEvidenceRoleCount"], 41)
+        self.assertEqual(receipt["nonHumanEvidenceRoleDenominator"], 40)
+        self.assertEqual(receipt["humanStatementRoleDenominator"], 3)
+        self.assertEqual(receipt["admittedEvidenceRoleCount"], 40)
+        self.assertEqual(receipt["admittedNonHumanEvidenceRoleCount"], 40)
         self.assertEqual(receipt["admittedHumanStatementCount"], 0)
         self.assertEqual(receipt["reusedPredecessorReceiptCount"], 23)
-        self.assertEqual(receipt["currentObservationCount"], 18)
-        self.assertEqual(receipt["missingEvidenceRoleCount"], 2)
+        self.assertEqual(receipt["currentObservationCount"], 17)
+        self.assertEqual(receipt["missingEvidenceRoleCount"], 3)
         self.assertEqual(receipt["suppliedStageConfirmationCount"], 0)
         self.assertEqual(receipt["packetStagesRecorded"], 0)
         self.assertEqual(receipt["operatorConfirmedFlagsSet"], 0)
@@ -575,10 +724,10 @@ class PositiveTerminals(AdmissionWitnessCase):
 
     def test_ready_prepares_two_statement_forms_and_sixteen_decision_records(self) -> None:
         receipt = self.fixture.run()
-        self.assertEqual(len(receipt["humanStatementRequirements"]), 2)
+        self.assertEqual(len(receipt["humanStatementRequirements"]), 3)
         self.assertEqual(
             sorted(row["stage"] for row in receipt["humanStatementRequirements"]),
-            ["BIND_GRACE", "RESTORE_LINK_HOLD_CONFLICT"],
+            ["BIND_GRACE", "RESTORE_LINK_HOLD_CONFLICT", "SEAL_PRIVATE_EVIDENCE"],
         )
         self.assertTrue(all(row["supplied"] is False for row in receipt["humanStatementRequirements"]))
         self.assertEqual(len(receipt["stageConfirmationRequirements"]), 16)
@@ -590,6 +739,7 @@ class PositiveTerminals(AdmissionWitnessCase):
         by_stage = {row["stage"]: row for row in receipt["stageConfirmationRequirements"]}
         self.assertFalse(by_stage["BIND_GRACE"]["evidenceAdmissionRootFinal"])
         self.assertFalse(by_stage["RESTORE_LINK_HOLD_CONFLICT"]["evidenceAdmissionRootFinal"])
+        self.assertFalse(by_stage["SEAL_PRIVATE_EVIDENCE"]["evidenceAdmissionRootFinal"])
         self.assertTrue(by_stage["VERIFY_INPUTS"]["evidenceAdmissionRootFinal"])
 
     def test_ready_invites_no_stage_confirmation_at_all(self) -> None:
@@ -602,7 +752,7 @@ class PositiveTerminals(AdmissionWitnessCase):
         receipt = self.fixture.run()
         self.assertFalse(receipt["confirmationDenominatorInvitable"])
         by_stage = {row["stage"]: row for row in receipt["stageConfirmationRequirements"]}
-        for stage in ("BIND_GRACE", "RESTORE_LINK_HOLD_CONFLICT"):
+        for stage in ("BIND_GRACE", "RESTORE_LINK_HOLD_CONFLICT", "SEAL_PRIVATE_EVIDENCE"):
             self.assertFalse(by_stage[stage]["evidenceAdmissionRootFinal"], stage)
             self.assertFalse(by_stage[stage]["confirmationInvitable"], stage)
         self.assertTrue(
@@ -642,7 +792,7 @@ class PositiveTerminals(AdmissionWitnessCase):
         receipt = self.fixture.run()
         self.assertEqual(receipt["terminal"], "ADMISSIBLE_FOR_PACKET_RECORDING")
         self.assertEqual(receipt["admittedEvidenceRoleCount"], 43)
-        self.assertEqual(receipt["admittedHumanStatementCount"], 2)
+        self.assertEqual(receipt["admittedHumanStatementCount"], 3)
         self.assertEqual(receipt["missingEvidenceRoleCount"], 0)
         self.assertEqual(receipt["suppliedStageConfirmationCount"], 16)
         self.assertEqual(len(receipt["stageDecisions"]), 16)
@@ -685,7 +835,7 @@ class PositiveTerminals(AdmissionWitnessCase):
         receipt = self.fixture.run()
         self.assertEqual(receipt["terminal"], "HOLD")
         self.assertEqual(receipt["holdReason"], "non-human evidence roles outstanding")
-        self.assertEqual(receipt["admittedEvidenceRoleCount"], 40)
+        self.assertEqual(receipt["admittedEvidenceRoleCount"], 39)
         missing = [row for row in receipt["missingEvidenceRoles"] if row["stage"] == "VERIFY_INPUTS"]
         self.assertEqual([row["evidenceRole"] for row in missing], ["source digest receipt"])
 
@@ -728,6 +878,141 @@ class PositiveTerminals(AdmissionWitnessCase):
             self.assertNotIn("stc_mary_private_flight_packet", text, relative)
             self.assertNotIn('"operatorConfirmed"', text, relative)
             self.assertNotIn("operatorConfirmed=", text, relative)
+
+
+# --------------------------------------------------------------------------------
+# stage 16 ordering
+# --------------------------------------------------------------------------------
+
+
+class Stage16OrderingWitnesses(AdmissionWitnessCase):
+    """The stage-16 repair, and the executable proof that the ordering is satisfiable."""
+
+    SUPERSEDED = ("evidence manifest", "sealed run", "body-free public disposition")
+
+    def test_no_stage_16_role_requires_an_object_sealing_has_not_produced(self) -> None:
+        stage = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]
+        roles = {row["evidenceRole"] for row in stage["evidenceRoles"]}
+        self.assertEqual(roles & set(self.SUPERSEDED), set())
+        predicates = {key for row in stage["evidenceRoles"] for key in row["requiredPredicates"]}
+        # The predicates profile @1 demanded, each a claim about an object that does not
+        # exist until after sealing has already run.
+        self.assertNotIn("runSealedNow", predicates)
+        self.assertNotIn("dispositionIsBodyFree", predicates)
+
+    def test_role_denominator_diverges_at_exactly_one_declared_stage(self) -> None:
+        frozen = load_json(FROZEN_PACKET_PROFILE)
+        succession = self.profile["stageRoleSuccession"]
+        divergent = []
+        for stage in self.profile["stageSequence"]:
+            admitted = [row["evidenceRole"] for row in self.profile["stages"][stage]["evidenceRoles"]]
+            if admitted != frozen["stages"][stage]["requiredEvidence"]:
+                divergent.append(stage)
+        self.assertEqual(divergent, [succession["supersededStage"]])
+        self.assertEqual(succession["divergentStageCount"], len(divergent))
+        self.assertEqual(
+            succession["frozenAdvisoryRoles"],
+            frozen["stages"][succession["supersededStage"]]["requiredEvidence"],
+        )
+        self.assertEqual(list(self.SUPERSEDED), succession["frozenAdvisoryRoles"])
+        self.assertEqual(self.profile["supersedes"], succession["predecessorProfileId"])
+        self.assertNotEqual(self.profile["profileId"], succession["predecessorProfileId"])
+
+    def test_superseded_post_seal_roles_are_no_longer_admissible(self) -> None:
+        def rename(request: dict) -> None:
+            self.fixture.stage_row(request, "SEAL_PRIVATE_EVIDENCE")["evidence"][0]["evidenceRole"] = "sealed run"
+
+        self.fixture.mutate_request(rename)
+        self.assert_refuses("EVIDENCE_ROLE_UNKNOWN")
+
+    def test_frozen_stage_16_observation_contract_is_untouched(self) -> None:
+        """The repair is in the role layer only. The observation law is not ours to move."""
+        contract = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]["observation"]
+        self.assertEqual(
+            sorted(contract["keys"]),
+            [
+                "evidenceDescriptorCount",
+                "privateEvidenceBodiesCommittedToGit",
+                "publicDispositionBodyFree",
+                "sealedEvidenceClass",
+            ],
+        )
+        self.assertEqual(
+            contract["requiredValues"],
+            {"privateEvidenceBodiesCommittedToGit": False, "publicDispositionBodyFree": True},
+        )
+
+    def test_a_real_pre_record_packet_now_reaches_ready(self) -> None:
+        """The regression this branch exists to fix.
+
+        Under profile @1 a truthful zero-stage packet topped out at HOLD with the three
+        stage-16 roles outstanding, because they demanded a sealed run and a disposition
+        that cannot exist before sealing. Every non-human role is now supplied by a
+        packet that has recorded nothing.
+        """
+        receipt = self.fixture.run()
+        self.assertEqual(receipt["terminal"], "READY_FOR_NAMED_HUMAN_DECISION")
+        self.assertEqual(receipt["admittedNonHumanEvidenceRoleCount"], 40)
+        self.assertEqual(
+            {row["provenanceClass"] for row in receipt["missingEvidenceRoles"]},
+            {"named_human_statement"},
+        )
+        self.assertEqual(receipt["packetStagesRecorded"], 0)
+
+    def test_executable_legal_order_reaches_detached_verified_sealing(self) -> None:
+        """Drive the frozen, unpatched recorder from 0/16 to detached-verified sealing.
+
+        A final-state fixture cannot prove this; only running the real sequence can.
+        """
+        node = shutil.which("node")
+        self.assertIsNotNone(node, "node is required for the executable ordering witness")
+        driver = self.tmp / "ordering-witness.mjs"
+        driver.write_text(ORDERING_WITNESS_DRIVER, encoding="utf-8")
+        pre_seal_roles = [
+            row["evidenceRole"]
+            for row in self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]["evidenceRoles"]
+        ]
+        completed = subprocess.run(
+            [node, str(driver), str(ANCHOR), str(self.tmp / "ordering"), json.dumps(pre_seal_roles)],
+            check=False,
+            capture_output=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr.decode("utf-8", "replace"))
+        result = json.loads(completed.stdout.decode("utf-8"))
+
+        # It really did start from a configured packet with nothing recorded.
+        self.assertEqual(result["initialConfigurationState"], "unconfigured")
+        self.assertEqual(result["initialCompletedStageCount"], 0)
+        self.assertEqual(result["configuredState"], "configured")
+        self.assertEqual(result["configuredCompletedStageCount"], 0)
+
+        # It advanced one stage at a time, in the closed order.
+        self.assertEqual([row["stage"] for row in result["stageOrder"]], self.profile["stageSequence"])
+        self.assertEqual([row["completed"] for row in result["stageOrder"]], list(range(1, 17)))
+
+        # Stage 16 was recorded without any post-seal object.
+        self.assertFalse(result["postSealObjectOfferedToStageSixteen"])
+        self.assertEqual(result["preSealCompletedStageCount"], 16)
+        self.assertFalse(result["preSealSealed"])
+
+        # And sealing then succeeded and verified detached.
+        self.assertEqual(result["verificationStatus"], "PASS")
+        self.assertEqual(result["stageCount"], 16)
+        self.assertEqual(result["successfulStageCount"], 15)
+        self.assertEqual(result["humanRequiredStageCount"], 1)
+        self.assertTrue(result["privatePhysicalFlightCompleted"])
+        self.assertTrue(result["bodyFreePublicDisposition"])
+        self.assertEqual(result["publicEvidenceBodies"], 0)
+        self.assertGreater(result["privateEvidenceBodies"], 0)
+        self.assertFalse(result["physicalEstateQualified"])
+        self.assertEqual(result["authority"], "none")
+        self.assertTrue(result["runId"].startswith("stcmaryphysicalflightrun1_"))
+
+    def test_frozen_sealer_still_refuses_an_incomplete_packet(self) -> None:
+        """The other arm of the original circularity, asserted from frozen source."""
+        recorder = (ANCHOR / "stc_mary_private_flight_packet.mjs").read_text(encoding="utf-8")
+        self.assertIn("all sixteen stages must be recorded before sealing", recorder)
+        self.assertIn("PRIVATE_FLIGHT_PACKET_INCOMPLETE", recorder)
 
 
 # --------------------------------------------------------------------------------
@@ -791,7 +1076,7 @@ class OpaqueInstrumentWitnesses(AdmissionWitnessCase):
         self.make_opaque()
         receipt = self.fixture.run()
         self.assertEqual(receipt["terminal"], "READY_FOR_NAMED_HUMAN_DECISION")
-        self.assertEqual(receipt["admittedEvidenceRoleCount"], 41)
+        self.assertEqual(receipt["admittedEvidenceRoleCount"], 40)
 
     def test_opaque_body_without_instrument_receipt_refuses(self) -> None:
         self.make_opaque(with_receipt=False)

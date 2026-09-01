@@ -183,12 +183,12 @@
       "MISSING_HISTORICAL_PHYSICAL_EVIDENCE": 0,
       "READY_FROM_ACCEPTED_RECEIPTS": 7,
       "REFUSED_AS_UNRECOVERABLE": 0,
-      "REQUIRES_CURRENT_LOCAL_OBSERVATION": 7,
-      "REQUIRES_HUMAN_STATEMENT": 2
+      "REQUIRES_CURRENT_LOCAL_OBSERVATION": 6,
+      "REQUIRES_HUMAN_STATEMENT": 3
     },
     "evidenceRoleDenominator": 43,
-    "humanStatementRoleCount": 2,
-    "nonHumanEvidenceRoleCount": 41,
+    "humanStatementRoleCount": 3,
+    "nonHumanEvidenceRoleCount": 40,
     "stageConfirmationDenominator": 16,
     "stageDenominator": 16
   },
@@ -342,7 +342,7 @@
   },
   "predecessorPacketProfileId": "stc-mary/private-flight-packet/0.1",
   "predecessorPhysicalProfileId": "spectra-anchor-node/stc-mary-physical-flight/0.1",
-  "profileId": "stc-mary/packet-evidence-admission@1",
+  "profileId": "stc-mary/packet-evidence-admission@2",
   "provenanceClasses": [
     "accepted_predecessor_receipt",
     "current_local_observation",
@@ -381,6 +381,26 @@
     ]
   },
   "schema": "stc-mary/packet-evidence-admission-profile/1",
+  "stageRoleSuccession": {
+    "deferredToPostSealClosure": [
+      "sealed run",
+      "body-free public disposition",
+      "detached verification"
+    ],
+    "deferredToPreSealClosure": [
+      "seal preflight receipt",
+      "final packet-stage identity root"
+    ],
+    "divergentStageCount": 1,
+    "frozenAdvisoryRoles": [
+      "evidence manifest",
+      "sealed run",
+      "body-free public disposition"
+    ],
+    "predecessorProfileId": "stc-mary/packet-evidence-admission@1",
+    "reason": "The frozen packet profile names 'sealed run' and 'body-free public disposition' as stage-16 required evidence. Those objects do not exist until after sealing, and the frozen sealer refuses to run until all sixteen stages are already recorded. The frozen recorder never enforces those advisory names, so the ordering is satisfiable, but predecessor profile @1 turned them into current-observation roles with predicates runSealedNow and dispositionIsBodyFree and thereby made READY_FOR_NAMED_HUMAN_DECISION unreachable for any real zero-stage packet. This profile replaces exactly those three roles with evidence that is truthful at admission time, when no stage record exists.",
+    "supersededStage": "SEAL_PRIVATE_EVIDENCE"
+  },
   "stageSequence": [
     "VERIFY_INPUTS",
     "MOUNT_PERSONAL_FLOOR",
@@ -1026,35 +1046,35 @@
       "sequence": 4
     },
     "SEAL_PRIVATE_EVIDENCE": {
-      "availabilityClass": "REQUIRES_CURRENT_LOCAL_OBSERVATION",
+      "availabilityClass": "REQUIRES_HUMAN_STATEMENT",
       "controlQuestion": "Are all private bodies still local while the public disposition contains only content identities, counts, and claim boundaries?",
       "evidenceRoleDenominator": 3,
       "evidenceRoles": [
         {
-          "evidenceRole": "evidence manifest",
-          "evidenceRoleKey": "evidence-manifest",
+          "evidenceRole": "pre-seal evidence manifest",
+          "evidenceRoleKey": "pre-seal-evidence-manifest",
           "provenanceClass": "current_local_observation",
           "requiredPredicates": {
-            "descriptorsAreDigestOnly": true,
-            "evidenceBodiesHashedNow": true
+            "admissionSetEnumeratedNow": true,
+            "everyProposedBodyHashedNow": true
           }
         },
         {
-          "evidenceRole": "sealed run",
-          "evidenceRoleKey": "sealed-run",
+          "evidenceRole": "private-body Git custody proof",
+          "evidenceRoleKey": "private-body-git-custody-proof",
           "provenanceClass": "current_local_observation",
           "requiredPredicates": {
-            "privateBodiesRemainLocal": true,
-            "runSealedNow": true
+            "privateBodiesOutsideGitNow": true,
+            "publicSurfaceRemainsBodyFree": true
           }
         },
         {
-          "evidenceRole": "body-free public disposition",
-          "evidenceRoleKey": "body-free-public-disposition",
-          "provenanceClass": "current_local_observation",
+          "evidenceRole": "named-human seal authorization",
+          "evidenceRoleKey": "named-human-seal-authorization",
+          "provenanceClass": "named_human_statement",
           "requiredPredicates": {
-            "dispositionIsBodyFree": true,
-            "privateBodiesNotCommittedToGit": true
+            "sealAuthorizedByNamedHuman": true,
+            "sealDeferredUntilPacketCloses": true
           }
         }
       ],
@@ -1222,6 +1242,7 @@
     }
   },
   "status": "candidate_contract_only",
+  "supersedes": "stc-mary/packet-evidence-admission@1",
   "terminalStates": [
     "READY_FOR_NAMED_HUMAN_DECISION",
     "ADMISSIBLE_FOR_PACKET_RECORDING",

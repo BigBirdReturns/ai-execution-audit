@@ -52,8 +52,8 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 PROFILE_SCHEMA = "stc-mary/packet-evidence-admission-profile/1"
-PROFILE_ID = "stc-mary/packet-evidence-admission@1"
-PROFILE_CANONICAL_SHA256 = "92d458684d1e4b971429dff86644352544641ac34808b28bcf0e0a034b44b81f"
+PROFILE_ID = "stc-mary/packet-evidence-admission@2"
+PROFILE_CANONICAL_SHA256 = "d1be85a96d3f125f608a5830d08e4500196860641f13f0b375ff2d2c8602605d"
 RECEIPT_SCHEMA = "stc-mary/packet-evidence-admission-receipt/1"
 RECEIPT_ID_KEY = "admissionId"
 RECEIPT_ID_PREFIX = "stcmarypacketevidenceadmission1"
