@@ -1,0 +1,222 @@
+name: TEMP Qualify Operation Plan Post Call Inspection 01
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - ".github/workflows/temp-qualify-operation-plan-post-call-inspection-01.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-qualify-operation-plan-post-call-inspection-01
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  BASE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+  BASE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+  PRODUCT_BRANCH: work/axm-head-browser-audition-operation-plan-product-01
+  PRODUCT_HEAD: dca19d3b934594457c63df0ef815c4180cc14ee6
+  PRODUCT_TREE: 7a8fcb551329dc6ca571b089e6368622c8271f8f
+  PATCH_BLOB: 5a1f06d36fc0ca5a00afd6e9d8da94d11b66c2c8
+  WITNESS_DENOMINATOR: "78"
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-browser-audition-operation-plan-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Bind exact predecessor and repair program
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH=.agent-carriers/patch-operation-plan-post-call-inspection-01.py
+          [[ "$(git hash-object "$PATCH")" == "$PATCH_BLOB" ]] || {
+            echo "repair program blob differs" >&2
+            exit 2
+          }
+          cp "$PATCH" "$RUNNER_TEMP/patch-operation-plan-post-call-inspection-01.py"
+          git fetch --no-tags origin main "$PRODUCT_BRANCH"
+          [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]] || {
+            echo "main moved" >&2
+            exit 2
+          }
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]] || {
+            echo "main tree differs" >&2
+            exit 2
+          }
+          [[ "$(git rev-parse "origin/$PRODUCT_BRANCH")" == "$PRODUCT_HEAD" ]] || {
+            echo "product head differs" >&2
+            exit 2
+          }
+          [[ "$(git rev-parse "origin/$PRODUCT_BRANCH^{tree}")" == "$PRODUCT_TREE" ]] || {
+            echo "product tree differs" >&2
+            exit 2
+          }
+
+      - name: Apply exact six-member repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$PRODUCT_HEAD"
+          python "$RUNNER_TEMP/patch-operation-plan-post-call-inspection-01.py" "$GITHUB_WORKSPACE"
+          expected=(
+            '.github/workflows/axm-head-browser-audition-operation-plan-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md'
+            'mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/browser_audition_operation_plan_panel.js'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py'
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          mapfile -t observed < <(git status --porcelain=v1 --untracked-files=all | sed -E 's/^...//' | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]] || {
+            printf 'repair denominator differs\nobserved:\n%s\nexpected:\n%s\n' \
+              "$(printf '%s\n' "${observed[@]}")" \
+              "$(printf '%s\n' "${wanted[@]}")" >&2
+            exit 2
+          }
+          git diff --check
+
+      - name: Run complete seventy-eight-witness qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-audition-operation-plan-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-audition-operation-plan-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_audition_operation_plan_01.py"
+          VERIFY="$ROOT/verify_axm_head_browser_audition_operation_plan_01.py"
+          BOOT="$ROOT/verify_axm_head_browser_audition_operation_plan_01_bootstrap.py"
+          TESTS="$ROOT/conformance/test_axm_head_browser_audition_operation_plan_01.py"
+          RECEIPTS="$RUNNER_TEMP/receipts"
+          OUTPUT="$RUNNER_TEMP/extension"
+          mkdir -p "$RECEIPTS"
+
+          python -m py_compile "$TOOL" "$VERIFY" "$BOOT" "$TESTS"
+          node --check "$ROOT/browser_audition_operation_plan_contract.js"
+          node --check "$ROOT/browser_audition_operation_plan_panel.js"
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPTS/profile.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPTS/fixtures.json"
+          python "$TOOL" campaign "$PROFILE" "$GITHUB_WORKSPACE" "$FIXTURES" > "$RECEIPTS/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" > "$RECEIPTS/source-set.json"
+          python -m unittest discover \
+            -s "$ROOT/conformance" \
+            -p 'test_axm_head_browser_audition_operation_plan_01.py' \
+            -v 2>&1 | tee "$RECEIPTS/tests.txt"
+          grep -F "Ran $WITNESS_DENOMINATOR tests" "$RECEIPTS/tests.txt"
+          grep -Fx 'OK' "$RECEIPTS/tests.txt"
+          python "$TOOL" build-extension "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/build.json"
+          cmp "$RECEIPTS/build.json" "$OUTPUT/build-manifest.json"
+          python "$VERIFY" "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/direct.json"
+          python "$BOOT" "$VERIFY" "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/bootstrap.json"
+
+          python - "$RECEIPTS" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          campaign = json.loads((root / "campaign.json").read_text(encoding="utf-8"))
+          source = json.loads((root / "source-set.json").read_text(encoding="utf-8"))
+          build = json.loads((root / "build.json").read_text(encoding="utf-8"))
+          direct = json.loads((root / "direct.json").read_text(encoding="utf-8"))
+          bootstrap = json.loads((root / "bootstrap.json").read_text(encoding="utf-8"))
+          if campaign.get("status") != "PASS" or campaign.get("caseCount") != 24:
+              raise SystemExit(campaign)
+          if campaign.get("outcomeCounts") != {"PASS": 3, "REFUSED": 21}:
+              raise SystemExit(campaign)
+          if source.get("sourceMemberCount") != 13:
+              raise SystemExit(source)
+          if build.get("sourceBindingId") != source.get("sourceBindingId"):
+              raise SystemExit(build)
+          if direct.get("status") != "PASS" or direct.get("sourceBindingId") != source.get("sourceBindingId") or direct.get("extensionId") != build.get("extensionId"):
+              raise SystemExit(direct)
+          required = {"post-invocation-inspection-stop", "failed-open-session-release", "probe-refusal-state-stop"}
+          if not required.issubset(set(direct.get("checks", []))):
+              raise SystemExit(direct)
+          if direct.get("operationPlanExecuted") is not False or direct.get("actualSupplierQualified") is not False or direct.get("physicalEstateQualified") is not False:
+              raise SystemExit(direct)
+          if bootstrap.get("status") != "PASS" or bootstrap.get("bootstrapAuthenticated") is not True:
+              raise SystemExit(bootstrap)
+          if bootstrap.get("sourceBindingId") != source.get("sourceBindingId") or bootstrap.get("extensionId") != build.get("extensionId"):
+              raise SystemExit(bootstrap)
+          if bootstrap.get("operationPlanExecuted") is not False:
+              raise SystemExit(bootstrap)
+          print(json.dumps({
+              "status": "PASS",
+              "witnesses": 78,
+              "sourceBindingId": source["sourceBindingId"],
+              "extensionId": build["extensionId"],
+          }, sort_keys=True))
+          PY
+          find "$ROOT" -type d -name __pycache__ -prune -exec rm -rf {} +
+          git diff --check
+
+      - name: Freeze exact qualified tree and upload its objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            '.github/workflows/axm-head-browser-audition-operation-plan-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md'
+            'mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/browser_audition_operation_plan_panel.js'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py'
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          mapfile -t observed < <(git status --porcelain=v1 --untracked-files=all | sed -E 's/^...//' | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]] || {
+            echo "pre-commit denominator differs" >&2
+            exit 2
+          }
+          git add -- "${expected[@]}"
+          mapfile -t staged < <(git diff --cached --name-only | LC_ALL=C sort)
+          [[ "${staged[*]}" == "${wanted[*]}" ]] || {
+            echo "staged denominator differs" >&2
+            exit 2
+          }
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Inspect the probe after each operation-plan invocation'
+          echo "QUALIFIED_HEAD=$(git rev-parse HEAD)"
+          echo "QUALIFIED_TREE=$(git rev-parse 'HEAD^{tree}')"
+          cat "$RUNNER_TEMP/receipts/source-set.json"
+          cat "$RUNNER_TEMP/receipts/build.json"
+
+          set +e
+          push_output="$(git push \
+            --force-with-lease="refs/heads/$PRODUCT_BRANCH:$PRODUCT_HEAD" \
+            origin \
+            "HEAD:refs/heads/$PRODUCT_BRANCH" 2>&1)"
+          push_status=$?
+          set -e
+          printf '%s\n' "$push_output"
+          if [[ "$push_status" -eq 0 ]]; then
+            echo "QUALIFIED_REF_PUBLISHED=true"
+          elif grep -Fq 'refusing to allow' <<<"$push_output" && grep -Fq 'workflow' <<<"$push_output"; then
+            echo "QUALIFIED_REF_PUBLISHED=false"
+            echo "QUALIFIED_OBJECTS_UPLOADED_FOR_AUTHENTICATED_REF_UPDATE=true"
+          else
+            echo "unexpected push failure" >&2
+            exit "$push_status"
+          fi
