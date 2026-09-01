@@ -19,6 +19,23 @@ mission authority:    none
 
 The evidence tier is `public-demo-plus-public-lineage-source`. It binds the public product surface, the author-controlled demonstration claims, and the predecessor `Nehanth/llm_p2p` lineage at commit `848db64eb05f15851ec03ba4a77e4e1184987ddd`. It does not establish current availability, executable adapter bytes, formation capacity, topology, privacy behavior, drop behavior, output equivalence, performance, or Estate admission.
 
+## Hosted qualification correction
+
+PR #91 admitted this seven-member semantic object at merge commit `8d18d2c4b6df505751574f219c8c8dd69877a6df`. Its permanent workflow created a coordinate table and then invoked `while read` without connecting that table to the loop. As a result, the loop read no coordinate rows. The reported Ubuntu and Windows successes did not compile the source, run the witness denominator, execute the twelve-case campaign, reconstruct the public floor, or compare the exact pull-request head with GitHub's synthesized merge coordinate.
+
+The semantic admission remains intact because the defect is confined to its qualification carrier. The hosted qualification claim is withdrawn until the repaired workflow executes against the exact head and merge coordinates on both platforms. This repair replaces the input-dependent loop with an explicit operating-system and coordinate matrix, materializes all seven authoritative members from exact Git blobs, requires one executed coordinate verdict from every instantiated job, and closes through a separate cross-coordinate comparison job. A missing job, empty test run, absent campaign, divergent product byte set, or absent `qualificationExecuted: true` receipt now refuses the workflow.
+
+The four semantic members remain byte-identical through this repair:
+
+```text
+profile:   3ae68329a288b1cbc5fef62d648ea3d301a8f7e9
+runtime:   97231a83c6e41c8da2f65735e940e1a6a5096c4b
+cases:     a03941698d4808f9182fe5f157e5a4392fe479a2
+suppliers: 79b532aa2e6ee063d62108dcdbc90e1ae7ce4d88
+```
+
+The evidence tier for this correction is admitted-source inspection plus hosted-job timing and permanent hostile witnesses. The venue is PR #91, merge commit `8d18d2c4b6df505751574f219c8c8dd69877a6df`, and the replacement workflow. The target is the false-positive hosted qualification path. The upside is an executed, cross-platform, exact-coordinate receipt. The downside is one additional admission transaction. The failure mode is a fail-closed workflow refusal without changing the commodity interface, supplier ledger, physical Estate, or authority.
+
 ## Commodity mechanism
 
 A work unit may request distributed model inference through capabilities, model capacity, privacy, validation, performance, wall-time, and authority requirements. It cannot name SwarmLLM or any other supplier. Supplier identity exists only beneath a replaceable adapter implementing `axm/distributed-model-inference@1`.
@@ -57,7 +74,7 @@ HOLD:                4
 
 The campaign proves synthetic adapter conformance, public-row planning, independent-route no-pooling, measured composite formation admission, member-loss invalidation, forged-capacity refusal, supplier substitution, work-unit supplier-pin refusal, duplicate-seat refusal, public-claim-promotion refusal, local-route preference, and local fallback after distributed-route removal.
 
-The public floor projection therefore contains exactly one supplier row for Nehanth Narendrula and SwarmLLM while preserving the distinction between inventory placement and operational qualification.
+The public floor projection therefore contains exactly one supplier row for Nehanth Narendrula and SwarmLLM while preserving the distinction between inventory placement and operational qualification. The public SwarmLLM row remains a qualification plan throughout the workflow repair.
 
 ## Claim boundary
 

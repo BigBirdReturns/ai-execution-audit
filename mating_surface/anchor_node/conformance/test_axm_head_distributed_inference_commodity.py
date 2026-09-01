@@ -17,6 +17,18 @@ PROFILE = ROOT / "axm-head-distributed-inference-commodity-profile-01.json"
 SUPPLIERS = ROOT / "fixtures" / "axm-head-distributed-inference-suppliers-01.json"
 FIXTURES = ROOT / "fixtures" / "axm-head-distributed-inference-commodity-cases-01.json"
 TOOL = ROOT / "axm_head_distributed_inference_commodity.py"
+REPO = ROOT.parent.parent
+WORKFLOW = REPO / ".github" / "workflows" / "axm-head-distributed-inference-commodity-01.yml"
+DOCUMENT = ROOT / "AXM-HEAD-DISTRIBUTED-INFERENCE-COMMODITY-01.md"
+PRODUCT_PATHS = (
+    ".github/workflows/axm-head-distributed-inference-commodity-01.yml",
+    "mating_surface/anchor_node/AXM-HEAD-DISTRIBUTED-INFERENCE-COMMODITY-01.md",
+    "mating_surface/anchor_node/axm-head-distributed-inference-commodity-profile-01.json",
+    "mating_surface/anchor_node/axm_head_distributed_inference_commodity.py",
+    "mating_surface/anchor_node/conformance/test_axm_head_distributed_inference_commodity.py",
+    "mating_surface/anchor_node/fixtures/axm-head-distributed-inference-commodity-cases-01.json",
+    "mating_surface/anchor_node/fixtures/axm-head-distributed-inference-suppliers-01.json",
+)
 
 
 class CommodityTests(unittest.TestCase):
@@ -138,6 +150,79 @@ class CommodityTests(unittest.TestCase):
                 self.suppliers,
             )
         self.assertEqual(context.exception.code, "CASE_DENOMINATOR_INVALID")
+
+
+class WorkflowQualificationTests(unittest.TestCase):
+    @staticmethod
+    def workflow() -> str:
+        return WORKFLOW.read_text(encoding="utf-8")
+
+    def test_workflow_uses_explicit_coordinate_matrix_without_stdin_loop(self) -> None:
+        workflow = self.workflow()
+        self.assertIn(
+            "coordinate: ${{ fromJSON(github.event_name == 'pull_request' && '[\"head\",\"merge\"]' || '[\"source\"]') }}",
+            workflow,
+        )
+        self.assertIn("matrix.coordinate", workflow)
+        self.assertNotIn("while IFS=", workflow)
+        self.assertNotIn("COORDINATES=", workflow)
+        self.assertNotIn("done <", workflow)
+
+    def test_workflow_materializes_all_seven_members_from_exact_git_blobs(self) -> None:
+        workflow = self.workflow()
+        self.assertIn('subprocess.check_output(["git", "cat-file", "blob"', workflow)
+        self.assertIn("materialized {len(product_paths)} exact product members", workflow)
+        for relative in PRODUCT_PATHS:
+            with self.subTest(relative=relative):
+                self.assertGreaterEqual(workflow.count(f'"{relative}"'), 3)
+
+    def test_workflow_cannot_report_pass_without_executed_coordinate_verdict(self) -> None:
+        workflow = self.workflow()
+        self.assertIn('"qualificationExecuted": True', workflow)
+        self.assertIn('row.get("qualificationExecuted") is not True', workflow)
+        self.assertIn("a coordinate reported PASS without executed qualification", workflow)
+        self.assertIn("coordinate-verdict.json", workflow)
+        self.assertIn("source-identity.json", workflow)
+
+    def test_workflow_uploads_every_job_and_requires_cross_coordinate_comparison(self) -> None:
+        workflow = self.workflow()
+        self.assertIn("compare:\n    needs: qualify", workflow)
+        self.assertIn("actions/upload-artifact@v4", workflow)
+        self.assertIn("actions/download-artifact@v4", workflow)
+        self.assertIn("expected_jobs = 2 * len(expected_coordinates)", workflow)
+        self.assertIn('("head", "merge") if os.environ["EVENT_NAME"] == "pull_request" else ("source",)', workflow)
+        self.assertIn("qualificationExecutedEverywhere", workflow)
+        self.assertIn("cross-coordinate-verdict.json", workflow)
+
+    def test_workflow_hygiene_is_read_only_and_detectors_do_not_match_themselves(self) -> None:
+        workflow = self.workflow()
+        self.assertIn("permissions:\n  contents: read\n", workflow)
+        self.assertNotIn("contents: write", workflow)
+        self.assertNotIn("git push origin", workflow)
+        self.assertNotIn("pull_request_target", workflow)
+        self.assertNotIn(r"\b(?:requests|urllib3|aiohttp|httpx)\b", workflow)
+        self.assertIn('"requ" + "ests"', workflow)
+        self.assertIn('"contents" + ": write"', workflow)
+        self.assertIn('"pull_request" + "_target"', workflow)
+
+    def test_workflow_freezes_closed_witness_and_campaign_denominators(self) -> None:
+        workflow = self.workflow()
+        self.assertIn('grep -F "Ran 15 tests"', workflow)
+        self.assertIn('int(match.group(1)) != 15', workflow)
+        self.assertIn('"unitWitnesses": 15', workflow)
+        self.assertIn('"campaignCases": 12', workflow)
+        self.assertIn('"HOLD": 4', workflow)
+        self.assertIn('"QUALIFICATION_PLAN": 3', workflow)
+        self.assertIn('"QUALIFIED_ASSEMBLY": 5', workflow)
+
+    def test_document_records_the_noop_repair_without_promoting_swarmllm(self) -> None:
+        document = DOCUMENT.read_text(encoding="utf-8")
+        self.assertIn("PR #91", document)
+        self.assertIn("8d18d2c4b6df505751574f219c8c8dd69877a6df", document)
+        self.assertIn("the loop read no coordinate rows", document)
+        self.assertIn("hosted qualification claim is withdrawn", document)
+        self.assertIn("actual qualification: false", document)
+        self.assertIn("public SwarmLLM row remains", document)
 
 
 if __name__ == "__main__":
