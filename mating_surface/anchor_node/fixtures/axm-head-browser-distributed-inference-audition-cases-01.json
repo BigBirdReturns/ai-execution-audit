@@ -1,0 +1,979 @@
+{
+  "baseCaptures": {
+    "complete": {
+      "adapter": {
+        "artifactBytes": 184320,
+        "artifactDigest": "sha256:2de1f3a1752dc35308e48cde8ee2e146620d022fa0974ffbd4acf078bcb665f0",
+        "evidenceRef": "sha256:6cd9534bd5f8038c2da2c9275915f5b9d10c11267c272559709f95eeb43f0815",
+        "executableObserved": true
+      },
+      "availability": {
+        "evidenceRef": "sha256:f95dac581e9b439c58abf51a6c8c091f8e0aac8c0fb06f0cbca10fc8ac361330",
+        "observed": true,
+        "observedAtUnixMs": 1788220800000
+      },
+      "controlEvidenceRef": "sha256:8507bbb97ae3825939201f1e3366e973e0648a688aebb7a593af67eb5e722981",
+      "drop": {
+        "controlled": true,
+        "evidenceRef": "sha256:d90ee9ccf6bea1d2942a7b21319338198dec2a746f8a0d0771621f00da2e0864",
+        "memberIdHash": "sha256:5f70406e08a67d9cd2372a86c48db0f02148edb28e4b8a5cc5d4b33d86dd9f20",
+        "observedTerminal": "HALTED",
+        "recovered": false
+      },
+      "equivalence": {
+        "candidateDigest": "sha256:e0ee8bb50685e05fa0f47ed04203ae953fdfd055f5bd2892ea186504254f8c3a",
+        "evidenceRef": "sha256:37cc5a760623d925b4b4c503307dd13207f4cca54d7c7c2d3fde46835ad03625",
+        "match": true,
+        "outputTokenCount": 4,
+        "promptTokenCount": 12,
+        "referenceDigest": "sha256:e0ee8bb50685e05fa0f47ed04203ae953fdfd055f5bd2892ea186504254f8c3a"
+      },
+      "formation": {
+        "artifactBound": true,
+        "capacityBasis": "artifact-bound-shards",
+        "capacityReceiptRef": "sha256:ec21b3b973a3a0e7050392031862848f7a19272ca8a820aed64c56d1d26e8db1",
+        "members": [
+          {
+            "memberIdHash": "sha256:5dd88ac3f5e59673a28f969b04cb72ab2f96a27663f32f72edf586e037100b3c",
+            "physicallyUnique": true,
+            "pledgedBytes": 8000000000,
+            "role": "pipeline-input"
+          },
+          {
+            "memberIdHash": "sha256:5f70406e08a67d9cd2372a86c48db0f02148edb28e4b8a5cc5d4b33d86dd9f20",
+            "physicallyUnique": true,
+            "pledgedBytes": 8000000000,
+            "role": "pipeline-output"
+          }
+        ],
+        "modelCapacityBytes": 15000000000,
+        "partitionMode": "pipeline-layer",
+        "topologyReceiptRef": "sha256:e6e2b826e31fca5c36125c48f130dcb6f961e698ff8a8776a1f290cf0892e8e6"
+      },
+      "instrumentation": {
+        "applicationStartMonotonicMs": 1,
+        "installedAtMonotonicMs": 0,
+        "installedBeforeApplication": true,
+        "probeSha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e"
+      },
+      "limits": {
+        "encodedBytes": 6164,
+        "events": 34
+      },
+      "model": {
+        "artifactTotalBytes": 15000000000,
+        "boundModelId": "model:synthetic-27b-q4@fixture",
+        "claimedId": "model:synthetic-27b-q4@fixture",
+        "layers": [
+          {
+            "artifactBytes": 7500000000,
+            "artifactDigest": "sha256:b3686de2c7f0ce94ff1fad0f40f7e40360e54a615d5dbeabc71931e203ca123e",
+            "layerEnd": 31,
+            "layerStart": 0,
+            "memberIdHash": "sha256:5dd88ac3f5e59673a28f969b04cb72ab2f96a27663f32f72edf586e037100b3c"
+          },
+          {
+            "artifactBytes": 7500000000,
+            "artifactDigest": "sha256:2a4654f125c21770ba3329a6ef45475d1a6d22be3926fe6c78bb185ebc3981ec",
+            "layerEnd": 63,
+            "layerStart": 32,
+            "memberIdHash": "sha256:5f70406e08a67d9cd2372a86c48db0f02148edb28e4b8a5cc5d4b33d86dd9f20"
+          }
+        ],
+        "observedManifestDigest": "sha256:05b3abf2579a5eb66403cd78be557fd860633a1fe2103c7642030defe32c657f"
+      },
+      "performance": {
+        "firstTokenMonotonicMs": 500,
+        "lastTokenMonotonicMs": 1700,
+        "outputTokenCount": 4,
+        "promptTokenCount": 12,
+        "startMonotonicMs": 100,
+        "tokenMarks": [
+          {
+            "index": 0,
+            "monotonicMs": 500
+          },
+          {
+            "index": 1,
+            "monotonicMs": 900
+          },
+          {
+            "index": 2,
+            "monotonicMs": 1300
+          },
+          {
+            "index": 3,
+            "monotonicMs": 1700
+          }
+        ]
+      },
+      "privacy": {
+        "claimsEndToEndConfidentiality": false,
+        "declarationPresent": true,
+        "evidenceRef": "sha256:a4cc6bc01a927e2a78fd3bec51e865ac0d85e4daab6f988d5d33d056e125b1c3",
+        "scope": "browser-observed-network-surface-only"
+      },
+      "proposedPublicProjection": {},
+      "rawEvidenceRef": "sha256:7b1d61fe4e4713fd782b304847a19b90b93400fb301ed304e8700fb290cd8bdf",
+      "receiptRefs": {
+        "current-availability-observation": "sha256:9b9eb86823d4535f2228ba554694aaaea4691766c64c651a7547e477476dbebb",
+        "executable-adapter-artifact": "sha256:367056aeef208b72c878ec2c9ae217ae9935edcb3ce0e664f19a53732dcaa93e",
+        "formation-capacity-receipt": "sha256:04087c95e8850eb7c871928e291dfca96dcd03bad929bb21232bba866b2c32c5",
+        "formation-topology-receipt": "sha256:2c7ffd09fbe89cea391d54deaed37ef4bf2e9baad17e4c3be86a0120d2f22322",
+        "member-drop-behavior-receipt": "sha256:d78416233b5ab87e1d8c6025d28508074c679bfbfb284ab6bf9f4db7b81dc26a",
+        "model-output-equivalence-receipt": "sha256:b6c3104306bde7732db3dad023a0e86582543e977b3e9340c19f94da6b6378df",
+        "network-exposure-observation": "sha256:9682dc4159a5525671b6db80b857bd80ab98922de5fd282cc93dc5f71a9df3b0",
+        "performance-receipt": "sha256:36d96e871d14a0bbe4897ecb5d590c2ddd1554327710e57390efd6c430bb4b91",
+        "privacy-declaration": "sha256:96d181e1e513ce79e34d7240bfe496333e5b368276ac8cdba63ee907da9560b9"
+      },
+      "schema": "axm-head/browser-distributed-inference-capture@1",
+      "sourceKind": "synthetic-live-capture",
+      "storedReceiptDigest": "sha256:7f9c2d71d2b1f25872d1a31b83efb6ac412266e1c818f2fdb0835211c0ab2b00",
+      "supplierAdmissionReceipt": null,
+      "supplierObservationRef": null,
+      "syntheticConformanceOnly": true,
+      "transport": {
+        "activationChannels": [
+          {
+            "bytesReceived": 917504,
+            "bytesSent": 921600,
+            "channelIdHash": "sha256:a186725d6569a04fa482a4cc84867e3930a4eb6ae2d9529b272203b83a5199d6",
+            "maxPacketLifeTime": null,
+            "maxRetransmits": null,
+            "ordered": true
+          }
+        ],
+        "peerConnectionCount": 1,
+        "selectedCandidatePairClass": "host",
+        "selectedCandidatePairObserved": true,
+        "signalingEndpointHashes": [
+          "sha256:51125f4a46e29e185168c6a169a9015a2faee400328e6ca6d1ed2b2f2253c2bd"
+        ]
+      },
+      "workUnit": {
+        "authorityClass": "compute-only",
+        "requiredCapabilities": [
+          "distributed-model-inference",
+          "structured-output"
+        ],
+        "requiredInterface": "axm/distributed-model-inference@1",
+        "requiredValidatorRefs": [
+          "validator:formation-capacity@1",
+          "validator:model-output-equivalence@1"
+        ],
+        "supplierRef": null
+      }
+    },
+    "prepared": {
+      "adapter": {
+        "artifactBytes": 0,
+        "artifactDigest": null,
+        "evidenceRef": null,
+        "executableObserved": false
+      },
+      "availability": {
+        "evidenceRef": null,
+        "observed": false,
+        "observedAtUnixMs": null
+      },
+      "controlEvidenceRef": null,
+      "drop": {
+        "controlled": false,
+        "evidenceRef": null,
+        "memberIdHash": null,
+        "observedTerminal": null,
+        "recovered": false
+      },
+      "equivalence": {
+        "candidateDigest": null,
+        "evidenceRef": null,
+        "match": false,
+        "outputTokenCount": 0,
+        "promptTokenCount": 0,
+        "referenceDigest": null
+      },
+      "formation": {
+        "artifactBound": false,
+        "capacityBasis": "not-observed",
+        "capacityReceiptRef": null,
+        "members": [],
+        "modelCapacityBytes": 0,
+        "partitionMode": "pipeline-layer",
+        "topologyReceiptRef": null
+      },
+      "instrumentation": {
+        "applicationStartMonotonicMs": 1,
+        "installedAtMonotonicMs": 0,
+        "installedBeforeApplication": true,
+        "probeSha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e"
+      },
+      "limits": {
+        "encodedBytes": 78000,
+        "events": 220
+      },
+      "model": {
+        "artifactTotalBytes": 0,
+        "boundModelId": null,
+        "claimedId": null,
+        "layers": [],
+        "observedManifestDigest": null
+      },
+      "performance": {
+        "firstTokenMonotonicMs": null,
+        "lastTokenMonotonicMs": null,
+        "outputTokenCount": 0,
+        "promptTokenCount": 0,
+        "startMonotonicMs": null,
+        "tokenMarks": []
+      },
+      "privacy": {
+        "claimsEndToEndConfidentiality": false,
+        "declarationPresent": false,
+        "evidenceRef": null,
+        "scope": "not-declared"
+      },
+      "proposedPublicProjection": {},
+      "rawEvidenceRef": null,
+      "receiptRefs": {},
+      "schema": "axm-head/browser-distributed-inference-capture@1",
+      "sourceKind": "public-observation-only",
+      "storedReceiptDigest": "sha256:1d3f1d3d3d12ef2d4c1a83519e5d3a36b27485255120ba31bb19853738f77c9f",
+      "supplierAdmissionReceipt": null,
+      "supplierObservationRef": "supplier:swarmllm@public-observation-2026-08-31",
+      "syntheticConformanceOnly": false,
+      "transport": {
+        "activationChannels": [],
+        "peerConnectionCount": 0,
+        "selectedCandidatePairClass": null,
+        "selectedCandidatePairObserved": false,
+        "signalingEndpointHashes": []
+      },
+      "workUnit": {
+        "authorityClass": "compute-only",
+        "requiredCapabilities": [
+          "distributed-model-inference",
+          "structured-output"
+        ],
+        "requiredInterface": "axm/distributed-model-inference@1",
+        "requiredValidatorRefs": [
+          "validator:formation-capacity@1",
+          "validator:model-output-equivalence@1"
+        ],
+        "supplierRef": null
+      }
+    }
+  },
+  "cases": [
+    {
+      "baseCapture": "complete",
+      "caseId": "observed-complete-synthetic-route",
+      "expectedReasonCodes": [],
+      "expectedTerminal": "OBSERVED_ROUTE_CANDIDATE",
+      "mutations": [],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "prepared",
+      "caseId": "prepared-public-observation-only",
+      "expectedReasonCodes": [
+        "PHYSICAL_AUDITION_NOT_EXECUTED"
+      ],
+      "expectedTerminal": "PREPARED_FOR_PHYSICAL_AUDITION",
+      "mutations": [],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-instrumentation-installed-late",
+      "expectedReasonCodes": [
+        "INSTRUMENTATION_LATE"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "instrumentation",
+            "installedBeforeApplication"
+          ],
+          "value": false
+        },
+        {
+          "path": [
+            "instrumentation",
+            "installedAtMonotonicMs"
+          ],
+          "value": 2
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-ui-only-capacity",
+      "expectedReasonCodes": [
+        "UI_ONLY_CAPACITY",
+        "ARTIFACT_BINDING_MISSING"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "formation",
+            "capacityBasis"
+          ],
+          "value": "ui-display"
+        },
+        {
+          "path": [
+            "formation",
+            "artifactBound"
+          ],
+          "value": false
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-duplicate-member",
+      "expectedReasonCodes": [
+        "FORMATION_MEMBER_DUPLICATE"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "formation",
+            "members",
+            1,
+            "memberIdHash"
+          ],
+          "value": "sha256:5dd88ac3f5e59673a28f969b04cb72ab2f96a27663f32f72edf586e037100b3c"
+        },
+        {
+          "path": [
+            "model",
+            "layers",
+            1,
+            "memberIdHash"
+          ],
+          "value": "sha256:5dd88ac3f5e59673a28f969b04cb72ab2f96a27663f32f72edf586e037100b3c"
+        },
+        {
+          "path": [
+            "drop",
+            "memberIdHash"
+          ],
+          "value": "sha256:5dd88ac3f5e59673a28f969b04cb72ab2f96a27663f32f72edf586e037100b3c"
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-selected-candidate-pair-missing",
+      "expectedReasonCodes": [
+        "SELECTED_CANDIDATE_PAIR_MISSING"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "transport",
+            "selectedCandidatePairObserved"
+          ],
+          "value": false
+        },
+        {
+          "path": [
+            "transport",
+            "selectedCandidatePairClass"
+          ],
+          "value": null
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-unreliable-activation-channel",
+      "expectedReasonCodes": [
+        "ACTIVATION_CHANNEL_NOT_ORDERED_RELIABLE"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "transport",
+            "activationChannels",
+            0,
+            "ordered"
+          ],
+          "value": false
+        },
+        {
+          "path": [
+            "transport",
+            "activationChannels",
+            0,
+            "maxRetransmits"
+          ],
+          "value": 0
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-model-identity-mismatch",
+      "expectedReasonCodes": [
+        "MODEL_IDENTITY_MISMATCH"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "model",
+            "claimedId"
+          ],
+          "value": "model:different@fixture"
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-performance-denominator-incomplete",
+      "expectedReasonCodes": [
+        "PERFORMANCE_DENOMINATOR_INCOMPLETE"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "performance",
+            "tokenMarks"
+          ],
+          "value": [
+            {
+              "index": 0,
+              "monotonicMs": 500
+            },
+            {
+              "index": 1,
+              "monotonicMs": 900
+            },
+            {
+              "index": 2,
+              "monotonicMs": 1300
+            }
+          ]
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-drop-terminal-missing",
+      "expectedReasonCodes": [
+        "DROP_TERMINAL_MISSING"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "drop",
+            "controlled"
+          ],
+          "value": false
+        },
+        {
+          "path": [
+            "drop",
+            "observedTerminal"
+          ],
+          "value": null
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-public-projection-leak",
+      "expectedReasonCodes": [
+        "PUBLIC_PROJECTION_LEAK"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "proposedPublicProjection"
+          ],
+          "value": {
+            "promptText": "private synthetic prompt"
+          }
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-privacy-overclaim",
+      "expectedReasonCodes": [
+        "PRIVACY_CLAIM_EXCEEDS_OBSERVER"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "privacy",
+            "claimsEndToEndConfidentiality"
+          ],
+          "value": true
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-supplier-pinned-work-unit",
+      "expectedReasonCodes": [
+        "TASK_SUPPLIER_PINNED"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "workUnit",
+            "supplierRef"
+          ],
+          "value": "supplier:swarmllm@public-observation-2026-08-31"
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-capture-ceiling-exceeded",
+      "expectedReasonCodes": [
+        "CAPTURE_EVENT_CEILING_EXCEEDED"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "limits",
+            "events"
+          ],
+          "value": 4097
+        }
+      ],
+      "rebuildStoredReceipt": true
+    },
+    {
+      "baseCapture": "complete",
+      "caseId": "hold-stored-receipt-forgery",
+      "expectedReasonCodes": [
+        "STORED_RECEIPT_MISMATCH"
+      ],
+      "expectedTerminal": "HOLD",
+      "mutations": [
+        {
+          "path": [
+            "storedReceiptDigest"
+          ],
+          "value": "sha256:06f6deb0e4f6d1e3be4e789e73fbd514bf4673651a1460a2601e8022669fcb22"
+        }
+      ],
+      "rebuildStoredReceipt": false
+    }
+  ],
+  "materializationFixture": {
+    "control": {
+      "applicationStartMonotonicMs": 1,
+      "memberUniquenessAssertions": [
+        {
+          "evidenceRef": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "physicallyUnique": true,
+          "probeMemberId": "opaque:11111111111111111111111111111111"
+        },
+        {
+          "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "physicallyUnique": true,
+          "probeMemberId": "opaque:22222222222222222222222222222222"
+        }
+      ],
+      "probeSha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e",
+      "proposedPublicProjection": {},
+      "schema": "axm-head/browser-distributed-inference-audition-control@1",
+      "sourceKind": "synthetic-live-capture",
+      "supplierAdmissionReceipt": null,
+      "supplierObservationRef": null,
+      "syntheticConformanceOnly": true,
+      "workUnit": {
+        "authorityClass": "compute-only",
+        "requiredCapabilities": [
+          "distributed-model-inference",
+          "structured-output"
+        ],
+        "requiredInterface": "axm/distributed-model-inference@1",
+        "requiredValidatorRefs": [
+          "validator:formation-capacity@1",
+          "validator:model-output-equivalence@1"
+        ],
+        "supplierRef": null
+      }
+    },
+    "expectedReceipt": {
+      "actualSupplierQualified": false,
+      "commandAuthority": "none",
+      "controlDigest": "sha256:8507bbb97ae3825939201f1e3366e973e0648a688aebb7a593af67eb5e722981",
+      "executionOccurred": false,
+      "missionAuthority": "none",
+      "normalizedCaptureDigest": "sha256:65a1050337c2595c72235daaeadec53fbd8a866a85fcef4f63a70c13d36c4f9b",
+      "physicalEstateQualified": false,
+      "probeSha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e",
+      "rawCaptureDigest": "sha256:7b1d61fe4e4713fd782b304847a19b90b93400fb301ed304e8700fb290cd8bdf",
+      "rawEventCount": 34,
+      "rawEventsReconstructed": true,
+      "schema": "axm-head/browser-distributed-inference-audition-materialization@1",
+      "status": "PASS"
+    },
+    "raw": {
+      "events": [
+        {
+          "installedBeforeApplication": true,
+          "monotonicMs": 0,
+          "type": "probe-installed"
+        },
+        {
+          "available": true,
+          "elapsedMs": 0.1,
+          "forceFallbackAdapter": false,
+          "monotonicMs": 0.1,
+          "powerPreference": "high-performance",
+          "type": "webgpu-adapter"
+        },
+        {
+          "elapsedMs": 0.1,
+          "monotonicMs": 0.2,
+          "requiredFeatureCount": 0,
+          "requiredLimitCount": 0,
+          "type": "webgpu-device"
+        },
+        {
+          "evidenceRef": "sha256:f95dac581e9b439c58abf51a6c8c091f8e0aac8c0fb06f0cbca10fc8ac361330",
+          "monotonicMs": 0.3,
+          "observed": true,
+          "observedAtUnixMs": 1788220800000,
+          "type": "availability-observation"
+        },
+        {
+          "artifactBytes": 184320,
+          "artifactDigest": "sha256:2de1f3a1752dc35308e48cde8ee2e146620d022fa0974ffbd4acf078bcb665f0",
+          "evidenceRef": "sha256:6cd9534bd5f8038c2da2c9275915f5b9d10c11267c272559709f95eeb43f0815",
+          "executableObserved": true,
+          "monotonicMs": 0.4,
+          "type": "adapter-artifact"
+        },
+        {
+          "artifactBound": true,
+          "capacityBasis": "artifact-bound-shards",
+          "capacityReceiptRef": "sha256:ec21b3b973a3a0e7050392031862848f7a19272ca8a820aed64c56d1d26e8db1",
+          "modelCapacityBytes": 15000000000,
+          "monotonicMs": 0.5,
+          "partitionMode": "pipeline-layer",
+          "topologyReceiptRef": "sha256:e6e2b826e31fca5c36125c48f130dcb6f961e698ff8a8776a1f290cf0892e8e6",
+          "type": "formation-declaration"
+        },
+        {
+          "memberIdHash": "opaque:11111111111111111111111111111111",
+          "monotonicMs": 0.6,
+          "pledgedBytes": 8000000000,
+          "role": "pipeline-input",
+          "type": "formation-member"
+        },
+        {
+          "memberIdHash": "opaque:22222222222222222222222222222222",
+          "monotonicMs": 0.7,
+          "pledgedBytes": 8000000000,
+          "role": "pipeline-output",
+          "type": "formation-member"
+        },
+        {
+          "boundModelId": "model:synthetic-27b-q4@fixture",
+          "claimedId": "model:synthetic-27b-q4@fixture",
+          "monotonicMs": 0.8,
+          "observedManifestDigest": "sha256:05b3abf2579a5eb66403cd78be557fd860633a1fe2103c7642030defe32c657f",
+          "type": "model-manifest"
+        },
+        {
+          "artifactBytes": 7500000000,
+          "artifactDigest": "sha256:b3686de2c7f0ce94ff1fad0f40f7e40360e54a615d5dbeabc71931e203ca123e",
+          "artifactIdHash": "opaque:77777777777777777777777777777777",
+          "layerEnd": 31,
+          "layerStart": 0,
+          "memberIdHash": "opaque:11111111111111111111111111111111",
+          "monotonicMs": 0.9,
+          "type": "model-artifact"
+        },
+        {
+          "artifactBytes": 7500000000,
+          "artifactDigest": "sha256:2a4654f125c21770ba3329a6ef45475d1a6d22be3926fe6c78bb185ebc3981ec",
+          "artifactIdHash": "opaque:88888888888888888888888888888888",
+          "layerEnd": 63,
+          "layerStart": 32,
+          "memberIdHash": "opaque:22222222222222222222222222222222",
+          "monotonicMs": 1.0,
+          "type": "model-artifact"
+        },
+        {
+          "bundlePolicy": "balanced",
+          "iceServerCount": 1,
+          "monotonicMs": 1.2,
+          "peerIdHash": "opaque:44444444444444444444444444444444",
+          "rtcpMuxPolicy": "require",
+          "type": "rtc-peer-create"
+        },
+        {
+          "channelIdHash": "opaque:33333333333333333333333333333333",
+          "maxPacketLifeTime": null,
+          "maxRetransmits": null,
+          "monotonicMs": 1.3,
+          "ordered": true,
+          "origin": "local",
+          "protocolHash": "opaque:99999999999999999999999999999999",
+          "type": "rtc-data-channel"
+        },
+        {
+          "bytes": 921600,
+          "channelIdHash": "opaque:33333333333333333333333333333333",
+          "monotonicMs": 1.4,
+          "type": "rtc-data-channel-send"
+        },
+        {
+          "bytes": 917504,
+          "channelIdHash": "opaque:33333333333333333333333333333333",
+          "monotonicMs": 1.5,
+          "type": "rtc-data-channel-receive"
+        },
+        {
+          "endpointHash": "opaque:55555555555555555555555555555555",
+          "monotonicMs": 1.6,
+          "protocolCount": 1,
+          "scheme": "wss",
+          "socketIdHash": "opaque:66666666666666666666666666666666",
+          "type": "websocket-create"
+        },
+        {
+          "monotonicMs": 1.7,
+          "peerIdHash": "opaque:44444444444444444444444444444444",
+          "selectedPair": {
+            "bytesReceived": 917504,
+            "bytesSent": 921600,
+            "currentRoundTripTime": 0.004,
+            "localCandidateType": "host",
+            "protocol": "udp",
+            "remoteCandidateType": "host"
+          },
+          "type": "rtc-stats"
+        },
+        {
+          "monotonicMs": 100,
+          "promptTokenCount": 12,
+          "startMonotonicMs": 100,
+          "type": "performance-start"
+        },
+        {
+          "index": 0,
+          "monotonicMs": 500,
+          "type": "token-mark"
+        },
+        {
+          "index": 1,
+          "monotonicMs": 900,
+          "type": "token-mark"
+        },
+        {
+          "index": 2,
+          "monotonicMs": 1300,
+          "type": "token-mark"
+        },
+        {
+          "index": 3,
+          "monotonicMs": 1700,
+          "type": "token-mark"
+        },
+        {
+          "controlled": true,
+          "evidenceRef": "sha256:d90ee9ccf6bea1d2942a7b21319338198dec2a746f8a0d0771621f00da2e0864",
+          "memberIdHash": "opaque:22222222222222222222222222222222",
+          "monotonicMs": 1701,
+          "observedTerminal": "HALTED",
+          "recovered": false,
+          "type": "member-drop"
+        },
+        {
+          "candidateDigest": "sha256:e0ee8bb50685e05fa0f47ed04203ae953fdfd055f5bd2892ea186504254f8c3a",
+          "evidenceRef": "sha256:37cc5a760623d925b4b4c503307dd13207f4cca54d7c7c2d3fde46835ad03625",
+          "match": true,
+          "monotonicMs": 1702,
+          "outputTokenCount": 4,
+          "promptTokenCount": 12,
+          "referenceDigest": "sha256:e0ee8bb50685e05fa0f47ed04203ae953fdfd055f5bd2892ea186504254f8c3a",
+          "type": "output-equivalence"
+        },
+        {
+          "claimsEndToEndConfidentiality": false,
+          "evidenceRef": "sha256:a4cc6bc01a927e2a78fd3bec51e865ac0d85e4daab6f988d5d33d056e125b1c3",
+          "monotonicMs": 1703,
+          "scope": "browser-observed-network-surface-only",
+          "type": "privacy-declaration"
+        },
+        {
+          "evidenceRef": "sha256:9b9eb86823d4535f2228ba554694aaaea4691766c64c651a7547e477476dbebb",
+          "kind": "current-availability-observation",
+          "monotonicMs": 1704.0,
+          "type": "observation-receipt-ref"
+        },
+        {
+          "evidenceRef": "sha256:367056aeef208b72c878ec2c9ae217ae9935edcb3ce0e664f19a53732dcaa93e",
+          "kind": "executable-adapter-artifact",
+          "monotonicMs": 1704.1,
+          "type": "observation-receipt-ref"
+        },
+        {
+          "evidenceRef": "sha256:04087c95e8850eb7c871928e291dfca96dcd03bad929bb21232bba866b2c32c5",
+          "kind": "formation-capacity-receipt",
+          "monotonicMs": 1704.2,
+          "type": "observation-receipt-ref"
+        },
+        {
+          "evidenceRef": "sha256:2c7ffd09fbe89cea391d54deaed37ef4bf2e9baad17e4c3be86a0120d2f22322",
+          "kind": "formation-topology-receipt",
+          "monotonicMs": 1704.3,
+          "type": "observation-receipt-ref"
+        },
+        {
+          "evidenceRef": "sha256:d78416233b5ab87e1d8c6025d28508074c679bfbfb284ab6bf9f4db7b81dc26a",
+          "kind": "member-drop-behavior-receipt",
+          "monotonicMs": 1704.4,
+          "type": "observation-receipt-ref"
+        },
+        {
+          "evidenceRef": "sha256:b6c3104306bde7732db3dad023a0e86582543e977b3e9340c19f94da6b6378df",
+          "kind": "model-output-equivalence-receipt",
+          "monotonicMs": 1704.5,
+          "type": "observation-receipt-ref"
+        },
+        {
+          "evidenceRef": "sha256:36d96e871d14a0bbe4897ecb5d590c2ddd1554327710e57390efd6c430bb4b91",
+          "kind": "performance-receipt",
+          "monotonicMs": 1704.6,
+          "type": "observation-receipt-ref"
+        },
+        {
+          "evidenceRef": "sha256:9682dc4159a5525671b6db80b857bd80ab98922de5fd282cc93dc5f71a9df3b0",
+          "kind": "network-exposure-observation",
+          "monotonicMs": 1704.7,
+          "type": "observation-receipt-ref"
+        },
+        {
+          "evidenceRef": "sha256:96d181e1e513ce79e34d7240bfe496333e5b368276ac8cdba63ee907da9560b9",
+          "kind": "privacy-declaration",
+          "monotonicMs": 1704.8,
+          "type": "observation-receipt-ref"
+        }
+      ],
+      "installedAtMonotonicMs": 0,
+      "installedBeforeApplication": true,
+      "limits": {
+        "encodedBytes": 1048576,
+        "events": 4096
+      },
+      "observed": {
+        "encodedBytes": 6164,
+        "eventCount": 34
+      },
+      "refused": null,
+      "schema": "axm-head/browser-probe-private-capture@1",
+      "summaries": {
+        "artifactCount": 2,
+        "artifacts": [
+          {
+            "artifactBytes": 7500000000,
+            "artifactDigest": "sha256:b3686de2c7f0ce94ff1fad0f40f7e40360e54a615d5dbeabc71931e203ca123e",
+            "artifactIdHash": "opaque:77777777777777777777777777777777",
+            "layerEnd": 31,
+            "layerStart": 0,
+            "memberIdHash": "opaque:11111111111111111111111111111111"
+          },
+          {
+            "artifactBytes": 7500000000,
+            "artifactDigest": "sha256:2a4654f125c21770ba3329a6ef45475d1a6d22be3926fe6c78bb185ebc3981ec",
+            "artifactIdHash": "opaque:88888888888888888888888888888888",
+            "layerEnd": 63,
+            "layerStart": 32,
+            "memberIdHash": "opaque:22222222222222222222222222222222"
+          }
+        ],
+        "dataChannelCount": 1,
+        "drops": [
+          {
+            "controlled": true,
+            "evidenceRef": "sha256:d90ee9ccf6bea1d2942a7b21319338198dec2a746f8a0d0771621f00da2e0864",
+            "memberIdHash": "opaque:22222222222222222222222222222222",
+            "observedTerminal": "HALTED",
+            "recovered": false
+          }
+        ],
+        "equivalenceMarks": [
+          {
+            "candidateDigest": "sha256:e0ee8bb50685e05fa0f47ed04203ae953fdfd055f5bd2892ea186504254f8c3a",
+            "evidenceRef": "sha256:37cc5a760623d925b4b4c503307dd13207f4cca54d7c7c2d3fde46835ad03625",
+            "match": true,
+            "outputTokenCount": 4,
+            "promptTokenCount": 12,
+            "referenceDigest": "sha256:e0ee8bb50685e05fa0f47ed04203ae953fdfd055f5bd2892ea186504254f8c3a"
+          }
+        ],
+        "memberCount": 2,
+        "members": [
+          {
+            "memberIdHash": "opaque:11111111111111111111111111111111",
+            "pledgedBytes": 8000000000,
+            "role": "pipeline-input"
+          },
+          {
+            "memberIdHash": "opaque:22222222222222222222222222222222",
+            "pledgedBytes": 8000000000,
+            "role": "pipeline-output"
+          }
+        ],
+        "peerConnectionCount": 1,
+        "privacyDeclarations": [
+          {
+            "claimsEndToEndConfidentiality": false,
+            "evidenceRef": "sha256:a4cc6bc01a927e2a78fd3bec51e865ac0d85e4daab6f988d5d33d056e125b1c3",
+            "scope": "browser-observed-network-surface-only"
+          }
+        ],
+        "tokenMarks": [
+          {
+            "index": 0
+          },
+          {
+            "index": 1
+          },
+          {
+            "index": 2
+          },
+          {
+            "index": 3
+          }
+        ]
+      }
+    }
+  },
+  "schema": "axm-head/browser-distributed-inference-audition-fixtures@1"
+}
