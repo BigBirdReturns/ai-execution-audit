@@ -340,6 +340,20 @@
     ],
     "stateSchema": "stc-mary-private-flight-packet-state/1"
   },
+  "postSealClosureContract": {
+    "authority": "none",
+    "mayBeAssertedBeforeSealing": false,
+    "reservedAssertions": [
+      "sealed run present",
+      "public disposition present",
+      "public disposition body-free",
+      "sealed manifest valid",
+      "detached verification PASS",
+      "public evidence bodies 0",
+      "private physical flight complete",
+      "all stronger qualifications false"
+    ]
+  },
   "predecessorPacketProfileId": "stc-mary/private-flight-packet/0.1",
   "predecessorPhysicalProfileId": "spectra-anchor-node/stc-mary-physical-flight/0.1",
   "profileId": "stc-mary/packet-evidence-admission@2",
@@ -381,6 +395,31 @@
     ]
   },
   "schema": "stc-mary/packet-evidence-admission-profile/1",
+  "sealAuthorization": {
+    "deferralReason": "The three named-human statements are supplied before the sixteen stage confirmations exist, because a confirmation must bind a final evidence-admission root that the statements themselves complete. A seal authorization that bound the confirmation identities at statement time would assert the existence of objects that have not been created, which is the same temporal defect this profile removes from stage 16. The pre-seal closure verifies those bindings mechanically at 16/16 instead.",
+    "deferredToPreSealClosure": [
+      "sixteen exact stage-confirmation identities",
+      "bounded batch-confirmation identity when present",
+      "final packet-stage record root"
+    ],
+    "statementTimeBindings": [
+      "campaignId",
+      "successorPacketIdentityClass",
+      "stageSixteenNonHumanEvidenceRoot",
+      "requiredTerminal",
+      "sealPermittedOnlyAfterExactSixteenOfSixteen",
+      "postSealClosureRequired",
+      "authority"
+    ]
+  },
+  "sourceSuccession": {
+    "claimBoundary": "This profile defines evidence-role and pre-seal observation succession for a source-authenticated successor packet. It does not claim direct applicability to the frozen Campaign A packet, whose stage-16 observation contract cannot be satisfied truthfully before sealing. It establishes no packet completion and no physical flight.",
+    "directFrozenPacketApplication": false,
+    "predecessorEvidenceAdmissionProfileId": "stc-mary/packet-evidence-admission@1",
+    "predecessorPacketMutationAllowed": false,
+    "predecessorPacketProfileId": "stc-mary/private-flight-packet/0.1",
+    "successorPacketObservationContractRequired": true
+  },
   "stageRoleSuccession": {
     "deferredToPostSealClosure": [
       "sealed run",
@@ -391,6 +430,7 @@
       "seal preflight receipt",
       "final packet-stage identity root"
     ],
+    "directFrozenPacketApplication": false,
     "divergentStageCount": 1,
     "frozenAdvisoryRoles": [
       "evidence manifest",
@@ -399,7 +439,14 @@
     ],
     "predecessorProfileId": "stc-mary/packet-evidence-admission@1",
     "reason": "The frozen packet profile names 'sealed run' and 'body-free public disposition' as stage-16 required evidence. Those objects do not exist until after sealing, and the frozen sealer refuses to run until all sixteen stages are already recorded. The frozen recorder never enforces those advisory names, so the ordering is satisfiable, but predecessor profile @1 turned them into current-observation roles with predicates runSealedNow and dispositionIsBodyFree and thereby made READY_FOR_NAMED_HUMAN_DECISION unreachable for any real zero-stage packet. This profile replaces exactly those three roles with evidence that is truthful at admission time, when no stage record exists.",
-    "supersededStage": "SEAL_PRIVATE_EVIDENCE"
+    "supersededFrozenObservationFields": [
+      "evidenceDescriptorCount",
+      "publicDispositionBodyFree",
+      "sealedEvidenceClass"
+    ],
+    "supersededObservationReason": "The frozen stage-16 observation contract requires publicDispositionBodyFree to be true. That is an assertion about a public disposition the sealer has not yet created, and the frozen sealer cannot create one until all sixteen stages are already recorded. A stage record carrying it is mechanically acceptable to the frozen recorder and semantically untrue at the moment it is written. Actual disposition body-freedom is reserved exclusively to the post-seal closure contract.",
+    "supersededStage": "SEAL_PRIVATE_EVIDENCE",
+    "targetsSuccessorPacket": true
   },
   "stageSequence": [
     "VERIFY_INPUTS",
@@ -1073,33 +1120,24 @@
           "evidenceRoleKey": "named-human-seal-authorization",
           "provenanceClass": "named_human_statement",
           "requiredPredicates": {
+            "postSealClosureRequired": true,
             "sealAuthorizedByNamedHuman": true,
-            "sealDeferredUntilPacketCloses": true
+            "sealPermittedOnlyAfterExactSixteenOfSixteen": true
           }
         }
       ],
       "observation": {
-        "enumFields": {
-          "sealedEvidenceClass": [
-            "private_physical_attested",
-            "synthetic_simulation"
-          ]
-        },
-        "integerFields": {
-          "evidenceDescriptorCount": [
-            1,
-            1024
-          ]
-        },
         "keys": [
-          "evidenceDescriptorCount",
-          "privateEvidenceBodiesCommittedToGit",
-          "publicDispositionBodyFree",
-          "sealedEvidenceClass"
+          "postSealClosureRequired",
+          "preSealEvidenceManifestComplete",
+          "privateBodiesOutsideGit",
+          "sealAuthorizationBound"
         ],
         "requiredValues": {
-          "privateEvidenceBodiesCommittedToGit": false,
-          "publicDispositionBodyFree": true
+          "postSealClosureRequired": true,
+          "preSealEvidenceManifestComplete": true,
+          "privateBodiesOutsideGit": true,
+          "sealAuthorizationBound": true
         }
       },
       "requiredTerminal": "PASS",

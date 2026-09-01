@@ -136,11 +136,13 @@ sealer refuses to run until all sixteen stages are already recorded:
 ```
 
 The frozen recorder never enforces those advisory names -- it accepts any one to
-sixty-four non-empty files -- so the ordering itself is satisfiable. Predecessor profile
-`stc-mary/packet-evidence-admission@1` nevertheless turned them into
+sixty-four non-empty files -- so the sequence is *mechanically* traversable. Predecessor
+profile `stc-mary/packet-evidence-admission@1` nevertheless turned them into
 `current_local_observation` roles carrying `runSealedNow` and `dispositionIsBodyFree`,
 which made `READY_FOR_NAMED_HUMAN_DECISION` unreachable for any real zero-stage packet:
 it topped out at `HOLD`, 38 of 41 non-human roles, with those three outstanding forever.
+
+That role defect is real and is repaired here. It is **not** the whole defect.
 
 This profile supersedes exactly those three roles with evidence that is truthful at
 **admission time**, when no stage record exists:
@@ -155,8 +157,9 @@ The total evidence denominator stays at 43. The split moves from 41/2 to 40/3, a
 stage 16 joins `BIND_GRACE` and `RESTORE_LINK_HOLD_CONFLICT` as a
 `REQUIRES_HUMAN_STATEMENT` stage.
 
-The frozen stage-16 **observation** contract is untouched. It was always satisfiable
-before sealing and is not ours to move:
+### The frozen observation contract cannot be satisfied truthfully
+
+The frozen stage-16 **observation** contract requires:
 
 ```text
 keys            evidenceDescriptorCount, privateEvidenceBodiesCommittedToGit,
@@ -165,7 +168,37 @@ requiredValues  privateEvidenceBodiesCommittedToGit: false
                 publicDispositionBodyFree: true
 ```
 
-Two objects the frozen profile implies are deferred, not discarded. They belong to later
+`publicDispositionBodyFree: true` is an assertion about a public disposition the sealer
+has not created yet, and cannot create until all sixteen stages are already recorded. A
+stage-16 record carrying it is acceptable to the frozen recorder and **untrue at the
+moment it is written**. Later detached verification proves the eventual disposition is
+body-free; it cannot retroactively make the earlier claim true.
+
+So the frozen packet is mechanically traversable and not truthfully traversable, and this
+profile therefore targets a **source-authenticated successor packet and observation
+contract**. It makes no claim of direct applicability to Campaign A's frozen packet:
+
+```text
+predecessor packet profile            stc-mary/private-flight-packet/0.1
+direct frozen-packet application      false
+successor observation contract        required
+predecessor packet mutation           forbidden
+```
+
+Stage 16's observation contract here carries pre-seal facts only:
+
+```text
+preSealEvidenceManifestComplete: true
+privateBodiesOutsideGit:         true
+sealAuthorizationBound:          true
+postSealClosureRequired:         true
+```
+
+Actual disposition body-freedom is reserved **exclusively** to the post-seal closure
+contract, alongside the sealed run, the sealed manifest, detached verification, the zero
+public-body count, and flight completion. None of them may be asserted before sealing.
+
+Objects the frozen profile implies are deferred, not discarded. They belong to later
 surfaces where they can actually exist:
 
 ```text
@@ -180,11 +213,11 @@ The divergence is declared in the profile under `stageRoleSuccession`, and a wit
 proves it is confined to exactly one stage: the other fifteen still match the frozen
 `requiredEvidence` strings byte for byte.
 
-## The executable ordering witness
+## The diagnostic traversal witness
 
-A final-state fixture can prove schema behaviour. It cannot prove that a real packet can
-traverse the sequence, which is the only question that matters here. So the conformance
-suite drives the **frozen, unpatched** recorder over a throwaway synthetic packet:
+The conformance suite drives the **frozen, unpatched** recorder over a throwaway
+synthetic packet. It establishes exactly one narrow fact and is **not** an admission
+witness:
 
 ```text
 initialize            0 / 16   unconfigured
@@ -196,10 +229,22 @@ detached verify       PASS   15 PASS / 1 HUMAN_REQUIRED
                              body-free, 0 public bodies, authority none
 ```
 
-The witness asserts that no post-seal object was offered to stage 16, that the packet was
-at `16 / 16` and still unsealed before sealing ran, and that detached verification then
-passed. That is the positive answer to the ordering question, produced by execution
-rather than by construction.
+To record stage 16 at all, the driver must satisfy the frozen observation contract, so it
+is forced to assert `publicDispositionBodyFree` about a disposition that does not exist
+yet. The witness reports the keys it was forced to write and carries the boundary
+explicitly:
+
+```text
+mechanicalTraversalPassed            true
+semanticStage16AdmissionPassed       false
+physicalFlightCompletionEstablished  false
+```
+
+It then feeds that same frozen observation to this profile and requires
+`STAGE_OBSERVATION_INVALID`. The traversal proves the frozen sequence is mechanically
+reachable; it proves nothing about truthfulness, and it establishes no packet completion.
+A truthful traverse needs the successor packet and observation contract, which is a
+separate transaction.
 
 ## Reused predecessor receipts
 

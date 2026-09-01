@@ -63,14 +63,17 @@ ENVELOPE_TEMPLATE = {
 
 FROZEN_PACKET_PROFILE = ANCHOR / "stc-mary-private-flight-packet-profile-01.json"
 
-# Executable ordering witness. This drives the FROZEN, UNPATCHED packet recorder over a
-# throwaway synthetic packet, from a configured zero-stage packet to detached-verified
-# sealing, in legal order. It exists because a final-state fixture cannot prove that a
-# real packet can traverse the sequence; it can only prove schema behaviour.
+# DIAGNOSTIC traversal driver. It drives the FROZEN, UNPATCHED packet recorder over a
+# throwaway synthetic packet to establish exactly one narrow fact: that the frozen
+# sequence is MECHANICALLY traversable from a configured zero-stage packet to detached
+# verification.
 #
-# Stage 16 is recorded with evidence that is true BEFORE sealing. No sealed run and no
-# public disposition is offered to it, because neither exists yet. That is the whole
-# point of the repair, and this witness is what proves the ordering is satisfiable.
+# It establishes nothing about truthfulness, and it is not an admission witness. To
+# record stage 16 at all it must satisfy the frozen observation contract, which requires
+# publicDispositionBodyFree: true -- an assertion about a public disposition the sealer
+# has not yet created. That assertion is untrue at the moment it is written, which is
+# precisely why the frozen packet needs a successor observation contract and why this
+# driver reports the keys it was forced to write.
 ORDERING_WITNESS_DRIVER = r"""
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -156,6 +159,7 @@ await writeJson(configPath, config);
 const configured = await packetModule.configurePrivateFlightPacket(packet, configPath);
 
 let postSealObjectOfferedToStageSixteen = false;
+let frozenStageSixteenObservationKeys = [];
 const stageOrder = [];
 
 for (const [index, stage] of STC_MARY_STAGES.entries()) {
@@ -177,6 +181,9 @@ for (const [index, stage] of STC_MARY_STAGES.entries()) {
     }
     await writeJson(join(dir, 'evidence', `${name.replaceAll(' ', '-')}.json`), { stage, sequence, role: name });
   }
+  if (stage === 'SEAL_PRIVATE_EVIDENCE') {
+    frozenStageSixteenObservationKeys = Object.keys(draft.observation).sort();
+  }
   const { state } = await packetModule.recordPrivateFlightStage(packet, stage);
   stageOrder.push({ sequence, stage, completed: state.completedStageCount });
 }
@@ -194,6 +201,7 @@ process.stdout.write(JSON.stringify({
   stageOrder,
   preSealCompletedStageCount: preSeal.completedStageCount,
   preSealSealed: preSeal.sealed,
+  frozenStageSixteenObservationKeys: frozenStageSixteenObservationKeys,
   postSealObjectOfferedToStageSixteen,
   runId: result.run.runId,
   dispositionId: result.disposition.dispositionId,
@@ -925,22 +933,80 @@ class Stage16OrderingWitnesses(AdmissionWitnessCase):
         self.fixture.mutate_request(rename)
         self.assert_refuses("EVIDENCE_ROLE_UNKNOWN")
 
-    def test_frozen_stage_16_observation_contract_is_untouched(self) -> None:
-        """The repair is in the role layer only. The observation law is not ours to move."""
+    def test_stage_16_observation_carries_only_pre_seal_facts(self) -> None:
+        """Nothing stage 16 asserts may depend on an object sealing has not yet created."""
         contract = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]["observation"]
         self.assertEqual(
             sorted(contract["keys"]),
             [
-                "evidenceDescriptorCount",
-                "privateEvidenceBodiesCommittedToGit",
-                "publicDispositionBodyFree",
-                "sealedEvidenceClass",
+                "postSealClosureRequired",
+                "preSealEvidenceManifestComplete",
+                "privateBodiesOutsideGit",
+                "sealAuthorizationBound",
             ],
         )
-        self.assertEqual(
-            contract["requiredValues"],
-            {"privateEvidenceBodiesCommittedToGit": False, "publicDispositionBodyFree": True},
+        self.assertTrue(all(value is True for value in contract["requiredValues"].values()))
+        self.assertNotIn("publicDispositionBodyFree", contract["keys"])
+        self.assertNotIn("sealedEvidenceClass", contract["keys"])
+
+    def test_pre_seal_assertion_of_disposition_body_freedom_is_refused(self) -> None:
+        """The exact defect this correction removes.
+
+        A stage-16 observation may not claim the public disposition is body-free, because
+        at admission time no disposition exists for that claim to be about.
+        """
+
+        def assert_future_object(request: dict) -> None:
+            self.fixture.stage_row(request, "SEAL_PRIVATE_EVIDENCE")["observation"][
+                "publicDispositionBodyFree"
+            ] = True
+
+        self.fixture.mutate_request(assert_future_object)
+        self.assert_refuses("STAGE_OBSERVATION_INVALID")
+
+    def test_frozen_observation_fields_are_declared_superseded(self) -> None:
+        succession = self.profile["stageRoleSuccession"]
+        self.assertIn("publicDispositionBodyFree", succession["supersededFrozenObservationFields"])
+        self.assertTrue(succession["targetsSuccessorPacket"])
+        self.assertFalse(succession["directFrozenPacketApplication"])
+        self.assertIn("has not yet created", succession["supersededObservationReason"])
+
+    def test_source_succession_forbids_direct_frozen_packet_application(self) -> None:
+        succession = self.profile["sourceSuccession"]
+        frozen = load_json(FROZEN_PACKET_PROFILE)
+        self.assertEqual(succession["predecessorPacketProfileId"], frozen["profileId"])
+        self.assertFalse(succession["directFrozenPacketApplication"])
+        self.assertTrue(succession["successorPacketObservationContractRequired"])
+        self.assertFalse(succession["predecessorPacketMutationAllowed"])
+
+    def test_post_seal_assertions_are_reserved_to_the_post_seal_closure(self) -> None:
+        contract = self.profile["postSealClosureContract"]
+        self.assertFalse(contract["mayBeAssertedBeforeSealing"])
+        self.assertIn("public disposition body-free", contract["reservedAssertions"])
+        self.assertIn("detached verification PASS", contract["reservedAssertions"])
+        self.assertEqual(contract["authority"], "none")
+        # No stage-16 role or observation field may assert any of them.
+        stage = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]
+        surface = set(stage["observation"]["keys"]) | {
+            key for row in stage["evidenceRoles"] for key in row["requiredPredicates"]
+        }
+        self.assertNotIn("publicDispositionBodyFree", surface)
+        self.assertNotIn("dispositionIsBodyFree", surface)
+        self.assertNotIn("runSealedNow", surface)
+
+    def test_seal_authorization_defers_bindings_that_do_not_yet_exist(self) -> None:
+        """The seal authorization may not bind confirmations that are not yet issued.
+
+        The three statements are supplied before the sixteen confirmations exist, so
+        binding them at statement time would repeat the temporal defect one layer down.
+        """
+        law_block = self.profile["sealAuthorization"]
+        self.assertIn("stageSixteenNonHumanEvidenceRoot", law_block["statementTimeBindings"])
+        self.assertIn(
+            "sixteen exact stage-confirmation identities", law_block["deferredToPreSealClosure"]
         )
+        self.assertIn("final packet-stage record root", law_block["deferredToPreSealClosure"])
+        self.assertIn("temporal defect", law_block["deferralReason"])
 
     def test_a_real_pre_record_packet_now_reaches_ready(self) -> None:
         """The regression this branch exists to fix.
@@ -959,10 +1025,15 @@ class Stage16OrderingWitnesses(AdmissionWitnessCase):
         )
         self.assertEqual(receipt["packetStagesRecorded"], 0)
 
-    def test_executable_legal_order_reaches_detached_verified_sealing(self) -> None:
-        """Drive the frozen, unpatched recorder from 0/16 to detached-verified sealing.
+    def test_frozen_recorder_traversal_is_mechanical_only(self) -> None:
+        """Diagnostic. The frozen sequence is mechanically traversable, and only that.
 
-        A final-state fixture cannot prove this; only running the real sequence can.
+        This drives the frozen, unpatched recorder from a configured 0/16 packet to
+        detached verification. It is deliberately NOT an admission witness: to record
+        stage 16 at all it must satisfy the frozen observation contract, which forces it
+        to assert publicDispositionBodyFree about a disposition the sealer has not yet
+        created. The traversal is therefore mechanical, the stage-16 admission is not
+        semantically sound, and no packet completion is established by it.
         """
         node = shutil.which("node")
         self.assertIsNotNone(node, "node is required for the executable ordering witness")
@@ -1007,6 +1078,27 @@ class Stage16OrderingWitnesses(AdmissionWitnessCase):
         self.assertFalse(result["physicalEstateQualified"])
         self.assertEqual(result["authority"], "none")
         self.assertTrue(result["runId"].startswith("stcmaryphysicalflightrun1_"))
+
+        # The boundary this diagnostic carries. Mechanical traversal only.
+        mechanical_traversal_passed = result["verificationStatus"] == "PASS"
+        semantic_stage16_admission_passed = (
+            "publicDispositionBodyFree" not in result["frozenStageSixteenObservationKeys"]
+        )
+        physical_flight_completion_established = False
+        self.assertTrue(mechanical_traversal_passed)
+        # It had to assert a future object to get through the frozen contract at all.
+        self.assertIn("publicDispositionBodyFree", result["frozenStageSixteenObservationKeys"])
+        self.assertFalse(semantic_stage16_admission_passed)
+        self.assertFalse(physical_flight_completion_established)
+
+        # And the admitted profile refuses exactly that observation.
+        with self.assertRaises(law.AdmissionError) as caught:
+            law.validate_observation(
+                "SEAL_PRIVATE_EVIDENCE",
+                self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]["observation"],
+                {key: True for key in result["frozenStageSixteenObservationKeys"]},
+            )
+        self.assertEqual(caught.exception.code, "STAGE_OBSERVATION_INVALID")
 
     def test_frozen_sealer_still_refuses_an_incomplete_packet(self) -> None:
         """The other arm of the original circularity, asserted from frozen source."""
