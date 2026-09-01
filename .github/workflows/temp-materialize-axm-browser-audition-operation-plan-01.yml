@@ -56,7 +56,7 @@ jobs:
             exit 2
           }
           mapfile -t parts < <(printf '%s\n' .agent-carriers/axm-head-browser-audition-operation-plan-01.zip.b64.part-* | LC_ALL=C sort)
-          [[ "${#parts[@]}" -eq 5 ]] || {
+          [[ "${#parts[@]}" -eq 6 ]] || {
             echo "carrier part denominator differs: ${#parts[@]}" >&2
             exit 2
           }
