@@ -51,6 +51,7 @@ if str(ANCHOR) not in sys.path:
     sys.path.insert(0, str(ANCHOR))
 
 import stc_mary_successor_flight_law as law  # noqa: E402
+import invoke_stc_mary_successor_packet_source as execution_launcher  # noqa: E402
 import stc_mary_successor_packet_compiler as compiler  # noqa: E402
 import stc_mary_successor_packet_orchestrator as orchestrator  # noqa: E402
 import stc_mary_successor_packet_runtime as runtime  # noqa: E402
@@ -233,13 +234,23 @@ class SuccessorFlightWalk:
             repository=self.source_repository, source_commit=self.source_commit
         )
         law.write_canonical_json(self.source_admission_path, self.source_admission)
-        receipt = compiler.compile_successor_packet(
-            workstation=self.workstation,
-            predecessor=self.predecessor,
-            successor=self.packet,
+        compile_result_path = self.receipts / "compile.json"
+        self.compile_execution_receipt = execution_launcher.execute(
+            role="compile",
+            execution_receipt_path=self.receipts / "compile-execution-custody.json",
             repository=self.source_repository,
             source_admission_receipt=self.source_admission_path,
+            module_args=[
+                "compile",
+                "--workstation", str(self.workstation),
+                "--predecessor", str(self.predecessor),
+                "--successor", str(self.packet),
+                "--repository-root", str(self.source_repository),
+                "--source-admission-receipt", str(self.source_admission_path),
+                "--out", str(compile_result_path),
+            ],
         )
+        receipt = load_json(compile_result_path)
         self.predecessor_fence_after = self.fence(self.predecessor)
         self.compile_receipt = receipt
         self.packet_id = receipt["successorPacketId"]
@@ -724,6 +735,9 @@ class LegalOrderTraversal(unittest.TestCase):
         self.assertEqual(receipt["completedStageCount"], 0)
         self.assertEqual(receipt["stagesRecordedByThisSurface"], 0)
         self.assertEqual(receipt["authority"], "none")
+        self.assertEqual(self.walk.compile_execution_receipt["moduleRole"], "compile")
+        self.assertEqual(self.walk.compile_execution_receipt["processTerminal"], "PASS")
+        self.assertIsNone(self.walk.compile_execution_receipt["packetId"])
 
     def test_compilation_leaves_the_predecessor_byte_identical(self) -> None:
         self.assertEqual(self.walk.predecessor_fence_after, self.walk.predecessor_fence_before)
@@ -1972,6 +1986,131 @@ class OrderingWitnesses(unittest.TestCase):
         self.assertEqual(caught.exception.code, "SUCCESSOR_OUTPUT_EXISTS")
 
 
+class PacketCarriedExecutionCustodyWitnesses(unittest.TestCase):
+    """The ambient repository cannot supply a successor execution module."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.walk = shared_walk()
+        cls.receipt_path = cls.walk.receipts / "status-execution-custody.json"
+        cls.receipt = execution_launcher.execute(
+            role="status",
+            execution_receipt_path=cls.receipt_path,
+            module_args=["status", "--packet", str(cls.walk.packet)],
+            packet=cls.walk.packet,
+        )
+
+    def packet_copy(self, name: str) -> Path:
+        root = Path(tempfile.mkdtemp(prefix=f"stc-mary-custody-{name}-"))
+        atexit.register(shutil.rmtree, root, ignore_errors=True)
+        packet = root / "packet"
+        shutil.copytree(self.walk.packet, packet)
+        return packet
+
+    def invoke_status(self, packet: Path, name: str, role: str = "status") -> dict[str, Any]:
+        return execution_launcher.execute(
+            role=role,
+            execution_receipt_path=packet.parent / f"{name}-execution.json",
+            module_args=["status", "--packet", str(packet)],
+            packet=packet,
+        )
+
+    def test_status_executes_from_complete_packet_source_custody(self) -> None:
+        receipt = self.receipt
+        self.assertEqual(receipt["status"], "PASS")
+        self.assertEqual(receipt["processTerminal"], "PASS")
+        self.assertEqual(receipt["moduleRole"], "status")
+        self.assertEqual(receipt["packetId"], self.walk.packet_id)
+        self.assertEqual(receipt["sourceAdmissionId"], self.walk.source_admission["sourceAdmissionId"])
+        self.assertEqual(receipt["successorSourceSetId"], self.walk.compile_receipt["successorSourceSetId"])
+        self.assertEqual(receipt["measuredSourceMemberCount"], 18)
+        self.assertTrue(receipt["temporarySourceTreeDeleted"])
+        self.assertEqual(load_json(self.receipt_path), receipt)
+
+    def test_ambient_repository_drift_after_compilation_is_ignored(self) -> None:
+        repository_path = "mating_surface/anchor_node/stc_mary_successor_packet_runtime.py"
+        ambient = self.walk.source_repository / repository_path
+        original = ambient.read_bytes()
+        try:
+            ambient.write_bytes(b"raise SystemExit('ambient drift must never execute')\n")
+            receipt = self.invoke_status(self.walk.packet, "ambient-drift")
+            self.assertEqual(receipt["processTerminal"], "PASS")
+            self.assertEqual(receipt["moduleSha256"], law.sha256_bytes(
+                (self.walk.packet / "lineage/successor-source/anchor_node/stc_mary_successor_packet_runtime.py").read_bytes()
+            ))
+        finally:
+            ambient.write_bytes(original)
+
+    def test_packet_member_drift_refuses_while_repository_copy_is_intact(self) -> None:
+        packet = self.packet_copy("member-drift")
+        module = packet / "lineage/successor-source/anchor_node/stc_mary_successor_packet_runtime.py"
+        module.write_bytes(module.read_bytes() + b"\n# drift\n")
+        with self.assertRaises(execution_launcher.ExecutionCustodyError) as caught:
+            self.invoke_status(packet, "member-drift")
+        self.assertEqual(caught.exception.code, "PACKET_SOURCE_MEMBER_DRIFT")
+
+    def test_import_fallback_into_the_repository_is_impossible(self) -> None:
+        packet = self.packet_copy("import-fallback")
+        (packet / "lineage/successor-source/anchor_node/stc_mary_successor_flight_law.py").unlink()
+        with self.assertRaises(execution_launcher.ExecutionCustodyError) as caught:
+            self.invoke_status(packet, "import-fallback")
+        self.assertEqual(caught.exception.code, "PACKET_SOURCE_MEMBER_DENOMINATOR_INVALID")
+
+    def test_substituted_module_role_refuses(self) -> None:
+        with self.assertRaises(execution_launcher.ExecutionCustodyError) as caught:
+            self.invoke_status(self.walk.packet, "role-substitution", role="arbitrary-module")
+        self.assertEqual(caught.exception.code, "MODULE_ROLE_UNADMITTED")
+
+    def test_incomplete_packet_source_tree_refuses_before_execution(self) -> None:
+        packet = self.packet_copy("incomplete-tree")
+        member = packet / "lineage/successor-source/anchor_node/stc_mary_successor_packet_runtime.py"
+        member.unlink()
+        member.mkdir()
+        with self.assertRaises(execution_launcher.ExecutionCustodyError) as caught:
+            self.invoke_status(packet, "incomplete-tree")
+        self.assertEqual(caught.exception.code, "PACKET_SOURCE_MEMBER_DENOMINATOR_INVALID")
+
+    def test_source_receipt_from_another_commit_refuses(self) -> None:
+        packet = self.packet_copy("foreign-source-receipt")
+        path = packet / self.walk.profile["lineage"]["sourceAdmissionFile"]
+        repository_member = self.walk.source_repository / "mating_surface/anchor_node/stc_mary_successor_packet_runtime.py"
+        original = repository_member.read_bytes()
+        try:
+            repository_member.write_bytes(original + b"\n# foreign source commit\n")
+            git(self.walk.source_repository, "add", "--all")
+            git(self.walk.source_repository, "commit", "--quiet", "-m", "foreign source set")
+            foreign_commit = git(self.walk.source_repository, "rev-parse", "HEAD")
+            foreign_receipt = source_bootstrap.authenticate(
+                repository=self.walk.source_repository, source_commit=foreign_commit
+            )
+        finally:
+            repository_member.write_bytes(original)
+        law.write_canonical_json(path, foreign_receipt)
+        with self.assertRaises(execution_launcher.ExecutionCustodyError) as caught:
+            self.invoke_status(packet, "foreign-source-receipt")
+        self.assertEqual(caught.exception.code, "PACKET_SOURCE_MEMBER_DRIFT")
+
+    def test_correct_member_count_with_one_member_replaced_refuses(self) -> None:
+        packet = self.packet_copy("one-replaced")
+        relative = "anchor_node/stc_mary_successor_packet_runtime.py"
+        module = packet / "lineage/successor-source" / relative
+        module.write_bytes(b"raise SystemExit('replacement')\n")
+        source_set_path = packet / self.walk.profile["lineage"]["sourceSetFile"]
+        source_set = load_json(source_set_path)
+        row = next(row for row in source_set["members"] if row["relativePath"] == relative)
+        row["sha256"] = law.sha256_bytes(module.read_bytes())
+        row["bytes"] = len(module.read_bytes())
+        source_set["totalBytes"] = sum(row["bytes"] for row in source_set["members"])
+        source_set.pop(self.walk.profile["lineage"]["sourceSetIdKey"])
+        law.write_canonical_json(
+            source_set_path,
+            law.sign(source_set, self.walk.profile["lineage"]["sourceSetIdKey"], self.walk.profile["lineage"]["sourceSetIdPrefix"]),
+        )
+        with self.assertRaises(execution_launcher.ExecutionCustodyError) as caught:
+            self.invoke_status(packet, "one-replaced")
+        self.assertEqual(caught.exception.code, "PACKET_SOURCE_MEMBER_DRIFT")
+
+
 class ExactGitSourceAdmissionWitnesses(unittest.TestCase):
     """Hostile witnesses for the exact commit/tree/blob source boundary."""
 
@@ -1999,9 +2138,9 @@ class ExactGitSourceAdmissionWitnesses(unittest.TestCase):
         self.assertTrue(receipt["bootstrapAuthenticated"])
         self.assertFalse(receipt["workingTreeBytesTrusted"])
         self.assertEqual(receipt["sourceCommit"], self.commit)
-        self.assertEqual(receipt["memberCount"], 17)
-        self.assertEqual(receipt["declaredSourceMemberDenominator"], 17)
-        self.assertEqual(len({row["gitBlob"] for row in receipt["members"]}), 17)
+        self.assertEqual(receipt["memberCount"], 18)
+        self.assertEqual(receipt["declaredSourceMemberDenominator"], 18)
+        self.assertEqual(len({row["gitBlob"] for row in receipt["members"]}), 18)
         self.assertTrue(receipt["successorSourceSetId"].startswith("stcmarysuccessorsourceset1_"))
 
     def test_unknown_or_abbreviated_commit_refuses(self) -> None:
@@ -2168,7 +2307,7 @@ class SourceBoundaryWitnesses(unittest.TestCase):
     def test_every_declared_source_member_exists(self) -> None:
         members = self.profile["successorSourceMembers"]
         self.assertEqual(len(members), self.profile["successorSourceMemberDenominator"])
-        self.assertEqual(self.profile["successorSourceMemberDenominator"], 17)
+        self.assertEqual(self.profile["successorSourceMemberDenominator"], 18)
         self.assertEqual(len(set(members.values())), len(members))
         for relative in members:
             self.assertTrue((REPOSITORY_ROOT / relative).is_file(), relative)

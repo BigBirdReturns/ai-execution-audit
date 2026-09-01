@@ -64,6 +64,7 @@ the intended blast radius.
 
 ```text
 stc_mary_successor_flight_law.py               shared construction law (producers only)
+invoke_stc_mary_successor_packet_source.py     measured closed-role execution launcher
 stc_mary_successor_packet_compiler.py          0.2 compiler and materializer
 stc_mary_successor_packet_runtime.py           0.2 packet runtime
 stc_mary_successor_packet_orchestrator.py      admission-driven recording orchestrator
@@ -104,6 +105,24 @@ the complete receipt, replays every Git object lookup, copies only `git cat-file
 bytes, writes the canonical receipt to `lineage/SOURCE-ADMISSION.json`, and requires the
 packet-carried source set to reproduce the admitted identity. Working-tree mutation,
 including CRLF checkout conversion, is outside the source identity.
+
+## Packet-carried execution custody
+
+The PowerShell entrypoint never selects a repository-side successor module for a packet
+operation. For `compile`, the launcher reconstructs all eighteen members from the exact
+Git blobs in the source-admission receipt. For every later command it authenticates the
+packet-carried admission and source-set receipts, remeasures the complete eighteen-member
+packet source tree, requires equality with the Git-admitted identity, and only then copies
+that complete tree into an isolated temporary root. The selected module runs under
+`python -I -B` with ambient Python paths removed; its temporary tree is deleted before the
+content-addressed execution-custody receipt is emitted.
+
+The closed roles are compile, successor verification, evidence materialization,
+record/resume, pre-seal closure, seal, detached verification, post-seal closure, and
+status. Every receipt binds the source admission, commit, tree, source-set identity,
+module role, packet-relative module path and digest, complete measured denominator,
+process terminal, and authority `none`. Repository drift after packet compilation cannot
+be an import fallback.
 
 ## The forty-three admitted roles reach the packet, or nothing does
 
@@ -470,13 +489,16 @@ number of witnesses, on any skip, and on any drift in the pinned admitted profil
 .\stc-mary-successor-packet-flight-01.ps1 record          -Packet <dir> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 close-pre-seal  -Packet <dir> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <closure>
 .\stc-mary-successor-packet-flight-01.ps1 seal            -Packet <dir> -Sealed <dir> -PreSealClosure <file> -Out <receipt>
-.\stc-mary-successor-packet-flight-01.ps1 verify-detached -Sealed <dir> -Out <verification>
+.\stc-mary-successor-packet-flight-01.ps1 verify-detached -Packet <dir> -Sealed <dir> -Out <verification>
 .\stc-mary-successor-packet-flight-01.ps1 close-post-seal -Packet <dir> -Sealed <dir> -PreSealClosure <file> -DetachedVerification <file> -Out <closure>
+.\stc-mary-successor-packet-flight-01.ps1 status           -Packet <dir> -Out <status>
 ```
 
 `admit-source` and `verify` always run through their respective bootstraps. Neither
 verifier can authenticate itself; each
 reports `bootstrapAuthenticated: false` on any direct run, by design.
+For packet operations, `-ExecutionReceipt <file>` may be supplied explicitly; when
+`-Out` is present the wrapper otherwise writes `<Out>.execution-custody.json`.
 
 ## Stop wall
 

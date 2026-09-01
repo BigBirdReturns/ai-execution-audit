@@ -25,7 +25,7 @@
     record refuses rather than let that happen.
 
 .PARAMETER Command
-    One of: admit-source, compile, verify, materialize, record, close-pre-seal, seal, verify-detached,
+    One of: admit-source, compile, verify, materialize, record, close-pre-seal, seal, verify-detached, status,
     close-post-seal, qualify.
 
 .NOTES
@@ -41,7 +41,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('admit-source', 'compile', 'verify', 'materialize', 'record', 'close-pre-seal', 'seal', 'verify-detached', 'close-post-seal', 'qualify')]
+    [ValidateSet('admit-source', 'compile', 'verify', 'materialize', 'record', 'close-pre-seal', 'seal', 'verify-detached', 'close-post-seal', 'status', 'qualify')]
     [string] $Command,
 
     [string] $Workstation,
@@ -56,6 +56,7 @@ param(
     [string] $DetachedVerification,
     [string] $SourceAdmissionReceipt,
     [string] $SourceCommit,
+    [string] $ExecutionReceipt,
     [string] $Out,
     [string] $Python = 'python'
 )
@@ -86,6 +87,38 @@ function Invoke-Surface {
     }
 }
 
+function Invoke-MeasuredSurface {
+    param([string] $Role, [string[]] $Arguments, [switch] $CompileMode)
+    $launcher = Join-Path $anchor 'invoke_stc_mary_successor_packet_source.py'
+    if (-not (Test-Path -LiteralPath $launcher)) {
+        throw 'measured execution launcher is absent'
+    }
+    $custodyOut = $ExecutionReceipt
+    if ([string]::IsNullOrWhiteSpace($custodyOut)) {
+        if ([string]::IsNullOrWhiteSpace($Out)) {
+            throw "$Command requires -ExecutionReceipt when -Out is absent"
+        }
+        $custodyOut = "$Out.execution-custody.json"
+    }
+    $launcherArguments = @('--role', $Role, '--execution-receipt', $custodyOut)
+    if ($CompileMode) {
+        $launcherArguments += @(
+            '--repository-root', $repositoryRoot,
+            '--source-admission-receipt', $SourceAdmissionReceipt
+        )
+    }
+    else {
+        Assert-Supplied -Name 'Packet' -Value $Packet
+        $launcherArguments += @('--packet', $Packet)
+    }
+    $launcherArguments += '--'
+    $launcherArguments += $Arguments
+    & $Python $launcher @launcherArguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "measured $Role execution refused with exit code $LASTEXITCODE"
+    }
+}
+
 switch ($Command) {
     'admit-source' {
         Assert-Supplied -Name 'SourceCommit' -Value $SourceCommit
@@ -111,7 +144,7 @@ switch ($Command) {
             '--source-admission-receipt', $SourceAdmissionReceipt
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-Surface -Module 'stc_mary_successor_packet_compiler.py' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'compile' -Arguments $arguments -CompileMode
     }
 
     'verify' {
@@ -120,11 +153,11 @@ switch ($Command) {
         Assert-Supplied -Name 'Packet' -Value $Packet
         $arguments = @(
             '--packet', $Packet,
-            '--profile', $profilePath,
+            '--profile', '@profile',
             '--repository-root', $repositoryRoot
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-Surface -Module 'verify_stc_mary_successor_packet_bootstrap.py' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'verify-successor-packet' -Arguments $arguments
     }
 
     'materialize' {
@@ -138,11 +171,11 @@ switch ($Command) {
             '--packet', $Packet,
             '--admission-receipt', $AdmissionReceipt,
             '--candidates', $Candidates,
-            '--profile', $profilePath,
+            '--profile', '@profile',
             '--repository-root', $repositoryRoot
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-Surface -Module 'verify_stc_mary_successor_evidence_materialization.py' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'verify-evidence-materialization' -Arguments $arguments
     }
 
     'record' {
@@ -160,7 +193,7 @@ switch ($Command) {
             '--repository-root', $repositoryRoot
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-Surface -Module 'stc_mary_successor_packet_orchestrator.py' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'record-or-resume-stages' -Arguments $arguments
     }
 
     'close-pre-seal' {
@@ -175,11 +208,11 @@ switch ($Command) {
             '--materialization-receipt', $MaterializationReceipt,
             '--authentication-receipt', $AuthenticationReceipt,
             '--candidates', $Candidates,
-            '--profile', $profilePath,
+            '--profile', '@profile',
             '--repository-root', $repositoryRoot
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-Surface -Module 'verify_stc_mary_successor_pre_seal_closure.py' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'close-pre-seal' -Arguments $arguments
     }
 
     'seal' {
@@ -194,10 +227,11 @@ switch ($Command) {
             '--repository-root', $repositoryRoot
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-Surface -Module 'stc_mary_successor_seal_adapter.py' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'seal' -Arguments $arguments
     }
 
     'verify-detached' {
+        Assert-Supplied -Name 'Packet' -Value $Packet
         Assert-Supplied -Name 'Sealed' -Value $Sealed
         $arguments = @(
             'verify-detached',
@@ -205,7 +239,7 @@ switch ($Command) {
             '--repository-root', $repositoryRoot
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-Surface -Module 'stc_mary_successor_seal_adapter.py' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'verify-detached' -Arguments $arguments
     }
 
     'close-post-seal' {
@@ -218,11 +252,17 @@ switch ($Command) {
             '--sealed', $Sealed,
             '--pre-seal-closure', $PreSealClosure,
             '--detached-verification', $DetachedVerification,
-            '--profile', $profilePath,
+            '--profile', '@profile',
             '--repository-root', $repositoryRoot
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-Surface -Module 'verify_stc_mary_successor_post_seal_closure.py' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'close-post-seal' -Arguments $arguments
+    }
+
+    'status' {
+        Assert-Supplied -Name 'Packet' -Value $Packet
+        $arguments = @('status', '--packet', $Packet)
+        Invoke-MeasuredSurface -Role 'status' -Arguments $arguments
     }
 
     'qualify' {
