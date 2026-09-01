@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -590,6 +591,31 @@ class PositiveTerminals(AdmissionWitnessCase):
         self.assertFalse(by_stage["BIND_GRACE"]["evidenceAdmissionRootFinal"])
         self.assertFalse(by_stage["RESTORE_LINK_HOLD_CONFLICT"]["evidenceAdmissionRootFinal"])
         self.assertTrue(by_stage["VERIFY_INPUTS"]["evidenceAdmissionRootFinal"])
+
+    def test_ready_invites_no_stage_confirmation_at_all(self) -> None:
+        """No confirmation is invitable until all sixteen final roots exist.
+
+        The two statement-owing stages are the reason, but the gate is global: a
+        confirmation issued against any stage before the denominator settles would go
+        stale the moment a statement-bearing root moved.
+        """
+        receipt = self.fixture.run()
+        self.assertFalse(receipt["confirmationDenominatorInvitable"])
+        by_stage = {row["stage"]: row for row in receipt["stageConfirmationRequirements"]}
+        for stage in ("BIND_GRACE", "RESTORE_LINK_HOLD_CONFLICT"):
+            self.assertFalse(by_stage[stage]["evidenceAdmissionRootFinal"], stage)
+            self.assertFalse(by_stage[stage]["confirmationInvitable"], stage)
+        self.assertTrue(
+            all(row["confirmationInvitable"] is False for row in receipt["stageConfirmationRequirements"])
+        )
+
+    def test_landed_statements_invite_all_sixteen_confirmations(self) -> None:
+        self.fixture.add_human_statements()
+        receipt = self.fixture.run()
+        self.assertTrue(receipt["confirmationDenominatorInvitable"])
+        self.assertEqual(len(receipt["stageConfirmationRequirements"]), 16)
+        self.assertTrue(all(row["confirmationInvitable"] for row in receipt["stageConfirmationRequirements"]))
+        self.assertTrue(all(row["evidenceAdmissionRootFinal"] for row in receipt["stageConfirmationRequirements"]))
 
     def test_all_sixteen_stage_contracts_are_exercised(self) -> None:
         receipt = self.fixture.run()
@@ -1616,6 +1642,28 @@ class SourceWitnesses(AdmissionWitnessCase):
         self.assertEqual(len(document["stages"]), 16)
         self.assertEqual(document["packetStagesRecorded"], 0)
         law.assert_no_private_material(document, code="X", label="denominator")
+
+    def test_hosted_gate_pins_the_exact_witness_denominator(self) -> None:
+        """The hosted gate must assert a count, not merely grep for a generic OK.
+
+        A run that loses witnesses, or one whose discovery pattern silently stops
+        matching, still prints OK. Pinning the number in the workflow closes that, and
+        asserting the pin against live discovery here keeps the pin from drifting.
+        """
+        workflow = (
+            REPOSITORY_ROOT / ".github/workflows/stc-mary-packet-evidence-admission-01.yml"
+        ).read_text(encoding="utf-8")
+        match = re.search(r'^\s*WITNESS_DENOMINATOR:\s*"(\d+)"\s*$', workflow, re.M)
+        self.assertIsNotNone(match, "the hosted workflow pins no witness denominator")
+        pinned = int(match.group(1))
+        discovered = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__]).countTestCases()
+        self.assertEqual(
+            pinned,
+            discovered,
+            f"the hosted workflow pins {pinned} witnesses but this suite carries {discovered}",
+        )
+        self.assertIn("focused witness denominator differs", workflow)
+        self.assertIn("did not terminate on a clean OK", workflow)
 
     def test_bootstrap_schema_is_separately_identified(self) -> None:
         self.assertNotEqual(bootstrap.BOOTSTRAP_SCHEMA, law.RECEIPT_SCHEMA)

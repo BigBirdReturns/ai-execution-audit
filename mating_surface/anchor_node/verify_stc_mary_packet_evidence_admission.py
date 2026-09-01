@@ -1541,6 +1541,15 @@ def verify_packet_evidence_admission(
         "a partial named-human statement set is not an admitted denominator",
     )
 
+    # The sixteen decision records become invitable only once every stage root is final:
+    # both named-human statements landed and all sixteen final roots exist. Until then a
+    # confirmation would bind a root that has not settled, and would go stale the moment
+    # a statement-bearing stage root moved. This is the published form of a rule the gate
+    # already enforces through STAGE_CONFIRMATION_ON_INCOMPLETE_EVIDENCE.
+    confirmation_invitable = not missing_roles
+    for row in stage_rows:
+        row["confirmationInvitable"] = confirmation_invitable
+
     missing_non_human = [row for row in missing_roles if row["provenanceClass"] != "named_human_statement"]
     decisions = validate_stage_confirmations(
         request=request, profile=profile, frozen=frozen, stage_rows=stage_rows
@@ -1728,6 +1737,7 @@ def verify_packet_evidence_admission(
                 "controlQuestion": row["controlQuestion"],
                 "evidenceAdmissionRoot": row["evidenceAdmissionRoot"],
                 "evidenceAdmissionRootFinal": row["evidenceAdmissionRootFinal"],
+                "confirmationInvitable": row["confirmationInvitable"],
                 "observationDigest": row["observationDigest"],
                 "requiredSchema": profile["confirmation"]["schema"],
                 "requiredActorClass": profile["confirmation"]["requiredActorClass"],
@@ -1735,6 +1745,7 @@ def verify_packet_evidence_admission(
             }
             for row in stage_rows
         ],
+        "confirmationDenominatorInvitable": confirmation_invitable,
         "suppliedStageConfirmationCount": len(decisions),
         "stageDecisions": decisions,
         "batchConfirmationId": batch_confirmation_id,

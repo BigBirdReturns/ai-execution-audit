@@ -173,10 +173,37 @@ A bounded batch confirmation may accompany the sixteen exact decisions. It may n
 replace them, and it must exact-enumerate every stage with matching roots, digests,
 terminals, and decisions. An unbounded blanket approval is refused.
 
-At `READY_FOR_NAMED_HUMAN_DECISION` the two statement-owing stages report
-`evidenceAdmissionRootFinal: false`, so a confirmation is never invited against a root
-that has not settled. The statement forms bind the stable
-`nonHumanEvidenceAdmissionRoot` instead.
+### The ordering, and why it is not circular
+
+A stage's final `evidenceAdmissionRoot` covers every admitted role, so for the two
+statement-owing stages it moves once the statement lands. A statement that had to bind
+that root could not be written before it existed. The gate breaks the loop by giving the
+statement a different, stable object to bind:
+
+```text
+non-human evidence
+  -> stable nonHumanEvidenceAdmissionRoot
+  -> named-human statement bound to that root
+  -> independently verified statement
+  -> final evidenceAdmissionRoot
+  -> stage confirmation against the final root
+```
+
+A stage confirmation may bind only the **final** root. The sixteen decision records
+therefore become invitable only once both statements have landed and all sixteen final
+roots exist — not merely once a given stage happens to be complete. Until then every
+stage reports:
+
+```text
+evidenceAdmissionRootFinal: false   (the two statement-owing stages)
+confirmationInvitable:      false   (all sixteen, until the denominator settles)
+```
+
+so a confirmation is never invited against a root that has not settled, and no
+confirmation can go stale because a statement-bearing stage root moved underneath it.
+This is the published form of a rule the gate already enforces: confirmations supplied
+over an incomplete denominator refuse with
+`STAGE_CONFIRMATION_ON_INCOMPLETE_EVIDENCE`.
 
 ## Terminal
 

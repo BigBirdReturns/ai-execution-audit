@@ -28,6 +28,13 @@ on:
 permissions:
   contents: read
 
+# The focused witness denominator is pinned here, not inferred from a generic "OK".
+# A run that loses, skips, or silently stops collecting witnesses fails this gate even
+# though unittest would still print OK. The conformance suite asserts that this number
+# equals the number of witnesses it actually discovers, so the pin cannot drift.
+env:
+  WITNESS_DENOMINATOR: "107"
+
 jobs:
   qualify:
     strategy:
@@ -191,7 +198,34 @@ jobs:
             -s mating_surface/anchor_node/conformance \
             -p 'test_stc_mary_packet_evidence_admission.py' \
             -v 2>&1 | tee "$RUNNER_TEMP/stc-mary-packet-evidence-admission-tests.txt"
-          grep -F "OK" "$RUNNER_TEMP/stc-mary-packet-evidence-admission-tests.txt"
+
+      - name: Assert the exact focused witness denominator
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import re
+          import sys
+
+          report = pathlib.Path(os.environ["RUNNER_TEMP"]) / "stc-mary-packet-evidence-admission-tests.txt"
+          text = report.read_text(encoding="utf-8", errors="replace")
+
+          ran = re.search(r"^Ran (\d+) tests? in ", text, re.M)
+          if ran is None:
+              sys.exit("the witness report carries no test count")
+          observed = int(ran.group(1))
+          expected = int(os.environ["WITNESS_DENOMINATOR"])
+          if observed != expected:
+              sys.exit(f"focused witness denominator differs: pinned {expected}, ran {observed}")
+          if re.search(r"^(FAILED|ERROR:)", text, re.M) is not None:
+              sys.exit("the witness run reported a failure or error")
+          # A bare "OK" only. unittest prints "OK (skipped=n)" or "OK (expected failures=n)"
+          # when a witness did not actually execute, and that must not pass this gate.
+          if re.search(r"^OK$", text, re.M) is None:
+              sys.exit("the witness run did not terminate on a clean OK")
+          print(f"focused witness denominator exact: {observed} witnesses, all PASS")
+          PY
 
       - name: Refuse private material in the public surface
         shell: bash
