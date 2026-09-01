@@ -19,80 +19,73 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Inspect the public unauthenticated static surface
+      - name: Capture the bounded public runtime surface
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/surface"
-          python - "$RUNNER_TEMP/surface/report.json" <<'PY'
+          python - "$RUNNER_TEMP/surface" <<'PY'
           import hashlib, json, re, sys, urllib.parse, urllib.request
-          from html.parser import HTMLParser
           from pathlib import Path
 
-          ORIGIN = "https://swarmllm.ai"
-          URLS = [ORIGIN + "/", ORIGIN + "/room"]
-          NEEDLES = ["qwen", "model", "layer", "shard", "token", "webrtc", "rtcpeerconnection", "datachannel", "webgpu", "room", "device", "memory", "download", "cache", "worker", "inference", "generate"]
-
-          def fetch(url):
-              req = urllib.request.Request(url, headers={"User-Agent": "AXM-Public-Surface-Inspection/1.0"})
-              with urllib.request.urlopen(req, timeout=30) as r:
-                  body = r.read(12 * 1024 * 1024 + 1)
-                  if len(body) > 12 * 1024 * 1024:
-                      raise SystemExit("byte ceiling exceeded: " + url)
-                  return body, {"requestedUrl": url, "finalUrl": r.geturl(), "status": r.status, "contentType": r.headers.get_content_type(), "bytes": len(body), "sha256": "sha256:" + hashlib.sha256(body).hexdigest(), "etag": r.headers.get("ETag"), "lastModified": r.headers.get("Last-Modified")}
-
-          class Parser(HTMLParser):
-              def __init__(self):
-                  super().__init__(convert_charrefs=True); self.assets=[]; self.elements=[]
-              def handle_starttag(self, tag, attrs):
-                  a=dict(attrs)
-                  row={k:a.get(k) for k in ("id","class","name","type","role")}
-                  if any(v is not None for v in row.values()): self.elements.append({"tag":tag, **row})
-                  if tag == "script" and a.get("src"): self.assets.append(a["src"])
-                  if tag == "link" and a.get("href") and set((a.get("rel") or "").lower().split()) & {"stylesheet","modulepreload","preload"}: self.assets.append(a["href"])
-
-          def contexts(text):
-              lower=text.lower(); out={}
-              for needle in NEEDLES:
-                  rows=[]; start=0
-                  while len(rows)<16:
-                      i=lower.find(needle,start)
-                      if i<0: break
-                      s=re.sub(r"\s+"," ",text[max(0,i-120):min(len(text),i+len(needle)+180)]).strip()
-                      if s not in rows: rows.append(s)
-                      start=i+len(needle)
-                  if rows: out[needle]=rows
-              return out
-
-          pages=[]; queue=[]
-          for url in URLS:
-              body, meta=fetch(url); text=body.decode("utf-8")
-              p=Parser(); p.feed(text); assets=[]
-              for raw in p.assets:
-                  u=urllib.parse.urljoin(meta["finalUrl"],raw); parsed=urllib.parse.urlparse(u)
-                  if parsed.scheme=="https" and parsed.netloc=="swarmllm.ai":
-                      u=urllib.parse.urlunparse(parsed._replace(fragment=""))
-                      if u not in assets: assets.append(u)
-                      if u not in queue: queue.append(u)
-              pages.append({**meta,"assets":assets,"elements":p.elements,"semanticContexts":contexts(text)})
-
-          assets=[]
-          for url in queue[:64]:
-              body,meta=fetch(url); row=dict(meta)
-              if meta["contentType"].startswith("text/") or "javascript" in meta["contentType"] or url.endswith((".js",".mjs",".css")):
-                  text=body.decode("utf-8")
-                  row["semanticContexts"]=contexts(text)
-                  row["sourceMapReference"]=re.findall(r"sourceMappingURL=([^\s*]+)",text)[-1:]
-                  row["absoluteUrls"]=sorted(set(re.findall(r"https://[^\"'`\\s)]+",text)))[:100]
-              assets.append(row)
-
-          report={"schema":"axm-head/public-browser-route-surface-inspection@1","status":"PASS","scope":"public-unauthenticated-static-surface-only","origin":ORIGIN,"pages":pages,"assets":assets,"pageCount":len(pages),"assetCount":len(assets),"claimBoundary":"Static public HTTP bytes and element inventory only. No room created, device joined, model selected or downloaded, peer connection formed, inference run, privacy claim verified, or supplier qualified."}
-          Path(sys.argv[1]).write_text(json.dumps(report,sort_keys=True,indent=2)+"\n",encoding="utf-8")
-          print(json.dumps(report,sort_keys=True,separators=(",",":")))
+          root = Path(sys.argv[1])
+          origin = "https://swarmllm.ai"
+          urls = {
+              "landing.html": origin + "/",
+              "room.html": origin + "/room",
+              "engine.js": origin + "/engine/engine.js",
+              "gguf.js": origin + "/engine/gguf.js",
+              "qwen35.js": origin + "/engine/qwen35.js",
+          }
+          rows = []
+          for name, url in urls.items():
+              request = urllib.request.Request(url, headers={"User-Agent": "AXM-Public-Runtime-Inspection/1.0"})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  body = response.read(16 * 1024 * 1024 + 1)
+                  if len(body) > 16 * 1024 * 1024:
+                      raise SystemExit(f"byte ceiling exceeded: {name}")
+                  if response.status != 200:
+                      raise SystemExit(f"unexpected status: {name}: {response.status}")
+                  body.decode("utf-8", errors="strict")
+                  (root / name).write_bytes(body)
+                  rows.append({
+                      "name": name,
+                      "requestedUrl": url,
+                      "finalUrl": response.geturl(),
+                      "bytes": len(body),
+                      "sha256": "sha256:" + hashlib.sha256(body).hexdigest(),
+                      "contentType": response.headers.get_content_type(),
+                      "etag": response.headers.get("ETag"),
+                      "lastModified": response.headers.get("Last-Modified"),
+                  })
+          room = (root / "room.html").read_text(encoding="utf-8")
+          needles = [
+              "const MODELS", "let ai =", "async function aiStart", "async function aiGenerate",
+              "async function aiOnData", "function updateCluster", "function loadCardRender",
+              "function addPeerCard", "function enterRoom", "function sendTo", "function broadcastAll",
+              "function aiStatus", "case \"ai-layers\"", "case \"ai-hidden\"", "case \"ai-token\"",
+              "case \"ai-done\"", "case \"ai-error\"", "dataConnection", "peer.on(\"connection\"",
+          ]
+          contexts = {}
+          for needle in needles:
+              offset = room.find(needle)
+              if offset >= 0:
+                  contexts[needle] = room[max(0, offset - 500):min(len(room), offset + 5000)]
+          (root / "contexts.json").write_text(json.dumps(contexts, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          manifest = {
+              "schema": "axm-head/public-browser-route-runtime-inspection@1",
+              "status": "PASS",
+              "scope": "public-unauthenticated-static-runtime-bytes-only",
+              "members": rows,
+              "contextKeys": sorted(contexts),
+              "claimBoundary": "Public static bytes only. No room created, device joined, model selected or downloaded, peer connection formed, inference run, privacy claim verified, or supplier qualified.",
+          }
+          (root / "manifest.json").write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(manifest, sort_keys=True, separators=(",", ":")))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: temp-public-browser-route-surface
-          path: ${{ runner.temp }}/surface/report.json
+          name: temp-public-browser-route-runtime
+          path: ${{ runner.temp }}/surface
           if-no-files-found: error
           retention-days: 1
