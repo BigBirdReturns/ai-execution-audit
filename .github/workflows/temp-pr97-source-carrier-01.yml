@@ -1,0 +1,41 @@
+name: TEMP PR97 Exact Source Carrier 01
+
+on:
+  push:
+    branches:
+      - tmp/pr97-source-carrier-01
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v6
+        with:
+          ref: a705a9ab9fec10bbe08749dd5555e19de5a275e5
+          fetch-depth: 0
+
+      - name: Package exact committed tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          [[ "$observed" == "a705a9ab9fec10bbe08749dd5555e19de5a275e5" ]]
+          git archive --format=zip --output="$RUNNER_TEMP/pr97-head-a705a9a.zip" "$observed"
+          printf '%s\n' "$observed" > "$RUNNER_TEMP/SOURCE_SHA.txt"
+          sha256sum "$RUNNER_TEMP/pr97-head-a705a9a.zip" > "$RUNNER_TEMP/ARCHIVE_SHA256.txt"
+
+      - name: Upload exact source carrier
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr97-head-a705a9a-source
+          path: |
+            ${{ runner.temp }}/pr97-head-a705a9a.zip
+            ${{ runner.temp }}/SOURCE_SHA.txt
+            ${{ runner.temp }}/ARCHIVE_SHA256.txt
+          if-no-files-found: error
+          retention-days: 1
