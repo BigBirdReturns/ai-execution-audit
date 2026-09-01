@@ -1,0 +1,81 @@
+name: TEMP Diagnose Operation Plan Post Call Patch 01
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - ".github/workflows/temp-diagnose-operation-plan-post-call-patch-01.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-diagnose-operation-plan-post-call-patch-01
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  BASE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+  BASE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+  PRODUCT_BRANCH: work/axm-head-browser-audition-operation-plan-product-01
+  PRODUCT_HEAD: dca19d3b934594457c63df0ef815c4180cc14ee6
+  PRODUCT_TREE: 7a8fcb551329dc6ca571b089e6368622c8271f8f
+  PATCH_BLOB: 5a1f06d36fc0ca5a00afd6e9d8da94d11b66c2c8
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-browser-audition-operation-plan-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Name the first unmatched patch fragment
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH=.agent-carriers/patch-operation-plan-post-call-inspection-01.py
+          [[ "$(git hash-object "$PATCH")" == "$PATCH_BLOB" ]]
+          cp "$PATCH" "$RUNNER_TEMP/patch.py"
+          git fetch --no-tags origin main "$PRODUCT_BRANCH"
+          [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]]
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]]
+          [[ "$(git rev-parse "origin/$PRODUCT_BRANCH")" == "$PRODUCT_HEAD" ]]
+          [[ "$(git rev-parse "origin/$PRODUCT_BRANCH^{tree}")" == "$PRODUCT_TREE" ]]
+          git checkout --detach "$PRODUCT_HEAD"
+
+          python - "$RUNNER_TEMP/patch.py" <<'PY'
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          text = path.read_text(encoding="utf-8")
+          old_error = '''        raise SystemExit(
+            f"replacement denominator differs for {relative}: expected={count} observed={observed}"
+        )'''
+          new_error = '''        raise SystemExit(
+            f"replacement denominator differs for {relative}: expected={count} observed={observed} old={old[:160]!r}"
+        )'''
+          if text.count(old_error) != 1:
+              raise SystemExit("replace_exact diagnostic hook denominator differs")
+          text = text.replace(old_error, new_error)
+          corrections = {
+              "        postMessage() { throw new Error('unconfigured port'); },": "        postMessage() {{ throw new Error('unconfigured port'); }},",
+              "        disconnect() { disconnectListeners.forEach((fn) => fn()); },": "        disconnect() {{ disconnectListeners.forEach((fn) => fn()); }},",
+          }
+          counts = {next(iter(corrections)): 2, list(corrections)[1]: 1}
+          for old, new in corrections.items():
+              if text.count(old) != counts[old]:
+                  raise SystemExit(f"correction denominator differs: {old!r}: {text.count(old)}")
+              text = text.replace(old, new)
+          path.write_text(text, encoding="utf-8", newline="\n")
+          PY
+          python "$RUNNER_TEMP/patch.py" "$GITHUB_WORKSPACE"
