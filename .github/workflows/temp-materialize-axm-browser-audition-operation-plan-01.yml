@@ -1,0 +1,265 @@
+name: TEMP Materialize Browser Audition Operation Plan 01
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - ".github/workflows/temp-materialize-axm-browser-audition-operation-plan-01.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-materialize-browser-audition-operation-plan-01
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  BASE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+  BASE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+  CARRIER_SHA256: d54cc9893e14f789350388b0eac107c42c04c547a44c071b0a8447fd65640b96
+  EXPECTED_SOURCE_BINDING: axmoperationplansource_048e6a5e0114d28535851daaadb9f5dce5f3ac217164a753c19317b223cb0dcd
+  EXPECTED_EXTENSION_ID: axmoperationplanextension_a0e8be08dffa53b1f2d7ba7f53b1802c273f3ce137d474fcf2200fd1301717e5
+  BRANCH: work/axm-head-browser-audition-operation-plan-01
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-browser-audition-operation-plan-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Require exact floor and decode bounded carrier
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]] || {
+            echo "main moved" >&2
+            exit 2
+          }
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]] || {
+            echo "main tree differs" >&2
+            exit 2
+          }
+          mapfile -t parts < <(printf '%s\n' .agent-carriers/axm-head-browser-audition-operation-plan-01.zip.b64.part-* | LC_ALL=C sort)
+          [[ "${#parts[@]}" -eq 5 ]] || {
+            echo "carrier part denominator differs: ${#parts[@]}" >&2
+            exit 2
+          }
+          cat "${parts[@]}" | base64 --decode > "$RUNNER_TEMP/source.zip"
+          observed="$(sha256sum "$RUNNER_TEMP/source.zip" | awk '{print $1}')"
+          [[ "$observed" == "$CARRIER_SHA256" ]] || {
+            echo "carrier digest differs: $observed" >&2
+            exit 2
+          }
+
+      - name: Validate exact archive denominator and hygiene
+        shell: bash
+        run: |
+          python - "$RUNNER_TEMP/source.zip" <<'PY'
+          import stat
+          import sys
+          import zipfile
+          from pathlib import PurePosixPath
+
+          expected = {
+              ".github/workflows/axm-head-browser-audition-operation-plan-01.yml",
+              "mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md",
+              "mating_surface/anchor_node/axm-head-browser-audition-operation-plan-profile-01.json",
+              "mating_surface/anchor_node/axm-head-browser-audition-operation-plan-01.ps1",
+              "mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py",
+              "mating_surface/anchor_node/browser_audition_operation_plan_contract.js",
+              "mating_surface/anchor_node/browser_audition_operation_plan_panel.html",
+              "mating_surface/anchor_node/browser_audition_operation_plan_panel.js",
+              "mating_surface/anchor_node/browser_audition_operation_plan_panel.css",
+              "mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py",
+              "mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01_bootstrap.py",
+              "mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py",
+              "mating_surface/anchor_node/fixtures/axm-head-browser-audition-operation-plan-cases-01.json",
+          }
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              rows = archive.infolist()
+              names = [row.filename for row in rows]
+              if len(names) != len(set(names)) or set(names) != expected:
+                  raise SystemExit(
+                      f"archive denominator differs: missing={sorted(expected-set(names))} extra={sorted(set(names)-expected)}"
+                  )
+              for row in rows:
+                  path = PurePosixPath(row.filename)
+                  if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+                      raise SystemExit(f"unsafe archive member: {row.filename}")
+                  if row.is_dir() or stat.S_ISLNK(row.external_attr >> 16):
+                      raise SystemExit(f"non-regular archive member: {row.filename}")
+                  data = archive.read(row)
+                  if not data:
+                      raise SystemExit(f"empty archive member: {row.filename}")
+                  if b"\r" in data:
+                      raise SystemExit(f"CR byte refused: {row.filename}")
+                  for index, value in enumerate(data):
+                      if value < 32 and value not in (9, 10):
+                          raise SystemExit(f"forbidden control byte {value} at {row.filename}:{index}")
+                  data.decode("utf-8")
+          PY
+
+      - name: Materialize product above exact floor
+        shell: bash
+        run: |
+          set -euo pipefail
+          temporary_head="$(git rev-parse HEAD)"
+          printf '%s\n' "$temporary_head" > "$RUNNER_TEMP/temporary-head.txt"
+          git reset --hard origin/main
+          python - "$RUNNER_TEMP/source.zip" <<'PY'
+          import sys
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              for row in archive.infolist():
+                  target = Path(*PurePosixPath(row.filename).parts)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(archive.read(row))
+          PY
+
+      - name: Run complete local qualification denominator
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-audition-operation-plan-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-audition-operation-plan-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_audition_operation_plan_01.py"
+          VERIFY="$ROOT/verify_axm_head_browser_audition_operation_plan_01.py"
+          BOOT="$ROOT/verify_axm_head_browser_audition_operation_plan_01_bootstrap.py"
+          TESTS="$ROOT/conformance/test_axm_head_browser_audition_operation_plan_01.py"
+          RECEIPTS="$RUNNER_TEMP/receipts"
+          OUTPUT="$RUNNER_TEMP/extension"
+          mkdir -p "$RECEIPTS"
+
+          python -m py_compile "$TOOL" "$VERIFY" "$BOOT" "$TESTS"
+          node --check "$ROOT/browser_audition_operation_plan_contract.js"
+          node --check "$ROOT/browser_audition_operation_plan_panel.js"
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPTS/profile.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPTS/fixtures.json"
+          python "$TOOL" campaign "$PROFILE" "$GITHUB_WORKSPACE" "$FIXTURES" > "$RECEIPTS/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" > "$RECEIPTS/source-set.json"
+          python -m unittest discover \
+            -s "$ROOT/conformance" \
+            -p 'test_axm_head_browser_audition_operation_plan_01.py' \
+            -v 2>&1 | tee "$RECEIPTS/tests.txt"
+          grep -F 'Ran 58 tests' "$RECEIPTS/tests.txt"
+          grep -Fx 'OK' "$RECEIPTS/tests.txt"
+          python "$TOOL" build-extension "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/build.json"
+          cmp "$RECEIPTS/build.json" "$OUTPUT/build-manifest.json"
+          python "$VERIFY" "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/direct.json"
+          python "$BOOT" "$VERIFY" "$PROFILE" "$GITHUB_WORKSPACE" "$OUTPUT" > "$RECEIPTS/bootstrap.json"
+
+          python - "$RECEIPTS" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          campaign = json.loads((root / "campaign.json").read_text(encoding="utf-8"))
+          source = json.loads((root / "source-set.json").read_text(encoding="utf-8"))
+          build = json.loads((root / "build.json").read_text(encoding="utf-8"))
+          direct = json.loads((root / "direct.json").read_text(encoding="utf-8"))
+          bootstrap = json.loads((root / "bootstrap.json").read_text(encoding="utf-8"))
+          if campaign.get("status") != "PASS" or campaign.get("caseCount") != 24:
+              raise SystemExit(campaign)
+          if campaign.get("outcomeCounts") != {"PASS": 3, "REFUSED": 21}:
+              raise SystemExit(campaign)
+          if source.get("sourceMemberCount") != 13 or source.get("sourceBindingId") != os.environ["EXPECTED_SOURCE_BINDING"]:
+              raise SystemExit(source)
+          if build.get("extensionId") != os.environ["EXPECTED_EXTENSION_ID"]:
+              raise SystemExit(build)
+          if direct.get("status") != "PASS" or direct.get("operationPlanExecuted") is not False:
+              raise SystemExit(direct)
+          if direct.get("actualSupplierQualified") is not False or direct.get("physicalEstateQualified") is not False:
+              raise SystemExit(direct)
+          if bootstrap.get("status") != "PASS" or bootstrap.get("bootstrapAuthenticated") is not True:
+              raise SystemExit(bootstrap)
+          if bootstrap.get("operationPlanExecuted") is not False:
+              raise SystemExit(bootstrap)
+          PY
+
+          find "$ROOT" -type d -name __pycache__ -prune -exec rm -rf {} +
+          git diff --check
+
+      - name: Freeze one exact additive candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            '.github/workflows/axm-head-browser-audition-operation-plan-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md'
+            'mating_surface/anchor_node/axm-head-browser-audition-operation-plan-profile-01.json'
+            'mating_surface/anchor_node/axm-head-browser-audition-operation-plan-01.ps1'
+            'mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/browser_audition_operation_plan_contract.js'
+            'mating_surface/anchor_node/browser_audition_operation_plan_panel.html'
+            'mating_surface/anchor_node/browser_audition_operation_plan_panel.js'
+            'mating_surface/anchor_node/browser_audition_operation_plan_panel.css'
+            'mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01_bootstrap.py'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py'
+            'mating_surface/anchor_node/fixtures/axm-head-browser-audition-operation-plan-cases-01.json'
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          mapfile -t observed < <(git status --porcelain=v1 --untracked-files=all | sed -E 's/^...//' | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]] || {
+            echo "working denominator differs" >&2
+            printf 'observed:\n%s\nexpected:\n%s\n' \
+              "$(printf '%s\n' "${observed[@]}")" \
+              "$(printf '%s\n' "${wanted[@]}")" >&2
+            exit 2
+          }
+          for path in "${expected[@]}"; do
+            if git cat-file -e "origin/main:$path" 2>/dev/null; then
+              echo "product path already exists on floor: $path" >&2
+              exit 2
+            fi
+          done
+          git add -- "${expected[@]}"
+          mapfile -t staged < <(git diff --cached --name-only | LC_ALL=C sort)
+          [[ "${staged[*]}" == "${wanted[*]}" ]] || {
+            echo "staged denominator differs" >&2
+            exit 2
+          }
+          for path in "${expected[@]}"; do
+            status="$(git diff --cached --name-status origin/main -- "$path")"
+            [[ "$status" == $'A\t'* ]] || {
+              echo "non-additive product member: $path: $status" >&2
+              exit 2
+            }
+          done
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Add the browser audition operation plan'
+          echo "FINAL_HEAD=$(git rev-parse HEAD)"
+          echo "FINAL_TREE=$(git rev-parse 'HEAD^{tree}')"
+
+      - name: Replace staging branch with exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          temporary_head="$(cat "$RUNNER_TEMP/temporary-head.txt")"
+          git push \
+            --force-with-lease="refs/heads/$BRANCH:$temporary_head" \
+            origin \
+            "HEAD:refs/heads/$BRANCH"
