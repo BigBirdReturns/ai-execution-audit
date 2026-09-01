@@ -1,0 +1,222 @@
+{
+  "admittedPacket": {
+    "commit": "ac60f1196635d73e614a09123772efccd4649bd0",
+    "profileId": "axm-head/browser-physical-audition-packet/0.1",
+    "tree": "b6a705c988f0997a63c8ff19dd3f1f67e1d146b6"
+  },
+  "claimBoundary": {
+    "actualSupplierQualified": false,
+    "browserLaunched": false,
+    "commandAuthority": "none",
+    "inferenceExecuted": false,
+    "missionAuthority": "none",
+    "modelDownloaded": false,
+    "namedHumanConfirmationSupplied": false,
+    "operatorConsoleSourceAdmitted": false,
+    "operatorConsoleSourceConstructed": true,
+    "peerConnectionFormed": false,
+    "physicalAuditionCompleted": false,
+    "physicalEstateQualified": false,
+    "supplierEndpointContacted": false
+  },
+  "commands": [
+    "validate-profile",
+    "validate-fixtures",
+    "campaign",
+    "validate-command",
+    "build-extension",
+    "verify-extension",
+    "source-set"
+  ],
+  "dependencies": [
+    {
+      "bytes": 22384,
+      "gitBlobSha": "f8489140c119b8513a7569ff95c3900dc1672496",
+      "path": "mating_surface/anchor_node/browser_distributed_inference_probe.js",
+      "sha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e"
+    },
+    {
+      "bytes": 8275,
+      "gitBlobSha": "062da28313107615c9afe5743f8390d77465deca",
+      "path": "mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json",
+      "sha256": "sha256:93257d97d41b3462d71aa61640e7f5050510e4f38e0291d8d775a06e37fa67d6"
+    }
+  ],
+  "extensionMembers": [
+    "manifest.json",
+    "browser_distributed_inference_probe.js",
+    "browser_physical_audition_operator_contract.js",
+    "browser_physical_audition_operator_service_worker.js",
+    "browser_physical_audition_operator_panel.html",
+    "browser_physical_audition_operator_panel.js",
+    "browser_physical_audition_operator_panel.css",
+    "build-manifest.json"
+  ],
+  "extensionPayloadMembers": [
+    "manifest.json",
+    "browser_distributed_inference_probe.js",
+    "browser_physical_audition_operator_contract.js",
+    "browser_physical_audition_operator_service_worker.js",
+    "browser_physical_audition_operator_panel.html",
+    "browser_physical_audition_operator_panel.js",
+    "browser_physical_audition_operator_panel.css"
+  ],
+  "extensionSourceMembers": [
+    "mating_surface/anchor_node/browser_physical_audition_operator_contract.js",
+    "mating_surface/anchor_node/browser_physical_audition_operator_service_worker.js",
+    "mating_surface/anchor_node/browser_physical_audition_operator_panel.html",
+    "mating_surface/anchor_node/browser_physical_audition_operator_panel.js",
+    "mating_surface/anchor_node/browser_physical_audition_operator_panel.css"
+  ],
+  "fixtureCaseIds": [
+    "pass-mark-availability",
+    "pass-mark-adapter-artifact",
+    "pass-mark-formation",
+    "pass-mark-member",
+    "pass-mark-model-manifest",
+    "pass-mark-model-artifact",
+    "pass-mark-performance-start",
+    "pass-mark-token",
+    "pass-mark-drop",
+    "pass-mark-equivalence",
+    "pass-mark-privacy",
+    "pass-mark-observation-receipt",
+    "pass-sample-peer-stats",
+    "pass-export-capture",
+    "refuse-unknown-method",
+    "refuse-missing-required-key",
+    "refuse-extra-key",
+    "refuse-malformed-evidence-ref",
+    "refuse-raw-url-member",
+    "refuse-raw-ip-member",
+    "refuse-boolean-number",
+    "refuse-fractional-integer",
+    "refuse-zero-artifact-bytes",
+    "refuse-reversed-layer-range",
+    "refuse-invalid-drop-terminal",
+    "refuse-prompt-body",
+    "refuse-supplier-field",
+    "refuse-terminal-field",
+    "refuse-authority-field",
+    "refuse-raw-model-coordinate",
+    "refuse-malformed-member-hash",
+    "refuse-array-ceiling",
+    "refuse-command-byte-ceiling",
+    "refuse-old-availability-time",
+    "refuse-negative-token-index",
+    "refuse-zero-output-token-count",
+    "refuse-unknown-receipt-kind",
+    "refuse-unknown-member-role",
+    "refuse-capacity-basis-claim",
+    "refuse-partition-mode",
+    "refuse-boolean-string",
+    "refuse-empty-peer-stats-extra",
+    "envelope-pass-open",
+    "envelope-pass-invoke",
+    "envelope-pass-status",
+    "envelope-pass-close",
+    "envelope-refuse-protocol",
+    "envelope-refuse-kind",
+    "envelope-refuse-missing-session",
+    "envelope-refuse-extra-field",
+    "envelope-refuse-request-id",
+    "envelope-refuse-tab-id"
+  ],
+  "fixtureCounts": {
+    "envelope": 10,
+    "hostile": 28,
+    "positive": 14,
+    "total": 52
+  },
+  "interface": "axm/distributed-model-inference@1",
+  "issueRef": "BigBirdReturns/ai-execution-audit#103",
+  "limits": {
+    "maximumCaptureBytes": 1048576,
+    "maximumCommandBytes": 65536,
+    "maximumSessionAgeMs": 7200000,
+    "maximumSessionRequests": 512
+  },
+  "manifestContract": {
+    "action": {
+      "default_title": "Open AXM physical-audition console"
+    },
+    "background": {
+      "service_worker": "browser_physical_audition_operator_service_worker.js"
+    },
+    "content_scripts": [
+      {
+        "all_frames": false,
+        "js": [
+          "browser_distributed_inference_probe.js"
+        ],
+        "matches": [
+          "<all_urls>"
+        ],
+        "run_at": "document_start",
+        "world": "MAIN"
+      }
+    ],
+    "content_security_policy": {
+      "extension_pages": "script-src 'self'; object-src 'none'"
+    },
+    "manifest_version": 3,
+    "minimum_chrome_version": "116",
+    "name": "AXM Browser Physical-Audition Operator Console",
+    "permissions": [
+      "activeTab",
+      "scripting",
+      "sidePanel"
+    ],
+    "side_panel": {
+      "default_path": "browser_physical_audition_operator_panel.html"
+    },
+    "version": "0.1.0"
+  },
+  "methods": [
+    "markAvailability",
+    "markAdapterArtifact",
+    "markFormation",
+    "markMember",
+    "markModelManifest",
+    "markModelArtifact",
+    "markPerformanceStart",
+    "markToken",
+    "markDrop",
+    "markEquivalence",
+    "markPrivacyDeclaration",
+    "markObservationReceipt",
+    "samplePeerStats",
+    "exportCapture"
+  ],
+  "profileId": "axm-head/browser-physical-audition-operator-console/0.1",
+  "protocol": "axm-head/browser-physical-audition-operator-console@1",
+  "receiptKinds": [
+    "current-availability-observation",
+    "executable-adapter-artifact",
+    "formation-capacity-receipt",
+    "formation-topology-receipt",
+    "member-drop-behavior-receipt",
+    "model-output-equivalence-receipt",
+    "performance-receipt",
+    "network-exposure-observation",
+    "privacy-declaration"
+  ],
+  "schema": "axm-head/browser-physical-audition-operator-console-profile@1",
+  "sourceMembers": [
+    ".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml",
+    "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md",
+    "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json",
+    "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-01.ps1",
+    "mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py",
+    "mating_surface/anchor_node/browser_physical_audition_operator_contract.js",
+    "mating_surface/anchor_node/browser_physical_audition_operator_service_worker.js",
+    "mating_surface/anchor_node/browser_physical_audition_operator_panel.html",
+    "mating_surface/anchor_node/browser_physical_audition_operator_panel.js",
+    "mating_surface/anchor_node/browser_physical_audition_operator_panel.css",
+    "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py",
+    "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py",
+    "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py",
+    "mating_surface/anchor_node/fixtures/axm-head-browser-physical-audition-operator-console-cases-01.json"
+  ],
+  "status": "candidate_source_only"
+}

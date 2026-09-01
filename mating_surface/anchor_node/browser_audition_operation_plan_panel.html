@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AXM Audition Operation Plan</title>
+  <link rel="stylesheet" href="browser_audition_operation_plan_panel.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">AXM HEAD</p>
+      <h1>Audition operation plan</h1>
+      <p class="boundary">Local, supplier-neutral execution of one content-bound probe plan. A plan cannot qualify a route, supplier, Estate, or authority.</p>
+    </header>
+
+    <section aria-labelledby="load-title">
+      <h2 id="load-title">1. Load bound objects</h2>
+      <label for="bindings-file">Bindings JSON</label>
+      <input id="bindings-file" type="file" accept="application/json,.json">
+      <label for="plan-file">Compiled plan JSON</label>
+      <input id="plan-file" type="file" accept="application/json,.json">
+      <button id="load-bundle" type="button">Validate bundle</button>
+      <dl>
+        <div><dt>Bundle</dt><dd id="bundle-state">NOT LOADED</dd></div>
+        <div><dt>Plan</dt><dd id="plan-id">none</dd></div>
+        <div><dt>Bindings</dt><dd id="bindings-id">none</dd></div>
+        <div><dt>Steps</dt><dd id="step-count">0</dd></div>
+      </dl>
+    </section>
+
+    <section aria-labelledby="session-title">
+      <h2 id="session-title">2. Bind active document</h2>
+      <button id="open-session" type="button" disabled>Open document session</button>
+      <button id="status-session" type="button" disabled>Inspect status</button>
+      <button id="close-session" type="button" disabled>Close session</button>
+      <dl>
+        <div><dt>Session</dt><dd id="session-state">CLOSED</dd></div>
+        <div><dt>Probe</dt><dd id="probe-state">unknown</dd></div>
+        <div><dt>Early install</dt><dd id="probe-early">unknown</dd></div>
+        <div><dt>Observed events</dt><dd id="probe-events">0</dd></div>
+      </dl>
+    </section>
+
+    <section aria-labelledby="execute-title">
+      <h2 id="execute-title">3. Execute fixed denominator</h2>
+      <p id="barrier-statement" class="barrier" hidden></p>
+      <button id="acknowledge-barrier" type="button" disabled>Acknowledge displayed barrier</button>
+      <button id="run-plan" type="button" disabled>Run to next barrier</button>
+      <dl>
+        <div><dt>Execution</dt><dd id="execution-state">IDLE</dd></div>
+        <div><dt>Next step</dt><dd id="next-step">none</dd></div>
+        <div><dt>Completed</dt><dd id="completed-steps">0</dd></div>
+        <div><dt>Saved members</dt><dd id="saved-results">0</dd></div>
+      </dl>
+    </section>
+
+    <section aria-labelledby="log-title">
+      <h2 id="log-title">Local event log</h2>
+      <ol id="event-log" aria-live="polite"></ol>
+    </section>
+  </main>
+  <script src="browser_physical_audition_operator_contract.js"></script>
+  <script src="browser_audition_operation_plan_contract.js"></script>
+  <script src="browser_audition_operation_plan_panel.js"></script>
+</body>
+</html>
