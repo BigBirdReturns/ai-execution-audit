@@ -25,7 +25,7 @@
     record refuses rather than let that happen.
 
 .PARAMETER Command
-    One of: compile, verify, materialize, record, close-pre-seal, seal, verify-detached,
+    One of: admit-source, compile, verify, materialize, record, close-pre-seal, seal, verify-detached,
     close-post-seal, qualify.
 
 .NOTES
@@ -41,7 +41,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('compile', 'verify', 'materialize', 'record', 'close-pre-seal', 'seal', 'verify-detached', 'close-post-seal', 'qualify')]
+    [ValidateSet('admit-source', 'compile', 'verify', 'materialize', 'record', 'close-pre-seal', 'seal', 'verify-detached', 'close-post-seal', 'qualify')]
     [string] $Command,
 
     [string] $Workstation,
@@ -54,6 +54,8 @@ param(
     [string] $Candidates,
     [string] $PreSealClosure,
     [string] $DetachedVerification,
+    [string] $SourceAdmissionReceipt,
+    [string] $SourceCommit,
     [string] $Out,
     [string] $Python = 'python'
 )
@@ -85,16 +87,28 @@ function Invoke-Surface {
 }
 
 switch ($Command) {
+    'admit-source' {
+        Assert-Supplied -Name 'SourceCommit' -Value $SourceCommit
+        $arguments = @(
+            '--repository-root', $repositoryRoot,
+            '--source-commit', $SourceCommit
+        )
+        if ($Out) { $arguments += @('--out', $Out) }
+        Invoke-Surface -Module 'verify_stc_mary_successor_source_admission_bootstrap.py' -Arguments $arguments
+    }
+
     'compile' {
         Assert-Supplied -Name 'Workstation' -Value $Workstation
         Assert-Supplied -Name 'Predecessor' -Value $Predecessor
         Assert-Supplied -Name 'Packet' -Value $Packet
+        Assert-Supplied -Name 'SourceAdmissionReceipt' -Value $SourceAdmissionReceipt
         $arguments = @(
             'compile',
             '--workstation', $Workstation,
             '--predecessor', $Predecessor,
             '--successor', $Packet,
-            '--repository-root', $repositoryRoot
+            '--repository-root', $repositoryRoot,
+            '--source-admission-receipt', $SourceAdmissionReceipt
         )
         if ($Out) { $arguments += @('--out', $Out) }
         Invoke-Surface -Module 'stc_mary_successor_packet_compiler.py' -Arguments $arguments

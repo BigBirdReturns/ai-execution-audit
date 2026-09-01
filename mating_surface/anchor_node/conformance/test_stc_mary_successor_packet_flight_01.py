@@ -40,8 +40,10 @@ import sys
 import tempfile
 import unittest
 import atexit
+import copy
 from pathlib import Path
 from typing import Any, Mapping
+from unittest import mock
 
 ANCHOR = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = ANCHOR.parent.parent
@@ -57,6 +59,8 @@ import verify_stc_mary_successor_evidence_materialization as materialization_bri
 import verify_stc_mary_successor_packet as packet_verifier  # noqa: E402
 import verify_stc_mary_successor_post_seal_closure as post_seal  # noqa: E402
 import verify_stc_mary_successor_pre_seal_closure as pre_seal  # noqa: E402
+import verify_stc_mary_successor_source_admission as source_admission  # noqa: E402
+import verify_stc_mary_successor_source_admission_bootstrap as source_bootstrap  # noqa: E402
 
 PROFILE = ANCHOR / "stc-mary-successor-packet-flight-01-profile-01.json"
 WORKFLOW = REPOSITORY_ROOT / ".github" / "workflows" / "stc-mary-successor-packet-flight-01.yml"
@@ -101,6 +105,39 @@ def write_json(path: Path, value: Any) -> None:
 
 def load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def git(repository: Path, *arguments: str) -> str:
+    completed = subprocess.run(
+        ["git", "-C", str(repository), *arguments], check=True, capture_output=True, text=True
+    )
+    return completed.stdout.strip()
+
+
+def build_source_repository(root: Path, profile: Mapping[str, Any]) -> tuple[Path, str]:
+    """Commit the current synthetic source fixture, then trust only its Git objects."""
+    repository = root / "source-repository"
+    repository.mkdir(parents=True)
+    subprocess.run(["git", "init", "--quiet", "--initial-branch=main", str(repository)], check=True)
+    git(repository, "config", "user.name", "STC MARY synthetic fixture")
+    git(repository, "config", "user.email", "synthetic@example.invalid")
+    git(repository, "config", "core.autocrlf", "false")
+
+    tracked = subprocess.check_output(
+        ["git", "-C", str(REPOSITORY_ROOT), "ls-files", "-z"]
+    ).split(b"\0")
+    paths = {raw.decode("utf-8") for raw in tracked if raw}
+    paths.update(profile["successorSourceMembers"])
+    for relative in sorted(paths):
+        source = REPOSITORY_ROOT / relative
+        if not source.is_file():
+            continue
+        destination = repository / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+    git(repository, "add", "--all")
+    git(repository, "commit", "--quiet", "-m", "synthetic exact-source fixture")
+    return repository, git(repository, "rev-parse", "HEAD")
 
 
 def synthetic_observation(stage: str, contract: dict) -> dict:
@@ -190,11 +227,18 @@ class SuccessorFlightWalk:
     # -- step 2: compile the distinct 0.2 successor ------------------------------
     def compile(self) -> dict:
         self.predecessor_fence_before = self.fence(self.predecessor)
+        self.source_repository, self.source_commit = build_source_repository(self.root, self.profile)
+        self.source_admission_path = self.receipts / "source-admission.json"
+        self.source_admission = source_bootstrap.authenticate(
+            repository=self.source_repository, source_commit=self.source_commit
+        )
+        law.write_canonical_json(self.source_admission_path, self.source_admission)
         receipt = compiler.compile_successor_packet(
             workstation=self.workstation,
             predecessor=self.predecessor,
             successor=self.packet,
-            repository=REPOSITORY_ROOT,
+            repository=self.source_repository,
+            source_admission_receipt=self.source_admission_path,
         )
         self.predecessor_fence_after = self.fence(self.predecessor)
         self.compile_receipt = receipt
@@ -220,7 +264,7 @@ class SuccessorFlightWalk:
                 "--profile",
                 str(PROFILE),
                 "--repository-root",
-                str(REPOSITORY_ROOT),
+                str(self.source_repository),
                 "--out",
                 str(out),
             ],
@@ -416,7 +460,7 @@ class SuccessorFlightWalk:
                 "--profile",
                 str(ADMISSION_PROFILE),
                 "--admission-source-root",
-                str(REPOSITORY_ROOT),
+                str(self.source_repository),
                 "--out",
                 str(out),
             ],
@@ -521,7 +565,7 @@ class SuccessorFlightWalk:
             packet=self.packet,
             admission_receipt=self.receipts / "admission-admissible.json",
             candidates=self.candidates,
-            repository=REPOSITORY_ROOT,
+            repository=self.source_repository,
             profile_path=PROFILE,
         )
         self.materialization_path = self.receipts / name
@@ -531,7 +575,7 @@ class SuccessorFlightWalk:
     # -- step 7: draft each stage, then record it -------------------------------
     def write_stage_drafts(self, admission_receipt: Mapping[str, Any]) -> list[dict]:
         profile = law.load_profile(PROFILE)
-        admission = law.load_admission_profile(REPOSITORY_ROOT, profile)
+        admission = law.load_admission_profile(self.source_repository, profile)
         authorizations = orchestrator.stage_authorizations(
             profile=profile, admission=admission, receipt=admission_receipt
         )
@@ -584,7 +628,7 @@ class SuccessorFlightWalk:
             materialization_receipt=self.materialization_path,
             authentication_receipt=self.authentication_path,
             candidates=self.candidates,
-            repository=REPOSITORY_ROOT,
+            repository=self.source_repository,
         )
         self.pre_seal_closure = pre_seal.close_pre_seal(
             packet=self.packet,
@@ -593,7 +637,7 @@ class SuccessorFlightWalk:
             authentication_receipt=self.authentication_path,
             candidates=self.candidates,
             profile_path=PROFILE,
-            repository=REPOSITORY_ROOT,
+            repository=self.source_repository,
         )
         self.pre_seal_path = self.receipts / "pre-seal-closure.json"
         law.write_canonical_json(self.pre_seal_path, self.pre_seal_closure)
@@ -607,10 +651,10 @@ class SuccessorFlightWalk:
             packet=self.packet,
             sealed=self.sealed,
             pre_seal_closure=self.pre_seal_path,
-            repository=REPOSITORY_ROOT,
+            repository=self.source_repository,
         )
         self.detached_verification = seal_adapter.verify_detached(
-            sealed=self.sealed, repository=REPOSITORY_ROOT
+            sealed=self.sealed, repository=self.source_repository
         )
         self.detached_path = self.receipts / "detached-verification.json"
         law.write_canonical_json(self.detached_path, self.detached_verification)
@@ -621,7 +665,7 @@ class SuccessorFlightWalk:
             pre_seal_closure=self.pre_seal_path,
             detached_verification=self.detached_path,
             profile_path=PROFILE,
-            repository=REPOSITORY_ROOT,
+            repository=self.source_repository,
         )
         return self
 
@@ -694,6 +738,11 @@ class LegalOrderTraversal(unittest.TestCase):
             self.walk.compile_receipt["successorSourceMemberCount"],
             profile["successorSourceMemberDenominator"],
         )
+        carried_admission = load_json(self.walk.packet / profile["lineage"]["sourceAdmissionFile"])
+        self.assertEqual(carried_admission, self.walk.source_admission)
+        self.assertEqual(
+            carried_admission["successorSourceSetId"], self.walk.compile_receipt["successorSourceSetId"]
+        )
 
     # -- independent verification ------------------------------------------------
     def test_the_compiled_packet_verifies_under_measured_source_bootstrap(self) -> None:
@@ -705,6 +754,8 @@ class LegalOrderTraversal(unittest.TestCase):
         self.assertEqual(verification["stageRecordsPresent"], 0)
         self.assertFalse(verification["sealed"])
         self.assertIn("measured-verifier-member-binding", verification["checks"])
+        self.assertIn("source-admission-git-blob-members-bound", verification["checks"])
+        self.assertEqual(verification["sourceAdmissionId"], self.walk.source_admission["sourceAdmissionId"])
         self.assertIn("packet-identity-derived-from-succession", verification["checks"])
 
     # -- admission, by the separately admitted gate --------------------------------
@@ -1894,7 +1945,7 @@ class OrderingWitnesses(unittest.TestCase):
             packet_verifier.verify_successor_packet(
                 packet=self.walk.predecessor,
                 profile_path=PROFILE,
-                repository=REPOSITORY_ROOT,
+                repository=self.walk.source_repository,
             )
         self.assertEqual(caught.exception.code, "DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN")
 
@@ -1902,7 +1953,7 @@ class OrderingWitnesses(unittest.TestCase):
         receipt = packet_verifier.verify_successor_packet(
             packet=self.walk.packet,
             profile_path=PROFILE,
-            repository=REPOSITORY_ROOT,
+            repository=self.walk.source_repository,
         )
         self.assertEqual(receipt["status"], "PASS")
         self.assertFalse(receipt["bootstrapAuthenticated"])
@@ -1915,9 +1966,171 @@ class OrderingWitnesses(unittest.TestCase):
                 workstation=self.walk.workstation,
                 predecessor=self.walk.predecessor,
                 successor=self.walk.packet,
-                repository=REPOSITORY_ROOT,
+                repository=self.walk.source_repository,
+                source_admission_receipt=self.walk.source_admission_path,
             )
         self.assertEqual(caught.exception.code, "SUCCESSOR_OUTPUT_EXISTS")
+
+
+class ExactGitSourceAdmissionWitnesses(unittest.TestCase):
+    """Hostile witnesses for the exact commit/tree/blob source boundary."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.root = Path(tempfile.mkdtemp(prefix="stc-mary-source-admission-"))
+        atexit.register(shutil.rmtree, cls.root, ignore_errors=True)
+        cls.profile = load_json(PROFILE)
+        cls.repository, cls.commit = build_source_repository(cls.root, cls.profile)
+        cls.direct = source_admission.admit_source(repository=cls.repository, source_commit=cls.commit)
+        cls.authenticated = source_bootstrap.authenticate(repository=cls.repository, source_commit=cls.commit)
+
+    def resign(self, receipt: Mapping[str, Any]) -> dict[str, Any]:
+        body = copy.deepcopy(dict(receipt))
+        body.pop(self.profile["sourceAdmission"]["idKey"], None)
+        return law.sign(body, self.profile["sourceAdmission"]["idKey"], self.profile["sourceAdmission"]["idPrefix"])
+
+    def validate_forged(self, receipt: Mapping[str, Any], name: str) -> None:
+        path = self.root / f"{name}.json"
+        law.write_canonical_json(path, self.resign(receipt))
+        compiler.validate_source_admission(profile=self.profile, repository=self.repository, receipt_path=path)
+
+    def test_exact_commit_tree_profile_and_members_are_admitted(self) -> None:
+        receipt = self.authenticated
+        self.assertTrue(receipt["bootstrapAuthenticated"])
+        self.assertFalse(receipt["workingTreeBytesTrusted"])
+        self.assertEqual(receipt["sourceCommit"], self.commit)
+        self.assertEqual(receipt["memberCount"], 17)
+        self.assertEqual(receipt["declaredSourceMemberDenominator"], 17)
+        self.assertEqual(len({row["gitBlob"] for row in receipt["members"]}), 17)
+        self.assertTrue(receipt["successorSourceSetId"].startswith("stcmarysuccessorsourceset1_"))
+
+    def test_unknown_or_abbreviated_commit_refuses(self) -> None:
+        for value in ("0" * 40, self.commit[:12]):
+            with self.subTest(value=value), self.assertRaises(source_admission.SourceAdmissionError) as caught:
+                source_admission.admit_source(repository=self.repository, source_commit=value)
+            self.assertIn(caught.exception.code, {"SOURCE_COMMIT_UNKNOWN", "SOURCE_COMMIT_NOT_FULL"})
+
+    def test_a_non_commit_object_refuses(self) -> None:
+        blob = git(self.repository, "rev-parse", f"{self.commit}:{self.profile['sourceAdmission']['profilePath']}")
+        with self.assertRaises(source_admission.SourceAdmissionError) as caught:
+            source_admission.admit_source(repository=self.repository, source_commit=blob)
+        self.assertEqual(caught.exception.code, "SOURCE_COMMIT_OBJECT_TYPE_INVALID")
+
+    def test_tree_mismatch_refuses(self) -> None:
+        forged = copy.deepcopy(self.authenticated)
+        forged["sourceTree"] = "0" * 40
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.validate_forged(forged, "tree-mismatch")
+        self.assertEqual(caught.exception.code, "SOURCE_TREE_MISMATCH")
+
+    def test_profile_blob_mismatch_refuses(self) -> None:
+        forged = copy.deepcopy(self.authenticated)
+        forged["profileGitBlob"] = "0" * 40
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.validate_forged(forged, "profile-mismatch")
+        self.assertEqual(caught.exception.code, "SOURCE_PROFILE_BLOB_MISMATCH")
+
+    def test_a_member_absent_from_the_commit_refuses(self) -> None:
+        altered = copy.deepcopy(self.profile)
+        altered["successorSourceMembers"]["mating_surface/anchor_node/absent.py"] = "anchor_node/absent.py"
+        altered["successorSourceMemberDenominator"] += 1
+        profile_path = self.repository / self.profile["sourceAdmission"]["profilePath"]
+        original = profile_path.read_bytes()
+        try:
+            law.write_canonical_json(profile_path, altered)
+            git(self.repository, "add", "--all")
+            git(self.repository, "commit", "--quiet", "-m", "declare absent source member")
+            bad_commit = git(self.repository, "rev-parse", "HEAD")
+            with self.assertRaises(source_admission.SourceAdmissionError) as caught:
+                source_admission.admit_source(repository=self.repository, source_commit=bad_commit)
+            self.assertEqual(caught.exception.code, "SOURCE_MEMBER_ABSENT")
+        finally:
+            profile_path.write_bytes(original)
+
+    def test_repository_path_substitution_refuses(self) -> None:
+        forged = copy.deepcopy(self.authenticated)
+        forged["members"][0]["repositoryPath"] = forged["members"][1]["repositoryPath"]
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.validate_forged(forged, "repository-path")
+        self.assertEqual(caught.exception.code, "SOURCE_MEMBER_SUBSTITUTED")
+
+    def test_packet_path_substitution_refuses(self) -> None:
+        forged = copy.deepcopy(self.authenticated)
+        forged["members"][0]["packetPath"] = "anchor_node/substituted.py"
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.validate_forged(forged, "packet-path")
+        self.assertEqual(caught.exception.code, "SOURCE_MEMBER_SUBSTITUTED")
+
+    def test_correct_count_with_one_substituted_member_refuses(self) -> None:
+        forged = copy.deepcopy(self.authenticated)
+        forged["members"][0], forged["members"][1] = forged["members"][1], forged["members"][0]
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.validate_forged(forged, "member-substitution")
+        self.assertEqual(caught.exception.code, "SOURCE_MEMBER_SUBSTITUTED")
+
+    def test_git_blob_identity_mismatch_refuses(self) -> None:
+        forged = copy.deepcopy(self.authenticated)
+        forged["members"][0]["gitBlob"] = "0" * 40
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.validate_forged(forged, "blob-mismatch")
+        self.assertEqual(caught.exception.code, "SOURCE_BLOB_IDENTITY_MISMATCH")
+
+    def test_sha256_mismatch_refuses(self) -> None:
+        forged = copy.deepcopy(self.authenticated)
+        forged["members"][0]["sha256"] = "0" * 64
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.validate_forged(forged, "sha-mismatch")
+        self.assertEqual(caught.exception.code, "SOURCE_SHA256_MISMATCH")
+
+    def test_byte_count_mismatch_refuses(self) -> None:
+        forged = copy.deepcopy(self.authenticated)
+        forged["members"][0]["bytes"] += 1
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.validate_forged(forged, "byte-mismatch")
+        self.assertEqual(caught.exception.code, "SOURCE_BYTE_COUNT_MISMATCH")
+
+    def test_working_tree_mutation_is_ignored(self) -> None:
+        row = self.authenticated["members"][0]
+        path = self.repository / row["repositoryPath"]
+        original = path.read_bytes()
+        try:
+            path.write_bytes(b"ambient mutation that is not a Git blob\n")
+            repeated = source_admission.admit_source(repository=self.repository, source_commit=self.commit)
+            self.assertEqual(repeated["successorSourceSetId"], self.direct["successorSourceSetId"])
+            self.assertEqual(repeated["members"], self.direct["members"])
+        finally:
+            path.write_bytes(original)
+
+    def test_crlf_checkout_and_lf_blob_have_one_source_identity(self) -> None:
+        row = next(row for row in self.authenticated["members"] if row["repositoryPath"].endswith("source_admission.py"))
+        path = self.repository / row["repositoryPath"]
+        original = path.read_bytes()
+        try:
+            path.write_bytes(original.replace(b"\n", b"\r\n"))
+            repeated = source_admission.admit_source(repository=self.repository, source_commit=self.commit)
+            self.assertEqual(repeated["successorSourceSetId"], self.direct["successorSourceSetId"])
+            self.assertEqual(repeated["sourceAdmissionId"], self.direct["sourceAdmissionId"])
+        finally:
+            path.write_bytes(original)
+
+    def test_receipt_for_another_commit_or_tree_refuses(self) -> None:
+        forged = copy.deepcopy(self.authenticated)
+        forged["sourceCommit"] = "f" * 40
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.validate_forged(forged, "another-commit")
+        self.assertEqual(caught.exception.code, "SOURCE_COMMIT_UNKNOWN")
+
+    def test_direct_verifier_cannot_self_authenticate(self) -> None:
+        self.assertFalse(self.direct["bootstrapAuthenticated"])
+        self.assertIsNone(self.direct["bootstrapVerifierSha256"])
+        self.assertNotEqual(self.direct["sourceAdmissionId"], self.authenticated["sourceAdmissionId"])
+
+    def test_executed_verifier_bytes_must_equal_the_admitted_blob(self) -> None:
+        blob, measured = source_bootstrap.verifier_blob(self.repository, self.commit)
+        with mock.patch.object(source_bootstrap, "verifier_blob", return_value=(blob, measured + b"\n")):
+            with self.assertRaises(source_bootstrap.BootstrapError) as caught:
+                source_bootstrap.authenticate(repository=self.repository, source_commit=self.commit)
+        self.assertEqual(caught.exception.code, "EXECUTED_VERIFIER_BYTES_DIFFER")
 
 
 class SourceBoundaryWitnesses(unittest.TestCase):
@@ -1939,13 +2152,14 @@ class SourceBoundaryWitnesses(unittest.TestCase):
             self.assertNotIn("stc_mary_private_flight_packet", text, relative)
             self.assertNotIn("operatorConfirmed=", text, relative)
 
-    def test_the_four_verifiers_import_nothing_from_the_construction_law(self) -> None:
+    def test_the_independent_verifiers_import_nothing_from_the_construction_law(self) -> None:
         """Independence is the whole point: a defect in the law may not authenticate it."""
         for name in (
             "verify_stc_mary_successor_packet.py",
             "verify_stc_mary_successor_evidence_materialization.py",
             "verify_stc_mary_successor_pre_seal_closure.py",
             "verify_stc_mary_successor_post_seal_closure.py",
+            "verify_stc_mary_successor_source_admission.py",
         ):
             text = (ANCHOR / name).read_text(encoding="utf-8")
             self.assertNotIn("import stc_mary_successor_flight_law", text, name)
@@ -1954,7 +2168,7 @@ class SourceBoundaryWitnesses(unittest.TestCase):
     def test_every_declared_source_member_exists(self) -> None:
         members = self.profile["successorSourceMembers"]
         self.assertEqual(len(members), self.profile["successorSourceMemberDenominator"])
-        self.assertEqual(self.profile["successorSourceMemberDenominator"], 15)
+        self.assertEqual(self.profile["successorSourceMemberDenominator"], 17)
         self.assertEqual(len(set(members.values())), len(members))
         for relative in members:
             self.assertTrue((REPOSITORY_ROOT / relative).is_file(), relative)

@@ -678,6 +678,61 @@ def verify_successor_packet(
         "the measured successor source set is not the source set the successor contract names",
     )
 
+    source_admission_law = profile["sourceAdmission"]
+    source_admission = read_json_file(
+        packet / lineage_law["sourceAdmissionFile"],
+        code="SOURCE_ADMISSION_RECEIPT_INVALID",
+        label="packet-carried source-admission receipt",
+    )
+    exact_keys(
+        source_admission,
+        source_admission_law["receiptKeys"],
+        "SOURCE_ADMISSION_RECEIPT_INVALID",
+        "packet-carried source-admission receipt",
+    )
+    source_admission_id = assert_identity(
+        source_admission,
+        source_admission_law["idKey"],
+        source_admission_law["idPrefix"],
+        "SOURCE_ADMISSION_IDENTITY_INVALID",
+        "packet-carried source-admission receipt",
+    )
+    require(
+        source_admission["schema"] == source_admission_law["schema"]
+        and source_admission["status"] == "PASS"
+        and source_admission["bootstrapAuthenticated"] is True
+        and source_admission["workingTreeBytesTrusted"] is False
+        and source_admission["authority"] == AUTHORITY,
+        "SOURCE_ADMISSION_RECEIPT_INVALID",
+        "packet-carried source admission is not a bootstrap-authenticated no-working-tree receipt",
+    )
+    source_rows = source_admission["members"]
+    require(
+        isinstance(source_rows, list)
+        and len(source_rows) == source_admission["memberCount"] == profile["successorSourceMemberDenominator"],
+        "SOURCE_ADMISSION_MEMBER_DENOMINATOR_INVALID",
+        "packet-carried source admission member denominator differs",
+    )
+    expected_mapping = sorted(profile["successorSourceMembers"].items())
+    observed_mapping = [(row.get("repositoryPath"), row.get("packetPath")) for row in source_rows]
+    require(observed_mapping == expected_mapping, "SOURCE_ADMISSION_MEMBER_SUBSTITUTED", "packet-carried source admission mapping differs")
+    measured_by_packet_path = {row["relativePath"]: row for row in measured_source["members"]}
+    for row in source_rows:
+        exact_keys(row, source_admission_law["memberKeys"], "SOURCE_ADMISSION_RECEIPT_INVALID", "source-admission member row")
+        measured_row = measured_by_packet_path.get(row["packetPath"])
+        require(
+            measured_row is not None
+            and measured_row["sha256"] == row["sha256"]
+            and measured_row["bytes"] == row["bytes"],
+            "SOURCE_ADMISSION_MEMBER_BINDING_INVALID",
+            f"packet source member differs from admitted Git blob: {row['packetPath']}",
+        )
+    require(
+        source_admission["successorSourceSetId"] == measured_source[lineage_law["sourceSetIdKey"]],
+        "SOURCE_ADMISSION_SOURCE_SET_MISMATCH",
+        "packet-carried source admission names another successor source set",
+    )
+
     # ---- the source set never claims the frozen runtime ------------------------------
     require(
         set(profile["frozenRuntimeMembers"]).isdisjoint(set(profile["successorSourceMembers"])),
@@ -699,6 +754,8 @@ def verify_successor_packet(
         "packet-handoff-referent-measured",
         "successor-source-set-members-measured",
         "successor-source-member-denominator-exact",
+        "source-admission-receipt-identity",
+        "source-admission-git-blob-members-bound",
         "frozen-packet-runtime-unclaimed",
         "admitted-profile-canonical-digest-pinned",
         "authority-none",
@@ -742,6 +799,9 @@ def verify_successor_packet(
         "predecessorPacketStateId": predecessor_state_id,
         "successorContractId": contract_id,
         "packetHandoffId": handoff_id,
+        "sourceAdmissionId": source_admission_id,
+        "sourceCommit": source_admission["sourceCommit"],
+        "sourceTree": source_admission["sourceTree"],
         "successorSourceSetId": measured_source[lineage_law["sourceSetIdKey"]],
         "successorSourceMemberCount": measured_source["memberCount"],
         "stageDenominator": len(stages),

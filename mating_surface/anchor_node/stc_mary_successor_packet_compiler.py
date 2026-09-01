@@ -23,6 +23,7 @@ It records no stage, sets no confirmation, seals nothing, and grants no authorit
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Mapping
@@ -294,6 +295,107 @@ def repository_root() -> Path:
     return HERE.parent.parent
 
 
+def git_bytes(repository: Path, arguments: list[str], *, code: str, label: str) -> bytes:
+    """Read one object through Git plumbing; no working-tree fallback exists."""
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(repository), *arguments], check=False, capture_output=True
+        )
+    except OSError as exc:
+        law.fail(code, f"{label} could not invoke Git: {exc}")
+        raise
+    law.require(completed.returncode == 0, code, f"{label} is unavailable from the source object database")
+    return completed.stdout
+
+
+def git_text(repository: Path, arguments: list[str], *, code: str, label: str) -> str:
+    try:
+        return git_bytes(repository, arguments, code=code, label=label).decode("ascii").strip()
+    except UnicodeDecodeError:
+        law.fail(code, f"{label} is not ASCII Git metadata")
+        raise
+
+
+def validate_source_admission(
+    *, profile: Mapping[str, Any], repository: Path, receipt_path: Path
+) -> tuple[Mapping[str, Any], bytes]:
+    """Authenticate the generated receipt and replay every named Git object."""
+    admission_law = profile["sourceAdmission"]
+    raw = law.read_bounded_bytes(
+        receipt_path, law.MAX_JSON_BYTES, code="SOURCE_ADMISSION_RECEIPT_UNREADABLE",
+        label="source-admission receipt",
+    )
+    receipt = law.read_json_bytes(raw, code="SOURCE_ADMISSION_RECEIPT_INVALID", label="source-admission receipt")
+    law.exact_keys(receipt, admission_law["receiptKeys"], "SOURCE_ADMISSION_RECEIPT_INVALID", "source-admission receipt")
+    law.require(raw == law.canonical_json_bytes(receipt), "SOURCE_ADMISSION_RECEIPT_NONCANONICAL", "source-admission receipt is not canonical JSON")
+    law.assert_identity(
+        receipt, admission_law["idKey"], admission_law["idPrefix"],
+        "SOURCE_ADMISSION_IDENTITY_INVALID", "source-admission receipt",
+    )
+    law.require(receipt["schema"] == admission_law["schema"], "SOURCE_ADMISSION_RECEIPT_INVALID", "source-admission receipt schema differs")
+    law.require(receipt["status"] == "PASS", "SOURCE_ADMISSION_RECEIPT_INVALID", "source-admission receipt did not pass")
+    law.require(receipt["gitObjectFormat"] in ("sha1", "sha256"), "SOURCE_ADMISSION_RECEIPT_INVALID", "source-admission Git object format differs")
+    law.require(receipt["bootstrapAuthenticated"] is True, "SOURCE_ADMISSION_NOT_BOOTSTRAPPED", "source admission was not externally bootstrap-authenticated")
+    law.require(receipt["workingTreeBytesTrusted"] is False, "WORKING_TREE_SOURCE_TRUSTED", "source admission trusts working-tree bytes")
+    law.assert_sha256(receipt["bootstrapVerifierSha256"], "SOURCE_ADMISSION_RECEIPT_INVALID", "bootstrap verifier digest")
+    law.assert_sha256(receipt["profileCanonicalSha256"], "SOURCE_ADMISSION_RECEIPT_INVALID", "profile canonical digest")
+    law.require(
+        receipt["profileCanonicalSha256"] == law.sha256_bytes(law.canonical_json_bytes(profile)),
+        "SOURCE_PROFILE_BLOB_MISMATCH",
+        "executing source profile differs from the admitted profile Git blob",
+    )
+    commit = receipt["sourceCommit"]
+    law.require(isinstance(commit, str) and len(commit) == 40 and all(c in "0123456789abcdef" for c in commit), "SOURCE_COMMIT_INVALID", "source admission commit is not an exact full SHA")
+    law.require(
+        git_text(repository, ["cat-file", "-t", commit], code="SOURCE_COMMIT_UNKNOWN", label="source commit") == "commit",
+        "SOURCE_COMMIT_OBJECT_TYPE_INVALID", "source admission object is not a commit",
+    )
+    tree = git_text(repository, ["show", "-s", "--format=%T", commit], code="SOURCE_TREE_INVALID", label="source tree")
+    law.require(tree == receipt["sourceTree"], "SOURCE_TREE_MISMATCH", "source admission tree differs from the commit tree")
+    profile_path = admission_law["profilePath"]
+    law.require(receipt["profilePath"] == profile_path, "SOURCE_PROFILE_PATH_SUBSTITUTED", "source admission names another profile path")
+    profile_blob = git_text(repository, ["rev-parse", "--verify", f"{commit}:{profile_path}"], code="SOURCE_PROFILE_ABSENT", label="source profile")
+    law.require(profile_blob == receipt["profileGitBlob"], "SOURCE_PROFILE_BLOB_MISMATCH", "source profile blob identity differs")
+
+    members = profile["successorSourceMembers"]
+    rows = receipt["members"]
+    law.require(isinstance(rows, list), "SOURCE_ADMISSION_RECEIPT_INVALID", "source member rows are absent")
+    law.require(
+        receipt["declaredSourceMemberDenominator"] == profile["successorSourceMemberDenominator"]
+        and receipt["memberCount"] == len(rows) == len(members),
+        "SOURCE_MEMBER_DENOMINATOR_INVALID", "source-admission member denominator differs",
+    )
+    expected_pairs = sorted(members.items())
+    observed_pairs = [(row.get("repositoryPath"), row.get("packetPath")) for row in rows if isinstance(row, Mapping)]
+    law.require(observed_pairs == expected_pairs, "SOURCE_MEMBER_SUBSTITUTED", "source-admission repository or packet paths differ")
+    total = 0
+    source_rows: list[dict[str, Any]] = []
+    for row in rows:
+        law.exact_keys(row, admission_law["memberKeys"], "SOURCE_ADMISSION_RECEIPT_INVALID", "source member row")
+        repository_path = row["repositoryPath"]
+        packet_path = row["packetPath"]
+        blob = git_text(repository, ["rev-parse", "--verify", f"{commit}:{repository_path}"], code="SOURCE_MEMBER_ABSENT", label=f"source member {repository_path}")
+        law.require(blob == row["gitBlob"], "SOURCE_BLOB_IDENTITY_MISMATCH", f"source member blob identity differs: {repository_path}")
+        data = git_bytes(repository, ["cat-file", "blob", f"{commit}:{repository_path}"], code="SOURCE_MEMBER_ABSENT", label=f"source member {repository_path}")
+        law.require(law.sha256_bytes(data) == row["sha256"], "SOURCE_SHA256_MISMATCH", f"source member SHA-256 differs: {repository_path}")
+        law.require(len(data) == row["bytes"], "SOURCE_BYTE_COUNT_MISMATCH", f"source member byte count differs: {repository_path}")
+        source_rows.append({"relativePath": packet_path, "sha256": row["sha256"], "bytes": row["bytes"]})
+        total += len(data)
+    law.require(total == receipt["totalBytes"], "SOURCE_TOTAL_BYTES_MISMATCH", "source-admission total byte count differs")
+    source_body = {
+        "schema": profile["lineage"]["sourceSetSchema"],
+        "profileId": profile["packet"]["packetProfileId"],
+        "members": sorted(source_rows, key=lambda entry: entry["relativePath"]),
+        "memberCount": len(source_rows),
+        "totalBytes": total,
+        "authority": law.AUTHORITY,
+        "claimBoundary": profile["lineage"]["sourceSetClaimBoundary"],
+    }
+    expected_source_set_id = law.content_id(profile["lineage"]["sourceSetIdPrefix"], source_body)
+    law.require(expected_source_set_id == receipt["successorSourceSetId"], "SUCCESSOR_SOURCE_SET_ID_MISMATCH", "source admission does not reproduce the successor source-set identity")
+    return receipt, raw
+
+
 # --------------------------------------------------------------------------------
 # compilation
 # --------------------------------------------------------------------------------
@@ -305,6 +407,7 @@ def compile_successor_packet(
     predecessor: Path,
     successor: Path,
     repository: Path,
+    source_admission_receipt: Path,
     profile_path: Path = PROFILE_PATH,
 ) -> dict[str, Any]:
     law.require_supported_python()
@@ -324,6 +427,15 @@ def compile_successor_packet(
         profile_path, label="successor flight profile", code="PROFILE_UNREADABLE"
     ))
     admission = law.load_admission_profile(repository, profile)
+    source_admission, source_admission_bytes = validate_source_admission(
+        profile=profile,
+        repository=repository,
+        receipt_path=law.validate_lexical_coordinate(
+            source_admission_receipt,
+            label="source-admission receipt",
+            code="SOURCE_ADMISSION_RECEIPT_UNREADABLE",
+        ),
+    )
 
     law.require(
         not law.is_within(successor, predecessor) and not law.is_within(predecessor, successor),
@@ -430,7 +542,11 @@ def compile_successor_packet(
     )
 
     source_set = copy_successor_source(
-        profile=profile, repository=repository, successor=successor, packet_profile_id=packet_law["packetProfileId"]
+        profile=profile,
+        repository=repository,
+        successor=successor,
+        packet_profile_id=packet_law["packetProfileId"],
+        source_admission=source_admission,
     )
 
     contract = law.sign(
@@ -454,6 +570,7 @@ def compile_successor_packet(
     )
 
     law.write_canonical_json(successor / lineage_law["handoffFile"], handoff)
+    write_bytes(successor / lineage_law["sourceAdmissionFile"], source_admission_bytes)
     law.write_canonical_json(successor / lineage_law["sourceSetFile"], source_set)
     law.write_canonical_json(successor / files["successorContract"], contract)
     law.write_canonical_json(successor / files["marker"], marker)
@@ -499,6 +616,9 @@ def compile_successor_packet(
         "successorStateId": state[packet_law["stateIdKey"]],
         "successorContractId": contract[lineage_law["successorContractIdKey"]],
         "packetHandoffId": handoff[lineage_law["handoffIdKey"]],
+        "sourceAdmissionId": source_admission[profile["sourceAdmission"]["idKey"]],
+        "sourceCommit": source_admission["sourceCommit"],
+        "sourceTree": source_admission["sourceTree"],
         "successorSourceSetId": source_set[lineage_law["sourceSetIdKey"]],
         "successorSourceMemberCount": source_set["memberCount"],
         "stageDenominator": profile["denominator"]["stageDenominator"],
@@ -527,15 +647,14 @@ def write_bytes(path: Path, data: bytes) -> None:
 
 
 def copy_successor_source(
-    *, profile: Mapping[str, Any], repository: Path, successor: Path, packet_profile_id: str
+    *,
+    profile: Mapping[str, Any],
+    repository: Path,
+    successor: Path,
+    packet_profile_id: str,
+    source_admission: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Copy every successor source member into the packet, then measure what was written.
-
-    The bytes are copied verbatim rather than normalized, so the set the admission gate
-    re-measures is exactly what this working tree holds. That makes the measured identity
-    a property of the checkout, which is the honest reading: a different checkout is a
-    different source set.
-    """
+    """Copy only the exact Git blobs named by the authenticated source receipt."""
     lineage_law = profile["lineage"]
     members = profile["successorSourceMembers"]
     law.require(
@@ -555,20 +674,29 @@ def copy_successor_source(
         "the successor source set claims a frozen packet-runtime member as its own",
     )
     root = successor / lineage_law["sourceRoot"]
+    admitted = {
+        (row["repositoryPath"], row["packetPath"]): row for row in source_admission["members"]
+    }
     for repository_relative, member_relative in sorted(members.items()):
         law.require(
             law.RELATIVE_MEMBER_RE.fullmatch(member_relative) is not None and "\\" not in member_relative,
             "SOURCE_MEMBER_COORDINATE_INVALID",
             f"source member coordinate is not an admitted relative member: {member_relative}",
         )
-        source = law.validate_lexical_coordinate(
-            repository / repository_relative, label="successor source member", code="SOURCE_MEMBER_UNREADABLE"
+        row = admitted[(repository_relative, member_relative)]
+        data = git_bytes(
+            repository,
+            ["cat-file", "blob", f"{source_admission['sourceCommit']}:{repository_relative}"],
+            code="SOURCE_MEMBER_UNREADABLE",
+            label=f"source member {repository_relative}",
         )
-        data = law.read_bounded_bytes(
-            source, law.MAX_MEMBER_BYTES, code="SOURCE_MEMBER_UNREADABLE", label=f"source member {repository_relative}"
+        law.require(
+            law.sha256_bytes(data) == row["sha256"] and len(data) == row["bytes"],
+            "SOURCE_MEMBER_DRIFT",
+            f"source member differs from its admitted Git blob: {repository_relative}",
         )
         write_bytes(root / member_relative, data)
-    return law.measure_source_set(
+    measured = law.measure_source_set(
         root,
         sorted(members.values()),
         schema=lineage_law["sourceSetSchema"],
@@ -579,6 +707,12 @@ def copy_successor_source(
         code="SUCCESSOR_SOURCE_SET_INVALID",
         label="successor source set",
     )
+    law.require(
+        measured[lineage_law["sourceSetIdKey"]] == source_admission["successorSourceSetId"],
+        "SUCCESSOR_SOURCE_SET_ID_MISMATCH",
+        "packet-carried source does not reproduce the admitted Git-blob source set",
+    )
+    return measured
 
 
 # --------------------------------------------------------------------------------
@@ -618,6 +752,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     build.add_argument("--predecessor", type=Path, required=True)
     build.add_argument("--successor", type=Path, required=True)
     build.add_argument("--repository-root", type=Path, default=repository_root())
+    build.add_argument("--source-admission-receipt", type=Path, required=True)
     build.add_argument("--out", type=Path)
     return parser.parse_args(argv)
 
@@ -655,6 +790,7 @@ def main(argv: list[str] | None = None) -> int:
             predecessor=args.predecessor,
             successor=args.successor,
             repository=args.repository_root,
+            source_admission_receipt=args.source_admission_receipt,
         )
         data = law.canonical_json_bytes(receipt)
         if args.out is None:

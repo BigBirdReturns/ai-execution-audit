@@ -239,6 +239,7 @@
     "predecessorMarkerFile": "lineage/predecessor-packet/PACKET-ROOT.json",
     "predecessorMutationAllowed": false,
     "predecessorStateFile": "lineage/predecessor-packet/packet-state.json",
+    "sourceAdmissionFile": "lineage/SOURCE-ADMISSION.json",
     "sourceRoot": "lineage/successor-source",
     "sourceSetClaimBoundary": "Exact successor packet source set. It identifies source bytes and grants no authority.",
     "sourceSetFile": "lineage/SUCCESSOR-SOURCE-SET.json",
@@ -637,6 +638,43 @@
     "predecessorPacketMutationAllowed": false,
     "rule": "This source set may not name, import, or modify any frozen packet-runtime member. The successor runtime is an independent implementation of the truthful contract, not a patched copy of the frozen recorder."
   },
+  "sourceAdmission": {
+    "bootstrapSchema": "stc-mary/successor-source-admission-bootstrap/1",
+    "claimBoundary": "Exact Git-object admission of one successor source set. It identifies source bytes and their commit and tree ancestry, trusts no working-tree byte, establishes no merge or approval state, and grants no authority.",
+    "idKey": "sourceAdmissionId",
+    "idPrefix": "stcmarysuccessorsourceadmission1",
+    "memberKeys": [
+      "bytes",
+      "gitBlob",
+      "packetPath",
+      "repositoryPath",
+      "sha256"
+    ],
+    "profilePath": "mating_surface/anchor_node/stc-mary-successor-packet-flight-01-profile-01.json",
+    "receiptKeys": [
+      "authority",
+      "bootstrapAuthenticated",
+      "bootstrapVerifierSha256",
+      "claimBoundary",
+      "declaredSourceMemberDenominator",
+      "gitObjectFormat",
+      "memberCount",
+      "members",
+      "profileCanonicalSha256",
+      "profileGitBlob",
+      "profilePath",
+      "schema",
+      "sourceAdmissionId",
+      "sourceCommit",
+      "sourceTree",
+      "status",
+      "successorSourceSetId",
+      "totalBytes",
+      "workingTreeBytesTrusted"
+    ],
+    "schema": "stc-mary/successor-source-admission/1",
+    "verifierPath": "mating_surface/anchor_node/verify_stc_mary_successor_source_admission.py"
+  },
   "status": "source_only_candidate",
   "stopWall": {
     "campaignApplication": "held",
@@ -644,7 +682,7 @@
     "requiredHumanAuthenticationMechanism": "issue-94",
     "rule": "No live campaign coordinate may reach this source. Every fixture is synthetic, every campaign label carries the synthetic prefix, and no current observation, human statement, stage confirmation, packet mutation, stage recording or sealing against Campaign A is authorized by this transaction."
   },
-  "successorSourceMemberDenominator": 15,
+  "successorSourceMemberDenominator": 17,
   "successorSourceMembers": {
     ".github/workflows/stc-mary-successor-packet-flight-01.yml": "workflows/stc-mary-successor-packet-flight-01.yml",
     "mating_surface/anchor_node/STC-MARY-SUCCESSOR-PACKET-FLIGHT-01.md": "anchor_node/STC-MARY-SUCCESSOR-PACKET-FLIGHT-01.md",
@@ -660,7 +698,9 @@
     "mating_surface/anchor_node/verify_stc_mary_successor_packet.py": "anchor_node/verify_stc_mary_successor_packet.py",
     "mating_surface/anchor_node/verify_stc_mary_successor_packet_bootstrap.py": "anchor_node/verify_stc_mary_successor_packet_bootstrap.py",
     "mating_surface/anchor_node/verify_stc_mary_successor_post_seal_closure.py": "anchor_node/verify_stc_mary_successor_post_seal_closure.py",
-    "mating_surface/anchor_node/verify_stc_mary_successor_pre_seal_closure.py": "anchor_node/verify_stc_mary_successor_pre_seal_closure.py"
+    "mating_surface/anchor_node/verify_stc_mary_successor_pre_seal_closure.py": "anchor_node/verify_stc_mary_successor_pre_seal_closure.py",
+    "mating_surface/anchor_node/verify_stc_mary_successor_source_admission.py": "anchor_node/verify_stc_mary_successor_source_admission.py",
+    "mating_surface/anchor_node/verify_stc_mary_successor_source_admission_bootstrap.py": "anchor_node/verify_stc_mary_successor_source_admission_bootstrap.py"
   },
   "traversal": {
     "order": [

@@ -60,7 +60,7 @@ A successor packet therefore cannot carry a Stage 16 contract the admission gate
 admitted. Editing the admitted profile breaks every surface in this set at once, which is
 the intended blast radius.
 
-## The eleven components
+## The declared source components
 
 ```text
 stc_mary_successor_flight_law.py               shared construction law (producers only)
@@ -70,6 +70,8 @@ stc_mary_successor_packet_orchestrator.py      admission-driven recording orches
 verify_stc_mary_successor_evidence_materialization.py  admitted-role to packet-body bridge
 verify_stc_mary_successor_packet.py            independent successor packet verifier
 verify_stc_mary_successor_packet_bootstrap.py  measured-source bootstrap
+verify_stc_mary_successor_source_admission.py  exact commit/tree/blob source verifier
+verify_stc_mary_successor_source_admission_bootstrap.py external measured verifier bootstrap
 verify_stc_mary_successor_pre_seal_closure.py  pre-seal closure verifier
 stc_mary_successor_seal_adapter.py             sealing and detached verification
 verify_stc_mary_successor_post_seal_closure.py post-seal closure verifier
@@ -80,9 +82,28 @@ conformance/test_stc_mary_successor_packet_flight_01.py   the witness denominato
 .github/workflows/stc-mary-successor-packet-flight-01.yml pinned hosted qualification
 ```
 
-The four verifiers import **nothing** from the shared law module. Each re-implements
+The independent verifiers import **nothing** from the shared law module. Each re-implements
 canonical JSON, content identity, bounded reads and source-set measurement, so a defect in
 the construction law cannot authenticate the objects that law produced.
+
+## Exact Git-blob source admission
+
+Compilation never reads a successor source member from the ambient checkout. Before a
+packet can exist, the external source bootstrap reads the source-admission verifier itself
+from one exact full Git commit, executes those measured bytes under `python -I` from a
+foreign temporary directory, and emits a content-addressed receipt. The receipt binds the
+commit, tree, profile blob and canonical profile digest, then binds every declared member's
+repository path, packet path, Git blob, SHA-256 and byte count. Its derived
+`successorSourceSetId` uses the packet-relative member order that the packet verifier
+reproduces.
+
+The direct verifier always reports `bootstrapAuthenticated: false`. Only the external
+measured bootstrap may change that field, after proving its executed verifier digest and
+blob identity equal the verifier row the exact commit declared. The compiler authenticates
+the complete receipt, replays every Git object lookup, copies only `git cat-file blob`
+bytes, writes the canonical receipt to `lineage/SOURCE-ADMISSION.json`, and requires the
+packet-carried source set to reproduce the admitted identity. Working-tree mutation,
+including CRLF checkout conversion, is outside the source identity.
 
 ## The forty-three admitted roles reach the packet, or nothing does
 
@@ -442,7 +463,8 @@ number of witnesses, on any skip, and on any drift in the pinned admitted profil
 ## Operator commands
 
 ```powershell
-.\stc-mary-successor-packet-flight-01.ps1 compile         -Workstation <dir> -Predecessor <dir> -Packet <dir> -Out <receipt>
+.\stc-mary-successor-packet-flight-01.ps1 admit-source    -SourceCommit <full-sha> -Out <source-admission>
+.\stc-mary-successor-packet-flight-01.ps1 compile         -Workstation <dir> -Predecessor <dir> -Packet <dir> -SourceAdmissionReceipt <source-admission> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 verify          -Packet <dir> -Out <verdict>
 .\stc-mary-successor-packet-flight-01.ps1 materialize     -Packet <dir> -AdmissionReceipt <file> -Candidates <dir> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 record          -Packet <dir> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <receipt>
@@ -452,7 +474,8 @@ number of witnesses, on any skip, and on any drift in the pinned admitted profil
 .\stc-mary-successor-packet-flight-01.ps1 close-post-seal -Packet <dir> -Sealed <dir> -PreSealClosure <file> -DetachedVerification <file> -Out <closure>
 ```
 
-`verify` always runs through the bootstrap. The verifier cannot authenticate itself and
+`admit-source` and `verify` always run through their respective bootstraps. Neither
+verifier can authenticate itself; each
 reports `bootstrapAuthenticated: false` on any direct run, by design.
 
 ## Stop wall
