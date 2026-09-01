@@ -1,0 +1,42 @@
+name: TEMP Name Operation Plan Post Call Fragment 01
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-audition-operation-plan-01
+    paths:
+      - ".github/workflows/temp-name-operation-plan-post-call-fragment-01.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: work/axm-head-browser-audition-operation-plan-01
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Name unmatched source fragment
+        shell: bash
+        env:
+          PRODUCT_BRANCH: work/axm-head-browser-audition-operation-plan-product-01
+          PRODUCT_HEAD: dca19d3b934594457c63df0ef815c4180cc14ee6
+          PRODUCT_TREE: 7a8fcb551329dc6ca571b089e6368622c8271f8f
+          PATCH_BLOB: 5a1f06d36fc0ca5a00afd6e9d8da94d11b66c2c8
+        run: |
+          set -euo pipefail
+          source=.agent-carriers/patch-operation-plan-post-call-inspection-01.py
+          test "$(git hash-object "$source")" = "$PATCH_BLOB"
+          cp "$source" /tmp/patch.py
+          python -c 'from pathlib import Path; p=Path("/tmp/patch.py"); s=p.read_text(); a="f\"replacement denominator differs for {relative}: expected={count} observed={observed}\""; b="f\"replacement denominator differs for {relative}: expected={count} observed={observed} fragment={old[:200]}\""; assert s.count(a)==1; s=s.replace(a,b); x="        postMessage() { throw new Error(\047unconfigured port\047); },"; y="        postMessage() {{ throw new Error(\047unconfigured port\047); }},"; assert s.count(x)==2; s=s.replace(x,y); x="        disconnect() { disconnectListeners.forEach((fn) => fn()); },"; y="        disconnect() {{ disconnectListeners.forEach((fn) => fn()); }},"; assert s.count(x)==1; p.write_text(s.replace(x,y), newline="\n")'
+          git fetch --no-tags origin "$PRODUCT_BRANCH"
+          test "$(git rev-parse "origin/$PRODUCT_BRANCH")" = "$PRODUCT_HEAD"
+          test "$(git rev-parse "origin/$PRODUCT_BRANCH^{tree}")" = "$PRODUCT_TREE"
+          git checkout --detach "$PRODUCT_HEAD"
+          python /tmp/patch.py "$GITHUB_WORKSPACE"
