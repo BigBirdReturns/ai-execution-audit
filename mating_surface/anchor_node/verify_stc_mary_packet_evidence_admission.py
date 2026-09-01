@@ -22,8 +22,13 @@ This gate closes that hole ahead of the recorder, without patching it:
 * every proposed body is independently read, measured, and hashed here;
 * every recognized body is parsed, exact-key validated, and its content identity is
   recomputed from its own body rather than trusted;
+* the accepted predecessor graph, observation transaction, every evidence body, every
+  opaque instrument receipt, both named-human statements, all stage confirmations, and
+  an optional batch confirmation carry scope-separated RSA PKCS#1 v1.5 SHA-256
+  signatures under a profile-pinned external trust root;
 * every body is bound to the exact campaign, packet, stage, sequence, evidence role,
-  canonical mission state, and provenance class the admission profile requires;
+  canonical mission state, provenance class, and stage-observation digest the admission
+  profile requires;
 * every body must carry the exact semantic predicate denominator that role owes the
   stage observation it is offered to support;
 * reused predecessor receipts are admitted only as ``reused_pre_stage_receipt``, only
@@ -31,9 +36,9 @@ This gate closes that hole ahead of the recorder, without patching it:
   current observation transaction;
 * current observations must fall inside the declared observation transaction window
   and may not claim an uncaptured historical transition;
-* named-human statements and stage confirmations are never produced here, and every
-  machine, model, scheduler, verifier, tool, agent, automation, and packet-runner
-  actor class is structurally incapable of satisfying the named-human actor class.
+* named-human statements and stage confirmations are never produced here; they must
+  carry the exact actor class, complete evidence scope, and verified named-human scope
+  signature before they can affect a terminal.
 
 The verifier is deliberately self-contained and standard-library only so that the
 external bootstrap can measure its bytes and execute the measured copy in isolation
@@ -43,7 +48,10 @@ from a foreign working directory.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -53,7 +61,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 PROFILE_SCHEMA = "stc-mary/packet-evidence-admission-profile/1"
 PROFILE_ID = "stc-mary/packet-evidence-admission@1"
-PROFILE_CANONICAL_SHA256 = "92d458684d1e4b971429dff86644352544641ac34808b28bcf0e0a034b44b81f"
+PROFILE_CANONICAL_SHA256 = "032121d20e8c615a35e05a0d3b2510c5a5b7fcc49a44319e753c0f5fb0d51a9c"
 RECEIPT_SCHEMA = "stc-mary/packet-evidence-admission-receipt/1"
 RECEIPT_ID_KEY = "admissionId"
 RECEIPT_ID_PREFIX = "stcmarypacketevidenceadmission1"
@@ -73,6 +81,8 @@ MINIMUM_PYTHON = (3, 12)
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 CONTENT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*_[0-9a-f]{64}$")
+BASE64URL_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+HEX_RE = re.compile(r"^[0-9a-f]+$")
 RELATIVE_MEMBER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$")
 
 MAX_JSON_BYTES = 64 * 1024 * 1024
@@ -82,6 +92,8 @@ MAX_EVIDENCE_FILES_PER_STAGE = 64
 MAX_ACCEPTED_PREDECESSOR_ROWS = 256
 MAX_TEXT_FIELD = 8192
 MAX_UNIX_NS = 4_102_444_800_000_000_000  # 2100-01-01, a bounded clock domain
+RSA_SHA256_DIGEST_INFO_PREFIX = bytes.fromhex("3031300d060960864801650304020105000420")
+AUTHENTICATION_BINDING_KEY = "authenticationBinding"
 
 # Scanned over string VALUES only, never over keys.
 #
@@ -108,7 +120,8 @@ POSIX_PATH_RE = re.compile(r"(?:^|\s)/(?:home|root|mnt|media|var|etc|opt|Users)/
 CLAIM_BOUNDARY = (
     "Body-free pre-record admission receipt for one configured, unrecorded private flight packet. "
     "It reports which proposed evidence bodies were independently measured, parsed, identity-checked, "
-    "campaign-bound, stage-bound, and semantically sufficient, and it places the outstanding named-human "
+    "signature-authenticated against a profile-pinned external trust root, campaign-bound, stage-bound, "
+    "observation-bound, and semantically sufficient, and it places the outstanding named-human "
     "statement forms and the exact stage decision records before the human principal. It records no "
     "packet stage, sets no operator confirmation, calls no packet recorder, signs no human statement, "
     "issues no stage confirmation, mutates no packet byte, and grants no physical-Estate, "
@@ -158,6 +171,216 @@ def sha256_bytes(data: bytes) -> str:
 
 def content_id(prefix: str, value: Any) -> str:
     return f"{prefix}_{sha256_bytes(canonical_json(value).encode('utf-8'))}"
+
+
+def base64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def base64url_decode(value: Any, *, code: str, label: str) -> bytes:
+    require(
+        isinstance(value, str) and BASE64URL_RE.fullmatch(value) is not None and len(value) <= 8192,
+        code,
+        f"{label} is not canonical bounded base64url",
+    )
+    padding = "=" * ((4 - len(value) % 4) % 4)
+    try:
+        decoded = base64.urlsafe_b64decode((value + padding).encode("ascii"))
+    except (binascii.Error, ValueError, UnicodeError) as exc:
+        fail(code, f"{label} could not be decoded: {exc}")
+        raise
+    require(base64url_encode(decoded) == value, code, f"{label} is not canonical base64url")
+    return decoded
+
+
+def rsa_pkcs1_v1_5_encoded_message(message: bytes, modulus: int) -> bytes:
+    digest_info = RSA_SHA256_DIGEST_INFO_PREFIX + hashlib.sha256(message).digest()
+    width = (modulus.bit_length() + 7) // 8
+    padding_length = width - len(digest_info) - 3
+    require(width >= 256 and padding_length >= 8, "AUTHENTICATION_TRUST_ROOT_INVALID", "RSA trust root is smaller than 2048 bits")
+    return b"\x00\x01" + (b"\xff" * padding_length) + b"\x00" + digest_info
+
+
+def verify_rsa_pkcs1_v1_5_sha256(message: bytes, signature: bytes, trust_root: Mapping[str, Any]) -> bool:
+    try:
+        modulus = int(str(trust_root["modulusHex"]), 16)
+        exponent = int(trust_root["publicExponent"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    width = (modulus.bit_length() + 7) // 8
+    if len(signature) != width or exponent != 65537:
+        return False
+    signature_integer = int.from_bytes(signature, "big")
+    if signature_integer >= modulus:
+        return False
+    encoded = pow(signature_integer, exponent, modulus).to_bytes(width, "big")
+    try:
+        expected = rsa_pkcs1_v1_5_encoded_message(message, modulus)
+    except AdmissionError:
+        return False
+    return hmac.compare_digest(encoded, expected)
+
+
+def authentication_payload(profile: Mapping[str, Any], scope: str, value: Any) -> dict[str, Any]:
+    return {
+        "schema": profile["authentication"]["payloadSchema"],
+        "profileId": PROFILE_ID,
+        "scope": scope,
+        "object": value,
+    }
+
+
+def authenticated_identity_body(value: Mapping[str, Any], id_key: str) -> dict[str, Any]:
+    result = dict(value)
+    result.pop(id_key, None)
+    result.pop(AUTHENTICATION_BINDING_KEY, None)
+    return result
+
+
+def assert_authenticated_identity(
+    value: Mapping[str, Any], id_key: str, prefix: str, code: str, label: str
+) -> str:
+    observed = value.get(id_key)
+    require(isinstance(observed, str), code, f"{label} {id_key} is missing")
+    require(
+        observed == content_id(prefix, authenticated_identity_body(value, id_key)),
+        code,
+        f"{label} {id_key} differs from its authenticated content identity",
+    )
+    return observed
+
+
+def validate_authentication_profile(profile: Mapping[str, Any]) -> None:
+    code = "AUTHENTICATION_PROFILE_INVALID"
+    law = exact_keys(
+        profile.get("authentication"),
+        {
+            "algorithm",
+            "bindingKeys",
+            "bindingSchema",
+            "payloadSchema",
+            "productionTrustRoot",
+            "scopes",
+            "syntheticCampaignLabelPrefix",
+            "syntheticConformanceTrustRoot",
+        },
+        code,
+        "authentication profile",
+    )
+    require(law["algorithm"] == "rsa-pkcs1v15-sha256", code, "authentication algorithm differs")
+    require(
+        set(law["bindingKeys"])
+        == {"algorithm", "keyId", "payloadSha256", "schema", "scope", "signatureBase64Url"},
+        code,
+        "authentication binding field denominator differs",
+    )
+    required_scopes = {
+        "acceptedPredecessorGraph",
+        "acceptedPredecessorReceipt",
+        "batchConfirmation",
+        "currentLocalObservation",
+        "namedHumanStatement",
+        "observationTransaction",
+        "opaqueInstrumentReceipt",
+        "stageConfirmation",
+    }
+    require(set(law["scopes"]) == required_scopes, code, "authentication scope denominator differs")
+    require(len(set(law["scopes"].values())) == len(required_scopes), code, "authentication scopes are not distinct")
+    assert_bounded_text(law["syntheticCampaignLabelPrefix"], code, "synthetic campaign label prefix", 128)
+    for name in ("productionTrustRoot", "syntheticConformanceTrustRoot"):
+        root = exact_keys(
+            law[name], {"algorithm", "keyId", "modulusHex", "publicExponent"}, code, f"{name} trust root"
+        )
+        require(root["algorithm"] == law["algorithm"], code, f"{name} algorithm differs")
+        assert_content_id(root["keyId"], code, f"{name} key identity")
+        require(
+            isinstance(root["modulusHex"], str)
+            and HEX_RE.fullmatch(root["modulusHex"]) is not None
+            and len(root["modulusHex"]) >= 512,
+            code,
+            f"{name} modulus is not a lowercase 2048-bit-or-larger integer",
+        )
+        require(root["publicExponent"] == 65537, code, f"{name} public exponent differs")
+    require(
+        law["productionTrustRoot"]["keyId"] != law["syntheticConformanceTrustRoot"]["keyId"],
+        code,
+        "production and synthetic trust roots are not distinct",
+    )
+
+
+def authentication_root_for_campaign(
+    profile: Mapping[str, Any], campaign_label: str
+) -> tuple[Mapping[str, Any], bool]:
+    law = profile["authentication"]
+    synthetic = campaign_label.startswith(law["syntheticCampaignLabelPrefix"])
+    root_name = "syntheticConformanceTrustRoot" if synthetic else "productionTrustRoot"
+    return law[root_name], synthetic
+
+
+def verify_authentication_binding(
+    *,
+    value: Any,
+    binding: Any,
+    scope: str,
+    trust_root: Mapping[str, Any],
+    profile: Mapping[str, Any],
+    code: str,
+    label: str,
+) -> str:
+    law = profile["authentication"]
+    binding = exact_keys(binding, law["bindingKeys"], code, f"{label} authentication binding")
+    require(binding["schema"] == law["bindingSchema"], code, f"{label} authentication schema differs")
+    require(binding["algorithm"] == law["algorithm"], code, f"{label} authentication algorithm differs")
+    require(binding["scope"] == scope, code, f"{label} authentication scope differs")
+    require(binding["keyId"] == trust_root["keyId"], code, f"{label} authentication key is not the selected trust root")
+    payload_bytes = canonical_json_bytes(authentication_payload(profile, scope, value))
+    require(
+        binding["payloadSha256"] == sha256_bytes(payload_bytes),
+        code,
+        f"{label} authenticated payload digest differs",
+    )
+    signature = base64url_decode(binding["signatureBase64Url"], code=code, label=f"{label} signature")
+    require(
+        verify_rsa_pkcs1_v1_5_sha256(payload_bytes, signature, trust_root),
+        code,
+        f"{label} signature did not verify against the profile-pinned trust root",
+    )
+    return str(binding["keyId"])
+
+
+def authenticate_content_object(
+    *,
+    value: Mapping[str, Any],
+    id_key: str,
+    id_prefix: str,
+    scope: str,
+    trust_root: Mapping[str, Any],
+    profile: Mapping[str, Any],
+    identity_code: str,
+    authentication_code: str,
+    label: str,
+) -> tuple[str, str]:
+    identity = assert_authenticated_identity(value, id_key, id_prefix, identity_code, label)
+    signed_value = body_without(value, AUTHENTICATION_BINDING_KEY)
+    key_id = verify_authentication_binding(
+        value=signed_value,
+        binding=value.get(AUTHENTICATION_BINDING_KEY),
+        scope=scope,
+        trust_root=trust_root,
+        profile=profile,
+        code=authentication_code,
+        label=label,
+    )
+    return identity, key_id
+
+
+def stage_observation_digest(
+    profile: Mapping[str, Any], *, sequence: int, stage: str, observation: Any
+) -> str:
+    return content_id(
+        profile["digests"]["observationDigestPrefix"],
+        {"sequence": sequence, "stage": stage, "observation": observation},
+    )
 
 
 def body_without(value: Mapping[str, Any], key: str) -> dict[str, Any]:
@@ -382,6 +605,7 @@ def load_profile(path: Path) -> Mapping[str, Any]:
         "PROFILE_CANONICAL_DIGEST_INVALID",
         "admission profile canonical digest differs from the admitted profile",
     )
+    validate_authentication_profile(profile)
     return profile
 
 
@@ -610,7 +834,11 @@ def load_request(candidates: Path, profile: Mapping[str, Any]) -> Mapping[str, A
     return request
 
 
-def validate_observation_transaction(request: Mapping[str, Any], profile: Mapping[str, Any]) -> dict[str, int]:
+def validate_observation_transaction(
+    request: Mapping[str, Any],
+    profile: Mapping[str, Any],
+    trust_root: Mapping[str, Any],
+) -> dict[str, Any]:
     law = profile["observationTransaction"]
     transaction = request["observationTransaction"]
     exact_keys(transaction, law["keys"], "OBSERVATION_TRANSACTION_INVALID", "observation transaction")
@@ -635,22 +863,48 @@ def validate_observation_transaction(request: Mapping[str, Any], profile: Mappin
         "OBSERVATION_TRANSACTION_UNBOUNDED",
         "observation transaction window exceeds the admitted bound",
     )
-    transaction_id = assert_identity(
-        transaction,
-        law["idKey"],
-        law["idPrefix"],
-        "OBSERVATION_TRANSACTION_ID_INVALID",
-        "observation transaction",
+    transaction_id, key_id = authenticate_content_object(
+        value=transaction,
+        id_key=law["idKey"],
+        id_prefix=law["idPrefix"],
+        scope=profile["authentication"]["scopes"]["observationTransaction"],
+        trust_root=trust_root,
+        profile=profile,
+        identity_code="OBSERVATION_TRANSACTION_ID_INVALID",
+        authentication_code="OBSERVATION_TRANSACTION_AUTHENTICATION_FAILED",
+        label="observation transaction",
     )
-    return {"transactionId": transaction_id, "startedAtUnixNs": started, "endedAtUnixNs": ended}
+    return {
+        "transactionId": transaction_id,
+        "startedAtUnixNs": started,
+        "endedAtUnixNs": ended,
+        "authenticationKeyId": key_id,
+    }
 
 
 def validate_accepted_predecessor_graph(
-    request: Mapping[str, Any], profile: Mapping[str, Any]
-) -> dict[str, set[str]]:
+    request: Mapping[str, Any],
+    profile: Mapping[str, Any],
+    trust_root: Mapping[str, Any],
+) -> tuple[dict[str, set[str]], str]:
     law = profile["request"]
     rows = request["acceptedPredecessorGraph"]
     code = "ACCEPTED_PREDECESSOR_GRAPH_INVALID"
+    graph_payload = {
+        "campaignId": request["campaignId"],
+        "packetId": request["packetId"],
+        "canonicalMissionStateDigest": request["canonicalMissionStateDigest"],
+        "acceptedPredecessorGraph": rows,
+    }
+    key_id = verify_authentication_binding(
+        value=graph_payload,
+        binding=request["acceptedPredecessorGraphAuthentication"],
+        scope=profile["authentication"]["scopes"]["acceptedPredecessorGraph"],
+        trust_root=trust_root,
+        profile=profile,
+        code="ACCEPTED_PREDECESSOR_GRAPH_AUTHENTICATION_FAILED",
+        label="accepted predecessor graph",
+    )
     require(isinstance(rows, list), code, "accepted predecessor graph must be a list")
     require(
         len(rows) <= MAX_ACCEPTED_PREDECESSOR_ROWS,
@@ -673,7 +927,7 @@ def validate_accepted_predecessor_graph(
         require(len(set(receipts)) == len(receipts), code, "accepted predecessor row repeats a receipt identity")
         require(coordinate not in graph, code, "accepted predecessor graph repeats a coordinate")
         graph[coordinate] = set(receipts)
-    return graph
+    return graph, key_id
 
 
 # --------------------------------------------------------------------------------
@@ -694,6 +948,8 @@ def admit_evidence_body(
     request: Mapping[str, Any],
     transaction: Mapping[str, Any],
     graph: Mapping[str, set[str]],
+    observation_digest: str,
+    authentication_root: Mapping[str, Any],
 ) -> dict[str, Any]:
     code = "EVIDENCE_DESCRIPTOR_INVALID"
     role = role_law["evidenceRole"]
@@ -797,12 +1053,16 @@ def admit_evidence_body(
             "OPAQUE_INSTRUMENT_RECEIPT_INVALID",
             f"{label} instrument receipt schema differs",
         )
-        body_content_id = assert_identity(
-            receipt,
-            opaque_law["receiptIdKey"],
-            opaque_law["receiptIdPrefix"],
-            "OPAQUE_INSTRUMENT_RECEIPT_ID_INVALID",
-            f"{label} instrument receipt",
+        body_content_id, authentication_key_id = authenticate_content_object(
+            value=receipt,
+            id_key=opaque_law["receiptIdKey"],
+            id_prefix=opaque_law["receiptIdPrefix"],
+            scope=profile["authentication"]["scopes"]["opaqueInstrumentReceipt"],
+            trust_root=authentication_root,
+            profile=profile,
+            identity_code="OPAQUE_INSTRUMENT_RECEIPT_ID_INVALID",
+            authentication_code="OPAQUE_INSTRUMENT_AUTHENTICATION_FAILED",
+            label=f"{label} instrument receipt",
         )
         require(
             receipt["instrumentClass"] == opaque_class,
@@ -852,8 +1112,26 @@ def admit_evidence_body(
             "EVIDENCE_SCHEMA_INVALID",
             f"{label} body schema differs from the descriptor",
         )
-        body_content_id = assert_identity(
-            body, schema_law["idKey"], schema_law["idPrefix"], "EVIDENCE_CONTENT_ID_FORGED", f"{label} body"
+        scope_name = {
+            "accepted_predecessor_receipt": "acceptedPredecessorReceipt",
+            "current_local_observation": "currentLocalObservation",
+            "named_human_statement": "namedHumanStatement",
+        }[provenance]
+        authentication_code = (
+            "HUMAN_STATEMENT_AUTHENTICATION_FAILED"
+            if provenance == "named_human_statement"
+            else "EVIDENCE_AUTHENTICATION_FAILED"
+        )
+        body_content_id, authentication_key_id = authenticate_content_object(
+            value=body,
+            id_key=schema_law["idKey"],
+            id_prefix=schema_law["idPrefix"],
+            scope=profile["authentication"]["scopes"][scope_name],
+            trust_root=authentication_root,
+            profile=profile,
+            identity_code="EVIDENCE_CONTENT_ID_FORGED",
+            authentication_code=authentication_code,
+            label=f"{label} body",
         )
         require(
             descriptor["bodyContentId"] == body_content_id,
@@ -892,6 +1170,11 @@ def admit_evidence_body(
         body["provenanceClass"] == provenance,
         "EVIDENCE_PROVENANCE_INVALID",
         f"{label} body provenance class differs from the descriptor",
+    )
+    require(
+        body["stageObservationDigest"] == observation_digest,
+        "EVIDENCE_OBSERVATION_BINDING_INVALID",
+        f"{label} authenticated body does not bind the exact stage observation",
     )
     assert_bounded_text(body["claimBoundary"], code, f"{label} body claim boundary")
 
@@ -975,7 +1258,6 @@ def admit_evidence_body(
             f"{label} statement was not issued by the named-human actor class",
         )
         assert_bounded_text(body["statementScope"], code, f"{label} statement scope")
-        assert_bounded_text(body["authenticationBinding"], code, f"{label} statement authentication binding")
         assert_unix_ns(body["issuedAtUnixNs"], code, f"{label} statement issue coordinate")
         accepted = body["acceptedEvidenceIds"]
         require(isinstance(accepted, list), code, f"{label} accepted evidence identities must be a list")
@@ -993,6 +1275,7 @@ def admit_evidence_body(
         "bodyBytes": len(data),
         "bodyContentId": body_content_id,
         "opaqueInstrumentClass": opaque_class,
+        "authenticationKeyId": authentication_key_id,
         "body": body,
     }
 
@@ -1057,6 +1340,7 @@ def validate_stage_confirmations(
     profile: Mapping[str, Any],
     frozen: Mapping[str, Any],
     stage_rows: Sequence[Mapping[str, Any]],
+    authentication_root: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     law = profile["confirmation"]
     code = "STAGE_CONFIRMATION_INVALID"
@@ -1090,8 +1374,16 @@ def validate_stage_confirmations(
             "STAGE_CONFIRMATION_ACTOR_INVALID",
             "stage confirmation was not issued by the named-human actor class",
         )
-        confirmation_id = assert_identity(
-            confirmation, law["idKey"], law["idPrefix"], "STAGE_CONFIRMATION_ID_INVALID", "stage confirmation"
+        confirmation_id, authentication_key_id = authenticate_content_object(
+            value=confirmation,
+            id_key=law["idKey"],
+            id_prefix=law["idPrefix"],
+            scope=profile["authentication"]["scopes"]["stageConfirmation"],
+            trust_root=authentication_root,
+            profile=profile,
+            identity_code="STAGE_CONFIRMATION_ID_INVALID",
+            authentication_code="STAGE_CONFIRMATION_AUTHENTICATION_FAILED",
+            label="stage confirmation",
         )
         require(
             confirmation_id not in seen_ids,
@@ -1141,7 +1433,6 @@ def validate_stage_confirmations(
         assert_bounded_text(
             confirmation["controlQuestionResponse"], code, f"stage {stage} control-question response"
         )
-        assert_bounded_text(confirmation["authenticationBinding"], code, f"stage {stage} authentication binding")
         assert_unix_ns(confirmation["issuedAtUnixNs"], code, f"stage {stage} confirmation issue coordinate")
         decisions.append(
             {
@@ -1153,6 +1444,7 @@ def validate_stage_confirmations(
                 "observationDigest": row["observationDigest"],
                 "requiredTerminal": row["requiredTerminal"],
                 "controlQuestionResponse": confirmation["controlQuestionResponse"],
+                "authenticationKeyId": authentication_key_id,
             }
         )
 
@@ -1171,10 +1463,11 @@ def validate_batch_confirmation(
     profile: Mapping[str, Any],
     frozen: Mapping[str, Any],
     decisions: Sequence[Mapping[str, Any]],
-) -> str | None:
+    authentication_root: Mapping[str, Any],
+) -> tuple[str | None, str | None]:
     batch = request["batchConfirmation"]
     if batch is None:
-        return None
+        return None, None
     law = profile["batchConfirmation"]
     code = "BATCH_CONFIRMATION_INVALID"
     require(
@@ -1195,7 +1488,6 @@ def validate_batch_confirmation(
         "STAGE_CONFIRMATION_CAMPAIGN_BINDING_INVALID",
         "batch confirmation names another campaign or packet",
     )
-    assert_bounded_text(batch["authenticationBinding"], code, "batch confirmation authentication binding")
     assert_unix_ns(batch["issuedAtUnixNs"], code, "batch confirmation issue coordinate")
     rows = batch["stages"]
     require(
@@ -1223,9 +1515,18 @@ def validate_batch_confirmation(
             f"batch confirmation for {decision['stage']} disagrees with the exact stage decision",
         )
         assert_bounded_text(row["controlQuestionResponse"], code, "batch confirmation control-question response")
-    return assert_identity(
-        batch, law["idKey"], law["idPrefix"], "BATCH_CONFIRMATION_ID_INVALID", "batch confirmation"
+    batch_id, authentication_key_id = authenticate_content_object(
+        value=batch,
+        id_key=law["idKey"],
+        id_prefix=law["idPrefix"],
+        scope=profile["authentication"]["scopes"]["batchConfirmation"],
+        trust_root=authentication_root,
+        profile=profile,
+        identity_code="BATCH_CONFIRMATION_ID_INVALID",
+        authentication_code="BATCH_CONFIRMATION_AUTHENTICATION_FAILED",
+        label="batch confirmation",
     )
+    return batch_id, authentication_key_id
 
 
 # --------------------------------------------------------------------------------
@@ -1282,6 +1583,9 @@ def verify_packet_evidence_admission(
     )
 
     frozen = read_frozen_surface(workstation=workstation, packet=packet, profile=profile)
+    authentication_root, synthetic_conformance_only = authentication_root_for_campaign(
+        profile, frozen["campaignLabel"]
+    )
     fence_prefix = profile["digests"]["fencePrefix"]
     packet_fence_before = [
         file_fence(frozen["markerPath"], fence_prefix, code="PACKET_MARKER_INVALID", label="packet marker"),
@@ -1312,8 +1616,10 @@ def verify_packet_evidence_admission(
         "admission request names another canonical mission state than the configured packet",
     )
 
-    transaction = validate_observation_transaction(request, profile)
-    graph = validate_accepted_predecessor_graph(request, profile)
+    transaction = validate_observation_transaction(request, profile, authentication_root)
+    graph, graph_authentication_key_id = validate_accepted_predecessor_graph(
+        request, profile, authentication_root
+    )
 
     stage_requests = request["stages"]
     require(
@@ -1349,9 +1655,8 @@ def verify_packet_evidence_admission(
             f"{stage} availability class differs from the admitted evidence matrix",
         )
         validate_observation(stage, stage_law["observation"], stage_request["observation"])
-        observation_digest = content_id(
-            profile["digests"]["observationDigestPrefix"],
-            {"sequence": sequence, "stage": stage, "observation": stage_request["observation"]},
+        observation_digest = stage_observation_digest(
+            profile, sequence=sequence, stage=stage, observation=stage_request["observation"]
         )
 
         descriptors = stage_request["evidence"]
@@ -1404,6 +1709,8 @@ def verify_packet_evidence_admission(
                 request=request,
                 transaction=transaction,
                 graph=graph,
+                observation_digest=observation_digest,
+                authentication_root=authentication_root,
             )
             require(
                 admitted["bodyContentId"] not in seen_body_identities,
@@ -1429,19 +1736,22 @@ def verify_packet_evidence_admission(
             admitted_role_count += 1
             admitted_rows.append(admitted)
 
-        # A named-human statement may only accept evidence identities admitted for its
-        # own stage. This is checked after the stage is complete so the statement cannot
-        # bind an identity the gate never measured.
-        stage_identities = {row["bodyContentId"] for row in admitted_rows}
+        # A named-human statement must accept the complete non-human identity set for
+        # its own stage. Subset membership is insufficient because an empty or partial
+        # list would let a valid signature approve less evidence than the final root.
+        expected_non_human_identities = sorted(
+            row["bodyContentId"]
+            for row in admitted_rows
+            if row["provenanceClass"] != "named_human_statement"
+        )
         for row in admitted_rows:
             if row["provenanceClass"] != "named_human_statement":
                 continue
-            for accepted in row["body"]["acceptedEvidenceIds"]:
-                require(
-                    accepted in stage_identities,
-                    "HUMAN_STATEMENT_SCOPE_INVALID",
-                    f"{stage} named-human statement accepts an evidence identity this gate did not admit for the stage",
-                )
+            require(
+                row["body"]["acceptedEvidenceIds"] == expected_non_human_identities,
+                "HUMAN_STATEMENT_SCOPE_INVALID",
+                f"{stage} named-human statement does not exact-enumerate every admitted non-human identity for the stage",
+            )
 
         def stage_root(rows: Sequence[Mapping[str, Any]], scope: str) -> str:
             return content_id(
@@ -1492,6 +1802,9 @@ def verify_packet_evidence_admission(
                         "requiredPredicates": role_law["requiredPredicates"],
                         "nonHumanEvidenceAdmissionRoot": non_human_root,
                         "observationDigest": observation_digest,
+                        "requiredAcceptedEvidenceIds": expected_non_human_identities,
+                        "authenticationScope": profile["authentication"]["scopes"]["namedHumanStatement"],
+                        "authenticationKeyId": authentication_root["keyId"],
                         "supplied": role_law["evidenceRole"] in offered,
                     }
                 )
@@ -1504,6 +1817,9 @@ def verify_packet_evidence_admission(
                         "requiredSchema": profile["bodySchemas"]["current_local_observation"]["schema"],
                         "requiredPredicates": role_law["requiredPredicates"],
                         "observationTransactionId": transaction["transactionId"],
+                        "observationDigest": observation_digest,
+                        "authenticationScope": profile["authentication"]["scopes"]["currentLocalObservation"],
+                        "authenticationKeyId": authentication_root["keyId"],
                         "supplied": role_law["evidenceRole"] in offered,
                     }
                 )
@@ -1527,6 +1843,8 @@ def verify_packet_evidence_admission(
                 "namedHumanStatementCount": sum(
                     1 for row in admitted_rows if row["provenanceClass"] == "named_human_statement"
                 ),
+                "authenticatedEvidenceRoleCount": len(admitted_rows),
+                "authenticationKeyIds": sorted({row["authenticationKeyId"] for row in admitted_rows}),
                 "evidenceAdmissionRoot": evidence_admission_root,
                 "nonHumanEvidenceAdmissionRoot": non_human_root,
                 "observationDigest": observation_digest,
@@ -1552,10 +1870,18 @@ def verify_packet_evidence_admission(
 
     missing_non_human = [row for row in missing_roles if row["provenanceClass"] != "named_human_statement"]
     decisions = validate_stage_confirmations(
-        request=request, profile=profile, frozen=frozen, stage_rows=stage_rows
+        request=request,
+        profile=profile,
+        frozen=frozen,
+        stage_rows=stage_rows,
+        authentication_root=authentication_root,
     )
-    batch_confirmation_id = validate_batch_confirmation(
-        request=request, profile=profile, frozen=frozen, decisions=decisions
+    batch_confirmation_id, batch_authentication_key_id = validate_batch_confirmation(
+        request=request,
+        profile=profile,
+        frozen=frozen,
+        decisions=decisions,
+        authentication_root=authentication_root,
     )
 
     if decisions:
@@ -1671,7 +1997,9 @@ def verify_packet_evidence_admission(
         "admission-request-identity",
         "admission-request-campaign-and-packet-binding",
         "observation-transaction-bounded",
+        "observation-transaction-authenticated",
         "accepted-predecessor-graph-closed",
+        "accepted-predecessor-graph-authenticated",
         "stage-denominator-exact",
         "stage-availability-class-exact",
         "stage-observation-contract-exact",
@@ -1679,6 +2007,8 @@ def verify_packet_evidence_admission(
         "evidence-body-independently-measured",
         "evidence-body-schema-parsed",
         "evidence-content-identity-recomputed",
+        "evidence-signature-profile-root-authenticated",
+        "evidence-stage-observation-digest-bound",
         "evidence-campaign-packet-stage-role-binding",
         "evidence-class-and-media-type-consistent-with-body",
         "evidence-semantic-predicates-exact",
@@ -1689,12 +2019,15 @@ def verify_packet_evidence_admission(
         "opaque-instrument-receipt-bound",
         "duplicate-evidence-identity-refused",
         "named-human-statement-actor-class-exact",
-        "named-human-statement-scope-bound",
+        "named-human-statement-signature-authenticated",
+        "named-human-statement-scope-exact",
         "conflict-statement-retains-both-branches",
         "stage-confirmation-denominator-closed",
         "stage-confirmation-root-and-observation-binding",
+        "stage-confirmation-signature-authenticated",
         "stage-confirmation-replay-refused",
         "batch-confirmation-exact-enumeration",
+        "batch-confirmation-signature-authenticated-when-present",
         "admission-source-separately-identified",
         "frozen-packet-runtime-unclaimed",
         "packet-unmutated-fence",
@@ -1712,7 +2045,13 @@ def verify_packet_evidence_admission(
         "campaignId": frozen["campaignId"],
         "packetId": frozen["packetId"],
         "requestId": request[profile["request"]["idKey"]],
+        "authenticationTrustRootKeyId": authentication_root["keyId"],
+        "syntheticConformanceOnly": synthetic_conformance_only,
+        "acceptedPredecessorGraphAuthenticated": True,
+        "acceptedPredecessorGraphAuthenticationKeyId": graph_authentication_key_id,
         "observationTransactionId": transaction["transactionId"],
+        "observationTransactionAuthenticated": True,
+        "observationTransactionAuthenticationKeyId": transaction["authenticationKeyId"],
         "canonicalMissionStateDigest": frozen["canonicalMissionStateDigest"],
         "stageDenominator": denominator["stageDenominator"],
         "evidenceRoleDenominator": denominator["evidenceRoleDenominator"],
@@ -1724,6 +2063,8 @@ def verify_packet_evidence_admission(
         "admittedHumanStatementCount": admitted_human_statements,
         "reusedPredecessorReceiptCount": reused_predecessor_receipts,
         "currentObservationCount": current_observations,
+        "authenticatedEvidenceBodyCount": admitted_role_count,
+        "authenticatedHumanStatementCount": admitted_human_statements,
         "missingEvidenceRoles": missing_roles,
         "missingEvidenceRoleCount": len(missing_roles),
         "stages": stage_rows,
@@ -1742,13 +2083,18 @@ def verify_packet_evidence_admission(
                 "requiredSchema": profile["confirmation"]["schema"],
                 "requiredActorClass": profile["confirmation"]["requiredActorClass"],
                 "decisionCodes": profile["confirmation"]["decisionCodes"],
+                "authenticationScope": profile["authentication"]["scopes"]["stageConfirmation"],
+                "authenticationKeyId": authentication_root["keyId"],
             }
             for row in stage_rows
         ],
         "confirmationDenominatorInvitable": confirmation_invitable,
         "suppliedStageConfirmationCount": len(decisions),
+        "authenticatedStageConfirmationCount": len(decisions),
         "stageDecisions": decisions,
         "batchConfirmationId": batch_confirmation_id,
+        "batchConfirmationAuthenticated": batch_confirmation_id is not None,
+        "batchConfirmationAuthenticationKeyId": batch_authentication_key_id,
         "evidenceAdmissionDigestRoot": admission_root,
         "admissionSourceSetId": measured_source["sourceSetId"],
         "admissionSourceMemberCount": measured_source["memberCount"],

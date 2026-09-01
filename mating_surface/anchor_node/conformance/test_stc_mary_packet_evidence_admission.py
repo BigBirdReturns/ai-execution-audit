@@ -53,6 +53,27 @@ EVIDENCE_CLASS_BY_PROVENANCE = {
     HUMAN: "private_operator_statement",
 }
 
+# This private exponent exists only for the synthetic conformance principal frozen in
+# the profile. The verifier structurally refuses this key for every non-synthetic
+# campaign label, so these public test bytes cannot authenticate Flight 01 Campaign A.
+TEST_AUTHENTICATION_PRIVATE_KEY = {
+    "algorithm": "rsa-pkcs1v15-sha256",
+    "keyId": "axmheadprivateevidencetrustroot1_ec9e1acaccc1eff237313d49279afd800b44f4e7bdac017fe0af682486d4ef44",
+    "modulusHex": "ab9273a16704ef7f7599443400988752cfb0d14bc5df3e7b05a69f9fb4c42400a0228f77814937dd605b67ab56f9e72cbc008443662aa22dd8c043b743e6cc2f1a4c170a68bf30dcbc453359a9f4b3f84369e7e44dd90698c8bc54d91aecb1f5a46accf1ffb6d9d52d6374432d99dc87adb314dd453060633b38f0fdf2f4556fd3e4d31f6e5822cc587773bc6f96dc68bff64084ded195993e6886cd77517a24fefe5031a4e03bb1129bfc31f4b8b7712c2c51fea78587486c60cc76cc10780423364b781cbd14936828eec12ca8a8c16d4d4ca52fc53ecad6112944fd3a757179c1c686c7ad4db01c1d06386e2935df1f84974147107a4686e88072b42ab727",
+    "privateExponentHex": "2885eba7a88462e8d0e6c5541efbe7a2688993b578e3d4870bfba1e1ffb8ffe3e1eea7c20b183708a3749354c5b33aa5b735cc077b3f00952187afb6be63e9c00a4f047621ed5e661455a7de3aa52048b7eb70a8dcb630b7af59c4148f266e95dd22988b63e1552be38f84eb44fefd36529164912a815592ba6f25846578ce20bb5cd008c98353f55f12ca3d3456dc757c7032f7f29ecd05cb839b32406e58953700930049cf1790f25bbc80daf696c452e97d160dd1e7929e613b4965225c82c7235dfc94ab0304e70e914dd4ff3f65f655fe02c9aef56628bc669344881c601ad5ea9bc621f0ae5ecba466e8a4a9087756fbc66bd3db7aaab7e559acc713d1",
+    "publicExponent": 65537,
+}
+
+AUTHENTICATED_SCHEMA_SCOPE_KEYS = {
+    "stc-mary/packet-evidence-observation-transaction/1": "observationTransaction",
+    "stc-mary/packet-evidence-predecessor-receipt/1": "acceptedPredecessorReceipt",
+    "stc-mary/packet-evidence-current-observation/1": "currentLocalObservation",
+    "stc-mary/packet-evidence-human-statement/1": "namedHumanStatement",
+    "stc-mary/packet-evidence-instrument-receipt/1": "opaqueInstrumentReceipt",
+    "stc-mary/packet-evidence-stage-confirmation/1": "stageConfirmation",
+    "stc-mary/packet-evidence-batch-confirmation/1": "batchConfirmation",
+}
+
 # The untouched envelope the live campaign already ships in its own products. It is a
 # structurally valid, non-empty JSON file, which is exactly why the frozen recorder
 # cannot tell it apart from real evidence.
@@ -66,8 +87,58 @@ def cid(prefix: str, body: Any) -> str:
     return law.content_id(prefix, body)
 
 
+_SIGNING_PROFILE: dict[str, Any] | None = None
+_SIGNATURE_CACHE: dict[tuple[str, str], dict[str, Any]] = {}
+
+
+def profile_for_signing() -> dict[str, Any]:
+    global _SIGNING_PROFILE
+    if _SIGNING_PROFILE is None:
+        _SIGNING_PROFILE = json.loads(PROFILE.read_text(encoding="utf-8"))
+    return _SIGNING_PROFILE
+
+
+def authentication_binding(value: Any, scope: str, profile: dict[str, Any] | None = None) -> dict[str, Any]:
+    profile = profile or profile_for_signing()
+    payload_bytes = law.canonical_json_bytes(law.authentication_payload(profile, scope, value))
+    payload_sha256 = law.sha256_bytes(payload_bytes)
+    cache_key = (scope, payload_sha256)
+    cached = _SIGNATURE_CACHE.get(cache_key)
+    if cached is not None:
+        return dict(cached)
+    modulus = int(TEST_AUTHENTICATION_PRIVATE_KEY["modulusHex"], 16)
+    private_exponent = int(TEST_AUTHENTICATION_PRIVATE_KEY["privateExponentHex"], 16)
+    encoded = law.rsa_pkcs1_v1_5_encoded_message(payload_bytes, modulus)
+    signature = pow(int.from_bytes(encoded, "big"), private_exponent, modulus).to_bytes(len(encoded), "big")
+    binding = {
+        "schema": profile["authentication"]["bindingSchema"],
+        "keyId": TEST_AUTHENTICATION_PRIVATE_KEY["keyId"],
+        "algorithm": TEST_AUTHENTICATION_PRIVATE_KEY["algorithm"],
+        "scope": scope,
+        "payloadSha256": payload_sha256,
+        "signatureBase64Url": law.base64url_encode(signature),
+    }
+    _SIGNATURE_CACHE[cache_key] = dict(binding)
+    return binding
+
+
 def sign(body: dict, id_key: str, prefix: str) -> dict:
-    return {**body, id_key: cid(prefix, body)}
+    unsigned = dict(body)
+    unsigned.pop(id_key, None)
+    unsigned.pop(law.AUTHENTICATION_BINDING_KEY, None)
+    signed = {**unsigned, id_key: cid(prefix, unsigned)}
+    scope_key = AUTHENTICATED_SCHEMA_SCOPE_KEYS.get(str(signed.get("schema")))
+    if scope_key is None:
+        return signed
+    profile = profile_for_signing()
+    scope = profile["authentication"]["scopes"][scope_key]
+    return {**signed, law.AUTHENTICATION_BINDING_KEY: authentication_binding(signed, scope, profile)}
+
+
+def reidentify_without_resigning(body: dict[str, Any], id_key: str, prefix: str) -> dict[str, Any]:
+    result = dict(body)
+    result[id_key] = cid(prefix, law.authenticated_identity_body(result, id_key))
+    return result
 
 
 def sha256_text(text: str) -> str:
@@ -241,6 +312,9 @@ class Fixture:
             "canonicalMissionStateDigest": self.canonical_mission_state_digest,
             "provenanceClass": provenance,
             "semanticPredicates": dict(role_law["requiredPredicates"]),
+            "stageObservationDigest": law.stage_observation_digest(
+                self.profile, sequence=sequence, stage=stage, observation=self.observations[stage]
+            ),
             "authority": "none",
             "claimBoundary": "Synthetic evidence body for conformance only. It grants no authority.",
         }
@@ -380,6 +454,15 @@ class Fixture:
 
     def write_request(self, request: dict) -> dict:
         law_block = self.profile["request"]
+        graph_payload = {
+            "campaignId": request["campaignId"],
+            "packetId": request["packetId"],
+            "canonicalMissionStateDigest": request["canonicalMissionStateDigest"],
+            "acceptedPredecessorGraph": request["acceptedPredecessorGraph"],
+        }
+        request["acceptedPredecessorGraphAuthentication"] = authentication_binding(
+            graph_payload, self.profile["authentication"]["scopes"]["acceptedPredecessorGraph"], self.profile
+        )
         request.pop(law_block["idKey"], None)
         signed = sign(request, law_block["idKey"], law_block["idPrefix"])
         write_json(self.request_path(), signed)
@@ -770,6 +853,12 @@ class OpaqueInstrumentWitnesses(AdmissionWitnessCase):
                 "canonicalMissionStateDigest": self.fixture.canonical_mission_state_digest,
                 "provenanceClass": opaque_law["provenanceClass"],
                 "semanticPredicates": dict(role_law["requiredPredicates"]),
+                "stageObservationDigest": law.stage_observation_digest(
+                    self.profile,
+                    sequence=5,
+                    stage=self.STAGE,
+                    observation=self.fixture.observations[self.STAGE],
+                ),
                 "instrumentClass": self.INSTRUMENT_CLASS,
                 "opaqueBodySha256": law.sha256_bytes(blob),
                 "opaqueBodyBytes": len(blob),
@@ -838,6 +927,12 @@ class OpaqueInstrumentWitnesses(AdmissionWitnessCase):
             "canonicalMissionStateDigest": self.fixture.canonical_mission_state_digest,
             "provenanceClass": opaque_law["provenanceClass"],
             "semanticPredicates": dict(role_law["requiredPredicates"]),
+            "stageObservationDigest": law.stage_observation_digest(
+                self.profile,
+                sequence=5,
+                stage=self.STAGE,
+                observation=self.fixture.observations[self.STAGE],
+            ),
             "instrumentClass": "local_power_and_residency_capture",
             "opaqueBodySha256": law.sha256_bytes(blob),
             "opaqueBodyBytes": len(blob),
@@ -860,6 +955,138 @@ class OpaqueInstrumentWitnesses(AdmissionWitnessCase):
         second["instrumentReceiptPath"] = receipt_relative
         self.fixture.write_request(request)
         self.assert_refuses("DUPLICATE_EVIDENCE_IDENTITY")
+
+
+# --------------------------------------------------------------------------------
+# cryptographic source authentication
+# --------------------------------------------------------------------------------
+
+
+class AuthenticationWitnesses(AdmissionWitnessCase):
+    def rewrite_parsed_body_without_resigning(self, stage: str, role: str, mutate) -> None:
+        request = self.fixture.load_request()
+        descriptor = self.fixture.descriptor(request, stage, role)
+        path = self.fixture.candidates / descriptor["bodyPath"]
+        body = load_json(path)
+        mutate(body)
+        schema_law = self.profile["bodySchemas"][descriptor["provenanceClass"]]
+        body = reidentify_without_resigning(body, schema_law["idKey"], schema_law["idPrefix"])
+        write_json(path, body)
+        data = path.read_bytes()
+        descriptor["bodySha256"] = law.sha256_bytes(data)
+        descriptor["bodyBytes"] = len(data)
+        descriptor["bodyContentId"] = body[schema_law["idKey"]]
+        self.fixture.write_request(request)
+
+    def test_profile_pins_distinct_production_and_synthetic_public_roots(self) -> None:
+        auth = self.profile["authentication"]
+        production = auth["productionTrustRoot"]
+        synthetic = auth["syntheticConformanceTrustRoot"]
+        self.assertNotEqual(production["keyId"], synthetic["keyId"])
+        self.assertNotIn("privateExponentHex", production)
+        self.assertNotIn("privateExponentHex", synthetic)
+        self.assertEqual(synthetic["keyId"], TEST_AUTHENTICATION_PRIVATE_KEY["keyId"])
+
+    def test_positive_receipt_reports_the_selected_authenticated_principal(self) -> None:
+        receipt = self.fixture.run()
+        self.assertTrue(receipt["syntheticConformanceOnly"])
+        self.assertTrue(receipt["acceptedPredecessorGraphAuthenticated"])
+        self.assertTrue(receipt["observationTransactionAuthenticated"])
+        self.assertEqual(receipt["authenticatedEvidenceBodyCount"], 41)
+        self.assertEqual(receipt["authenticationTrustRootKeyId"], TEST_AUTHENTICATION_PRIVATE_KEY["keyId"])
+
+    def test_self_authored_predecessor_graph_with_recomputed_request_id_refuses(self) -> None:
+        request = self.fixture.load_request()
+        request["acceptedPredecessorGraph"][0]["sourceReceiptIds"].append(
+            cid("syntheticpredecessorreceipt1", {"forged": True})
+        )
+        request.pop(self.profile["request"]["idKey"], None)
+        write_json(
+            self.fixture.request_path(),
+            sign(request, self.profile["request"]["idKey"], self.profile["request"]["idPrefix"]),
+        )
+        self.assert_refuses("ACCEPTED_PREDECESSOR_GRAPH_AUTHENTICATION_FAILED")
+
+    def test_transaction_reidentified_without_resigning_refuses(self) -> None:
+        request = self.fixture.load_request()
+        transaction = dict(request["observationTransaction"])
+        transaction["endedAtUnixNs"] += 1
+        law_block = self.profile["observationTransaction"]
+        request["observationTransaction"] = reidentify_without_resigning(
+            transaction, law_block["idKey"], law_block["idPrefix"]
+        )
+        self.fixture.write_request(request)
+        self.assert_refuses("OBSERVATION_TRANSACTION_AUTHENTICATION_FAILED")
+
+    def test_current_observation_reidentified_without_resigning_refuses(self) -> None:
+        self.rewrite_parsed_body_without_resigning(
+            "REMOVE_HALO3", "device removal receipt", lambda body: body.update({"capturedAtUnixNs": body["capturedAtUnixNs"] + 1})
+        )
+        self.assert_refuses("EVIDENCE_AUTHENTICATION_FAILED")
+
+    def test_named_human_statement_reidentified_without_resigning_refuses(self) -> None:
+        self.fixture.add_human_statements()
+        self.rewrite_parsed_body_without_resigning(
+            "BIND_GRACE", "operator statement", lambda body: body.update({"statementScope": body["statementScope"] + " amended"})
+        )
+        self.assert_refuses("HUMAN_STATEMENT_AUTHENTICATION_FAILED")
+
+    def test_opaque_receipt_reidentified_without_resigning_refuses(self) -> None:
+        helper = OpaqueInstrumentWitnesses(methodName="runTest")
+        helper.tmp = self.tmp
+        helper.profile = self.profile
+        helper.fixture = self.fixture
+        helper.make_opaque()
+        request = self.fixture.load_request()
+        descriptor = self.fixture.descriptor(request, helper.STAGE, helper.ROLE)
+        path = self.fixture.candidates / descriptor["instrumentReceiptPath"]
+        receipt = load_json(path)
+        receipt["capturedAtUnixNs"] += 1
+        opaque_law = self.profile["opaqueInstrument"]
+        write_json(
+            path,
+            reidentify_without_resigning(receipt, opaque_law["receiptIdKey"], opaque_law["receiptIdPrefix"]),
+        )
+        self.assert_refuses("OPAQUE_INSTRUMENT_AUTHENTICATION_FAILED")
+
+    def test_stage_confirmation_reidentified_without_resigning_refuses(self) -> None:
+        self.fixture.complete()
+        request = self.fixture.load_request()
+        confirmation = dict(request["stageConfirmations"][0])
+        confirmation["controlQuestionResponse"] += " amended"
+        law_block = self.profile["confirmation"]
+        request["stageConfirmations"][0] = reidentify_without_resigning(
+            confirmation, law_block["idKey"], law_block["idPrefix"]
+        )
+        self.fixture.write_request(request)
+        self.assert_refuses("STAGE_CONFIRMATION_AUTHENTICATION_FAILED")
+
+    def test_batch_confirmation_reidentified_without_resigning_refuses(self) -> None:
+        self.fixture.complete(with_batch=True)
+        request = self.fixture.load_request()
+        batch = dict(request["batchConfirmation"])
+        batch["issuedAtUnixNs"] += 1
+        law_block = self.profile["batchConfirmation"]
+        request["batchConfirmation"] = reidentify_without_resigning(
+            batch, law_block["idKey"], law_block["idPrefix"]
+        )
+        self.fixture.write_request(request)
+        self.assert_refuses("BATCH_CONFIRMATION_AUTHENTICATION_FAILED")
+
+    def test_structurally_valid_stage_observation_drift_refuses_without_resigned_evidence(self) -> None:
+        def drift(request: dict) -> None:
+            self.fixture.stage_row(request, "ATTACH_HALO3")["observation"]["halo3SeatIdentityClass"] = (
+                "synthetic-different-halo3-seat"
+            )
+
+        self.fixture.mutate_request(drift)
+        self.assert_refuses("EVIDENCE_OBSERVATION_BINDING_INVALID")
+
+    def test_synthetic_conformance_key_cannot_authenticate_a_non_synthetic_campaign(self) -> None:
+        fixture = Fixture(self.tmp / "real-campaign-shape", self.profile, campaign_label="FLIGHT-01-CAMPAIGN-A")
+        with self.assertRaises(law.AdmissionError) as caught:
+            fixture.run()
+        self.assertEqual(caught.exception.code, "OBSERVATION_TRANSACTION_AUTHENTICATION_FAILED")
 
 
 # --------------------------------------------------------------------------------
@@ -1336,6 +1563,22 @@ class HumanStatementWitnesses(AdmissionWitnessCase):
         )
         self.assert_refuses("HUMAN_STATEMENT_SCOPE_INVALID")
 
+    def test_statement_accepting_no_non_human_identity_refuses(self) -> None:
+        self.fixture.add_human_statements()
+        self.fixture.resign_body(
+            "BIND_GRACE", "operator statement", lambda body: body.update({"acceptedEvidenceIds": []})
+        )
+        self.assert_refuses("HUMAN_STATEMENT_SCOPE_INVALID")
+
+    def test_conflict_statement_accepting_only_part_of_the_non_human_set_refuses(self) -> None:
+        self.fixture.add_human_statements()
+        self.fixture.resign_body(
+            "RESTORE_LINK_HOLD_CONFLICT",
+            "human-required obligation receipt",
+            lambda body: body.update({"acceptedEvidenceIds": body["acceptedEvidenceIds"][:1]}),
+        )
+        self.assert_refuses("HUMAN_STATEMENT_SCOPE_INVALID")
+
     def test_non_conflict_statement_carrying_conflict_fields_refuses(self) -> None:
         self.fixture.add_human_statements()
         self.fixture.resign_body(
@@ -1634,6 +1877,41 @@ class SourceWitnesses(AdmissionWitnessCase):
         self.assertEqual(
             verdict["bootstrapVerifierSha256"],
             law.sha256_bytes((ANCHOR / "verify_stc_mary_packet_evidence_admission.py").read_bytes()),
+        )
+
+    def test_bootstrap_wraps_the_unmodified_direct_receipt_with_two_reconstructable_identities(self) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(ANCHOR / "verify_stc_mary_packet_evidence_admission_bootstrap.py"),
+                "--workstation",
+                str(self.fixture.workstation),
+                "--packet",
+                str(self.fixture.packet),
+                "--candidates",
+                str(self.fixture.candidates),
+                "--profile",
+                str(PROFILE),
+                "--admission-source-root",
+                str(REPOSITORY_ROOT),
+            ],
+            check=False,
+            capture_output=True,
+        )
+        verdict = json.loads(completed.stdout.decode("utf-8"))
+        self.assertEqual(completed.returncode, 0, verdict)
+        direct = verdict["admissionReceipt"]
+        direct_body = {key: value for key, value in direct.items() if key != law.RECEIPT_ID_KEY}
+        self.assertEqual(direct[law.RECEIPT_ID_KEY], law.content_id(law.RECEIPT_ID_PREFIX, direct_body))
+        self.assertFalse(direct["bootstrapAuthenticated"])
+        self.assertEqual(verdict["admissionId"], direct[law.RECEIPT_ID_KEY])
+        self.assertEqual(verdict["admissionReceiptSha256"], law.sha256_bytes(law.canonical_json_bytes(direct)))
+        verdict_body = {
+            key: value for key, value in verdict.items() if key != bootstrap.BOOTSTRAP_VERDICT_ID_KEY
+        }
+        self.assertEqual(
+            verdict[bootstrap.BOOTSTRAP_VERDICT_ID_KEY],
+            bootstrap.content_id(bootstrap.BOOTSTRAP_VERDICT_ID_PREFIX, verdict_body),
         )
 
     def test_frontend_denominator_lane_is_body_free(self) -> None:

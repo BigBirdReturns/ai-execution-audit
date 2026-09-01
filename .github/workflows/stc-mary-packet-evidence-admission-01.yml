@@ -33,7 +33,7 @@ permissions:
 # though unittest would still print OK. The conformance suite asserts that this number
 # equals the number of witnesses it actually discovers, so the pin cannot drift.
 env:
-  WITNESS_DENOMINATOR: "107"
+  WITNESS_DENOMINATOR: "121"
 
 jobs:
   qualify:
