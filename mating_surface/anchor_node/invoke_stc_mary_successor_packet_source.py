@@ -288,6 +288,16 @@ def execute(
         replaced_args = [str(temporary_path / PROFILE_PACKET_PATH) if value == "@profile" else value for value in module_args]
         environment = {key: value for key, value in os.environ.items() if key.upper() not in ("PYTHONPATH", "PYTHONHOME")}
         environment["PYTHONNOUSERSITE"] = "1"
+        environment["STC_MARY_SOURCE_EXECUTION_IDENTITY"] = content_id(
+            "stcmarysuccessorsourceexecution1",
+            {
+                "sourceAdmissionId": receipt[profile["sourceAdmission"]["idKey"]],
+                "successorSourceSetId": measured[profile["lineage"]["sourceSetIdKey"]],
+                "moduleRole": role,
+                "modulePath": module_path,
+                "moduleSha256": sha256_bytes(module_data),
+            },
+        )
         completed = subprocess.run(
             [sys.executable, "-I", "-B", str(module), *replaced_args], cwd=temporary_path,
             env=environment, check=False, capture_output=True,

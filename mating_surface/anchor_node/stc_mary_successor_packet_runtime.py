@@ -32,7 +32,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
@@ -379,6 +379,7 @@ def record_stage(
     stage: str,
     authorization: Mapping[str, Any],
     role_rows: Sequence[Mapping[str, Any]],
+    phase_hook: Callable[[str, Mapping[str, Any], Mapping[str, Any], Mapping[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Record exactly one stage, in order, under one authenticated authorization."""
     law.require_supported_python()
@@ -486,8 +487,6 @@ def record_stage(
     }
     record = law.sign(body, record_law["idKey"], record_law["idPrefix"])
     law.exact_keys(record, record_law["keys"], "STAGE_RECORD_INVALID", f"{stage} stage record")
-    law.write_canonical_json(packet / Path(row["draftPath"]).parent / record_law["fileName"], record)
-
     updated = [
         {**entry, "status": "recorded", "evidenceCount": len(rows), "recordDigest": record[record_law["idKey"]]}
         if entry["stage"] == stage
@@ -504,7 +503,14 @@ def record_stage(
         sealed_disposition_id=None,
         claim_boundary=STATE_CLAIM,
     )
+    if phase_hook is not None:
+        phase_hook("prepared", record, state, next_state)
+    law.write_canonical_json(packet / Path(row["draftPath"]).parent / record_law["fileName"], record)
+    if phase_hook is not None:
+        phase_hook("record-promoted", record, state, next_state)
     law.write_canonical_json(packet / packet_law["files"]["state"], next_state)
+    if phase_hook is not None:
+        phase_hook("state-promoted", record, state, next_state)
     return {"record": record, "state": next_state}
 
 

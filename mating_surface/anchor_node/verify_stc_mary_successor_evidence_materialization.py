@@ -26,9 +26,10 @@ receipt published. It then names one deterministic packet coordinate per role.
 It never imports the construction law, the runtime, the orchestrator or the gate. A defect
 in any of those cannot authenticate the mapping this receipt asserts.
 
-It writes nothing into the packet, records no stage, authenticates no human principal,
-admits no evidence of its own, and grants no authority. It can only refuse, or restate an
-admitted mapping in a form a recorder can be held to.
+After the complete denominator verifies, transaction mode promotes only an exact,
+recoverable prefix into the packet and emits its completion receipt only at 43 / 43. It
+records no stage, authenticates no human principal, admits no evidence of its own, and
+grants no authority.
 """
 
 from __future__ import annotations
@@ -753,6 +754,10 @@ def materialize_evidence(
     candidates: Path,
     repository: Path,
     profile_path: Path,
+    transaction_workspace: Path | None = None,
+    completion_receipt: Path | None = None,
+    interrupt_after_bodies: int | None = None,
+    interrupt_before_completion: bool = False,
 ) -> dict[str, Any]:
     require_supported_python()
     packet = validate_lexical_coordinate(packet, label="packet root", code="PACKET_ROOT_INVALID")
@@ -1098,7 +1103,149 @@ def materialize_evidence(
     }
     signed = {**body, materialization_law["idKey"]: content_id(materialization_law["idPrefix"], body)}
     exact_keys(signed, materialization_law["keys"], codes["invalid"], "evidence materialization receipt")
+    if transaction_workspace is not None:
+        require(completion_receipt is not None, "MATERIALIZATION_COMPLETION_PATH_ABSENT", "transactional materialization requires a completion receipt path")
+        promote_materialized_evidence(
+            profile=profile,
+            packet=packet,
+            candidates=candidates,
+            receipt=signed,
+            transaction_workspace=transaction_workspace,
+            completion_receipt=completion_receipt,
+            interrupt_after_bodies=interrupt_after_bodies,
+            interrupt_before_completion=interrupt_before_completion,
+        )
     return signed
+
+
+def transaction_state(
+    *, profile: Mapping[str, Any], receipt: Mapping[str, Any], promoted: int, status: str
+) -> dict[str, Any]:
+    transaction_law = profile["evidenceMaterialization"]["transaction"]
+    body = {
+        "schema": transaction_law["schema"],
+        "status": status,
+        "packetId": receipt["packetId"],
+        "materializationReceiptId": receipt[profile["evidenceMaterialization"]["idKey"]],
+        "expectedPhysicalBodyCount": receipt["physicalBodyCount"],
+        "promotedPhysicalBodyCount": promoted,
+        "authority": AUTHORITY,
+        "claimBoundary": transaction_law["claimBoundary"],
+    }
+    return {**body, transaction_law["idKey"]: content_id(transaction_law["idPrefix"], body)}
+
+
+def write_canonical(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(canonical_json_bytes(value))
+
+
+def promotion_pairs(receipt: Mapping[str, Any]) -> list[tuple[str, str, str, int]]:
+    pairs: list[tuple[str, str, str, int]] = []
+    for row in receipt["roles"]:
+        pairs.append((row["candidateBodyPath"], row["packetDestination"], row["bodySha256"], row["bodyBytes"]))
+        if row["instrumentReceiptDestination"] is not None:
+            pairs.append(
+                (
+                    row["instrumentReceiptPath"], row["instrumentReceiptDestination"],
+                    row["instrumentReceiptSha256"], row["instrumentReceiptBytes"],
+                )
+            )
+    return sorted(pairs, key=lambda row: row[1])
+
+
+def promote_materialized_evidence(
+    *, profile: Mapping[str, Any], packet: Path, candidates: Path, receipt: Mapping[str, Any],
+    transaction_workspace: Path, completion_receipt: Path, interrupt_after_bodies: int | None = None,
+    interrupt_before_completion: bool = False,
+) -> None:
+    """Promote a verified exact prefix and issue completion only at the full denominator."""
+    codes = profile["evidenceMaterialization"]["refusalCodes"]
+    transaction_law = profile["evidenceMaterialization"]["transaction"]
+    transaction_workspace = validate_lexical_coordinate(
+        transaction_workspace, label="materialization transaction workspace", code="MATERIALIZATION_TRANSACTION_INVALID"
+    )
+    completion_receipt = validate_lexical_coordinate(
+        completion_receipt, label="materialization completion receipt", code="RECEIPT_PATH_INVALID"
+    )
+    require(not is_within(transaction_workspace, packet), "MATERIALIZATION_TRANSACTION_INVALID", "transaction workspace may not live inside the packet")
+    require(not is_within(completion_receipt, packet), "RECEIPT_INSIDE_MEASURED_SURFACE", "completion receipt may not live inside the packet")
+    transaction_workspace.mkdir(parents=True, exist_ok=True)
+    state_path = transaction_workspace / transaction_law["stateFile"]
+    expected = promotion_pairs(receipt)
+    expected_by_destination = {row[1]: row for row in expected}
+    require(len(expected) == receipt["physicalBodyCount"], codes["denominator"], "physical body denominator differs")
+
+    # Every source body was already parsed and root-checked before this function is
+    # reached. Re-read all bytes once more before the first promotion so no partial packet
+    # can exist beside a request that had already drifted.
+    source_bytes: dict[str, bytes] = {}
+    for source_relative, destination_relative, digest, size in expected:
+        source = validate_lexical_coordinate(candidates / source_relative, label="candidate body", code=codes["bodySubstituted"])
+        require(is_within(source, candidates), codes["bodySubstituted"], "candidate body escapes its workspace")
+        data = read_bounded_bytes(source, MAX_EVIDENCE_BYTES, code=codes["bodySubstituted"], label=source_relative)
+        require(sha256_bytes(data) == digest and len(data) == size, codes["bodySubstituted"], f"candidate body drifted: {source_relative}")
+        source_bytes[destination_relative] = data
+
+    present_entries: dict[str, Path] = {}
+    for directory in sorted({str(Path(row[1]).parent.as_posix()) for row in expected}):
+        evidence_dir = packet / directory
+        require(evidence_dir.is_dir(), codes["destinationInvalid"], f"packet evidence directory is absent: {directory}")
+        for entry in evidence_dir.iterdir():
+            relative = entry.relative_to(packet).as_posix()
+            require(entry.is_file() and relative in expected_by_destination, codes["unmaterializedEvidence"], f"unexpected packet evidence body: {relative}")
+            present_entries[relative] = entry
+    for relative, path in present_entries.items():
+        _, _, digest, size = expected_by_destination[relative]
+        data = read_bounded_bytes(path, MAX_EVIDENCE_BYTES, code=codes["bodySubstituted"], label=relative)
+        require(sha256_bytes(data) == digest and len(data) == size, codes["bodySubstituted"], f"existing packet body is inconsistent: {relative}")
+
+    if state_path.exists():
+        state = read_json_file(state_path, code="MATERIALIZATION_TRANSACTION_INVALID", label="materialization transaction")
+        exact_keys(state, transaction_law["keys"], "MATERIALIZATION_TRANSACTION_INVALID", "materialization transaction")
+        assert_identity(state, transaction_law["idKey"], transaction_law["idPrefix"], "MATERIALIZATION_TRANSACTION_INVALID", "materialization transaction")
+        require(
+            state["packetId"] == receipt["packetId"]
+            and state["materializationReceiptId"] == receipt[profile["evidenceMaterialization"]["idKey"]]
+            and state["expectedPhysicalBodyCount"] == len(expected),
+            "MATERIALIZATION_TRANSACTION_MISMATCH", "materialization transaction belongs to another receipt",
+        )
+        require(
+            state["status"] in ("in_progress", "complete")
+            and state["claimBoundary"] == transaction_law["claimBoundary"],
+            "MATERIALIZATION_TRANSACTION_INVALID",
+            "materialization transaction state or claim boundary differs",
+        )
+        require(state["promotedPhysicalBodyCount"] <= len(present_entries), "MATERIALIZATION_PREFIX_INCONSISTENT", "transaction claims bodies the packet does not hold")
+    else:
+        write_canonical(state_path, transaction_state(profile=profile, receipt=receipt, promoted=0, status="in_progress"))
+
+    promoted = len(present_entries)
+    for _, destination_relative, _, _ in expected:
+        if destination_relative in present_entries:
+            continue
+        destination = validate_lexical_coordinate(packet / destination_relative, label="packet evidence body", code=codes["destinationInvalid"])
+        require(is_within(destination, packet) and not destination.exists(), codes["destinationInvalid"], f"packet destination is invalid: {destination_relative}")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(source_bytes[destination_relative])
+        promoted += 1
+        write_canonical(
+            state_path,
+            transaction_state(profile=profile, receipt=receipt, promoted=promoted, status="in_progress"),
+        )
+        if interrupt_after_bodies is not None and promoted == interrupt_after_bodies:
+            fail("MATERIALIZATION_INTERRUPTED", f"synthetic interruption after {promoted} promoted bodies")
+
+    require(promoted == len(expected), "MATERIALIZATION_PREFIX_INCOMPLETE", "materialization did not reach the full denominator")
+    write_canonical(state_path, transaction_state(profile=profile, receipt=receipt, promoted=promoted, status="complete"))
+    if interrupt_before_completion:
+        fail("MATERIALIZATION_INTERRUPTED", "synthetic interruption before completion receipt")
+    data = canonical_json_bytes(receipt)
+    if completion_receipt.exists():
+        require(read_bounded_bytes(completion_receipt, MAX_JSON_BYTES, code=codes["invalid"], label="completion receipt") == data, "MATERIALIZATION_COMPLETION_MISMATCH", "completion receipt differs on replay")
+    else:
+        completion_receipt.parent.mkdir(parents=True, exist_ok=True)
+        completion_receipt.write_bytes(data)
 
 
 def refusal_document(code: str, message: str) -> dict[str, Any]:
@@ -1127,6 +1274,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=Path(__file__).resolve().parent / "stc-mary-successor-packet-flight-01-profile-01.json",
     )
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--transaction-workspace", type=Path)
     return parser.parse_args(argv)
 
 
@@ -1139,9 +1287,12 @@ def main(argv: list[str] | None = None) -> int:
             candidates=args.candidates,
             repository=args.repository_root,
             profile_path=args.profile,
+            transaction_workspace=args.transaction_workspace,
+            completion_receipt=args.out,
         )
         data = canonical_json_bytes(receipt)
         if args.out is None:
+            require(args.transaction_workspace is None, "MATERIALIZATION_COMPLETION_PATH_ABSENT", "transaction workspace requires --out")
             sys.stdout.buffer.write(data)
         else:
             out = validate_lexical_coordinate(
@@ -1167,9 +1318,12 @@ def main(argv: list[str] | None = None) -> int:
                 "RECEIPT_INSIDE_MEASURED_SURFACE",
                 "the materialization receipt may not be written inside the packet",
             )
-            require(not out.exists(), "RECEIPT_OUTPUT_EXISTS", "receipt output must not already exist")
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(data)
+            if args.transaction_workspace is None:
+                require(not out.exists(), "RECEIPT_OUTPUT_EXISTS", "receipt output must not already exist")
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(data)
+            else:
+                require(out.exists() and out.read_bytes() == data, "MATERIALIZATION_COMPLETION_MISMATCH", "transaction did not promote the exact completion receipt")
         return 0
     except MaterializationError as exc:
         sys.stdout.buffer.write(canonical_json_bytes(refusal_document(exc.code, str(exc))))

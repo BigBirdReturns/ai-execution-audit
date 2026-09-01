@@ -176,6 +176,24 @@
       "stage",
       "statementId"
     ],
+    "transaction": {
+      "claimBoundary": "Recoverable write-ahead state for one exact evidence materialization. It grants no authority.",
+      "idKey": "materializationTransactionId",
+      "idPrefix": "stcmarysuccessormaterializationtransaction1",
+      "keys": [
+        "authority",
+        "claimBoundary",
+        "expectedPhysicalBodyCount",
+        "materializationReceiptId",
+        "materializationTransactionId",
+        "packetId",
+        "promotedPhysicalBodyCount",
+        "schema",
+        "status"
+      ],
+      "schema": "stc-mary/successor-materialization-transaction/1",
+      "stateFile": "materialization-transaction.json"
+    },
     "writtenInsidePacket": false
   },
   "executionCustody": {
@@ -430,6 +448,26 @@
       "status"
     ],
     "stateSchema": "stc-mary-private-flight-packet-state/1"
+  },
+  "recordingTransaction": {
+    "claimBoundary": "Write-ahead transaction for one successor stage record and its deterministic next packet state. It records no decision and grants no authority.",
+    "idKey": "recordingTransactionId",
+    "idPrefix": "stcmarysuccessorrecordingtransaction1",
+    "keys": [
+      "authority",
+      "claimBoundary",
+      "packetId",
+      "priorStateId",
+      "proposedNextStateId",
+      "proposedRecordDigest",
+      "recordingTransactionId",
+      "schema",
+      "sequence",
+      "sourceExecutionIdentity",
+      "stage",
+      "status"
+    ],
+    "schema": "stc-mary/successor-recording-transaction/1"
   },
   "postSealClosure": {
     "idKey": "postSealClosureId",

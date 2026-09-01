@@ -57,6 +57,7 @@ param(
     [string] $SourceAdmissionReceipt,
     [string] $SourceCommit,
     [string] $ExecutionReceipt,
+    [string] $TransactionWorkspace,
     [string] $Out,
     [string] $Python = 'python'
 )
@@ -161,18 +162,23 @@ switch ($Command) {
     }
 
     'materialize' {
-        # The bridge between the admitted evidence denominator and the packet. It writes
-        # nothing into the packet and records nothing; it only says which admitted body
-        # belongs at which packet coordinate under which admitted role.
+        # The bridge verifies the complete evidence denominator, promotes an exact
+        # recoverable prefix, and emits completion only at 43 / 43. It records no stage.
         Assert-Supplied -Name 'Packet' -Value $Packet
         Assert-Supplied -Name 'AdmissionReceipt' -Value $AdmissionReceipt
         Assert-Supplied -Name 'Candidates' -Value $Candidates
+        Assert-Supplied -Name 'Out' -Value $Out
+        $materializationTransactions = $TransactionWorkspace
+        if ([string]::IsNullOrWhiteSpace($materializationTransactions)) {
+            $materializationTransactions = "$Out.materialization-transaction"
+        }
         $arguments = @(
             '--packet', $Packet,
             '--admission-receipt', $AdmissionReceipt,
             '--candidates', $Candidates,
             '--profile', '@profile',
-            '--repository-root', $repositoryRoot
+            '--repository-root', $repositoryRoot,
+            '--transaction-workspace', $materializationTransactions
         )
         if ($Out) { $arguments += @('--out', $Out) }
         Invoke-MeasuredSurface -Role 'verify-evidence-materialization' -Arguments $arguments
@@ -184,13 +190,19 @@ switch ($Command) {
         Assert-Supplied -Name 'MaterializationReceipt' -Value $MaterializationReceipt
         Assert-Supplied -Name 'AuthenticationReceipt' -Value $AuthenticationReceipt
         Assert-Supplied -Name 'Candidates' -Value $Candidates
+        Assert-Supplied -Name 'Out' -Value $Out
+        $recordingTransactions = $TransactionWorkspace
+        if ([string]::IsNullOrWhiteSpace($recordingTransactions)) {
+            $recordingTransactions = "$Out.recording-transactions"
+        }
         $arguments = @(
             '--packet', $Packet,
             '--admission-receipt', $AdmissionReceipt,
             '--materialization-receipt', $MaterializationReceipt,
             '--authentication-receipt', $AuthenticationReceipt,
             '--candidates', $Candidates,
-            '--repository-root', $repositoryRoot
+            '--repository-root', $repositoryRoot,
+            '--transaction-workspace', $recordingTransactions
         )
         if ($Out) { $arguments += @('--out', $Out) }
         Invoke-MeasuredSurface -Role 'record-or-resume-stages' -Arguments $arguments

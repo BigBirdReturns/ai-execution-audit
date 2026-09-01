@@ -15,9 +15,9 @@ Three inputs are mandatory and none is produced here:
 
 The second exists because the admission receipt publishes forty-three evidence roles but
 places no body in the packet. Without it this orchestrator would record whatever files
-happened to sit in each stage directory while copying the gate's forty-three-role roots
-beside them, and the packet's denominator would be unrelated to the admitted one. Nothing
-enters a stage's evidence directory here except the closed set that receipt names.
+happened to sit in each stage directory beside the gate's forty-three-role roots, and the
+packet's denominator would be unrelated to the admitted one. This recorder consumes only
+a completed packet-side materialization and never copies candidate bytes itself.
 
 The third exists because the first cannot carry it. The admission receipt's human
 statements and stage confirmations each carry an ``authenticationBinding`` string beside a
@@ -35,6 +35,7 @@ There is no ``operatorConfirmed`` input anywhere in this module.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -447,79 +448,37 @@ def load_materialization_receipt(
 def materialize_stage_evidence(
     *, profile: Mapping[str, Any], packet: Path, candidates: Path, role_rows: Sequence[Mapping[str, Any]]
 ) -> int:
-    """Copy exactly the admitted bodies into their deterministic packet coordinates.
-
-    Every stage evidence directory must be empty first. A directory that already holds a
-    file is refused here, before a single stage record exists: a body nobody admitted
-    would otherwise be hashed into the stage record, counted as private evidence, and
-    sealed beside a root that never covered it.
-    """
+    """Require the completed materializer to have promoted exactly the admitted bodies."""
     codes = profile["evidenceMaterialization"]["refusalCodes"]
-    directories = sorted({str(Path(row["packetDestination"]).parent.as_posix()) for row in role_rows})
-    for relative in directories:
-        directory = packet / relative
-        law.require(
-            directory.is_dir(),
-            codes["destinationInvalid"],
-            f"the packet has no evidence directory at {relative}",
-        )
-        existing = sorted(entry.name for entry in directory.iterdir())
-        if existing:
-            law.fail(
-                codes["unmaterializedEvidence"],
-                f"{relative} already holds evidence this transaction did not admit: {existing[0]}",
-            )
-
-    written = 0
+    expected: dict[str, tuple[str, int]] = {}
     for row in role_rows:
-        pairs = [(row["candidateBodyPath"], row["packetDestination"], row["bodySha256"], row["bodyBytes"])]
+        pairs = [(row["packetDestination"], row["bodySha256"], row["bodyBytes"])]
         if row["instrumentReceiptDestination"] is not None:
-            pairs.append(
-                (
-                    row["instrumentReceiptPath"],
-                    row["instrumentReceiptDestination"],
-                    row["instrumentReceiptSha256"],
-                    row["instrumentReceiptBytes"],
-                )
-            )
-        for source_relative, destination_relative, digest, size in pairs:
-            source = law.validate_lexical_coordinate(
-                candidates / source_relative, label="admitted evidence body", code=codes["bodySubstituted"]
-            )
-            law.require(
-                law.is_within(source, candidates),
-                codes["bodySubstituted"],
-                f"an admitted body escapes the candidate workspace: {source_relative}",
-            )
-            data = law.read_bounded_bytes(
-                source,
-                law.MAX_EVIDENCE_BYTES,
-                code=codes["bodySubstituted"],
-                label=f"admitted evidence body {source_relative}",
-            )
-            law.require(
-                law.sha256_bytes(data) == digest and len(data) == size,
-                codes["bodySubstituted"],
-                f"the candidate body changed since it was admitted: {source_relative}",
-            )
-            destination = law.validate_lexical_coordinate(
-                packet / destination_relative, label="packet evidence coordinate", code=codes["destinationInvalid"]
-            )
-            law.require(
-                law.is_within(destination, packet),
-                codes["destinationInvalid"],
-                f"a materialized coordinate escapes the packet: {destination_relative}",
-            )
-            law.require(
-                not destination.exists(),
-                codes["destinationInvalid"],
-                f"a materialized coordinate already exists: {destination_relative}",
-            )
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            with destination.open("wb") as handle:
-                handle.write(data)
-            written += 1
-    return written
+            pairs.append((row["instrumentReceiptDestination"], row["instrumentReceiptSha256"], row["instrumentReceiptBytes"]))
+        for destination_relative, digest, size in pairs:
+            expected[destination_relative] = (digest, size)
+    present: set[str] = set()
+    for directory in sorted({str(Path(relative).parent.as_posix()) for relative in expected}):
+        evidence_dir = packet / directory
+        law.require(evidence_dir.is_dir(), codes["destinationInvalid"], f"packet evidence directory is absent: {directory}")
+        for entry in evidence_dir.iterdir():
+            relative = entry.relative_to(packet).as_posix()
+            law.require(entry.is_file() and relative in expected, codes["unmaterializedEvidence"], f"unexpected packet evidence body: {relative}")
+            present.add(relative)
+    law.require(present == set(expected), codes["unmaterializedEvidence"], "materialization completion receipt exists without the full packet body denominator")
+    for destination_relative, (digest, size) in expected.items():
+        destination = law.validate_lexical_coordinate(
+            packet / destination_relative, label="packet evidence coordinate", code=codes["destinationInvalid"]
+        )
+        data = law.read_bounded_bytes(
+            destination, law.MAX_EVIDENCE_BYTES, code=codes["bodySubstituted"], label=destination_relative
+        )
+        law.require(
+            law.sha256_bytes(data) == digest and len(data) == size,
+            codes["bodySubstituted"],
+            f"the promoted packet body differs from the completion receipt: {destination_relative}",
+        )
+    return len(present)
 
 
 # --------------------------------------------------------------------------------
@@ -688,6 +647,153 @@ def read_packet_lineage(profile: Mapping[str, Any], packet: Path) -> dict[str, A
     }
 
 
+def recording_transaction(
+    *, profile: Mapping[str, Any], packet_id: str, sequence: int, stage: str,
+    prior_state_id: str, record_digest: str, next_state_id: str,
+    source_execution_identity: str, status: str,
+) -> dict[str, Any]:
+    block = profile["recordingTransaction"]
+    body = {
+        "schema": block["schema"], "status": status, "packetId": packet_id,
+        "sequence": sequence, "stage": stage, "priorStateId": prior_state_id,
+        "proposedRecordDigest": record_digest, "proposedNextStateId": next_state_id,
+        "sourceExecutionIdentity": source_execution_identity, "authority": law.AUTHORITY,
+        "claimBoundary": block["claimBoundary"],
+    }
+    return law.sign(body, block["idKey"], block["idPrefix"])
+
+
+def transaction_path(workspace: Path, sequence: int, stage: str) -> Path:
+    return workspace / f"{sequence:02d}-{stage}.json"
+
+
+def write_transaction(path: Path, value: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    law.write_canonical_json(path, value)
+
+
+def reconcile_recording_transactions(
+    *, profile: Mapping[str, Any], packet: Path, workspace: Path,
+    source_execution_identity: str,
+) -> None:
+    block = profile["recordingTransaction"]
+    packet_law = profile["packet"]
+    state_id_key = packet_law["stateIdKey"]
+    record_law = packet_law["stageRecord"]
+    workspace.mkdir(parents=True, exist_ok=True)
+    expected_names = {
+        transaction_path(workspace, row["sequence"], row["stage"]).name
+        for row in law.load_packet(profile, packet)["state"]["stages"]
+    }
+    for entry in workspace.iterdir():
+        law.require(entry.is_file() and entry.name in expected_names, "RECORDING_TRANSACTION_UNEXPECTED", f"unexpected recording transaction: {entry.name}")
+    for row in law.load_packet(profile, packet)["state"]["stages"]:
+        path = transaction_path(workspace, row["sequence"], row["stage"])
+        if not path.exists():
+            continue
+        transaction = law.read_json_file(path, code="RECORDING_TRANSACTION_INVALID", label="recording transaction")
+        law.exact_keys(transaction, block["keys"], "RECORDING_TRANSACTION_INVALID", "recording transaction")
+        law.assert_identity(transaction, block["idKey"], block["idPrefix"], "RECORDING_TRANSACTION_INVALID", "recording transaction")
+        law.require(
+            transaction["packetId"] == law.load_packet(profile, packet)["marker"]["packetId"]
+            and transaction["sequence"] == row["sequence"]
+            and transaction["stage"] == row["stage"]
+            and transaction["sourceExecutionIdentity"] == source_execution_identity,
+            "RECORDING_TRANSACTION_MISMATCH", "recording transaction belongs to another execution",
+        )
+        current = law.load_packet(profile, packet)["state"]
+        record_path = packet / Path(row["draftPath"]).parent / record_law["fileName"]
+        record = None
+        if record_path.exists():
+            record = law.read_json_file(record_path, code="STAGE_RECORD_INVALID", label=f"{row['stage']} stage record")
+            law.assert_identity(record, record_law["idKey"], record_law["idPrefix"], "STAGE_RECORD_INVALID", f"{row['stage']} stage record")
+            law.require(record[record_law["idKey"]] == transaction["proposedRecordDigest"], "RECORDING_TRANSACTION_RECORD_MISMATCH", "promoted record differs from transaction")
+        current_id = current[state_id_key]
+        if transaction["status"] == "complete":
+            law.require(record is not None and current_id != transaction["priorStateId"], "RECORDING_TRANSACTION_INCONSISTENT", "completed transaction lacks its record or state")
+            continue
+        law.require(transaction["status"] == "in_progress", "RECORDING_TRANSACTION_INVALID", "recording transaction status differs")
+        if current_id == transaction["priorStateId"]:
+            if record is None:
+                continue
+            updated_rows = [
+                {**entry, "status": "recorded", "evidenceCount": len(record["evidenceFiles"]),
+                 "recordDigest": record[record_law["idKey"]]}
+                if entry["stage"] == row["stage"] else dict(entry)
+                for entry in current["stages"]
+            ]
+            next_state = law.build_packet_state(
+                profile=profile, marker=law.load_packet(profile, packet)["marker"],
+                stages=[entry["stage"] for entry in current["stages"]], rows=updated_rows,
+                configuration_state="configured", sealed=False, sealed_disposition_id=None,
+                claim_boundary=runtime.STATE_CLAIM,
+            )
+            law.require(next_state[state_id_key] == transaction["proposedNextStateId"], "RECORDING_TRANSACTION_STATE_MISMATCH", "reconstructed next state differs")
+            law.write_canonical_json(packet / packet_law["files"]["state"], next_state)
+            current_id = next_state[state_id_key]
+        law.require(
+            record is not None and current_id == transaction["proposedNextStateId"],
+            "RECORDING_TRANSACTION_INCONSISTENT",
+            "state advanced without the exact proposed record or differs from the proposed state",
+        )
+        complete = recording_transaction(
+            profile=profile, packet_id=transaction["packetId"], sequence=transaction["sequence"],
+            stage=transaction["stage"], prior_state_id=transaction["priorStateId"],
+            record_digest=transaction["proposedRecordDigest"], next_state_id=transaction["proposedNextStateId"],
+            source_execution_identity=source_execution_identity, status="complete",
+        )
+        write_transaction(path, complete)
+
+
+def verified_recorded_prefix(
+    *, profile: Mapping[str, Any], admission: Mapping[str, Any], packet: Path,
+    state: Mapping[str, Any], authorizations: Sequence[Mapping[str, Any]],
+    roles_by_stage: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    record_law = profile["packet"]["stageRecord"]
+    canonical = law.load_packet(profile, packet)["config"]["canonicalMissionStateDigest"]
+    completed = state["completedStageCount"]
+    recorded: list[dict[str, Any]] = []
+    terminals = {"PASS": 0, "HUMAN_REQUIRED": 0, "REFUSED": 0}
+    for index, row in enumerate(state["stages"]):
+        record_path = packet / Path(row["draftPath"]).parent / record_law["fileName"]
+        if index >= completed:
+            law.require(row["status"] == "unrecorded" and not record_path.exists(), "RECORD_BEYOND_PREFIX", "stage record exists beyond the contiguous prefix")
+            continue
+        law.require(row["status"] == "recorded" and record_path.is_file(), "RECORDED_PREFIX_INCOMPLETE", "recorded prefix lacks its exact record")
+        record = law.read_json_file(record_path, code="STAGE_RECORD_INVALID", label=f"{row['stage']} stage record")
+        law.exact_keys(record, record_law["keys"], "STAGE_RECORD_INVALID", f"{row['stage']} stage record")
+        law.assert_identity(record, record_law["idKey"], record_law["idPrefix"], "STAGE_RECORD_INVALID", f"{row['stage']} stage record")
+        authorization = authorizations[index]
+        law.require(
+            record[record_law["idKey"]] == row["recordDigest"]
+            and record["sequence"] == index + 1 and record["stage"] == row["stage"]
+            and record["admissionId"] == authorization["admissionId"]
+            and record["stageConfirmationId"] == authorization["stageConfirmationId"]
+            and record["evidenceAdmissionRoot"] == authorization["evidenceAdmissionRoot"]
+            and record["observationDigest"] == authorization["observationDigest"]
+            and record["terminalState"] == authorization["requiredTerminal"]
+            and record["canonicalMissionStateIdBefore"] == canonical
+            and record["canonicalMissionStateIdAfter"] == canonical,
+            "RECORDED_PREFIX_BINDING_INVALID", f"{row['stage']} record does not reproduce its admitted authorization",
+        )
+        measured_rows, root_rows = runtime.evidence_rows(
+            profile=profile, admission=admission, packet=packet, stage=row["stage"],
+            evidence_directory=row["evidenceDirectory"], role_rows=roles_by_stage[row["stage"]],
+            maximum=profile["packet"]["maxEvidenceFilesPerStage"],
+        )
+        root = law.stage_evidence_root(admission, scope=law.ALL_ROLES_SCOPE, sequence=index + 1, stage=row["stage"], rows=root_rows)
+        law.require(measured_rows == record["evidenceFiles"] and root == record["evidenceAdmissionRoot"], "RECORDED_PREFIX_EVIDENCE_INVALID", f"{row['stage']} record evidence does not reproduce")
+        terminals[record["terminalState"]] += 1
+        recorded.append({
+            "sequence": record["sequence"], "stage": record["stage"], "terminalState": record["terminalState"],
+            "recordDigest": record[record_law["idKey"]], "stageConfirmationId": record["stageConfirmationId"],
+            "evidenceAdmissionRoot": record["evidenceAdmissionRoot"], "observationDigest": record["observationDigest"],
+            "evidenceBodyCount": len(record["evidenceFiles"]),
+        })
+    return recorded, terminals
+
+
 def orchestrate(
     *,
     packet: Path,
@@ -696,6 +802,10 @@ def orchestrate(
     authentication_receipt: Path,
     candidates: Path,
     repository: Path,
+    transaction_workspace: Path,
+    source_execution_identity: str | None = None,
+    interrupt_after_stage: int | None = None,
+    interrupt_phase: str | None = None,
     profile_path: Path = PROFILE_PATH,
 ) -> dict[str, Any]:
     law.require_supported_python()
@@ -747,8 +857,8 @@ def orchestrate(
     roles_by_stage: dict[str, list[Mapping[str, Any]]] = {}
     for row in materialization["roles"]:
         roles_by_stage.setdefault(row["stage"], []).append(row)
-    # Every stage root is reconstructed from the materialized rows here, before a single
-    # body is copied and long before a stage is recorded. Doing it only inside the
+    # Every stage root is reconstructed from the materialized rows here before any stage
+    # is recorded. Doing it only inside the
     # recorder would let a row rebound in stage fourteen pass while stages one to thirteen
     # were already written; a rebinding anywhere must refuse with the packet untouched.
     for index, authorization in enumerate(authorizations):
@@ -796,11 +906,31 @@ def orchestrate(
         statement_bindings=materialization["statementBindings"],
     )
 
-    law.require(
-        loaded["state"]["completedStageCount"] == 0,
-        "PACKET_STAGES_ALREADY_RECORDED",
-        "this orchestrator records a packet that begins at zero of sixteen",
+    transaction_workspace = law.validate_lexical_coordinate(
+        transaction_workspace,
+        label="recording transaction workspace",
+        code="RECORDING_TRANSACTION_INVALID",
     )
+    law.require(
+        not law.is_within(transaction_workspace, packet),
+        "RECORDING_TRANSACTION_INVALID",
+        "recording transaction workspace may not live inside the packet",
+    )
+    if source_execution_identity is None:
+        source_execution_identity = os.environ.get("STC_MARY_SOURCE_EXECUTION_IDENTITY")
+    law.require(
+        isinstance(source_execution_identity, str) and bool(source_execution_identity),
+        "SOURCE_EXECUTION_IDENTITY_ABSENT",
+        "recording requires the exact measured source-execution identity",
+    )
+
+    reconcile_recording_transactions(
+        profile=profile,
+        packet=packet,
+        workspace=transaction_workspace,
+        source_execution_identity=source_execution_identity,
+    )
+    loaded = law.load_packet(profile, packet)
 
     materialized_bodies = materialize_stage_evidence(
         profile=profile, packet=packet, candidates=candidates, role_rows=materialization["roles"]
@@ -811,16 +941,76 @@ def orchestrate(
         "the materialized body count differs from the count the materialization receipt names",
     )
 
-    recorded: list[dict[str, Any]] = []
-    terminal_counts = {"PASS": 0, "HUMAN_REQUIRED": 0, "REFUSED": 0}
-    for authorization in authorizations:
+    recorded, terminal_counts = verified_recorded_prefix(
+        profile=profile,
+        admission=admission,
+        packet=packet,
+        state=loaded["state"],
+        authorizations=authorizations,
+        roles_by_stage=roles_by_stage,
+    )
+    completed = loaded["state"]["completedStageCount"]
+    for sequence, authorization in enumerate(authorizations[completed:], start=completed + 1):
+        stage = authorization["stage"]
+        transaction_file = transaction_path(transaction_workspace, sequence, stage)
+
+        def phase_hook(
+            phase: str,
+            record: Mapping[str, Any],
+            prior_state: Mapping[str, Any],
+            next_state: Mapping[str, Any],
+            *,
+            transaction_file: Path = transaction_file,
+            stage: str = stage,
+            sequence: int = sequence,
+        ) -> None:
+            transaction = recording_transaction(
+                profile=profile,
+                packet_id=loaded["marker"]["packetId"],
+                sequence=sequence,
+                stage=stage,
+                prior_state_id=prior_state[profile["packet"]["stateIdKey"]],
+                record_digest=record[profile["packet"]["stageRecord"]["idKey"]],
+                next_state_id=next_state[profile["packet"]["stateIdKey"]],
+                source_execution_identity=source_execution_identity,
+                status="complete" if phase == "state-promoted" else "in_progress",
+            )
+            if phase == "prepared":
+                if transaction_file.exists():
+                    existing = law.read_json_file(
+                        transaction_file,
+                        code="RECORDING_TRANSACTION_INVALID",
+                        label="recording transaction",
+                    )
+                    law.require(
+                        existing == transaction,
+                        "RECORDING_TRANSACTION_MISMATCH",
+                        "retry does not reproduce the prepared recording transaction",
+                    )
+                else:
+                    write_transaction(transaction_file, transaction)
+            elif phase == "record-promoted":
+                if interrupt_phase == "after-record-promotion":
+                    raise law.SuccessorFlightError(
+                        "RECORDING_INTERRUPTED",
+                        "synthetic interruption after record promotion",
+                    )
+            elif phase == "state-promoted":
+                if interrupt_phase == "after-state-promotion":
+                    raise law.SuccessorFlightError(
+                        "RECORDING_INTERRUPTED",
+                        "synthetic interruption after state promotion",
+                    )
+                write_transaction(transaction_file, transaction)
+
         result = runtime.record_stage(
             profile=profile,
             admission=admission,
             packet=packet,
-            stage=authorization["stage"],
+            stage=stage,
             authorization=authorization,
-            role_rows=roles_by_stage[authorization["stage"]],
+            role_rows=roles_by_stage[stage],
+            phase_hook=phase_hook,
         )
         record = result["record"]
         terminal_counts[record["terminalState"]] += 1
@@ -836,6 +1026,11 @@ def orchestrate(
                 "evidenceBodyCount": len(record["evidenceFiles"]),
             }
         )
+        if interrupt_after_stage == sequence:
+            raise law.SuccessorFlightError(
+                "RECORDING_INTERRUPTED",
+                f"synthetic interruption after stage {sequence}",
+            )
 
     expected_terminals = profile["denominator"]["recordedTerminalCounts"]
     law.require(
@@ -932,6 +1127,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--materialization-receipt", type=Path, required=True)
     parser.add_argument("--authentication-receipt", type=Path, required=True)
     parser.add_argument("--candidates", type=Path, required=True)
+    parser.add_argument("--transaction-workspace", type=Path, required=True)
     parser.add_argument("--repository-root", type=Path, default=HERE.parent.parent)
     parser.add_argument("--out", type=Path)
     return parser.parse_args(argv)
@@ -947,6 +1143,7 @@ def main(argv: list[str] | None = None) -> int:
             authentication_receipt=args.authentication_receipt,
             candidates=args.candidates,
             repository=args.repository_root,
+            transaction_workspace=args.transaction_workspace,
         )
         data = law.canonical_json_bytes(receipt)
         if args.out is None:
@@ -960,9 +1157,15 @@ def main(argv: list[str] | None = None) -> int:
                 "RECEIPT_INSIDE_MEASURED_SURFACE",
                 "the orchestration receipt may not be written inside the packet",
             )
-            law.require(not out.exists(), "RECEIPT_OUTPUT_EXISTS", "receipt output must not already exist")
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(data)
+            if out.exists():
+                law.require(
+                    out.read_bytes() == data,
+                    "RECEIPT_OUTPUT_MISMATCH",
+                    "existing orchestration receipt differs on replay",
+                )
+            else:
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(data)
         return 0
     except law.SuccessorFlightError as exc:
         sys.stdout.buffer.write(law.canonical_json_bytes(refusal_document(exc.code, str(exc))))

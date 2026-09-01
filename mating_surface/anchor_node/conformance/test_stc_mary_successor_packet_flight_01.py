@@ -572,15 +572,16 @@ class SuccessorFlightWalk:
     # -- step 6: bridge the admitted roles to packet coordinates ------------------
     def run_materialization(self, name: str = "evidence-materialization.json") -> dict:
         """Replay the admitted candidate-body mapping into one exact materialization receipt."""
+        self.materialization_path = self.receipts / name
         receipt = materialization_bridge.materialize_evidence(
             packet=self.packet,
             admission_receipt=self.receipts / "admission-admissible.json",
             candidates=self.candidates,
             repository=self.source_repository,
             profile_path=PROFILE,
+            transaction_workspace=self.receipts / "materialization-transaction",
+            completion_receipt=self.materialization_path,
         )
-        self.materialization_path = self.receipts / name
-        law.write_canonical_json(self.materialization_path, receipt)
         return receipt
 
     # -- step 7: draft each stage, then record it -------------------------------
@@ -640,6 +641,8 @@ class SuccessorFlightWalk:
             authentication_receipt=self.authentication_path,
             candidates=self.candidates,
             repository=self.source_repository,
+            transaction_workspace=self.receipts / "recording-transactions",
+            source_execution_identity="synthetic-measured-source-execution-identity",
         )
         self.pre_seal_closure = pre_seal.close_pre_seal(
             packet=self.packet,
@@ -1588,6 +1591,8 @@ class MaterializedEvidenceHostileWitnesses(unittest.TestCase):
             authentication_receipt=estate / "receipts" / "authentication.json",
             candidates=estate / "admission",
             repository=REPOSITORY_ROOT,
+            transaction_workspace=estate / "receipts" / "recording-transactions",
+            source_execution_identity="synthetic-measured-source-execution-identity",
         )
 
     def resign_materialization(self, estate: Path, mutate) -> Path:
@@ -1695,14 +1700,13 @@ class MaterializedEvidenceHostileWitnesses(unittest.TestCase):
         self.assertEqual(caught.exception.code, "MATERIALIZATION_BINDING_INVALID")
         self.assert_no_stage_was_recorded(estate)
 
-    def test_a_candidate_body_edited_after_admission_refuses(self) -> None:
+    def test_candidate_drift_after_completed_materialization_is_not_source_evidence(self) -> None:
         estate = self.copy_pre_record_estate()
         row = load_json(estate / "receipts" / "evidence-materialization.json")["roles"][0]
         (estate / "admission" / row["candidateBodyPath"]).write_bytes(b'{"schema": "swapped"}\n')
-        with self.assertRaises(law.SuccessorFlightError) as caught:
-            self.orchestrate(estate)
-        self.assertEqual(caught.exception.code, "EVIDENCE_BODY_SUBSTITUTED")
-        self.assert_no_stage_was_recorded(estate)
+        result = self.orchestrate(estate)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["completedStageCount"], 16)
 
     # -- a row is a member of one receipt, never a portable assertion -----------------
     def test_a_row_extracted_from_its_parent_receipt_is_not_a_receipt(self) -> None:
@@ -1908,6 +1912,153 @@ class MaterializedEvidenceHostileWitnesses(unittest.TestCase):
         refusal = json.loads(completed.stdout.decode("utf-8"))
         self.assertEqual(refusal["code"], "RECEIPT_INSIDE_MEASURED_SURFACE")
         self.assertFalse((packet / "smuggled.json").exists())
+
+
+class VerifiedPrefixRestartWitnesses(unittest.TestCase):
+    """Crash witnesses for evidence promotion and the contiguous recording prefix."""
+
+    SOURCE_EXECUTION_IDENTITY = "synthetic-measured-source-execution-identity"
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.walk = shared_walk()
+
+    def copy_pre_record_estate(self) -> Path:
+        target = Path(tempfile.mkdtemp(prefix="stc-mary-successor-restart-")) / "estate"
+        self.addCleanup(shutil.rmtree, target.parent, ignore_errors=True)
+        shutil.copytree(self.walk.pre_record_snapshot, target)
+        return target
+
+    def reset_materialization(self, estate: Path) -> tuple[Path, Path, Path]:
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        for body in packet.glob("*/evidence/*"):
+            if body.is_file():
+                body.unlink()
+        receipt = estate / "receipts" / "evidence-materialization.json"
+        receipt.unlink()
+        transaction = estate / "receipts" / "materialization-transaction"
+        shutil.rmtree(transaction, ignore_errors=True)
+        return packet, receipt, transaction
+
+    def materialize_with_interruption(
+        self, *, after: int | None = None, before_completion: bool = False
+    ) -> None:
+        estate = self.copy_pre_record_estate()
+        packet, receipt_path, transaction = self.reset_materialization(estate)
+        arguments = {
+            "packet": packet,
+            "admission_receipt": estate / "receipts" / "admission-admissible.json",
+            "candidates": estate / "admission",
+            "repository": REPOSITORY_ROOT,
+            "profile_path": PROFILE,
+            "transaction_workspace": transaction,
+            "completion_receipt": receipt_path,
+        }
+        with self.assertRaises(materialization_bridge.MaterializationError) as caught:
+            materialization_bridge.materialize_evidence(
+                **arguments,
+                interrupt_after_bodies=after,
+                interrupt_before_completion=before_completion,
+            )
+        self.assertEqual(caught.exception.code, "MATERIALIZATION_INTERRUPTED")
+        resumed = materialization_bridge.materialize_evidence(**arguments)
+        self.assertEqual(resumed, self.walk.materialization_receipt)
+        self.assertEqual(load_json(receipt_path), resumed)
+        state = load_json(transaction / "materialization-transaction.json")
+        self.assertEqual(state["status"], "complete")
+        self.assertEqual(state["promotedPhysicalBodyCount"], 43)
+        self.assertEqual(len(list(packet.glob("*/evidence/*"))), 43)
+
+    def test_materialization_resumes_after_one_promoted_body(self) -> None:
+        self.materialize_with_interruption(after=1)
+
+    def test_materialization_resumes_after_twenty_promoted_bodies(self) -> None:
+        self.materialize_with_interruption(after=20)
+
+    def test_materialization_resumes_after_all_bodies_before_completion_receipt(self) -> None:
+        self.materialize_with_interruption(before_completion=True)
+
+    def resume_recording(
+        self, *, after_stage: int | None = None, phase: str | None = None
+    ) -> tuple[Path, dict]:
+        estate = self.copy_pre_record_estate()
+        arguments = {
+            "packet": estate / "campaign" / "stc-mary-private-flight-successor",
+            "admission_receipt": estate / "receipts" / "admission-admissible.json",
+            "materialization_receipt": estate / "receipts" / "evidence-materialization.json",
+            "authentication_receipt": estate / "receipts" / "authentication.json",
+            "candidates": estate / "admission",
+            "repository": REPOSITORY_ROOT,
+            "transaction_workspace": estate / "receipts" / "recording-transactions",
+            "source_execution_identity": self.SOURCE_EXECUTION_IDENTITY,
+        }
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            orchestrator.orchestrate(
+                **arguments, interrupt_after_stage=after_stage, interrupt_phase=phase
+            )
+        self.assertEqual(caught.exception.code, "RECORDING_INTERRUPTED")
+        resumed = orchestrator.orchestrate(**arguments)
+        self.assertEqual(resumed, self.walk.orchestration_receipt)
+        packet = arguments["packet"]
+        final = law.load_packet(law.load_profile(PROFILE), packet)["state"]
+        baseline_packet = (
+            self.walk.pre_seal_snapshot / "campaign" / "stc-mary-private-flight-successor"
+        )
+        baseline = law.load_packet(law.load_profile(PROFILE), baseline_packet)["state"]
+        self.assertEqual(final, baseline)
+        self.assertEqual(
+            [path.read_bytes() for path in sorted(packet.glob("*/stage-record.json"))],
+            [path.read_bytes() for path in sorted(baseline_packet.glob("*/stage-record.json"))],
+        )
+        return estate, resumed
+
+    def test_recording_resumes_after_stage_one(self) -> None:
+        self.resume_recording(after_stage=1)
+
+    def test_recording_resumes_after_stage_seven(self) -> None:
+        self.resume_recording(after_stage=7)
+
+    def test_recording_resumes_after_stage_fifteen_and_converges_through_post_seal(self) -> None:
+        estate, _ = self.resume_recording(after_stage=15)
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        receipts = estate / "receipts"
+        closure = pre_seal.close_pre_seal(
+            packet=packet,
+            admission_receipt=receipts / "admission-admissible.json",
+            materialization_receipt=receipts / "evidence-materialization.json",
+            authentication_receipt=receipts / "authentication.json",
+            candidates=estate / "admission",
+            profile_path=PROFILE,
+            repository=REPOSITORY_ROOT,
+        )
+        self.assertEqual(closure, self.walk.pre_seal_closure)
+        closure_path = receipts / "pre-seal-closure.json"
+        law.write_canonical_json(closure_path, closure)
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        seal_adapter.seal_packet(
+            packet=packet,
+            sealed=sealed,
+            pre_seal_closure=closure_path,
+            repository=REPOSITORY_ROOT,
+        )
+        detached = seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        detached_path = receipts / "detached-verification.json"
+        law.write_canonical_json(detached_path, detached)
+        post = post_seal.close_post_seal(
+            packet=packet,
+            sealed=sealed,
+            pre_seal_closure=closure_path,
+            detached_verification=detached_path,
+            profile_path=PROFILE,
+            repository=REPOSITORY_ROOT,
+        )
+        self.assertEqual(post, self.walk.post_seal_closure)
+
+    def test_recording_reconciles_record_promotion_before_state_promotion(self) -> None:
+        self.resume_recording(phase="after-record-promotion")
+
+    def test_recording_reconciles_state_promotion_before_transaction_completion(self) -> None:
+        self.resume_recording(phase="after-state-promotion")
 
 
 class OrderingWitnesses(unittest.TestCase):
