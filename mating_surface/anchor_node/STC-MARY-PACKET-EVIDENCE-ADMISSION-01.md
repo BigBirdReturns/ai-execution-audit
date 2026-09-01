@@ -46,13 +46,13 @@ denominators and this object never collapses one into the other.
 
 ```text
 evidence roles                          43
-  machine-verifiable or freshly observable 41
-  substantive named-human statements        2
+  machine-verifiable or freshly observable 40
+  substantive named-human statements        3
 
 stage-confirmation decisions            16
 ```
 
-The two statement bodies supply campaign substance. The sixteen confirmations answer
+The three statement bodies supply campaign substance. The sixteen confirmations answer
 whether each exact stage observation and admitted evidence set may be recorded.
 Neither is reducible to one Boolean written by an operator process.
 
@@ -62,8 +62,8 @@ Carried by the admitted profile, not hardcoded in the gate:
 
 ```text
 READY_FROM_ACCEPTED_RECEIPTS          7
-REQUIRES_CURRENT_LOCAL_OBSERVATION    7
-REQUIRES_HUMAN_STATEMENT              2
+REQUIRES_CURRENT_LOCAL_OBSERVATION    6
+REQUIRES_HUMAN_STATEMENT              3
 MISSING_HISTORICAL_PHYSICAL_EVIDENCE  0
 REFUSED_AS_UNRECOVERABLE              0
 ```
@@ -84,12 +84,13 @@ REFUSED_AS_UNRECOVERABLE              0
 13 REPLACE_HEAD                       READY_FROM_ACCEPTED_RECEIPTS          3 roles
 14 REBUILD_PROJECTIONS                REQUIRES_CURRENT_LOCAL_OBSERVATION    3 roles
 15 COLD_SUCCESSOR_VERIFY              REQUIRES_CURRENT_LOCAL_OBSERVATION    3 roles
-16 SEAL_PRIVATE_EVIDENCE              REQUIRES_CURRENT_LOCAL_OBSERVATION    3 roles
+16 SEAL_PRIVATE_EVIDENCE              REQUIRES_HUMAN_STATEMENT              3 roles
 ```
 
-Every role name is the exact string the frozen packet profile already declares under
-that stage's `requiredEvidence`. The gate adds, per role, a provenance class and a
-closed set of semantic predicates the body must prove.
+For fifteen of the sixteen stages, every role name is the exact string the frozen packet
+profile declares under that stage's `requiredEvidence`. Stage 16 is the one declared
+divergence; see **Stage 16 and the seal ordering** below. The gate adds, per role, a
+provenance class and a closed set of semantic predicates the body must prove.
 
 ## What the gate actually does to a body
 
@@ -117,6 +118,245 @@ string.
 No two roles may share an evidence identity or the same body bytes. One blob is not a
 denominator.
 
+## Stage 16 and the seal ordering
+
+The frozen packet profile lists stage 16's `requiredEvidence` as:
+
+```text
+evidence manifest
+sealed run
+body-free public disposition
+```
+
+Two of those name objects that do not exist until **after** sealing, and the frozen
+sealer refuses to run until all sixteen stages are already recorded:
+
+```text
+"all sixteen stages must be recorded before sealing"   PRIVATE_FLIGHT_PACKET_INCOMPLETE
+```
+
+The frozen recorder never enforces those advisory names -- it accepts any one to
+sixty-four non-empty files -- so the sequence is *mechanically* traversable. Predecessor
+profile `stc-mary/packet-evidence-admission@1` nevertheless turned them into
+`current_local_observation` roles carrying `runSealedNow` and `dispositionIsBodyFree`,
+which made `READY_FOR_NAMED_HUMAN_DECISION` unreachable for any real zero-stage packet:
+it topped out at `HOLD`, 38 of 41 non-human roles, with those three outstanding forever.
+
+That role defect is real and is repaired here. It is **not** the whole defect.
+
+This profile supersedes exactly those three roles with evidence that is truthful at
+**admission time**, when no stage record exists:
+
+```text
+pre-seal evidence manifest       current_local_observation
+private-body Git custody proof   current_local_observation
+named-human seal authorization   named_human_statement
+```
+
+The total evidence denominator stays at 43. The split moves from 41/2 to 40/3, and
+stage 16 joins `BIND_GRACE` and `RESTORE_LINK_HOLD_CONFLICT` as a
+`REQUIRES_HUMAN_STATEMENT` stage.
+
+### The frozen observation contract cannot be satisfied truthfully
+
+The frozen stage-16 **observation** contract requires:
+
+```text
+keys            evidenceDescriptorCount, privateEvidenceBodiesCommittedToGit,
+                publicDispositionBodyFree, sealedEvidenceClass
+requiredValues  privateEvidenceBodiesCommittedToGit: false
+                publicDispositionBodyFree: true
+```
+
+`publicDispositionBodyFree: true` is an assertion about a public disposition the sealer
+has not created yet, and cannot create until all sixteen stages are already recorded. A
+stage-16 record carrying it is acceptable to the frozen recorder and **untrue at the
+moment it is written**. Later detached verification proves the eventual disposition is
+body-free; it cannot retroactively make the earlier claim true.
+
+So the frozen packet is mechanically traversable and not truthfully traversable, and this
+profile therefore targets a **source-authenticated successor packet and observation
+contract**. It makes no claim of direct applicability to Campaign A's frozen packet:
+
+```text
+predecessor packet profile            stc-mary/private-flight-packet/0.1
+successor packet profile              stc-mary/private-flight-packet/0.2
+direct frozen-packet application      false
+successor observation contract        required
+predecessor packet mutation           forbidden
+```
+
+That boundary is **runtime law, not profile prose**. The gate refuses the frozen
+predecessor outright rather than returning a positive terminal for a packet it has
+declared out of scope:
+
+```text
+frozen 0.1 packet    -> DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN
+successor 0.2 packet -> eligible, once its lineage contract verifies
+```
+
+### The boundary holds at every object layer that carries a profile identity
+
+A packet root marker declaring `0.2` while the packet state still declares `0.1` is the
+same decoration one object layer down, and it re-identifies perfectly, so nothing but an
+explicit agreement rule catches it. Four objects must name one single succession:
+
+```text
+admission profile   successorPacketProfileId / predecessorPhysicalProfileId
+packet marker       packetProfileId / physicalProfileId
+packet state        packetProfileId / physicalProfileId
+successor contract  successorPacketProfileId / predecessorPacketProfileId
+```
+
+```text
+state still naming 0.1        -> DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN
+any other disagreement        -> PACKET_PROFILE_SUCCESSION_SPLIT
+```
+
+A version string alone is not lineage. The successor packet must carry a separately
+authenticated `SUCCESSOR-CONTRACT.json` whose content identity is recomputed here and
+which binds:
+
+```text
+predecessor packet identity
+predecessor packet profile
+successor packet identity
+successor packet profile
+campaign identity and label
+packet handoff identity
+canonical mission state
+successor source set identity
+admission profile identity
+authority: none
+```
+
+It is refused if it names another campaign, another packet, another admission profile,
+another canonical mission state, or itself as its own predecessor. It is fenced with the
+packet before and after the run.
+
+### A content-addressed contract authenticates its bytes, not its referents
+
+Recomputing `successorContractId` proves that the contract's own bytes are
+self-consistent. It proves nothing about whether the predecessor packet, the handoff, or
+the successor source set it names exists or belongs to this transaction. A perfectly
+re-signed contract can carry three minted strings.
+
+Each named coordinate is therefore supplied as an object inside the packet, read,
+re-identified from its own bytes, and bound:
+
+```text
+lineage/predecessor-packet/PACKET-ROOT.json    markerId recomputed; packetId equals the
+                                              named predecessor; profile is exactly 0.1;
+                                              campaign matches
+lineage/predecessor-packet/packet-state.json   stateId recomputed; same packet, campaign,
+                                              profiles, and sixteen-stage denominator
+lineage/PACKET-HANDOFF.json                    packetHandoffId recomputed and equal to the
+                                              named handoff; binds campaign, both packet
+                                              identities, both packet profiles, and the
+                                              canonical mission state
+lineage/SUCCESSOR-SOURCE-SET.json              every declared member is read from
+lineage/successor-source/                      lineage/successor-source/, digested, and the
+                                              whole set reproduced; the recomputed identity
+                                              must equal the named successorSourceSetId
+```
+
+```text
+referent absent, unreadable, or not re-identifying -> SUCCESSOR_LINEAGE_REFERENT_INVALID
+referent present but bound to something else       -> SUCCESSOR_LINEAGE_BINDING_INVALID
+```
+
+The predecessor packet is read and never written; predecessor mutation stays forbidden.
+Every lineage object, and every measured source member, joins the before-and-after packet
+fence.
+
+Stage 16's observation contract here carries pre-seal facts only:
+
+```text
+preSealEvidenceManifestComplete: true
+privateBodiesOutsideGit:         true
+sealAuthorizationBound:          true
+postSealClosureRequired:         true
+```
+
+Actual disposition body-freedom is reserved **exclusively** to the post-seal closure
+contract, alongside the sealed run, the sealed manifest, detached verification, the zero
+public-body count, and flight completion. None of them may be asserted before sealing.
+
+### The control question is part of the decision surface
+
+Each exact stage confirmation binds its stage's control question *and the named human's
+response to it*, so a future-tense question puts a future claim straight onto the human
+decision surface. The frozen stage-16 question asks:
+
+```text
+Are all private bodies still local while the public disposition contains only
+content identities, counts, and claim boundaries?
+```
+
+No public disposition exists when that is answered. It is superseded here by:
+
+```text
+Are all proposed private evidence bodies fully enumerated and hashed, proven
+outside Git, and authorized for sealing only after this exact successor packet
+reaches verified 16 / 16, with post-seal closure required before any completion
+claim?
+```
+
+A witness scans the complete stage-16 pre-seal decision surface -- control question,
+observation fields, evidence role names, role predicates, and what the receipt actually
+publishes to the human -- and requires that none of them mention a sealed run, public
+disposition, sealed manifest, or detached verification. **Requiring** that those objects
+be produced and verified later is valid. **Asserting** anything about their present state
+is not.
+
+Objects the frozen profile implies are deferred, not discarded. They belong to later
+surfaces where they can actually exist:
+
+```text
+seal preflight receipt            -> pre-seal closure, at 16 / 16
+final packet-stage identity root  -> pre-seal closure, at 16 / 16
+sealed run                        -> post-seal closure, after sealing
+body-free public disposition      -> post-seal closure, after sealing
+detached verification             -> post-seal closure, after sealing
+```
+
+The divergence is declared in the profile under `stageRoleSuccession`, and a witness
+proves it is confined to exactly one stage: the other fifteen still match the frozen
+`requiredEvidence` strings byte for byte.
+
+## The diagnostic traversal witness
+
+The conformance suite drives the **frozen, unpatched** recorder over a throwaway
+synthetic packet. It establishes exactly one narrow fact and is **not** an admission
+witness:
+
+```text
+initialize            0 / 16   unconfigured
+configure             0 / 16   configured
+record x16            1..16    one stage at a time, in the closed order
+  stage 16 evidence   pre-seal roles only; no sealed run, no disposition
+seal                  runId, dispositionId
+detached verify       PASS   15 PASS / 1 HUMAN_REQUIRED
+                             body-free, 0 public bodies, authority none
+```
+
+To record stage 16 at all, the driver must satisfy the frozen observation contract, so it
+is forced to assert `publicDispositionBodyFree` about a disposition that does not exist
+yet. The witness reports the keys it was forced to write and carries the boundary
+explicitly:
+
+```text
+mechanicalTraversalPassed            true
+semanticStage16AdmissionPassed       false
+physicalFlightCompletionEstablished  false
+```
+
+It then feeds that same frozen observation to this profile and requires
+`STAGE_OBSERVATION_INVALID`. The traversal proves the frozen sequence is mechanically
+reachable; it proves nothing about truthfulness, and it establishes no packet completion.
+A truthful traverse needs the successor packet and observation contract, which is a
+separate transaction.
+
 ## Reused predecessor receipts
 
 A predecessor receipt is admitted only as:
@@ -142,7 +382,7 @@ reconstruction, and the pre-seal denominator are all held to that rule.
 
 ## Named-human statements
 
-The gate prepares the two statement forms. It cannot sign them.
+The gate prepares the three statement forms. It cannot sign them.
 
 ```text
 requiredActorClass:   named_human
@@ -152,6 +392,27 @@ forbiddenActorClasses: agent, automation, machine, model, packet_runner, schedul
 A statement may accept only evidence identities this gate actually admitted for the
 statement's own stage, and its `terminalOrRetainedObligation` must equal the stage's
 required terminal.
+
+### A statement authorizes on the complete non-human evidence, exactly
+
+An accepted-identity list is not a root, and a subset is not an authorization. Without an
+exact rule a named human could authorize sealing while accepting none of the pre-seal
+manifest or Git-custody evidence, and that statement would still enter the final evidence
+root and receive a later confirmation. Every statement therefore carries:
+
+```text
+acceptedEvidenceIds             exactly the stage's complete admitted non-human set
+nonHumanEvidenceAdmissionRoot   the exact root this gate recomputed from that set
+```
+
+```text
+empty, short, or padded accepted set  -> HUMAN_STATEMENT_EVIDENCE_SET_INCOMPLETE
+identity from another stage           -> HUMAN_STATEMENT_SCOPE_INVALID
+absent, foreign, or all-roles root    -> HUMAN_STATEMENT_EVIDENCE_ROOT_INVALID
+```
+
+The non-human root and the all-roles `evidenceAdmissionRoot` are deliberately distinct
+objects: binding the wrong one is refused, not silently accepted.
 
 `RESTORE_LINK_HOLD_CONFLICT` additionally requires:
 
@@ -190,12 +451,12 @@ non-human evidence
 ```
 
 A stage confirmation may bind only the **final** root. The sixteen decision records
-therefore become invitable only once both statements have landed and all sixteen final
+therefore become invitable only once all three statements have landed and all sixteen final
 roots exist — not merely once a given stage happens to be complete. Until then every
 stage reports:
 
 ```text
-evidenceAdmissionRootFinal: false   (the two statement-owing stages)
+evidenceAdmissionRootFinal: false   (the three statement-owing stages)
 confirmationInvitable:      false   (all sixteen, until the denominator settles)
 ```
 
@@ -217,8 +478,8 @@ REFUSED
 `READY_FOR_NAMED_HUMAN_DECISION`
 
 ```text
-all 41 non-human evidence roles independently verified
-two human-statement requirements prepared, unsupplied
+all 40 non-human evidence roles independently verified
+three human-statement requirements prepared, unsupplied
 sixteen stage-confirmation records prepared, unsupplied
 packetStagesRecorded: 0
 operatorConfirmedFlagsSet: 0
@@ -228,7 +489,7 @@ authority: none
 `ADMISSIBLE_FOR_PACKET_RECORDING`
 
 ```text
-all 43 evidence roles independently verified, including both statements
+all 43 evidence roles independently verified, including all three statements
 sixteen stage confirmations authenticated and exact-bound, all RECORD_STAGE
 no missing or duplicate evidence role
 one complete evidence-admission digest root

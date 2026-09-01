@@ -7,7 +7,7 @@ denominator, and the binding mechanism, so that the law can be exercised without
 importing any private material into the public repository.
 
 The positive witnesses cover all sixteen stage contracts, reused predecessor receipts,
-fresh local observations, opaque instrument bodies, the two named-human statement
+fresh local observations, opaque instrument bodies, the three named-human statement
 stages, and the sixteen-decision confirmation denominator. The hostile witnesses prove
 that arbitrary files, untouched templates, forged identities, stale receipts, machine
 actors, replayed and blanket confirmations, and conflict-winner selection are all
@@ -60,6 +60,163 @@ ENVELOPE_TEMPLATE = {
     "schema": "stc-mary-private-evidence-envelope-template/1",
     "note": "REPLACE_WITH_LOCAL_EVIDENCE",
 }
+
+FROZEN_PACKET_PROFILE = ANCHOR / "stc-mary-private-flight-packet-profile-01.json"
+
+# DIAGNOSTIC traversal driver. It drives the FROZEN, UNPATCHED packet recorder over a
+# throwaway synthetic packet to establish exactly one narrow fact: that the frozen
+# sequence is MECHANICALLY traversable from a configured zero-stage packet to detached
+# verification.
+#
+# It establishes nothing about truthfulness, and it is not an admission witness. To
+# record stage 16 at all it must satisfy the frozen observation contract, which requires
+# publicDispositionBodyFree: true -- an assertion about a public disposition the sealer
+# has not yet created. That assertion is untrue at the moment it is written, which is
+# precisely why the frozen packet needs a successor observation contract and why this
+# driver reports the keys it was forced to write.
+ORDERING_WITNESS_DRIVER = r"""
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+const anchor = process.argv[2].replaceAll('\\', '/');
+const root = process.argv[3];
+const preSealStageSixteenEvidence = JSON.parse(process.argv[4]);
+const packetModule = await import(`file://${anchor}/stc_mary_private_flight_packet.mjs`);
+const { STC_MARY_STAGES } = await import(`file://${anchor}/stc_mary_physical_flight.mjs`);
+
+const packet = join(root, 'stc-mary-private-flight-orderingwitness');
+const sealed = join(root, 'stc-mary-private-flight-sealed-orderingwitness');
+const sha256 = (t) => createHash('sha256').update(t, 'utf8').digest('hex');
+const cid = (p, t) => `${p}_${sha256(t)}`;
+const OUTPUT = cid('syntheticoutput1', 'accepted-mission-output');
+
+const readJson = async (p) => JSON.parse(await readFile(p, 'utf8'));
+const writeJson = async (p, v) => writeFile(p, `${JSON.stringify(v, null, 2)}\n`, 'utf8');
+
+function observation(stage, o) {
+  const v = structuredClone(o);
+  switch (stage) {
+    case 'VERIFY_INPUTS':
+      v.profileValidated = true; v.sourceObjectsVerified = true;
+      v.inputDigestRoot = cid('syntheticinputroot1', 'inputs'); break;
+    case 'MOUNT_PERSONAL_FLOOR': v.mounted = true; v.missionClosed = true; break;
+    case 'BIND_GRACE': v.bound = true; v.authoritySource = 'named_human_bind'; break;
+    case 'RUN_PERSONAL_FLOOR_BASELINE':
+      v.outputDigest = OUTPUT; v.throughputUnits = 100; v.verifierState = 'pass'; break;
+    case 'ATTACH_HALO3': v.attached = true; v.optional = true; break;
+    case 'RUN_HALO3_ACCELERATED':
+      v.outputDigest = OUTPUT; v.throughputUnits = 400; v.verifierState = 'pass';
+      v.fasterThanBaseline = true; break;
+    case 'REMOVE_HALO3': v.attached = false; v.removalReceiptPresent = true; break;
+    case 'VERIFY_PERSONAL_FLOOR_CONTINUITY':
+      v.personalFloorAvailable = true; v.outputDigestMatches = true;
+      v.halo3Required = false; v.throughputUnits = 100; break;
+    case 'REMOVE_LATTICE': v.present = false; v.removalReceiptPresent = true; break;
+    case 'VERIFY_LOCAL_CONTINUITY':
+      v.localStateAvailable = true; v.latticeRequired = false;
+      v.canonicalStateRecovered = true; break;
+    case 'PARTITION_TWO_CELLS':
+      v.cellCount = 2; v.eachCellLocallyValid = true; v.authorityWidened = false; break;
+    case 'RESTORE_LINK_HOLD_CONFLICT':
+      v.linkRestored = true; v.conflictDetected = true; v.automaticMerge = false;
+      v.resolution = 'human_required';
+      v.leftStateDigest = sha256('left-cell'); v.rightStateDigest = sha256('right-cell'); break;
+    case 'REPLACE_HEAD':
+      v.replacementAccepted = true; v.canonicalStateCopiedByDigest = true;
+      v.authorityTransferred = false; break;
+    case 'REBUILD_PROJECTIONS':
+      v.projectionKinds = ['graph', 'query', 'cache', 'review'];
+      v.rebuiltFromCanonicalReceipts = true;
+      v.projectionDigestRoot = cid('syntheticprojectionroot1', 'projections'); break;
+    case 'COLD_SUCCESSOR_VERIFY':
+      v.recoveredCartridge = true; v.recoveredAuthorityBoundary = true;
+      v.recoveredObligations = true; v.verificationState = 'pass'; break;
+    case 'SEAL_PRIVATE_EVIDENCE':
+      v.sealedEvidenceClass = 'private_physical_attested';
+      v.evidenceDescriptorCount = 16;
+      v.publicDispositionBodyFree = true;
+      v.privateEvidenceBodiesCommittedToGit = false; break;
+    default: throw new Error(`unhandled stage ${stage}`);
+  }
+  return v;
+}
+
+await mkdir(root, { recursive: true });
+const init = await packetModule.initializePrivateFlightPacket(packet, 'SYNTHETIC-ORDERING-WITNESS-01');
+
+const config = await readJson(join(packet, 'flight-config.json'));
+config.sourceObjectDigests = [sha256('synthetic-source-object')];
+config.canonicalMissionStateDigest = sha256('synthetic-canonical-mission-state');
+config.identityClasses = {
+  personalFloor: 'synthetic-personal-floor', halo3: 'synthetic-halo3',
+  initialHead: 'synthetic-initial-head', successorHead: 'synthetic-successor-head',
+  graceBind: 'synthetic-named-human-bind', lattice: 'synthetic-lattice',
+  leftCell: 'synthetic-left-cell', rightCell: 'synthetic-right-cell',
+};
+const configPath = join(root, 'config.json');
+await writeJson(configPath, config);
+const configured = await packetModule.configurePrivateFlightPacket(packet, configPath);
+
+let postSealObjectOfferedToStageSixteen = false;
+let frozenStageSixteenObservationKeys = [];
+const stageOrder = [];
+
+for (const [index, stage] of STC_MARY_STAGES.entries()) {
+  const sequence = index + 1;
+  const dir = join(packet, `${String(sequence).padStart(2, '0')}-${stage}`);
+  const draftPath = join(dir, 'stage-attestation.json');
+  const draft = await readJson(draftPath);
+  draft.observation = observation(stage, draft.observation);
+  draft.operatorConfirmed = true;
+  draft.evidenceClass = 'private_local_attestation';
+  draft.mediaType = 'application/json';
+  await writeJson(draftPath, draft);
+  const names = stage === 'SEAL_PRIVATE_EVIDENCE'
+    ? preSealStageSixteenEvidence
+    : [`${stage.toLowerCase()}-receipt`];
+  for (const name of names) {
+    if (name.includes('sealed run') || name.includes('public disposition')) {
+      postSealObjectOfferedToStageSixteen = true;
+    }
+    await writeJson(join(dir, 'evidence', `${name.replaceAll(' ', '-')}.json`), { stage, sequence, role: name });
+  }
+  if (stage === 'SEAL_PRIVATE_EVIDENCE') {
+    frozenStageSixteenObservationKeys = Object.keys(draft.observation).sort();
+  }
+  const { state } = await packetModule.recordPrivateFlightStage(packet, stage);
+  stageOrder.push({ sequence, stage, completed: state.completedStageCount });
+}
+
+const preSeal = await packetModule.privateFlightPacketStatus(packet);
+const result = await packetModule.sealPrivateFlightPacket(packet, sealed);
+const verification = await packetModule.verifySealedPrivateFlightPacket(sealed);
+const disposition = await readJson(join(sealed, 'public-disposition.json'));
+
+process.stdout.write(JSON.stringify({
+  initialConfigurationState: init.state.configurationState,
+  initialCompletedStageCount: init.state.completedStageCount,
+  configuredState: configured.configurationState,
+  configuredCompletedStageCount: configured.completedStageCount,
+  stageOrder,
+  preSealCompletedStageCount: preSeal.completedStageCount,
+  preSealSealed: preSeal.sealed,
+  frozenStageSixteenObservationKeys: frozenStageSixteenObservationKeys,
+  postSealObjectOfferedToStageSixteen,
+  runId: result.run.runId,
+  dispositionId: result.disposition.dispositionId,
+  verificationStatus: verification.status,
+  stageCount: verification.stageCount,
+  privateEvidenceBodies: verification.privatePhysicalEvidenceBodyCount,
+  publicEvidenceBodies: verification.publicEvidenceBodyCount,
+  bodyFreePublicDisposition: verification.bodyFreePublicDisposition,
+  successfulStageCount: disposition.successfulStageCount,
+  humanRequiredStageCount: disposition.humanRequiredStageCount,
+  privatePhysicalFlightCompleted: disposition.privatePhysicalFlightCompleted,
+  physicalEstateQualified: disposition.physicalEstateQualified,
+  authority: verification.authority,
+}));
+"""
 
 
 def cid(prefix: str, body: Any) -> str:
@@ -125,6 +282,9 @@ class Fixture:
         self.predecessor_coordinate = cid(
             "stcmaryflightconductoracceptedpredecessor1", {"campaignLabel": campaign_label}
         )
+        # Filled by the first gate run; a statement authored before the gate has measured
+        # its stage carries a placeholder root and is refused.
+        self.non_human_roots: dict[str, str] = {}
         self._build_workstation()
         self._build_packet()
         self._build_candidates()
@@ -154,13 +314,21 @@ class Fixture:
             "stcmaryprivateflightpacket1",
             {
                 "campaignLabel": self.campaign_label,
+                "packetProfileId": self.profile["successorPacketProfileId"],
+                "physicalProfileId": self.profile["predecessorPhysicalProfileId"],
+            },
+        )
+        self.predecessor_packet_id = cid(
+            "stcmaryprivateflightpacket1",
+            {
+                "campaignLabel": self.campaign_label,
                 "packetProfileId": self.profile["predecessorPacketProfileId"],
                 "physicalProfileId": self.profile["predecessorPhysicalProfileId"],
             },
         )
         marker = {
             "schema": packet_law["markerSchema"],
-            "packetProfileId": self.profile["predecessorPacketProfileId"],
+            "packetProfileId": self.profile["successorPacketProfileId"],
             "physicalProfileId": self.profile["predecessorPhysicalProfileId"],
             "campaignLabel": self.campaign_label,
             "packetId": self.packet_id,
@@ -171,6 +339,13 @@ class Fixture:
             self.packet / packet_law["markerFile"],
             sign(marker, packet_law["markerIdKey"], packet_law["markerIdPrefix"]),
         )
+        # The lineage referents exist before the contract that names them, because the
+        # contract carries their measured identities rather than asserted strings.
+        self.write_predecessor_packet_marker()
+        self.write_predecessor_packet_state()
+        self.write_successor_source_set()
+        self.write_packet_handoff()
+        self.write_successor_contract()
 
         stages = [
             {
@@ -188,7 +363,7 @@ class Fixture:
             "schema": packet_law["stateSchema"],
             "packetId": self.packet_id,
             "campaignLabel": self.campaign_label,
-            "packetProfileId": self.profile["predecessorPacketProfileId"],
+            "packetProfileId": self.profile["successorPacketProfileId"],
             "physicalProfileId": self.profile["predecessorPhysicalProfileId"],
             "configurationState": "configured",
             "stageDenominator": list(self.profile["stageSequence"]),
@@ -223,6 +398,178 @@ class Fixture:
             "claimBoundary": "Synthetic packet configuration for conformance only. It grants no authority.",
         }
         write_json(self.packet / packet_law["configFile"], config)
+
+    def predecessor_stage_rows(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "sequence": index + 1,
+                "stage": stage,
+                "status": "unrecorded",
+                "draftPath": f"{index + 1:02d}-{stage}/stage-attestation.json",
+                "evidenceDirectory": f"{index + 1:02d}-{stage}/evidence",
+                "evidenceCount": 0,
+                "recordDigest": None,
+            }
+            for index, stage in enumerate(self.profile["stageSequence"])
+        ]
+
+    def rewrite_packet_state(self, **overrides: Any) -> dict:
+        """Rewrite and re-sign the successor packet state, so its own identity holds."""
+        packet_law = self.profile["packet"]
+        path = self.packet / packet_law["stateFile"]
+        body = load_json(path)
+        body.update(overrides)
+        body.pop(packet_law["stateIdKey"], None)
+        signed = sign(body, packet_law["stateIdKey"], packet_law["stateIdPrefix"])
+        write_json(path, signed)
+        return signed
+
+    def write_predecessor_packet_marker(self, **overrides: Any) -> dict:
+        packet_law = self.profile["packet"]
+        lineage_law = self.profile["successorContract"]["lineage"]["predecessorPacket"]
+        body = {
+            "schema": packet_law["markerSchema"],
+            "packetProfileId": self.profile["predecessorPacketProfileId"],
+            "physicalProfileId": self.profile["predecessorPhysicalProfileId"],
+            "campaignLabel": self.campaign_label,
+            "packetId": self.predecessor_packet_id,
+            "authority": "none",
+            "claimBoundary": "Synthetic predecessor packet marker for conformance only. It grants no authority.",
+        }
+        body.update(overrides)
+        signed = sign(body, packet_law["markerIdKey"], packet_law["markerIdPrefix"])
+        write_json(self.packet / lineage_law["markerFile"], signed)
+        return signed
+
+    def write_predecessor_packet_state(self, **overrides: Any) -> dict:
+        packet_law = self.profile["packet"]
+        lineage_law = self.profile["successorContract"]["lineage"]["predecessorPacket"]
+        body = {
+            "schema": packet_law["stateSchema"],
+            "packetId": self.predecessor_packet_id,
+            "campaignLabel": self.campaign_label,
+            "packetProfileId": self.profile["predecessorPacketProfileId"],
+            "physicalProfileId": self.profile["predecessorPhysicalProfileId"],
+            "configurationState": "configured",
+            "stageDenominator": list(self.profile["stageSequence"]),
+            "stages": self.predecessor_stage_rows(),
+            "completedStageCount": 0,
+            "nextStage": self.profile["stageSequence"][0],
+            "sealed": False,
+            "sealedDispositionId": None,
+            "authority": "none",
+            "claimBoundary": "Synthetic predecessor packet state for conformance only. It grants no authority.",
+        }
+        body.update(overrides)
+        signed = sign(body, packet_law["stateIdKey"], packet_law["stateIdPrefix"])
+        write_json(self.packet / lineage_law["stateFile"], signed)
+        return signed
+
+    def write_successor_source_set(self, members: dict[str, str] | None = None, rebind: bool = False) -> dict:
+        """Write the successor source bytes, then measure them into the stored set."""
+        law_block = self.profile["successorContract"]["lineage"]["successorSourceSet"]
+        root = self.packet / law_block["root"]
+        if members is None:
+            members = {
+                "successor-observation-contract.json": json.dumps(
+                    {
+                        "schema": "stc-mary-private-flight-packet-observation-contract/1",
+                        "packetProfileId": self.profile["successorPacketProfileId"],
+                        "stage": "SEAL_PRIVATE_EVIDENCE",
+                        "keys": sorted(
+                            self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]["observation"]["keys"]
+                        ),
+                        "authority": "none",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                "successor-stage-roles.json": json.dumps(
+                    {
+                        "schema": "stc-mary-private-flight-packet-stage-roles/1",
+                        "packetProfileId": self.profile["successorPacketProfileId"],
+                        "stage": "SEAL_PRIVATE_EVIDENCE",
+                        "requiredEvidence": [
+                            row["evidenceRole"]
+                            for row in self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]["evidenceRoles"]
+                        ],
+                        "authority": "none",
+                    },
+                    indent=2,
+                )
+                + "\n",
+            }
+        if root.exists():
+            shutil.rmtree(root)
+        for relative, text in members.items():
+            member = root / relative
+            member.parent.mkdir(parents=True, exist_ok=True)
+            with member.open("w", encoding="utf-8", newline="\n") as handle:
+                handle.write(text)
+        measured = law.measure_source_set(
+            root,
+            sorted(members),
+            schema=law_block["schema"],
+            profile_id=self.profile["successorPacketProfileId"],
+            claim_boundary=law_block["claimBoundary"],
+            id_key=law_block["idKey"],
+            id_prefix=law_block["idPrefix"],
+            code="SUCCESSOR_LINEAGE_REFERENT_INVALID",
+            label="successor source set",
+        )
+        write_json(self.packet / law_block["file"], measured)
+        self.successor_source_set_id = measured[law_block["idKey"]]
+        if rebind:
+            self.write_successor_contract()
+        return measured
+
+    def successor_source_member_path(self, relative: str) -> Path:
+        law_block = self.profile["successorContract"]["lineage"]["successorSourceSet"]
+        return self.packet / law_block["root"] / relative
+
+    def write_packet_handoff(self, rebind: bool = False, **overrides: Any) -> dict:
+        law_block = self.profile["successorContract"]["lineage"]["handoff"]
+        body = {
+            "schema": law_block["schema"],
+            "campaignId": self.campaign_id,
+            "campaignLabel": self.campaign_label,
+            "predecessorPacketId": self.predecessor_packet_id,
+            "predecessorPacketProfileId": self.profile["predecessorPacketProfileId"],
+            "successorPacketId": self.packet_id,
+            "successorPacketProfileId": self.profile["successorPacketProfileId"],
+            "canonicalMissionStateDigest": self.canonical_mission_state_digest,
+            "authority": "none",
+            "claimBoundary": "Synthetic packet handoff receipt for conformance only. It grants no authority.",
+        }
+        body.update(overrides)
+        signed = sign(body, law_block["idKey"], law_block["idPrefix"])
+        write_json(self.packet / law_block["file"], signed)
+        self.packet_handoff_id = signed[law_block["idKey"]]
+        if rebind:
+            self.write_successor_contract()
+        return signed
+
+    def write_successor_contract(self, **overrides: Any) -> dict:
+        law_block = self.profile["successorContract"]
+        body = {
+            "schema": law_block["schema"],
+            "campaignId": self.campaign_id,
+            "campaignLabel": self.campaign_label,
+            "predecessorPacketId": self.predecessor_packet_id,
+            "predecessorPacketProfileId": self.profile["predecessorPacketProfileId"],
+            "successorPacketId": self.packet_id,
+            "successorPacketProfileId": self.profile["successorPacketProfileId"],
+            "packetHandoffId": self.packet_handoff_id,
+            "canonicalMissionStateDigest": self.canonical_mission_state_digest,
+            "successorSourceSetId": self.successor_source_set_id,
+            "admissionProfileId": self.profile["profileId"],
+            "authority": "none",
+            "claimBoundary": "Synthetic successor contract for conformance only. It grants no authority.",
+        }
+        body.update(overrides)
+        signed = sign(body, law_block["idKey"], law_block["idPrefix"])
+        write_json(self.packet / law_block["file"], signed)
+        return signed
 
     # -- admission workspace ----------------------------------------------
     def stage_directory(self, sequence: int, stage: str) -> str:
@@ -273,6 +620,13 @@ class Fixture:
                     "actorClass": schema_law["requiredActorClass"],
                     "statementScope": f"Named-human statement for the {stage} stage of one synthetic packet.",
                     "acceptedEvidenceIds": [],
+                    "nonHumanEvidenceAdmissionRoot": self.non_human_roots.get(
+                        stage,
+                        cid(
+                            self.profile["bodySchemas"][HUMAN]["evidenceAdmissionBinding"]["rootPrefix"],
+                            {"unmeasured": stage},
+                        ),
+                    ),
                     "terminalOrRetainedObligation": stage_law["requiredTerminal"],
                     "issuedAtUnixNs": TRANSACTION_END + 1_000_000_000,
                     "authenticationBinding": "synthetic-local-named-human-authentication",
@@ -420,6 +774,13 @@ class Fixture:
 
     # -- completing the denominator ---------------------------------------
     def add_human_statements(self) -> dict:
+        # The statement author works from what the gate published, which is how the
+        # non-human root reaches the statement without the statement moving it.
+        pending = self.run()
+        self.non_human_roots = {
+            row["stage"]: row["nonHumanEvidenceAdmissionRoot"]
+            for row in pending["humanStatementRequirements"]
+        }
         request = self.load_request()
         for index, stage in enumerate(self.profile["stageSequence"]):
             sequence = index + 1
@@ -524,8 +885,8 @@ class Fixture:
 
     def packet_bytes_fence(self) -> dict[str, str]:
         return {
-            entry.name: law.sha256_bytes(entry.read_bytes())
-            for entry in sorted(self.packet.iterdir())
+            entry.relative_to(self.packet).as_posix(): law.sha256_bytes(entry.read_bytes())
+            for entry in sorted(self.packet.rglob("*"))
             if entry.is_file()
         }
 
@@ -549,20 +910,20 @@ class AdmissionWitnessCase(unittest.TestCase):
 
 
 class PositiveTerminals(AdmissionWitnessCase):
-    def test_forty_one_non_human_roles_close_ready_for_named_human_decision(self) -> None:
+    def test_forty_non_human_roles_close_ready_for_named_human_decision(self) -> None:
         receipt = self.fixture.run()
         self.assertEqual(receipt["status"], "PASS")
         self.assertEqual(receipt["terminal"], "READY_FOR_NAMED_HUMAN_DECISION")
         self.assertEqual(receipt["stageDenominator"], 16)
         self.assertEqual(receipt["evidenceRoleDenominator"], 43)
-        self.assertEqual(receipt["nonHumanEvidenceRoleDenominator"], 41)
-        self.assertEqual(receipt["humanStatementRoleDenominator"], 2)
-        self.assertEqual(receipt["admittedEvidenceRoleCount"], 41)
-        self.assertEqual(receipt["admittedNonHumanEvidenceRoleCount"], 41)
+        self.assertEqual(receipt["nonHumanEvidenceRoleDenominator"], 40)
+        self.assertEqual(receipt["humanStatementRoleDenominator"], 3)
+        self.assertEqual(receipt["admittedEvidenceRoleCount"], 40)
+        self.assertEqual(receipt["admittedNonHumanEvidenceRoleCount"], 40)
         self.assertEqual(receipt["admittedHumanStatementCount"], 0)
         self.assertEqual(receipt["reusedPredecessorReceiptCount"], 23)
-        self.assertEqual(receipt["currentObservationCount"], 18)
-        self.assertEqual(receipt["missingEvidenceRoleCount"], 2)
+        self.assertEqual(receipt["currentObservationCount"], 17)
+        self.assertEqual(receipt["missingEvidenceRoleCount"], 3)
         self.assertEqual(receipt["suppliedStageConfirmationCount"], 0)
         self.assertEqual(receipt["packetStagesRecorded"], 0)
         self.assertEqual(receipt["operatorConfirmedFlagsSet"], 0)
@@ -573,36 +934,37 @@ class PositiveTerminals(AdmissionWitnessCase):
         self.assertEqual(receipt["authority"], "none")
         self.assertFalse(receipt["bootstrapAuthenticated"])
 
-    def test_ready_prepares_two_statement_forms_and_sixteen_decision_records(self) -> None:
+    def test_ready_prepares_three_statement_forms_and_sixteen_decision_records(self) -> None:
         receipt = self.fixture.run()
-        self.assertEqual(len(receipt["humanStatementRequirements"]), 2)
+        self.assertEqual(len(receipt["humanStatementRequirements"]), 3)
         self.assertEqual(
             sorted(row["stage"] for row in receipt["humanStatementRequirements"]),
-            ["BIND_GRACE", "RESTORE_LINK_HOLD_CONFLICT"],
+            ["BIND_GRACE", "RESTORE_LINK_HOLD_CONFLICT", "SEAL_PRIVATE_EVIDENCE"],
         )
         self.assertTrue(all(row["supplied"] is False for row in receipt["humanStatementRequirements"]))
         self.assertEqual(len(receipt["stageConfirmationRequirements"]), 16)
         self.assertEqual(
             [row["stage"] for row in receipt["stageConfirmationRequirements"]], self.profile["stageSequence"]
         )
-        # The two stages still owing a statement are explicitly marked non-final, so a
+        # The three stages still owing a statement are explicitly marked non-final, so a
         # confirmation is never invited against a root that has not settled.
         by_stage = {row["stage"]: row for row in receipt["stageConfirmationRequirements"]}
         self.assertFalse(by_stage["BIND_GRACE"]["evidenceAdmissionRootFinal"])
         self.assertFalse(by_stage["RESTORE_LINK_HOLD_CONFLICT"]["evidenceAdmissionRootFinal"])
+        self.assertFalse(by_stage["SEAL_PRIVATE_EVIDENCE"]["evidenceAdmissionRootFinal"])
         self.assertTrue(by_stage["VERIFY_INPUTS"]["evidenceAdmissionRootFinal"])
 
     def test_ready_invites_no_stage_confirmation_at_all(self) -> None:
         """No confirmation is invitable until all sixteen final roots exist.
 
-        The two statement-owing stages are the reason, but the gate is global: a
+        The three statement-owing stages are the reason, but the gate is global: a
         confirmation issued against any stage before the denominator settles would go
         stale the moment a statement-bearing root moved.
         """
         receipt = self.fixture.run()
         self.assertFalse(receipt["confirmationDenominatorInvitable"])
         by_stage = {row["stage"]: row for row in receipt["stageConfirmationRequirements"]}
-        for stage in ("BIND_GRACE", "RESTORE_LINK_HOLD_CONFLICT"):
+        for stage in ("BIND_GRACE", "RESTORE_LINK_HOLD_CONFLICT", "SEAL_PRIVATE_EVIDENCE"):
             self.assertFalse(by_stage[stage]["evidenceAdmissionRootFinal"], stage)
             self.assertFalse(by_stage[stage]["confirmationInvitable"], stage)
         self.assertTrue(
@@ -642,7 +1004,7 @@ class PositiveTerminals(AdmissionWitnessCase):
         receipt = self.fixture.run()
         self.assertEqual(receipt["terminal"], "ADMISSIBLE_FOR_PACKET_RECORDING")
         self.assertEqual(receipt["admittedEvidenceRoleCount"], 43)
-        self.assertEqual(receipt["admittedHumanStatementCount"], 2)
+        self.assertEqual(receipt["admittedHumanStatementCount"], 3)
         self.assertEqual(receipt["missingEvidenceRoleCount"], 0)
         self.assertEqual(receipt["suppliedStageConfirmationCount"], 16)
         self.assertEqual(len(receipt["stageDecisions"]), 16)
@@ -685,7 +1047,7 @@ class PositiveTerminals(AdmissionWitnessCase):
         receipt = self.fixture.run()
         self.assertEqual(receipt["terminal"], "HOLD")
         self.assertEqual(receipt["holdReason"], "non-human evidence roles outstanding")
-        self.assertEqual(receipt["admittedEvidenceRoleCount"], 40)
+        self.assertEqual(receipt["admittedEvidenceRoleCount"], 39)
         missing = [row for row in receipt["missingEvidenceRoles"] if row["stage"] == "VERIFY_INPUTS"]
         self.assertEqual([row["evidenceRole"] for row in missing], ["source digest receipt"])
 
@@ -728,6 +1090,561 @@ class PositiveTerminals(AdmissionWitnessCase):
             self.assertNotIn("stc_mary_private_flight_packet", text, relative)
             self.assertNotIn('"operatorConfirmed"', text, relative)
             self.assertNotIn("operatorConfirmed=", text, relative)
+
+
+# --------------------------------------------------------------------------------
+# stage 16 ordering
+# --------------------------------------------------------------------------------
+
+
+class Stage16OrderingWitnesses(AdmissionWitnessCase):
+    """The stage-16 repair, and the executable proof that the ordering is satisfiable."""
+
+    SUPERSEDED = ("evidence manifest", "sealed run", "body-free public disposition")
+
+    def test_no_stage_16_role_requires_an_object_sealing_has_not_produced(self) -> None:
+        stage = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]
+        roles = {row["evidenceRole"] for row in stage["evidenceRoles"]}
+        self.assertEqual(roles & set(self.SUPERSEDED), set())
+        predicates = {key for row in stage["evidenceRoles"] for key in row["requiredPredicates"]}
+        # The predicates profile @1 demanded, each a claim about an object that does not
+        # exist until after sealing has already run.
+        self.assertNotIn("runSealedNow", predicates)
+        self.assertNotIn("dispositionIsBodyFree", predicates)
+
+    def test_role_denominator_diverges_at_exactly_one_declared_stage(self) -> None:
+        frozen = load_json(FROZEN_PACKET_PROFILE)
+        succession = self.profile["stageRoleSuccession"]
+        divergent = []
+        for stage in self.profile["stageSequence"]:
+            admitted = [row["evidenceRole"] for row in self.profile["stages"][stage]["evidenceRoles"]]
+            if admitted != frozen["stages"][stage]["requiredEvidence"]:
+                divergent.append(stage)
+        self.assertEqual(divergent, [succession["supersededStage"]])
+        self.assertEqual(succession["divergentStageCount"], len(divergent))
+        self.assertEqual(
+            succession["frozenAdvisoryRoles"],
+            frozen["stages"][succession["supersededStage"]]["requiredEvidence"],
+        )
+        self.assertEqual(list(self.SUPERSEDED), succession["frozenAdvisoryRoles"])
+        self.assertEqual(self.profile["supersedes"], succession["predecessorProfileId"])
+        self.assertNotEqual(self.profile["profileId"], succession["predecessorProfileId"])
+
+    def test_superseded_post_seal_roles_are_no_longer_admissible(self) -> None:
+        def rename(request: dict) -> None:
+            self.fixture.stage_row(request, "SEAL_PRIVATE_EVIDENCE")["evidence"][0]["evidenceRole"] = "sealed run"
+
+        self.fixture.mutate_request(rename)
+        self.assert_refuses("EVIDENCE_ROLE_UNKNOWN")
+
+    def test_stage_16_observation_carries_only_pre_seal_facts(self) -> None:
+        """Nothing stage 16 asserts may depend on an object sealing has not yet created."""
+        contract = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]["observation"]
+        self.assertEqual(
+            sorted(contract["keys"]),
+            [
+                "postSealClosureRequired",
+                "preSealEvidenceManifestComplete",
+                "privateBodiesOutsideGit",
+                "sealAuthorizationBound",
+            ],
+        )
+        self.assertTrue(all(value is True for value in contract["requiredValues"].values()))
+        self.assertNotIn("publicDispositionBodyFree", contract["keys"])
+        self.assertNotIn("sealedEvidenceClass", contract["keys"])
+
+    def test_pre_seal_assertion_of_disposition_body_freedom_is_refused(self) -> None:
+        """The exact defect this correction removes.
+
+        A stage-16 observation may not claim the public disposition is body-free, because
+        at admission time no disposition exists for that claim to be about.
+        """
+
+        def assert_future_object(request: dict) -> None:
+            self.fixture.stage_row(request, "SEAL_PRIVATE_EVIDENCE")["observation"][
+                "publicDispositionBodyFree"
+            ] = True
+
+        self.fixture.mutate_request(assert_future_object)
+        self.assert_refuses("STAGE_OBSERVATION_INVALID")
+
+    def test_frozen_observation_fields_are_declared_superseded(self) -> None:
+        succession = self.profile["stageRoleSuccession"]
+        self.assertIn("publicDispositionBodyFree", succession["supersededFrozenObservationFields"])
+        self.assertTrue(succession["targetsSuccessorPacket"])
+        self.assertFalse(succession["directFrozenPacketApplication"])
+        self.assertIn("has not yet created", succession["supersededObservationReason"])
+
+    def test_source_succession_forbids_direct_frozen_packet_application(self) -> None:
+        succession = self.profile["sourceSuccession"]
+        frozen = load_json(FROZEN_PACKET_PROFILE)
+        self.assertEqual(succession["predecessorPacketProfileId"], frozen["profileId"])
+        self.assertFalse(succession["directFrozenPacketApplication"])
+        self.assertTrue(succession["successorPacketObservationContractRequired"])
+        self.assertFalse(succession["predecessorPacketMutationAllowed"])
+
+    def test_post_seal_assertions_are_reserved_to_the_post_seal_closure(self) -> None:
+        contract = self.profile["postSealClosureContract"]
+        self.assertFalse(contract["mayBeAssertedBeforeSealing"])
+        self.assertIn("public disposition body-free", contract["reservedAssertions"])
+        self.assertIn("detached verification PASS", contract["reservedAssertions"])
+        self.assertEqual(contract["authority"], "none")
+        # No stage-16 role or observation field may assert any of them.
+        stage = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]
+        surface = set(stage["observation"]["keys"]) | {
+            key for row in stage["evidenceRoles"] for key in row["requiredPredicates"]
+        }
+        self.assertNotIn("publicDispositionBodyFree", surface)
+        self.assertNotIn("dispositionIsBodyFree", surface)
+        self.assertNotIn("runSealedNow", surface)
+
+    def test_seal_authorization_defers_bindings_that_do_not_yet_exist(self) -> None:
+        """The seal authorization may not bind confirmations that are not yet issued.
+
+        The three statements are supplied before the sixteen confirmations exist, so
+        binding them at statement time would repeat the temporal defect one layer down.
+        """
+        law_block = self.profile["sealAuthorization"]
+        self.assertIn("stageSixteenNonHumanEvidenceRoot", law_block["statementTimeBindings"])
+        self.assertIn(
+            "sixteen exact stage-confirmation identities", law_block["deferredToPreSealClosure"]
+        )
+        self.assertIn("final packet-stage record root", law_block["deferredToPreSealClosure"])
+        self.assertIn("temporal defect", law_block["deferralReason"])
+
+    def test_a_real_pre_record_packet_now_reaches_ready(self) -> None:
+        """The regression this branch exists to fix.
+
+        Under profile @1 a truthful zero-stage packet topped out at HOLD with the three
+        stage-16 roles outstanding, because they demanded a sealed run and a disposition
+        that cannot exist before sealing. Every non-human role is now supplied by a
+        packet that has recorded nothing.
+        """
+        receipt = self.fixture.run()
+        self.assertEqual(receipt["terminal"], "READY_FOR_NAMED_HUMAN_DECISION")
+        self.assertEqual(receipt["admittedNonHumanEvidenceRoleCount"], 40)
+        self.assertEqual(
+            {row["provenanceClass"] for row in receipt["missingEvidenceRoles"]},
+            {"named_human_statement"},
+        )
+        self.assertEqual(receipt["packetStagesRecorded"], 0)
+
+    def test_frozen_recorder_traversal_is_mechanical_only(self) -> None:
+        """Diagnostic. The frozen sequence is mechanically traversable, and only that.
+
+        This drives the frozen, unpatched recorder from a configured 0/16 packet to
+        detached verification. It is deliberately NOT an admission witness: to record
+        stage 16 at all it must satisfy the frozen observation contract, which forces it
+        to assert publicDispositionBodyFree about a disposition the sealer has not yet
+        created. The traversal is therefore mechanical, the stage-16 admission is not
+        semantically sound, and no packet completion is established by it.
+        """
+        node = shutil.which("node")
+        self.assertIsNotNone(node, "node is required for the executable ordering witness")
+        driver = self.tmp / "ordering-witness.mjs"
+        driver.write_text(ORDERING_WITNESS_DRIVER, encoding="utf-8")
+        pre_seal_roles = [
+            row["evidenceRole"]
+            for row in self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]["evidenceRoles"]
+        ]
+        completed = subprocess.run(
+            [node, str(driver), str(ANCHOR), str(self.tmp / "ordering"), json.dumps(pre_seal_roles)],
+            check=False,
+            capture_output=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr.decode("utf-8", "replace"))
+        result = json.loads(completed.stdout.decode("utf-8"))
+
+        # It really did start from a configured packet with nothing recorded.
+        self.assertEqual(result["initialConfigurationState"], "unconfigured")
+        self.assertEqual(result["initialCompletedStageCount"], 0)
+        self.assertEqual(result["configuredState"], "configured")
+        self.assertEqual(result["configuredCompletedStageCount"], 0)
+
+        # It advanced one stage at a time, in the closed order.
+        self.assertEqual([row["stage"] for row in result["stageOrder"]], self.profile["stageSequence"])
+        self.assertEqual([row["completed"] for row in result["stageOrder"]], list(range(1, 17)))
+
+        # Stage 16 was recorded without any post-seal object.
+        self.assertFalse(result["postSealObjectOfferedToStageSixteen"])
+        self.assertEqual(result["preSealCompletedStageCount"], 16)
+        self.assertFalse(result["preSealSealed"])
+
+        # And sealing then succeeded and verified detached.
+        self.assertEqual(result["verificationStatus"], "PASS")
+        self.assertEqual(result["stageCount"], 16)
+        self.assertEqual(result["successfulStageCount"], 15)
+        self.assertEqual(result["humanRequiredStageCount"], 1)
+        self.assertTrue(result["privatePhysicalFlightCompleted"])
+        self.assertTrue(result["bodyFreePublicDisposition"])
+        self.assertEqual(result["publicEvidenceBodies"], 0)
+        self.assertGreater(result["privateEvidenceBodies"], 0)
+        self.assertFalse(result["physicalEstateQualified"])
+        self.assertEqual(result["authority"], "none")
+        self.assertTrue(result["runId"].startswith("stcmaryphysicalflightrun1_"))
+
+        # The boundary this diagnostic carries. Mechanical traversal only.
+        mechanical_traversal_passed = result["verificationStatus"] == "PASS"
+        semantic_stage16_admission_passed = (
+            "publicDispositionBodyFree" not in result["frozenStageSixteenObservationKeys"]
+        )
+        physical_flight_completion_established = False
+        self.assertTrue(mechanical_traversal_passed)
+        # It had to assert a future object to get through the frozen contract at all.
+        self.assertIn("publicDispositionBodyFree", result["frozenStageSixteenObservationKeys"])
+        self.assertFalse(semantic_stage16_admission_passed)
+        self.assertFalse(physical_flight_completion_established)
+
+        # And the admitted profile refuses exactly that observation.
+        with self.assertRaises(law.AdmissionError) as caught:
+            law.validate_observation(
+                "SEAL_PRIVATE_EVIDENCE",
+                self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]["observation"],
+                {key: True for key in result["frozenStageSixteenObservationKeys"]},
+            )
+        self.assertEqual(caught.exception.code, "STAGE_OBSERVATION_INVALID")
+
+    def test_frozen_predecessor_packet_is_refused_outright(self) -> None:
+        """The successor boundary must be runtime law, not profile prose.
+
+        An otherwise perfectly valid, configured, zero-stage frozen 0.1 packet must not
+        reach a positive terminal, because this gate has declared it out of scope.
+        """
+        path = self.fixture.packet / self.profile["packet"]["markerFile"]
+        marker = load_json(path)
+        marker["packetProfileId"] = self.profile["predecessorPacketProfileId"]
+        marker.pop("markerId", None)
+        write_json(path, sign(marker, "markerId", self.profile["packet"]["markerIdPrefix"]))
+        self.assert_refuses("DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN")
+
+    def test_successor_packet_identity_is_required(self) -> None:
+        path = self.fixture.packet / self.profile["packet"]["markerFile"]
+        marker = load_json(path)
+        marker["packetProfileId"] = "stc-mary/private-flight-packet/9.9"
+        marker.pop("markerId", None)
+        write_json(path, sign(marker, "markerId", self.profile["packet"]["markerIdPrefix"]))
+        self.assert_refuses("PACKET_MARKER_INVALID")
+
+    def test_successor_contract_must_bind_this_packet(self) -> None:
+        self.fixture.write_successor_contract(
+            successorPacketId=cid("stcmaryprivateflightpacket1", {"other": True})
+        )
+        self.assert_refuses("SUCCESSOR_CONTRACT_BINDING_INVALID")
+
+    def test_successor_contract_may_not_name_itself_as_predecessor(self) -> None:
+        self.fixture.write_successor_contract(predecessorPacketId=self.fixture.packet_id)
+        self.assert_refuses("SUCCESSOR_CONTRACT_BINDING_INVALID")
+
+    def test_successor_contract_from_another_campaign_refuses(self) -> None:
+        self.fixture.write_successor_contract(
+            campaignId=cid("stcmaryflightconductorcampaign1", {"campaignLabel": OTHER_CAMPAIGN_LABEL})
+        )
+        self.assert_refuses("SUCCESSOR_CONTRACT_BINDING_INVALID")
+
+    def test_forged_successor_contract_identity_refuses(self) -> None:
+        law_block = self.profile["successorContract"]
+        path = self.fixture.packet / law_block["file"]
+        contract = load_json(path)
+        contract["claimBoundary"] = "quietly widened after signing"
+        write_json(path, contract)
+        self.assert_refuses("SUCCESSOR_CONTRACT_ID_INVALID")
+
+    def test_successor_contract_lineage_is_reported(self) -> None:
+        receipt = self.fixture.run()
+        self.assertEqual(receipt["predecessorPacketId"], self.fixture.predecessor_packet_id)
+        self.assertEqual(receipt["successorPacketProfileId"], self.profile["successorPacketProfileId"])
+        self.assertEqual(receipt["predecessorPacketProfileId"], self.profile["predecessorPacketProfileId"])
+        self.assertFalse(receipt["directFrozenPacketApplication"])
+        self.assertTrue(receipt["successorContractId"].startswith("stcmarypacketevidencesuccessorcontract1_"))
+        self.assertTrue(receipt["packetHandoffId"].startswith("stcmarypacketevidencepackethandoff1_"))
+
+    def test_stage_16_control_question_asks_only_about_pre_seal_facts(self) -> None:
+        """Each confirmation binds this question, so it may not certify a future object."""
+        stage = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]
+        frozen = load_json(FROZEN_PACKET_PROFILE)
+        question = stage["controlQuestion"]
+        self.assertNotEqual(question, frozen["stages"]["SEAL_PRIVATE_EVIDENCE"]["controlQuestion"])
+        self.assertEqual(
+            self.profile["stageRoleSuccession"]["supersededControlQuestion"],
+            frozen["stages"]["SEAL_PRIVATE_EVIDENCE"]["controlQuestion"],
+        )
+        for token in self.profile["preSealDecisionSurface"]["forbiddenPresentTenseObjects"]:
+            self.assertNotIn(token, question.lower(), token)
+
+    def test_stage_16_decision_surface_asserts_no_post_seal_object_state(self) -> None:
+        """The complete surface the human decides over, scanned as one object."""
+        stage = self.profile["stages"]["SEAL_PRIVATE_EVIDENCE"]
+        law_block = self.profile["preSealDecisionSurface"]
+        surface_text = " ".join(
+            [stage["controlQuestion"]]
+            + list(stage["observation"]["keys"])
+            + [row["evidenceRole"] for row in stage["evidenceRoles"]]
+            + [key for row in stage["evidenceRoles"] for key in row["requiredPredicates"]]
+        ).lower()
+        for token in law_block["forbiddenPresentTenseObjects"]:
+            self.assertNotIn(token, surface_text, token)
+        for field in law_block["forbiddenStateFields"]:
+            self.assertNotIn(field.lower(), surface_text, field)
+
+        # And the same holds for what the gate actually publishes to the human.
+        receipt = self.fixture.run()
+        row = next(
+            entry
+            for entry in receipt["stageConfirmationRequirements"]
+            if entry["stage"] == "SEAL_PRIVATE_EVIDENCE"
+        )
+        published = json.dumps(row).lower()
+        for token in law_block["forbiddenPresentTenseObjects"]:
+            self.assertNotIn(token, published, token)
+
+    def test_seal_authorization_binds_the_exact_successor_packet(self) -> None:
+        self.fixture.add_human_statements()
+        request = self.fixture.load_request()
+        descriptor = self.fixture.descriptor(
+            request, "SEAL_PRIVATE_EVIDENCE", "named-human seal authorization"
+        )
+        body = load_json(self.fixture.candidates / descriptor["bodyPath"])
+        self.assertEqual(body["packetId"], self.fixture.packet_id)
+        self.assertEqual(body["campaignId"], self.fixture.campaign_id)
+        self.assertEqual(body["terminalOrRetainedObligation"], "PASS")
+        self.assertIn("successorPacketId", self.profile["sealAuthorization"]["statementTimeBindings"])
+
+    def test_frozen_sealer_still_refuses_an_incomplete_packet(self) -> None:
+        """The other arm of the original circularity, asserted from frozen source."""
+        recorder = (ANCHOR / "stc_mary_private_flight_packet.mjs").read_text(encoding="utf-8")
+        self.assertIn("all sixteen stages must be recorded before sealing", recorder)
+        self.assertIn("PRIVATE_FLIGHT_PACKET_INCOMPLETE", recorder)
+
+
+# --------------------------------------------------------------------------------
+# packet-profile succession, every object layer
+# --------------------------------------------------------------------------------
+
+
+class PacketProfileAgreementWitnesses(AdmissionWitnessCase):
+    """The successor boundary must hold in the state, not only on the root marker.
+
+    A packet whose marker declares ``0.2`` while its state still declares the frozen
+    ``0.1`` is the same boundary decoration one object layer down, and it re-identifies
+    perfectly, so only an explicit agreement rule catches it.
+    """
+
+    def test_marker_state_contract_and_profile_name_one_succession(self) -> None:
+        receipt = self.fixture.run()
+        contract = load_json(
+            self.fixture.packet / self.profile["successorContract"]["file"]
+        )
+        state = load_json(self.fixture.packet / self.profile["packet"]["stateFile"])
+        marker = load_json(self.fixture.packet / self.profile["packet"]["markerFile"])
+        successor = self.profile["successorPacketProfileId"]
+        self.assertEqual(receipt["packetMarkerProfileId"], successor)
+        self.assertEqual(receipt["packetStateProfileId"], successor)
+        self.assertEqual(marker["packetProfileId"], successor)
+        self.assertEqual(state["packetProfileId"], successor)
+        self.assertEqual(contract["successorPacketProfileId"], successor)
+        self.assertEqual(self.profile["sourceSuccession"]["successorPacketProfileId"], successor)
+        self.assertEqual(self.profile["packetProfileAgreement"]["requiredPacketProfileId"], successor)
+        physical = self.profile["predecessorPhysicalProfileId"]
+        self.assertEqual(marker["physicalProfileId"], physical)
+        self.assertEqual(state["physicalProfileId"], physical)
+        self.assertEqual(self.profile["packetProfileAgreement"]["requiredPhysicalProfileId"], physical)
+        self.assertIn("packet-marker-and-state-profile-agreement", receipt["checks"])
+
+    def test_state_still_declaring_the_frozen_predecessor_refuses(self) -> None:
+        self.fixture.rewrite_packet_state(
+            packetProfileId=self.profile["predecessorPacketProfileId"]
+        )
+        self.assert_refuses("DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN")
+
+    def test_state_declaring_a_third_packet_profile_refuses(self) -> None:
+        self.fixture.rewrite_packet_state(packetProfileId="stc-mary/private-flight-packet/9.9")
+        self.assert_refuses("PACKET_PROFILE_SUCCESSION_SPLIT")
+
+    def test_state_declaring_another_physical_profile_refuses(self) -> None:
+        self.fixture.rewrite_packet_state(
+            physicalProfileId="spectra-anchor-node/stc-mary-physical-flight/9.9"
+        )
+        self.assert_refuses("PACKET_PROFILE_SUCCESSION_SPLIT")
+
+    def test_split_survives_no_amount_of_correct_re_identification(self) -> None:
+        """The split state below is byte-consistent and its own identity recomputes."""
+        state = self.fixture.rewrite_packet_state(
+            packetProfileId=self.profile["predecessorPacketProfileId"]
+        )
+        packet_law = self.profile["packet"]
+        body = {key: value for key, value in state.items() if key != packet_law["stateIdKey"]}
+        self.assertEqual(state[packet_law["stateIdKey"]], cid(packet_law["stateIdPrefix"], body))
+        self.assert_refuses("DIRECT_FROZEN_PACKET_APPLICATION_FORBIDDEN")
+
+
+# --------------------------------------------------------------------------------
+# successor lineage referents
+# --------------------------------------------------------------------------------
+
+
+class SuccessorLineageReferentWitnesses(AdmissionWitnessCase):
+    """A content-addressed contract authenticates its own bytes, not what it names.
+
+    Every lineage coordinate the successor contract carries is supplied as an object,
+    re-identified from its bytes, and bound to this campaign and this packet.
+    """
+
+    HANDOFF = "successorContract", "lineage", "handoff"
+
+    def lineage_law(self, *path: str) -> dict:
+        block = self.profile["successorContract"]["lineage"]
+        for key in path:
+            block = block[key]
+        return block
+
+    def test_lineage_referents_are_reported_as_measured_objects(self) -> None:
+        receipt = self.fixture.run()
+        self.assertTrue(
+            receipt["predecessorPacketMarkerId"].startswith("stcmaryprivateflightpacketroot1_")
+        )
+        self.assertTrue(
+            receipt["predecessorPacketStateId"].startswith("stcmaryprivateflightpacketstate1_")
+        )
+        self.assertEqual(receipt["successorSourceSetMemberCount"], 2)
+        self.assertEqual(receipt["packetHandoffId"], self.fixture.packet_handoff_id)
+        self.assertEqual(receipt["successorSourceSetId"], self.fixture.successor_source_set_id)
+        for check in (
+            "predecessor-packet-referent-measured",
+            "packet-handoff-referent-measured",
+            "successor-source-set-members-measured",
+        ):
+            self.assertIn(check, receipt["checks"])
+
+    def test_predecessor_packet_is_read_and_never_written(self) -> None:
+        """Predecessor mutation stays forbidden, and the fence is what enforces it."""
+        before = self.fixture.packet_bytes_fence()
+        self.fixture.complete()
+        receipt = self.fixture.run()
+        self.assertEqual(receipt["terminal"], "ADMISSIBLE_FOR_PACKET_RECORDING")
+        after = self.fixture.packet_bytes_fence()
+        lineage = sorted(path for path in before if path.startswith("lineage/"))
+        self.assertEqual(len(lineage), 6)
+        self.assertEqual({key: after[key] for key in lineage}, {key: before[key] for key in lineage})
+        self.assertFalse(self.profile["sourceSuccession"]["predecessorPacketMutationAllowed"])
+        self.assertFalse(self.lineage_law("predecessorPacket")["mutationAllowed"])
+
+    # -- predecessor packet ------------------------------------------------
+    def test_absent_predecessor_packet_marker_refuses(self) -> None:
+        (self.fixture.packet / self.lineage_law("predecessorPacket")["markerFile"]).unlink()
+        self.assert_refuses("SUCCESSOR_LINEAGE_REFERENT_INVALID")
+
+    def test_predecessor_marker_edited_after_signing_refuses(self) -> None:
+        path = self.fixture.packet / self.lineage_law("predecessorPacket")["markerFile"]
+        marker = load_json(path)
+        marker["claimBoundary"] = "quietly widened after signing"
+        write_json(path, marker)
+        self.assert_refuses("SUCCESSOR_LINEAGE_REFERENT_INVALID")
+
+    def test_contract_naming_a_predecessor_with_no_measured_object_refuses(self) -> None:
+        """The contract below re-signs perfectly; only the referent is missing."""
+        contract = self.fixture.write_successor_contract(
+            predecessorPacketId=cid("stcmaryprivateflightpacket1", {"unbuilt": True})
+        )
+        law_block = self.profile["successorContract"]
+        body = {key: value for key, value in contract.items() if key != law_block["idKey"]}
+        self.assertEqual(contract[law_block["idKey"]], cid(law_block["idPrefix"], body))
+        self.assert_refuses("SUCCESSOR_LINEAGE_BINDING_INVALID")
+
+    def test_predecessor_marker_carrying_the_successor_profile_refuses(self) -> None:
+        self.fixture.write_predecessor_packet_marker(
+            packetProfileId=self.profile["successorPacketProfileId"]
+        )
+        self.assert_refuses("SUCCESSOR_LINEAGE_BINDING_INVALID")
+
+    def test_predecessor_marker_from_another_campaign_refuses(self) -> None:
+        self.fixture.write_predecessor_packet_marker(campaignLabel=OTHER_CAMPAIGN_LABEL)
+        self.assert_refuses("SUCCESSOR_LINEAGE_BINDING_INVALID")
+
+    def test_predecessor_state_naming_another_packet_refuses(self) -> None:
+        self.fixture.write_predecessor_packet_state(
+            packetId=cid("stcmaryprivateflightpacket1", {"other": True})
+        )
+        self.assert_refuses("SUCCESSOR_LINEAGE_BINDING_INVALID")
+
+    def test_predecessor_marker_and_state_profile_split_refuses(self) -> None:
+        self.fixture.write_predecessor_packet_state(
+            physicalProfileId="spectra-anchor-node/stc-mary-physical-flight/9.9"
+        )
+        self.assert_refuses("PACKET_PROFILE_SUCCESSION_SPLIT")
+
+    def test_predecessor_state_with_another_stage_denominator_refuses(self) -> None:
+        self.fixture.write_predecessor_packet_state(
+            stageDenominator=list(reversed(self.profile["stageSequence"]))
+        )
+        self.assert_refuses("SUCCESSOR_LINEAGE_BINDING_INVALID")
+
+    # -- packet handoff ----------------------------------------------------
+    def test_absent_packet_handoff_refuses(self) -> None:
+        (self.fixture.packet / self.lineage_law("handoff")["file"]).unlink()
+        self.assert_refuses("SUCCESSOR_LINEAGE_REFERENT_INVALID")
+
+    def test_handoff_that_is_not_the_named_handoff_refuses(self) -> None:
+        self.fixture.write_packet_handoff(
+            claimBoundary="Synthetic packet handoff receipt, re-signed but never named."
+        )
+        self.assert_refuses("SUCCESSOR_LINEAGE_BINDING_INVALID")
+
+    def test_handoff_from_another_campaign_refuses(self) -> None:
+        self.fixture.write_packet_handoff(
+            rebind=True,
+            campaignId=cid("stcmaryflightconductorcampaign1", {"campaignLabel": OTHER_CAMPAIGN_LABEL}),
+        )
+        self.assert_refuses("SUCCESSOR_LINEAGE_BINDING_INVALID")
+
+    def test_handoff_binding_another_successor_packet_refuses(self) -> None:
+        self.fixture.write_packet_handoff(
+            rebind=True, successorPacketId=cid("stcmaryprivateflightpacket1", {"other": True})
+        )
+        self.assert_refuses("SUCCESSOR_LINEAGE_BINDING_INVALID")
+
+    def test_handoff_naming_another_canonical_mission_state_refuses(self) -> None:
+        self.fixture.write_packet_handoff(
+            rebind=True, canonicalMissionStateDigest=sha256_text("another-canonical-mission-state")
+        )
+        self.assert_refuses("CANONICAL_MISSION_STATE_CHANGED")
+
+    # -- successor source set ----------------------------------------------
+    def test_absent_successor_source_set_refuses(self) -> None:
+        (self.fixture.packet / self.lineage_law("successorSourceSet")["file"]).unlink()
+        self.assert_refuses("SUCCESSOR_LINEAGE_REFERENT_INVALID")
+
+    def test_source_set_that_is_not_the_named_source_set_refuses(self) -> None:
+        self.fixture.write_successor_source_set(
+            members={"successor-observation-contract.json": '{"schema": "other"}\n'}
+        )
+        self.assert_refuses("SUCCESSOR_LINEAGE_BINDING_INVALID")
+
+    def test_source_member_changed_after_measurement_refuses(self) -> None:
+        member = self.fixture.successor_source_member_path("successor-stage-roles.json")
+        member.write_text('{"schema": "quietly-replaced"}\n', encoding="utf-8", newline="\n")
+        self.assert_refuses("SUCCESSOR_LINEAGE_BINDING_INVALID")
+
+    def test_absent_source_member_refuses(self) -> None:
+        self.fixture.successor_source_member_path("successor-stage-roles.json").unlink()
+        self.assert_refuses("SUCCESSOR_LINEAGE_REFERENT_INVALID")
+
+    def test_source_set_declaring_no_members_refuses(self) -> None:
+        law_block = self.lineage_law("successorSourceSet")
+        path = self.fixture.packet / law_block["file"]
+        stored = load_json(path)
+        stored["members"] = []
+        stored["memberCount"] = 0
+        stored["totalBytes"] = 0
+        write_json(path, stored)
+        self.assert_refuses("SUCCESSOR_LINEAGE_REFERENT_INVALID")
+
+    def test_source_set_member_escaping_the_source_root_refuses(self) -> None:
+        law_block = self.lineage_law("successorSourceSet")
+        path = self.fixture.packet / law_block["file"]
+        stored = load_json(path)
+        stored["members"][0]["relativePath"] = "../../PACKET-ROOT.json"
+        write_json(path, stored)
+        self.assert_refuses("SUCCESSOR_LINEAGE_REFERENT_INVALID")
 
 
 # --------------------------------------------------------------------------------
@@ -791,7 +1708,7 @@ class OpaqueInstrumentWitnesses(AdmissionWitnessCase):
         self.make_opaque()
         receipt = self.fixture.run()
         self.assertEqual(receipt["terminal"], "READY_FOR_NAMED_HUMAN_DECISION")
-        self.assertEqual(receipt["admittedEvidenceRoleCount"], 41)
+        self.assertEqual(receipt["admittedEvidenceRoleCount"], 40)
 
     def test_opaque_body_without_instrument_receipt_refuses(self) -> None:
         self.make_opaque(with_receipt=False)
@@ -1344,6 +2261,179 @@ class HumanStatementWitnesses(AdmissionWitnessCase):
             lambda body: body.update({"retainedBranches": [sha256_text("a"), sha256_text("b")]}),
         )
         self.assert_refuses("HUMAN_STATEMENT_SCOPE_INVALID")
+
+
+# --------------------------------------------------------------------------------
+# named-human statements bind the complete non-human evidence root
+# --------------------------------------------------------------------------------
+
+
+class HumanStatementEvidenceRootWitnesses(AdmissionWitnessCase):
+    """An accepted-identity list is not a root, and a subset is not an authorization.
+
+    Without the exact-set and exact-root rules a named human could authorize sealing
+    while accepting none of the pre-seal evidence the gate admitted for stage 16.
+    """
+
+    def test_every_statement_binds_its_stage_non_human_root(self) -> None:
+        pending = self.fixture.run()
+        self.fixture.add_human_statements()
+        receipt = self.fixture.run()
+        request = self.fixture.load_request()
+        pending_by_stage = {row["stage"]: row for row in pending["stages"]}
+        for requirement in receipt["humanStatementRequirements"]:
+            stage = requirement["stage"]
+            descriptor = self.fixture.descriptor(request, stage, requirement["evidenceRole"])
+            body = load_json(self.fixture.candidates / descriptor["bodyPath"])
+            self.assertEqual(
+                body["nonHumanEvidenceAdmissionRoot"], requirement["nonHumanEvidenceAdmissionRoot"], stage
+            )
+            # The root the statement bound is the one the gate published before the
+            # statement existed: the non-human root does not move when a statement lands.
+            self.assertEqual(
+                body["nonHumanEvidenceAdmissionRoot"],
+                pending_by_stage[stage]["nonHumanEvidenceAdmissionRoot"],
+                stage,
+            )
+            self.assertEqual(
+                sorted(body["acceptedEvidenceIds"]),
+                sorted(pending_by_stage[stage]["admittedEvidenceIdentities"]),
+                stage,
+            )
+        for check in (
+            "named-human-statement-accepts-complete-non-human-set",
+            "named-human-statement-non-human-root-bound",
+        ):
+            self.assertIn(check, receipt["checks"])
+
+    def test_seal_authorization_binds_the_declared_stage_sixteen_root(self) -> None:
+        """Stage 16's declared statement-time binding is now a field, not prose."""
+        seal_law = self.profile["sealAuthorization"]
+        self.assertIn("stageSixteenNonHumanEvidenceRoot", seal_law["statementTimeBindings"])
+        root_key = seal_law["statementRootKey"]
+        self.assertIn(root_key, self.profile["bodySchemas"]["named_human_statement"]["keys"])
+        self.fixture.add_human_statements()
+        receipt = self.fixture.run()
+        request = self.fixture.load_request()
+        descriptor = self.fixture.descriptor(
+            request, "SEAL_PRIVATE_EVIDENCE", "named-human seal authorization"
+        )
+        body = load_json(self.fixture.candidates / descriptor["bodyPath"])
+        stage_row = next(
+            row for row in receipt["stages"] if row["stage"] == "SEAL_PRIVATE_EVIDENCE"
+        )
+        self.assertEqual(body[root_key], stage_row["nonHumanEvidenceAdmissionRoot"])
+
+    def test_statement_accepting_no_evidence_at_all_refuses(self) -> None:
+        self.fixture.add_human_statements()
+        self.fixture.resign_body(
+            "SEAL_PRIVATE_EVIDENCE",
+            "named-human seal authorization",
+            lambda body: body.update({"acceptedEvidenceIds": []}),
+        )
+        self.assert_refuses("HUMAN_STATEMENT_EVIDENCE_SET_INCOMPLETE")
+
+    def test_statement_omitting_one_admitted_identity_refuses(self) -> None:
+        self.fixture.add_human_statements()
+        self.fixture.resign_body(
+            "SEAL_PRIVATE_EVIDENCE",
+            "named-human seal authorization",
+            lambda body: body.update({"acceptedEvidenceIds": body["acceptedEvidenceIds"][:-1]}),
+        )
+        self.assert_refuses("HUMAN_STATEMENT_EVIDENCE_SET_INCOMPLETE")
+
+    def test_statement_accepting_a_real_identity_from_another_stage_refuses(self) -> None:
+        self.fixture.add_human_statements()
+        request = self.fixture.load_request()
+        foreign = self.fixture.descriptor(request, "VERIFY_INPUTS", "source digest receipt")[
+            "bodyContentId"
+        ]
+        self.fixture.resign_body(
+            "SEAL_PRIVATE_EVIDENCE",
+            "named-human seal authorization",
+            lambda body: body.update(
+                {"acceptedEvidenceIds": sorted(body["acceptedEvidenceIds"] + [foreign])}
+            ),
+        )
+        self.assert_refuses("HUMAN_STATEMENT_SCOPE_INVALID")
+
+    def test_statement_accepting_a_statement_identity_refuses(self) -> None:
+        """Self-reference is unconstructible, and the nearest reachable form is refused.
+
+        A statement cannot carry its own identity: the identity is a digest of the body
+        that would have to contain it. What a signer *can* do is accept the identity a
+        statement had before it was re-signed, and that stale identity is no longer an
+        admitted body of the stage.
+        """
+        self.fixture.add_human_statements()
+        request = self.fixture.load_request()
+        own = self.fixture.descriptor(request, "BIND_GRACE", "operator statement")["bodyContentId"]
+        self.fixture.resign_body(
+            "BIND_GRACE",
+            "operator statement",
+            lambda body: body.update({"acceptedEvidenceIds": sorted(body["acceptedEvidenceIds"] + [own])}),
+        )
+        self.assert_refuses("HUMAN_STATEMENT_SCOPE_INVALID")
+
+    def test_statement_binding_an_unmeasured_root_refuses(self) -> None:
+        self.fixture.add_human_statements()
+        self.fixture.resign_body(
+            "BIND_GRACE",
+            "operator statement",
+            lambda body: body.update(
+                {
+                    "nonHumanEvidenceAdmissionRoot": cid(
+                        "stcmarypacketevidencestageroot1", {"unmeasured": True}
+                    )
+                }
+            ),
+        )
+        self.assert_refuses("HUMAN_STATEMENT_EVIDENCE_ROOT_INVALID")
+
+    def test_statement_binding_another_stages_root_refuses(self) -> None:
+        self.fixture.add_human_statements()
+        other = self.fixture.non_human_roots["SEAL_PRIVATE_EVIDENCE"]
+        self.fixture.resign_body(
+            "BIND_GRACE",
+            "operator statement",
+            lambda body: body.update({"nonHumanEvidenceAdmissionRoot": other}),
+        )
+        self.assert_refuses("HUMAN_STATEMENT_EVIDENCE_ROOT_INVALID")
+
+    def test_statement_binding_the_all_roles_root_refuses(self) -> None:
+        """The non-human root and the all-roles root are deliberately distinct objects."""
+        pending = self.fixture.run()
+        all_roles = next(
+            row["evidenceAdmissionRoot"] for row in pending["stages"] if row["stage"] == "BIND_GRACE"
+        )
+        self.fixture.add_human_statements()
+        self.assertNotEqual(all_roles, self.fixture.non_human_roots["BIND_GRACE"])
+        self.fixture.resign_body(
+            "BIND_GRACE",
+            "operator statement",
+            lambda body: body.update({"nonHumanEvidenceAdmissionRoot": all_roles}),
+        )
+        self.assert_refuses("HUMAN_STATEMENT_EVIDENCE_ROOT_INVALID")
+
+    def test_statement_binding_a_non_root_string_refuses(self) -> None:
+        self.fixture.add_human_statements()
+        self.fixture.resign_body(
+            "BIND_GRACE",
+            "operator statement",
+            lambda body: body.update(
+                {"nonHumanEvidenceAdmissionRoot": cid("syntheticnotastageroot1", {"wrong": True})}
+            ),
+        )
+        self.assert_refuses("HUMAN_STATEMENT_EVIDENCE_ROOT_INVALID")
+
+    def test_statement_without_the_root_field_refuses(self) -> None:
+        self.fixture.add_human_statements()
+        self.fixture.resign_body(
+            "BIND_GRACE",
+            "operator statement",
+            lambda body: body.pop("nonHumanEvidenceAdmissionRoot"),
+        )
+        self.assert_refuses("EVIDENCE_SCHEMA_INVALID")
 
 
 # --------------------------------------------------------------------------------

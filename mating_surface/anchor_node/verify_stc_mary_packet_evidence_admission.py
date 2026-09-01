@@ -52,8 +52,8 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 PROFILE_SCHEMA = "stc-mary/packet-evidence-admission-profile/1"
-PROFILE_ID = "stc-mary/packet-evidence-admission@1"
-PROFILE_CANONICAL_SHA256 = "92d458684d1e4b971429dff86644352544641ac34808b28bcf0e0a034b44b81f"
+PROFILE_ID = "stc-mary/packet-evidence-admission@2"
+PROFILE_CANONICAL_SHA256 = "0296e23f4ac15deb933420c5ff7121be3904add565b39bdc91808e0d8ded1f6d"
 RECEIPT_SCHEMA = "stc-mary/packet-evidence-admission-receipt/1"
 RECEIPT_ID_KEY = "admissionId"
 RECEIPT_ID_PREFIX = "stcmarypacketevidenceadmission1"
@@ -493,8 +493,23 @@ def read_frozen_surface(
         "PACKET_CAMPAIGN_BINDING_INVALID",
         "packet marker belongs to another campaign than the frozen workstation",
     )
+    # The successor boundary is runtime law, not profile prose. The frozen predecessor
+    # packet cannot satisfy stage 16 truthfully, so this gate refuses to govern it at all
+    # rather than returning a positive terminal for a packet it has declared out of scope.
+    succession = profile["sourceSuccession"]
     require(
-        packet_marker["packetProfileId"] == profile["predecessorPacketProfileId"]
+        succession["directFrozenPacketApplication"] is False,
+        "PROFILE_INVALID",
+        "admission profile claims direct applicability to the frozen predecessor packet",
+    )
+    require(
+        packet_marker["packetProfileId"] != profile["predecessorPacketProfileId"],
+        succession["frozenPacketRefusalCode"],
+        "this gate may not govern the frozen predecessor packet; its stage-16 observation "
+        "contract cannot be satisfied truthfully before sealing",
+    )
+    require(
+        packet_marker["packetProfileId"] == profile["successorPacketProfileId"]
         and packet_marker["physicalProfileId"] == profile["predecessorPhysicalProfileId"],
         "PACKET_MARKER_INVALID",
         "packet marker names another packet or physical-flight profile",
@@ -513,6 +528,36 @@ def read_frozen_surface(
         state["packetId"] == packet_id and state["campaignLabel"] == campaign_label,
         "PACKET_CAMPAIGN_BINDING_INVALID",
         "packet state and packet marker name different packets or campaigns",
+    )
+    # The successor boundary has to hold at every object layer that carries a profile
+    # identity. A root marker that declares the successor while the state still declares
+    # the frozen predecessor is a decorated boundary, not a successor packet.
+    agreement = profile["packetProfileAgreement"]
+    require(
+        agreement["requiredPacketProfileId"] == profile["successorPacketProfileId"]
+        and agreement["requiredPhysicalProfileId"] == profile["predecessorPhysicalProfileId"]
+        and succession["successorPacketProfileId"] == profile["successorPacketProfileId"]
+        and succession["predecessorPacketProfileId"] == profile["predecessorPacketProfileId"],
+        "PROFILE_INVALID",
+        "admission profile does not name one single packet-profile succession",
+    )
+    require(
+        state["packetProfileId"] != profile["predecessorPacketProfileId"],
+        agreement["frozenPredecessorInStateRefusalCode"],
+        "the packet state still declares the frozen predecessor packet profile; this gate may "
+        "not govern the frozen predecessor packet at any object layer",
+    )
+    for field in agreement["agreedFields"]:
+        require(
+            state[field] == packet_marker[field],
+            agreement["splitRefusalCode"],
+            f"packet marker and packet state name different {field} values",
+        )
+    require(
+        state["packetProfileId"] == agreement["requiredPacketProfileId"]
+        and state["physicalProfileId"] == agreement["requiredPhysicalProfileId"],
+        agreement["splitRefusalCode"],
+        "packet state names another packet or physical-flight profile than the admitted succession",
     )
     require(
         state["configurationState"] == packet_law["requiredConfigurationState"],
@@ -572,15 +617,289 @@ def read_frozen_surface(
         config["canonicalMissionStateDigest"], "PACKET_CONFIG_INVALID", "canonical mission state digest"
     )
 
+    # ---- successor lineage, separately authenticated ------------------------
+    contract_law = profile["successorContract"]
+    contract = read_json_file(
+        packet / contract_law["file"], code="SUCCESSOR_CONTRACT_INVALID", label="successor contract"
+    )
+    exact_keys(contract, contract_law["keys"], "SUCCESSOR_CONTRACT_INVALID", "successor contract")
+    require(
+        contract["schema"] == contract_law["schema"],
+        "SUCCESSOR_CONTRACT_INVALID",
+        "successor contract schema differs",
+    )
+    require(contract["authority"] == AUTHORITY, "AUTHORITY_WIDENED", "successor contract grants authority")
+    successor_contract_id = assert_identity(
+        contract,
+        contract_law["idKey"],
+        contract_law["idPrefix"],
+        "SUCCESSOR_CONTRACT_ID_INVALID",
+        "successor contract",
+    )
+    require(
+        contract["admissionProfileId"] == PROFILE_ID,
+        "SUCCESSOR_CONTRACT_INVALID",
+        "successor contract names another admission profile",
+    )
+    require(
+        contract["successorPacketId"] == packet_id
+        and contract["successorPacketProfileId"] == profile["successorPacketProfileId"],
+        "SUCCESSOR_CONTRACT_BINDING_INVALID",
+        "successor contract does not bind this packet",
+    )
+    require(
+        contract["predecessorPacketProfileId"] == profile["predecessorPacketProfileId"],
+        "SUCCESSOR_CONTRACT_BINDING_INVALID",
+        "successor contract names another predecessor packet profile",
+    )
+    predecessor_packet_id = assert_content_id(
+        contract["predecessorPacketId"], "SUCCESSOR_CONTRACT_INVALID", "predecessor packet identity"
+    )
+    require(
+        predecessor_packet_id != packet_id,
+        "SUCCESSOR_CONTRACT_BINDING_INVALID",
+        "successor contract names itself as its own predecessor",
+    )
+    require(
+        contract["campaignId"] == campaign_id and contract["campaignLabel"] == campaign_label,
+        "SUCCESSOR_CONTRACT_BINDING_INVALID",
+        "successor contract belongs to another campaign",
+    )
+    require(
+        contract["canonicalMissionStateDigest"] == canonical_mission_state_digest,
+        "CANONICAL_MISSION_STATE_CHANGED",
+        "successor contract names another canonical mission state than the configured packet",
+    )
+    packet_handoff_id = assert_content_id(
+        contract["packetHandoffId"], "SUCCESSOR_CONTRACT_INVALID", "packet handoff identity"
+    )
+    successor_source_set_id = assert_content_id(
+        contract["successorSourceSetId"], "SUCCESSOR_CONTRACT_INVALID", "successor source set identity"
+    )
+    assert_bounded_text(
+        contract["claimBoundary"], "SUCCESSOR_CONTRACT_INVALID", "successor contract claim boundary"
+    )
+    require(
+        contract["successorPacketProfileId"] == state["packetProfileId"]
+        and contract["predecessorPacketProfileId"] == profile["predecessorPacketProfileId"],
+        agreement["splitRefusalCode"],
+        "successor contract and packet state do not name the same packet-profile succession",
+    )
+
+    # ---- lineage referents, measured rather than asserted --------------------
+    # A content-addressed contract proves that its own bytes are self-consistent. It
+    # proves nothing about the predecessor packet, the handoff, or the source set it
+    # names. Each named coordinate is therefore supplied as an object, re-identified from
+    # its own bytes, and bound to this campaign and this packet.
+    lineage_law = contract_law["lineage"]
+    referent_code = lineage_law["referentRefusalCode"]
+    binding_code = lineage_law["bindingRefusalCode"]
+
+    predecessor_law = lineage_law["predecessorPacket"]
+    # The predecessor is read and never written. This gate has no write path at all, and
+    # both predecessor objects join the before-and-after packet fence below.
+    require(
+        predecessor_law["mutationAllowed"] is False
+        and succession["predecessorPacketMutationAllowed"] is False,
+        "PROFILE_INVALID",
+        "admission profile permits predecessor packet mutation",
+    )
+    predecessor_marker_path = packet / predecessor_law["markerFile"]
+    predecessor_marker = read_json_file(
+        predecessor_marker_path, code=referent_code, label="predecessor packet marker"
+    )
+    exact_keys(predecessor_marker, packet_law["markerKeys"], referent_code, "predecessor packet marker")
+    require(
+        predecessor_marker["schema"] == packet_law["markerSchema"],
+        referent_code,
+        "predecessor packet marker schema differs",
+    )
+    require(
+        predecessor_marker["authority"] == AUTHORITY,
+        "AUTHORITY_WIDENED",
+        "predecessor packet marker grants authority",
+    )
+    predecessor_marker_id = assert_identity(
+        predecessor_marker,
+        packet_law["markerIdKey"],
+        packet_law["markerIdPrefix"],
+        referent_code,
+        "predecessor packet marker",
+    )
+    require(
+        predecessor_marker["packetId"] == predecessor_packet_id,
+        binding_code,
+        "the measured predecessor packet marker is not the predecessor the successor contract names",
+    )
+    require(
+        predecessor_marker["packetProfileId"] == profile["predecessorPacketProfileId"]
+        and predecessor_marker["physicalProfileId"] == profile["predecessorPhysicalProfileId"],
+        binding_code,
+        "the measured predecessor packet does not carry the frozen predecessor packet profile",
+    )
+    require(
+        predecessor_marker["campaignLabel"] == campaign_label,
+        binding_code,
+        "the measured predecessor packet belongs to another campaign",
+    )
+
+    predecessor_state_path = packet / predecessor_law["stateFile"]
+    predecessor_state = read_json_file(
+        predecessor_state_path, code=referent_code, label="predecessor packet state"
+    )
+    exact_keys(predecessor_state, packet_law["stateKeys"], referent_code, "predecessor packet state")
+    require(
+        predecessor_state["schema"] == packet_law["stateSchema"],
+        referent_code,
+        "predecessor packet state schema differs",
+    )
+    require(
+        predecessor_state["authority"] == AUTHORITY,
+        "AUTHORITY_WIDENED",
+        "predecessor packet state grants authority",
+    )
+    predecessor_state_id = assert_identity(
+        predecessor_state,
+        packet_law["stateIdKey"],
+        packet_law["stateIdPrefix"],
+        referent_code,
+        "predecessor packet state",
+    )
+    require(
+        predecessor_state["packetId"] == predecessor_packet_id
+        and predecessor_state["campaignLabel"] == campaign_label,
+        binding_code,
+        "the measured predecessor packet state names another packet or campaign than its marker",
+    )
+    for field in agreement["agreedFields"]:
+        require(
+            predecessor_state[field] == predecessor_marker[field],
+            agreement["splitRefusalCode"],
+            f"predecessor packet marker and state name different {field} values",
+        )
+    require(
+        list(predecessor_state["stageDenominator"]) == list(profile["stageSequence"]),
+        binding_code,
+        "the measured predecessor packet carries another stage denominator",
+    )
+
+    handoff_law = lineage_law["handoff"]
+    handoff_path = packet / handoff_law["file"]
+    handoff = read_json_file(handoff_path, code=referent_code, label="packet handoff receipt")
+    exact_keys(handoff, handoff_law["keys"], referent_code, "packet handoff receipt")
+    require(
+        handoff["schema"] == handoff_law["schema"], referent_code, "packet handoff receipt schema differs"
+    )
+    require(
+        handoff["authority"] == AUTHORITY, "AUTHORITY_WIDENED", "packet handoff receipt grants authority"
+    )
+    measured_handoff_id = assert_identity(
+        handoff, handoff_law["idKey"], handoff_law["idPrefix"], referent_code, "packet handoff receipt"
+    )
+    require(
+        measured_handoff_id == packet_handoff_id,
+        binding_code,
+        "the measured packet handoff receipt is not the handoff the successor contract names",
+    )
+    require(
+        handoff["campaignId"] == campaign_id and handoff["campaignLabel"] == campaign_label,
+        binding_code,
+        "the measured packet handoff receipt belongs to another campaign",
+    )
+    require(
+        handoff["predecessorPacketId"] == predecessor_packet_id
+        and handoff["successorPacketId"] == packet_id
+        and handoff["predecessorPacketProfileId"] == profile["predecessorPacketProfileId"]
+        and handoff["successorPacketProfileId"] == profile["successorPacketProfileId"],
+        binding_code,
+        "the measured packet handoff receipt does not bind this predecessor and this successor packet",
+    )
+    require(
+        handoff["canonicalMissionStateDigest"] == canonical_mission_state_digest,
+        "CANONICAL_MISSION_STATE_CHANGED",
+        "the measured packet handoff receipt names another canonical mission state",
+    )
+    assert_bounded_text(handoff["claimBoundary"], referent_code, "packet handoff claim boundary")
+
+    source_law = lineage_law["successorSourceSet"]
+    source_set_path = packet / source_law["file"]
+    stored_source = read_json_file(source_set_path, code=referent_code, label="successor source set")
+    require(
+        stored_source.get("schema") == source_law["schema"],
+        referent_code,
+        "successor source set schema differs",
+    )
+    declared_members = stored_source.get("members")
+    require(
+        isinstance(declared_members, list) and len(declared_members) >= source_law["minimumMemberCount"],
+        referent_code,
+        "successor source set declares no measured members",
+    )
+    relative_members: list[str] = []
+    for row in declared_members:
+        require(
+            isinstance(row, Mapping) and isinstance(row.get("relativePath"), str),
+            referent_code,
+            "successor source set member row is not a measured member",
+        )
+        relative_members.append(row["relativePath"])
+    require(
+        len(set(relative_members)) == len(relative_members),
+        referent_code,
+        "successor source set repeats a member path",
+    )
+    measured_successor_source = measure_source_set(
+        packet / source_law["root"],
+        relative_members,
+        schema=source_law["schema"],
+        profile_id=profile["successorPacketProfileId"],
+        claim_boundary=source_law["claimBoundary"],
+        id_key=source_law["idKey"],
+        id_prefix=source_law["idPrefix"],
+        code=referent_code,
+        label="successor source set",
+    )
+    require(
+        dict(stored_source) == measured_successor_source,
+        binding_code,
+        "the stored successor source set does not reproduce from its measured member bytes",
+    )
+    require(
+        measured_successor_source[source_law["idKey"]] == successor_source_set_id,
+        binding_code,
+        "the measured successor source set is not the source set the successor contract names",
+    )
+
     return {
         "campaignId": campaign_id,
         "campaignLabel": campaign_label,
         "packetId": packet_id,
+        "successorContractId": successor_contract_id,
+        "predecessorPacketId": predecessor_packet_id,
+        "packetHandoffId": packet_handoff_id,
+        "successorSourceSetId": successor_source_set_id,
+        "successorSourceSetMemberCount": measured_successor_source["memberCount"],
+        "predecessorPacketMarkerId": predecessor_marker_id,
+        "predecessorPacketStateId": predecessor_state_id,
+        "packetMarkerProfileId": packet_marker["packetProfileId"],
+        "packetStateProfileId": state["packetProfileId"],
         "canonicalMissionStateDigest": canonical_mission_state_digest,
-        "statePath": state_path,
-        "markerPath": packet / packet_law["markerFile"],
-        "configPath": packet / packet_law["configFile"],
-        "workstationMarkerPath": workstation / ws_law["markerFile"],
+        # Every packet-side object this gate read, fenced before and after admission.
+        "fencedPaths": [
+            (packet / packet_law["markerFile"], "PACKET_MARKER_INVALID", "packet marker"),
+            (packet / contract_law["file"], "SUCCESSOR_CONTRACT_INVALID", "successor contract"),
+            (state_path, "PACKET_STATE_INVALID", "packet state"),
+            (packet / packet_law["configFile"], "PACKET_CONFIG_INVALID", "packet configuration"),
+            (predecessor_marker_path, referent_code, "predecessor packet marker"),
+            (predecessor_state_path, referent_code, "predecessor packet state"),
+            (handoff_path, referent_code, "packet handoff receipt"),
+            (source_set_path, referent_code, "successor source set"),
+            *(
+                (packet / source_law["root"] / relative, referent_code, f"successor source member {relative}")
+                for relative in relative_members
+            ),
+            (workstation / ws_law["markerFile"], "WORKSTATION_MARKER_INVALID", "workstation marker"),
+        ],
     }
 
 
@@ -982,6 +1301,17 @@ def admit_evidence_body(
         for row in accepted:
             assert_content_id(row, code, f"{label} accepted evidence identity")
         require(len(set(accepted)) == len(accepted), code, f"{label} repeats an accepted evidence identity")
+        binding_law = schema_law["evidenceAdmissionBinding"]
+        bound_root = assert_content_id(
+            body[binding_law["rootKey"]],
+            binding_law["rootRefusalCode"],
+            f"{label} non-human evidence admission root",
+        )
+        require(
+            bound_root.startswith(f"{binding_law['rootPrefix']}_"),
+            binding_law["rootRefusalCode"],
+            f"{label} does not bind a stage evidence-admission root",
+        )
 
     return {
         "evidenceRole": role,
@@ -1284,15 +1614,7 @@ def verify_packet_evidence_admission(
     frozen = read_frozen_surface(workstation=workstation, packet=packet, profile=profile)
     fence_prefix = profile["digests"]["fencePrefix"]
     packet_fence_before = [
-        file_fence(frozen["markerPath"], fence_prefix, code="PACKET_MARKER_INVALID", label="packet marker"),
-        file_fence(frozen["statePath"], fence_prefix, code="PACKET_STATE_INVALID", label="packet state"),
-        file_fence(frozen["configPath"], fence_prefix, code="PACKET_CONFIG_INVALID", label="packet configuration"),
-        file_fence(
-            frozen["workstationMarkerPath"],
-            fence_prefix,
-            code="WORKSTATION_MARKER_INVALID",
-            label="workstation marker",
-        ),
+        file_fence(path, fence_prefix, code=code, label=label) for path, code, label in frozen["fencedPaths"]
     ]
 
     request = load_request(candidates, profile)
@@ -1475,6 +1797,36 @@ def verify_packet_evidence_admission(
             [row for row in admitted_rows if row["provenanceClass"] != "named_human_statement"],
             "non-human-evidence-roles",
         )
+        # A named-human statement authorizes on the complete non-human evidence of its own
+        # stage. Accepting a subset -- or none at all -- would let a seal authorization
+        # exist beside evidence its signer never accepted, so the set is exact and the
+        # root is recomputed from exactly that set.
+        statement_binding = profile["bodySchemas"]["named_human_statement"]["evidenceAdmissionBinding"]
+        require(
+            statement_binding["requiresCompleteNonHumanAdmissionSet"] is True
+            and statement_binding["rootKey"] == profile["sealAuthorization"]["statementRootKey"],
+            "PROFILE_INVALID",
+            "admission profile does not bind statements to the complete non-human stage root",
+        )
+        non_human_identities = {
+            row["bodyContentId"] for row in admitted_rows if row["provenanceClass"] != "named_human_statement"
+        }
+        for row in admitted_rows:
+            if row["provenanceClass"] != "named_human_statement":
+                continue
+            require(
+                set(row["body"][statement_binding["acceptedIdentitiesKey"]]) == non_human_identities,
+                statement_binding["setRefusalCode"],
+                f"{stage} named-human statement does not accept the exact complete non-human "
+                "evidence set this gate admitted for the stage",
+            )
+            require(
+                row["body"][statement_binding["rootKey"]] == non_human_root,
+                statement_binding["rootRefusalCode"],
+                f"{stage} named-human statement binds another non-human evidence-admission root "
+                "than the one this gate computed for the stage",
+            )
+
         stage_roles_outstanding = sum(
             1 for row in missing_roles if row["stage"] == stage
         )
@@ -1645,15 +1997,7 @@ def verify_packet_evidence_admission(
 
     # ---- nothing moved while we read ----------------------------------------
     packet_fence_after = [
-        file_fence(frozen["markerPath"], fence_prefix, code="PACKET_MARKER_INVALID", label="packet marker"),
-        file_fence(frozen["statePath"], fence_prefix, code="PACKET_STATE_INVALID", label="packet state"),
-        file_fence(frozen["configPath"], fence_prefix, code="PACKET_CONFIG_INVALID", label="packet configuration"),
-        file_fence(
-            frozen["workstationMarkerPath"],
-            fence_prefix,
-            code="WORKSTATION_MARKER_INVALID",
-            label="workstation marker",
-        ),
+        file_fence(path, fence_prefix, code=code, label=label) for path, code, label in frozen["fencedPaths"]
     ]
     require(
         packet_fence_after == packet_fence_before,
@@ -1667,6 +2011,14 @@ def verify_packet_evidence_admission(
         "packet-state-identity",
         "packet-campaign-binding-exact",
         "packet-configured-and-unrecorded",
+        "successor-packet-identity-required",
+        "frozen-predecessor-packet-refused",
+        "packet-marker-and-state-profile-agreement",
+        "successor-contract-identity",
+        "successor-contract-lineage-binding",
+        "predecessor-packet-referent-measured",
+        "packet-handoff-referent-measured",
+        "successor-source-set-members-measured",
         "packet-canonical-mission-state-bound",
         "admission-request-identity",
         "admission-request-campaign-and-packet-binding",
@@ -1690,6 +2042,8 @@ def verify_packet_evidence_admission(
         "duplicate-evidence-identity-refused",
         "named-human-statement-actor-class-exact",
         "named-human-statement-scope-bound",
+        "named-human-statement-accepts-complete-non-human-set",
+        "named-human-statement-non-human-root-bound",
         "conflict-statement-retains-both-branches",
         "stage-confirmation-denominator-closed",
         "stage-confirmation-root-and-observation-binding",
@@ -1714,6 +2068,18 @@ def verify_packet_evidence_admission(
         "requestId": request[profile["request"]["idKey"]],
         "observationTransactionId": transaction["transactionId"],
         "canonicalMissionStateDigest": frozen["canonicalMissionStateDigest"],
+        "successorContractId": frozen["successorContractId"],
+        "predecessorPacketId": frozen["predecessorPacketId"],
+        "predecessorPacketMarkerId": frozen["predecessorPacketMarkerId"],
+        "predecessorPacketStateId": frozen["predecessorPacketStateId"],
+        "packetHandoffId": frozen["packetHandoffId"],
+        "successorSourceSetId": frozen["successorSourceSetId"],
+        "successorSourceSetMemberCount": frozen["successorSourceSetMemberCount"],
+        "successorPacketProfileId": profile["successorPacketProfileId"],
+        "predecessorPacketProfileId": profile["predecessorPacketProfileId"],
+        "packetMarkerProfileId": frozen["packetMarkerProfileId"],
+        "packetStateProfileId": frozen["packetStateProfileId"],
+        "directFrozenPacketApplication": False,
         "stageDenominator": denominator["stageDenominator"],
         "evidenceRoleDenominator": denominator["evidenceRoleDenominator"],
         "nonHumanEvidenceRoleDenominator": denominator["nonHumanEvidenceRoleCount"],
