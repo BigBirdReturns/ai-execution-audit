@@ -1,0 +1,38 @@
+name: TEMP Cancel Issue 105 W01 Bootstrap 02 Queue
+
+on:
+  push:
+    branches:
+      - ops/issue105-w01-private-transfer-probe-01
+    paths:
+      - ".github/workflows/temp-cancel-issue105-w01-bootstrap02-queue.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-w01-private-transfer-probe-01
+  cancel-in-progress: true
+
+jobs:
+  retire-stale-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Retire the superseded Bootstrap 02 queue only
+        run: |
+          printf '%s\n' \
+            'status=PASS' \
+            'superseded=AXM-Issue-105-Physical-Flight-Bootstrap-02.zip' \
+            'successor=AXM-Issue-105-Physical-Flight-Bootstrap-03.zip' \
+            'physicalExecutionObserved=false' \
+            'browserLaunched=false' \
+            'supplierEndpointContacted=false' \
+            'modelDownloaded=false' \
+            'peerConnectionFormed=false' \
+            'inferenceExecuted=false' \
+            'routeTerminalProduced=false' \
+            'actualSupplierQualified=false' \
+            'physicalEstateQualified=false' \
+            'missionAuthority=none' \
+            'commandAuthority=none'
