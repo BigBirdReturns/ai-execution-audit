@@ -1,0 +1,110 @@
+name: TEMP Export Issue 106 Kit Layout Source 01
+
+on:
+  push:
+    branches:
+      - staging/issue106-kit-layout-export-01
+    paths:
+      - ".github/workflows/temp-export-issue106-kit-layout-source-01.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-export-issue106-kit-layout-source-01
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  SOURCE_COMMIT: e78bb4e8a4115b2191967d1ffcd1d744d77ce050
+  SOURCE_TREE: 83006c13dd14f670785ffb57bd62d44b502d73a8
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: e78bb4e8a4115b2191967d1ffcd1d744d77ce050
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Verify exact source coordinate and packet baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_COMMIT" ]]
+          [[ "$(git rev-parse 'HEAD^{tree}')" == "$SOURCE_TREE" ]]
+          ROOT=mating_surface/anchor_node
+          python -m py_compile \
+            "$ROOT/axm_head_browser_physical_audition_packet_01.py" \
+            "$ROOT/verify_axm_head_browser_physical_audition_packet_01.py" \
+            "$ROOT/verify_axm_head_browser_physical_audition_packet_01_bootstrap.py" \
+            "$ROOT/conformance/test_axm_head_browser_physical_audition_packet_01.py"
+          python "$ROOT/axm_head_browser_physical_audition_packet_01.py" validate-profile \
+            "$ROOT/axm-head-browser-physical-audition-packet-profile-01.json"
+          python -m unittest discover \
+            -s "$ROOT/conformance" \
+            -p 'test_axm_head_browser_physical_audition_packet_01.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/baseline-tests.txt"
+
+      - name: Stage exact issue 106 source denominator
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/issue106-source"
+          mkdir -p "$OUT/.github/workflows" "$OUT/mating_surface/anchor_node/conformance" "$OUT/mating_surface/anchor_node/fixtures"
+          files=(
+            '.github/workflows/axm-head-browser-physical-audition-packet-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-PACKET-01.md'
+            'mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json'
+            'mating_surface/anchor_node/axm-head-browser-physical-audition-controller-template-01.json'
+            'mating_surface/anchor_node/axm-head-browser-physical-audition-packet-01.ps1'
+            'mating_surface/anchor_node/axm_head_browser_physical_audition_packet_01.py'
+            'mating_surface/anchor_node/verify_axm_head_browser_physical_audition_packet_01.py'
+            'mating_surface/anchor_node/verify_axm_head_browser_physical_audition_packet_01_bootstrap.py'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_packet_01.py'
+            'mating_surface/anchor_node/fixtures/axm-head-browser-physical-audition-packet-cases-01.json'
+            'mating_surface/anchor_node/axm-head-browser-distributed-inference-audition-profile-01.json'
+            'mating_surface/anchor_node/axm_head_browser_distributed_inference_audition.py'
+            'mating_surface/anchor_node/browser_distributed_inference_probe.js'
+            'mating_surface/anchor_node/verify_axm_head_browser_distributed_inference_audition.py'
+            'mating_surface/anchor_node/verify_axm_head_browser_distributed_inference_audition_bootstrap.py'
+          )
+          for file in "${files[@]}"; do
+            mkdir -p "$OUT/$(dirname "$file")"
+            cp -- "$file" "$OUT/$file"
+          done
+          cp "$RUNNER_TEMP/baseline-tests.txt" "$OUT/baseline-tests.txt"
+          python - "$OUT" <<'PY'
+          import hashlib, json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          rows = []
+          for path in sorted(p for p in root.rglob('*') if p.is_file()):
+              data = path.read_bytes()
+              rows.append({
+                  'path': path.relative_to(root).as_posix(),
+                  'bytes': len(data),
+                  'sha256': 'sha256:' + hashlib.sha256(data).hexdigest(),
+              })
+          receipt = {
+              'schema': 'axm-head/issue106-source-export@1',
+              'status': 'PASS',
+              'sourceCommit': 'e78bb4e8a4115b2191967d1ffcd1d744d77ce050',
+              'sourceTree': '83006c13dd14f670785ffb57bd62d44b502d73a8',
+              'memberCount': len(rows),
+              'members': rows,
+          }
+          (root / 'EXPORT.json').write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue106-kit-layout-source-e78bb4e8
+          path: ${{ runner.temp }}/issue106-source
+          if-no-files-found: error
+          retention-days: 14
