@@ -30,10 +30,12 @@ jobs:
           @'
           import hashlib
           import json
-          from pathlib import Path
+          import subprocess
+          from pathlib import Path, PurePosixPath
 
-          wrapper_path = Path("mating_surface/anchor_node/axm-head-browser-physical-audition-packet-01.ps1")
-          profile_path = Path("mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json")
+          anchor = Path("mating_surface/anchor_node")
+          wrapper_path = anchor / "axm-head-browser-physical-audition-packet-01.ps1"
+          profile_path = anchor / "axm-head-browser-physical-audition-packet-profile-01.json"
 
           wrapper = r'''[CmdletBinding()]
           param(
@@ -81,7 +83,10 @@ jobs:
           Write-Error 'Python 3.11 or later is required.'
           exit 2
           '''
-          wrapper = "\n".join(line[10:] if line.startswith("          ") else line for line in wrapper.splitlines()) + "\n"
+          wrapper = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in wrapper.splitlines()
+          ) + "\n"
           wrapper_bytes = wrapper.encode("utf-8")
           wrapper_path.write_bytes(wrapper_bytes)
 
@@ -97,6 +102,22 @@ jobs:
           profile_path.write_bytes(
               (json.dumps(profile, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
           )
+
+          admitted_ref = profile["admittedAudition"]["admissionCommit"]
+          for row in profile["kitSourceBindings"]:
+              relative = PurePosixPath("mating_surface/anchor_node") / row["path"]
+              data = subprocess.check_output(
+                  ["git", "cat-file", "blob", f"{admitted_ref}:{relative.as_posix()}"]
+              )
+              if len(data) != row["bytes"]:
+                  raise SystemExit(f"admitted dependency length differs: {relative}")
+              observed = "sha256:" + hashlib.sha256(data).hexdigest()
+              if observed != row["sha256"]:
+                  raise SystemExit(f"admitted dependency digest differs: {relative}")
+              target = Path(relative.as_posix())
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+
           print(json.dumps(rows[0], sort_keys=True))
           '@ | python -
 
@@ -120,8 +141,6 @@ jobs:
           & $Wrapper 'validate-fixtures' $Profile $Fixtures
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $Wrapper 'campaign' $Profile $Fixtures
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $Wrapper 'source-set' $Profile $env:GITHUB_WORKSPACE
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           python -m unittest discover `
@@ -153,12 +172,14 @@ jobs:
               throw 'generated-kit wrapper promoted a physical or supplier claim'
           }
 
-      - name: Publish the qualified repair and remove this temporary controller
+      - name: Publish the qualified repair and remove temporary controllers
         shell: pwsh
         run: |
           git config user.name 'BigBirdReturns'
           git config user.email 'bigbirdreturns@proton.me'
-          git rm '.github/workflows/temporary-pr109-generated-wrapper-repair.yml'
+          git rm `
+            '.github/workflows/temporary-pr109-generated-wrapper-repair.yml' `
+            '.github/workflows/temporary-pr109-fixture-diagnostic.yml'
           git add `
             'mating_surface/anchor_node/axm-head-browser-physical-audition-packet-01.ps1' `
             'mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json'
