@@ -31,33 +31,10 @@ if str(HERE) not in sys.path:
 import stc_mary_successor_flight_law as law  # noqa: E402
 import stc_mary_successor_packet_runtime as runtime  # noqa: E402
 import verify_stc_mary_successor_execution_receipt as execution_receipt_verifier  # noqa: E402
+import verify_stc_mary_successor_pre_seal_closure as pre_seal_verifier  # noqa: E402
 
 PROFILE_PATH = HERE / "stc-mary-successor-packet-flight-01-profile-01.json"
 
-RUN_CLAIM = (
-    "Local private flight run for one synthetic successor packet. It carries stage terminals, "
-    "content identities and counts only, holds no private evidence body or path, and grants no "
-    "physical, mission, command, targeting, engagement, effector, or weapons authority."
-)
-DISPOSITION_CLAIM = (
-    "Public disposition for one local private flight. It contains content identities, counts and "
-    "claim boundaries only. It qualifies no physical estate, representative operator, field "
-    "network, operational C2 or production Lattice, and grants no mission, command, targeting, "
-    "engagement, effector or weapons authority."
-)
-MARKER_CLAIM = (
-    "Marker for one local digest-only sealed flight result. Private evidence bodies remain in the "
-    "packet and this directory grants no independent qualification or authority."
-)
-MANIFEST_CLAIM = (
-    "Digest manifest for one local sealed flight result. It contains no private evidence body or "
-    "path and grants no independent qualification or authority."
-)
-VERIFICATION_CLAIM = (
-    "Detached verification of one local sealed self-attestation package. It grants no independent "
-    "physical, operator, field, operational, mission, command, targeting, engagement, effector, or "
-    "weapons qualification or authority."
-)
 STATE_CLAIM = (
     "Local packet state. It records preparation and receipt custody only and grants no physical, "
     "mission, command, targeting, engagement, effector, or weapons authority."
@@ -210,6 +187,8 @@ def load_pre_seal_closure(
 
 def seal_packet(
     *, packet: Path, sealed: Path, pre_seal_closure: Path, repository: Path,
+    pre_seal_execution_receipt: Path, admission_receipt: Path,
+    materialization_receipt: Path, authentication_receipt: Path, candidates: Path,
     transaction_receipt: Path | None = None, source_execution_receipt: Path | None = None,
     profile_path: Path = PROFILE_PATH,
     interrupt_after_file: int | None = None,
@@ -246,12 +225,53 @@ def seal_packet(
         "PACKET_INCOMPLETE",
         "all sixteen stages must be recorded before sealing",
     )
+    closure_path = law.validate_lexical_coordinate(
+        pre_seal_closure, label="pre-seal closure", code="PRE_SEAL_CLOSURE_ABSENT"
+    )
     closure = load_pre_seal_closure(
         profile,
-        law.validate_lexical_coordinate(
-            pre_seal_closure, label="pre-seal closure", code="PRE_SEAL_CLOSURE_ABSENT"
-        ),
+        closure_path,
         state,
+    )
+    try:
+        closure_execution = execution_receipt_verifier.verify_execution_receipt(
+            profile=profile,
+            execution_receipt=pre_seal_execution_receipt,
+            expected_role="close-pre-seal",
+            packet=packet,
+        )
+    except execution_receipt_verifier.ExecutionReceiptError as exc:
+        law.fail(exc.code, str(exc))
+    closure_bytes = law.read_bounded_bytes(
+        closure_path,
+        law.MAX_JSON_BYTES,
+        code="PRE_SEAL_CLOSURE_OUTPUT_BINDING_INVALID",
+        label="pre-seal closure",
+    )
+    law.require(
+        closure_execution["outputArtifactId"] == closure[profile["preSealClosure"]["idKey"]]
+        and closure_execution["outputArtifactSha256"] == law.sha256_bytes(closure_bytes)
+        and closure_execution["outputArtifactBytes"] == len(closure_bytes),
+        "PRE_SEAL_CLOSURE_OUTPUT_BINDING_INVALID",
+        "the measured close-pre-seal execution receipt does not bind the supplied closure bytes",
+    )
+    try:
+        replayed_closure = pre_seal_verifier.close_pre_seal(
+            packet=packet,
+            admission_receipt=admission_receipt,
+            materialization_receipt=materialization_receipt,
+            authentication_receipt=authentication_receipt,
+            candidates=candidates,
+            profile_path=profile_path,
+            repository=repository,
+            replay_sealed_predecessor=state["sealed"] is True,
+        )
+    except pre_seal_verifier.PreSealClosureError as exc:
+        law.fail(exc.code, str(exc))
+    law.require(
+        closure_bytes == law.canonical_json_bytes(replayed_closure),
+        "PRE_SEAL_CLOSURE_REPLAY_MISMATCH",
+        "the supplied closure does not reproduce from the exact current packet and admitted inputs",
     )
     resolved = validate_new_sealed_directory(profile, sealed, packet, repository)
 
@@ -311,7 +331,7 @@ def seal_packet(
             "humanRequiredStageCount": human_required,
             "privatePhysicalEvidenceBodyCount": private_bodies,
             "authority": law.AUTHORITY,
-            "claimBoundary": RUN_CLAIM,
+            "claimBoundary": seal_law["runClaimBoundary"],
         },
         seal_law["runIdKey"],
         seal_law["runIdPrefix"],
@@ -353,7 +373,7 @@ def seal_packet(
             "flightMode": seal_law["flightMode"],
             "publicEvidenceBodyCount": 0,
             "authority": law.AUTHORITY,
-            "claimBoundary": MARKER_CLAIM,
+            "claimBoundary": seal_law["markerClaimBoundary"],
         },
         seal_law["markerIdKey"],
         seal_law["markerIdPrefix"],
@@ -381,7 +401,7 @@ def seal_packet(
             "fileCount": len(entries),
             "publicEvidenceBodyCount": 0,
             "authority": law.AUTHORITY,
-            "claimBoundary": MANIFEST_CLAIM,
+            "claimBoundary": seal_law["manifestClaimBoundary"],
         },
         seal_law["manifestIdKey"],
         seal_law["manifestIdPrefix"],
@@ -402,6 +422,16 @@ def seal_packet(
         configuration_state="configured",
         sealed=True,
         sealed_disposition_id=disposition[seal_law["dispositionIdKey"]],
+        claim_boundary=STATE_CLAIM,
+    )
+    predecessor_state = law.build_packet_state(
+        profile=profile,
+        marker=marker,
+        stages=law.stage_sequence(admission),
+        rows=state["stages"],
+        configuration_state="configured",
+        sealed=False,
+        sealed_disposition_id=None,
         claim_boundary=STATE_CLAIM,
     )
     state_id_key = profile["packet"]["stateIdKey"]
@@ -485,13 +515,16 @@ def seal_packet(
 
     if state["sealed"] is False:
         law.require(
-            transaction["priorStateId"] == state[state_id_key]
+            state == predecessor_state
+            and transaction["priorStateId"] == predecessor_state[state_id_key]
             and transaction["status"] == "in_progress",
             "SEAL_TRANSACTION_INCONSISTENT",
             "unsealed packet does not reproduce the transaction's exact predecessor state",
         )
     else:
         law.require(
+            transaction["priorStateId"] == predecessor_state[state_id_key]
+            and (
             transaction["status"] in ("sealed_state_promoted", "complete")
             or (
                 transaction["status"] == "in_progress"
@@ -499,7 +532,7 @@ def seal_packet(
                 and state[state_id_key] == next_state[state_id_key]
                 and resolved.is_dir()
                 and not staging.exists()
-            ),
+            )),
             "SEAL_TRANSACTION_INCONSISTENT",
             "sealed packet is not the exact crash-after-state transaction predecessor",
         )
@@ -661,7 +694,7 @@ def build_verification(
         "missionAuthorityGranted": False,
         "commandAuthorityGranted": False,
         "authority": law.AUTHORITY,
-        "claimBoundary": VERIFICATION_CLAIM,
+        "claimBoundary": seal_law["verificationClaimBoundary"],
     }
     signed = law.sign(body, seal_law["verificationIdKey"], seal_law["verificationIdPrefix"])
     law.exact_keys(signed, seal_law["verificationKeys"], "SEALED_VERIFICATION_INVALID", "sealed verification")
@@ -788,6 +821,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     seal.add_argument("--packet", type=Path, required=True)
     seal.add_argument("--sealed", type=Path, required=True)
     seal.add_argument("--pre-seal-closure", type=Path, required=True)
+    seal.add_argument("--pre-seal-execution-receipt", type=Path, required=True)
+    seal.add_argument("--admission-receipt", type=Path, required=True)
+    seal.add_argument("--materialization-receipt", type=Path, required=True)
+    seal.add_argument("--authentication-receipt", type=Path, required=True)
+    seal.add_argument("--candidates", type=Path, required=True)
     seal.add_argument("--transaction-receipt", type=Path)
     seal.add_argument("--source-execution-receipt", type=Path, required=True)
     seal.add_argument("--repository-root", type=Path, default=HERE.parent.parent)
@@ -821,6 +859,11 @@ def main(argv: list[str] | None = None) -> int:
                 packet=args.packet,
                 sealed=args.sealed,
                 pre_seal_closure=args.pre_seal_closure,
+                pre_seal_execution_receipt=args.pre_seal_execution_receipt,
+                admission_receipt=args.admission_receipt,
+                materialization_receipt=args.materialization_receipt,
+                authentication_receipt=args.authentication_receipt,
+                candidates=args.candidates,
                 repository=args.repository_root,
                 transaction_receipt=args.transaction_receipt,
                 source_execution_receipt=args.source_execution_receipt,

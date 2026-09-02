@@ -70,17 +70,6 @@ ALL_ROLES_SCOPE = "all-admitted-evidence-roles"
 BOOTSTRAP_ANNOTATIONS = ("bootstrapSchema", "bootstrapVerifier", "bootstrapVerifierSha256")
 BOOTSTRAP_FLAG = "bootstrapAuthenticated"
 
-CLAIM_BOUNDARY = (
-    "Pre-seal closure for one synthetic successor packet at exact sixteen of sixteen. It binds "
-    "the authenticated named-human decisions, the final stage-record identity root, the complete "
-    "admission root and the re-measured pre-seal evidence manifest of an unsealed packet. It "
-    "asserts nothing about a sealed run, public disposition, sealed manifest or detached "
-    "verification, seals nothing, records nothing, qualifies no physical estate, representative "
-    "operator, field network, operational C2 or production Lattice, and grants no mission, "
-    "command, targeting, engagement, effector or weapons authority."
-)
-
-
 class PreSealClosureError(RuntimeError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -217,6 +206,35 @@ def read_json_file(path: Path, *, code: str, label: str) -> Mapping[str, Any]:
         raise
     require(isinstance(value, Mapping), code, f"{label} must be a JSON object")
     return value
+
+
+def require_exact_stage_evidence_directory(
+    *, packet: Path, evidence_directory: str, expected_coordinates: set[str], stage: str
+) -> None:
+    """Close the actual stage directory, including entry names and entry types."""
+    directory = validate_lexical_coordinate(
+        packet / evidence_directory,
+        label=f"{stage} evidence directory",
+        code="PACKET_EVIDENCE_TREE_INVALID",
+    )
+    require(
+        is_within(directory, packet) and directory.is_dir(),
+        "PACKET_EVIDENCE_TREE_INVALID",
+        f"{stage} evidence directory is absent or escapes the packet",
+    )
+    entries = list(directory.iterdir())
+    observed = {f"{evidence_directory}/{entry.name}" for entry in entries}
+    require(
+        observed == expected_coordinates,
+        "PACKET_EVIDENCE_TREE_INVALID",
+        f"{stage} actual evidence entry denominator differs from the recorded materialized set",
+    )
+    for entry in entries:
+        require(
+            not coordinate_component_is_link(entry) and entry.is_file(),
+            "PACKET_EVIDENCE_TREE_INVALID",
+            f"{stage} evidence entry is not one regular non-link file: {entry.name}",
+        )
 
 
 def load_profiles(profile_path: Path, repository: Path) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
@@ -463,6 +481,7 @@ def close_pre_seal(
     candidates: Path,
     profile_path: Path,
     repository: Path,
+    replay_sealed_predecessor: bool = False,
 ) -> dict[str, Any]:
     require_supported_python()
     packet = validate_lexical_coordinate(packet, label="packet root", code="PACKET_ROOT_INVALID")
@@ -503,9 +522,14 @@ def close_pre_seal(
 
     # ---- unsealed, and no sealed root exists ---------------------------------------
     require(
-        state["sealed"] is False and state["sealedDispositionId"] is None,
+        (state["sealed"] is False and state["sealedDispositionId"] is None)
+        or (
+            replay_sealed_predecessor
+            and state["sealed"] is True
+            and isinstance(state["sealedDispositionId"], str)
+        ),
         "PACKET_ALREADY_SEALED",
-        "a sealed packet cannot receive a pre-seal closure",
+        "a sealed packet cannot receive a pre-seal closure outside authenticated seal recovery",
     )
     require(
         state["completedStageCount"] == profile["denominator"]["stageDenominator"]
@@ -825,6 +849,12 @@ def close_pre_seal(
             expected_coordinates[role_row["packetDestination"]] = (role_row, False)
             if role_row["instrumentReceiptDestination"] is not None:
                 expected_coordinates[role_row["instrumentReceiptDestination"]] = (role_row, True)
+        require_exact_stage_evidence_directory(
+            packet=packet,
+            evidence_directory=row["evidenceDirectory"],
+            expected_coordinates=set(expected_coordinates),
+            stage=stage,
+        )
         require(
             {row["relativePath"] for row in record["evidenceFiles"]} == set(expected_coordinates)
             and len(record["evidenceFiles"]) == len(expected_coordinates),
@@ -990,7 +1020,7 @@ def close_pre_seal(
         "successorSourceSetId": contract["successorSourceSetId"],
         "unsealed": True,
         "authority": AUTHORITY,
-        "claimBoundary": CLAIM_BOUNDARY,
+        "claimBoundary": closure_law["claimBoundary"],
     }
     closure = {**body, closure_law["idKey"]: content_id(closure_law["idPrefix"], body)}
     exact_keys(closure, closure_law["keys"], "PRE_SEAL_CLOSURE_INVALID", "pre-seal closure")

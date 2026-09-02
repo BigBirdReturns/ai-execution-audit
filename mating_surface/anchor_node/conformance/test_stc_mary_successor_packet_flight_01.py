@@ -668,17 +668,27 @@ class SuccessorFlightWalk:
         self.recording_execution_receipt_path = recording_execution_path
         self.recording_execution_receipt = load_json(recording_execution_path)
         self.orchestration_receipt = load_json(orchestration_path)
-        self.pre_seal_closure = pre_seal.close_pre_seal(
-            packet=self.packet,
-            admission_receipt=self.receipts / "admission-admissible.json",
-            materialization_receipt=self.materialization_path,
-            authentication_receipt=self.authentication_path,
-            candidates=self.candidates,
-            profile_path=PROFILE,
-            repository=self.source_repository,
-        )
         self.pre_seal_path = self.receipts / "pre-seal-closure.json"
-        law.write_canonical_json(self.pre_seal_path, self.pre_seal_closure)
+        self.pre_seal_execution_receipt_path = self.receipts / "close-pre-seal-execution.json"
+        execution_bootstrap.execute(
+            role="close-pre-seal",
+            execution_receipt=self.pre_seal_execution_receipt_path,
+            packet=self.packet,
+            repository=None,
+            source_admission_receipt=None,
+            module_args=[
+                "--packet", str(self.packet),
+                "--admission-receipt", str(self.receipts / "admission-admissible.json"),
+                "--materialization-receipt", str(self.materialization_path),
+                "--authentication-receipt", str(self.authentication_path),
+                "--candidates", str(self.candidates),
+                "--profile", "@profile",
+                "--repository-root", str(self.source_repository),
+                "--out", str(self.pre_seal_path),
+            ],
+        )
+        self.pre_seal_execution_receipt = load_json(self.pre_seal_execution_receipt_path)
+        self.pre_seal_closure = load_json(self.pre_seal_path)
 
         # The estate is copied here, at the one moment it is closed but unsealed, so the
         # hostile witnesses can attack that state without paying for a second traversal.
@@ -698,6 +708,11 @@ class SuccessorFlightWalk:
                 "--packet", str(self.packet),
                 "--sealed", str(self.sealed),
                 "--pre-seal-closure", str(self.pre_seal_path),
+                "--pre-seal-execution-receipt", str(self.pre_seal_execution_receipt_path),
+                "--admission-receipt", str(self.receipts / "admission-admissible.json"),
+                "--materialization-receipt", str(self.materialization_path),
+                "--authentication-receipt", str(self.authentication_path),
+                "--candidates", str(self.candidates),
                 "--repository-root", str(self.source_repository),
                 "--out", str(seal_receipt_path),
             ],
@@ -708,6 +723,11 @@ class SuccessorFlightWalk:
             packet=self.packet,
             sealed=self.sealed,
             pre_seal_closure=self.pre_seal_path,
+            pre_seal_execution_receipt=self.pre_seal_execution_receipt_path,
+            admission_receipt=self.receipts / "admission-admissible.json",
+            materialization_receipt=self.materialization_path,
+            authentication_receipt=self.authentication_path,
+            candidates=self.candidates,
             repository=self.source_repository,
             source_execution_receipt=seal_execution_path,
         )
@@ -721,6 +741,11 @@ class SuccessorFlightWalk:
             packet=self.packet,
             sealed=self.sealed,
             pre_seal_closure=self.pre_seal_path,
+            pre_seal_execution_receipt=self.pre_seal_execution_receipt_path,
+            admission_receipt=self.receipts / "admission-admissible.json",
+            materialization_receipt=self.materialization_path,
+            authentication_receipt=self.authentication_path,
+            candidates=self.candidates,
             detached_verification=self.detached_path,
             profile_path=PROFILE,
             repository=self.source_repository,
@@ -748,6 +773,18 @@ def shared_walk() -> SuccessorFlightWalk:
         atexit.register(shutil.rmtree, root, ignore_errors=True)
         _SHARED_WALK = SuccessorFlightWalk(root / "estate").walk()
     return _SHARED_WALK
+
+
+def closure_replay_arguments(estate: Path) -> dict[str, Path]:
+    """Coordinates sealing must replay and the measured closure receipt must bind."""
+    receipts = estate / "receipts"
+    return {
+        "pre_seal_execution_receipt": receipts / "close-pre-seal-execution.json",
+        "admission_receipt": receipts / "admission-admissible.json",
+        "materialization_receipt": receipts / "evidence-materialization.json",
+        "authentication_receipt": receipts / "authentication.json",
+        "candidates": estate / "admission",
+    }
 
 
 class LegalOrderTraversal(unittest.TestCase):
@@ -1335,6 +1372,11 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
             packet=estate / "campaign" / "stc-mary-private-flight-successor",
             sealed=estate / "campaign" / "stc-mary-private-flight-sealed-witness",
             pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+            pre_seal_execution_receipt=estate / "receipts" / "close-pre-seal-execution.json",
+            admission_receipt=estate / "receipts" / "admission-admissible.json",
+            materialization_receipt=estate / "receipts" / "evidence-materialization.json",
+            authentication_receipt=estate / "receipts" / "authentication.json",
+            candidates=estate / "admission",
             detached_verification=estate / "receipts" / "detached-verification.json",
             profile_path=PROFILE,
             repository=REPOSITORY_ROOT,
@@ -1420,11 +1462,224 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
         )
         return sealed, packet
 
+    def rewrite_closure_and_producer(self, estate: Path, mutate) -> tuple[Path, Path]:
+        """Forge both self-consistent objects so deterministic replay must cause refusal."""
+        closure_path = estate / "receipts" / "pre-seal-closure.json"
+        closure_law = self.walk.profile["preSealClosure"]
+        closure = load_json(closure_path)
+        closure.pop(closure_law["idKey"], None)
+        mutate(closure)
+        closure = sign(closure, closure_law["idKey"], closure_law["idPrefix"])
+        law.write_canonical_json(closure_path, closure)
+        data = closure_path.read_bytes()
+
+        receipt_path = estate / "receipts" / "close-pre-seal-execution.json"
+        custody = self.walk.profile["executionCustody"]
+        receipt = load_json(receipt_path)
+        receipt.pop(custody["idKey"], None)
+        receipt.update(
+            {
+                "outputArtifactId": closure[closure_law["idKey"]],
+                "outputArtifactSha256": law.sha256_bytes(data),
+                "outputArtifactBytes": len(data),
+            }
+        )
+        law.write_canonical_json(receipt_path, sign(receipt, custody["idKey"], custody["idPrefix"]))
+        return closure_path, receipt_path
+
+    def rewrite_sealed_flight(
+        self,
+        estate: Path,
+        *,
+        mutate_run=lambda body: None,
+        mutate_disposition=lambda body: None,
+        mutate_marker=lambda body: None,
+        mutate_verification=lambda body: None,
+        mutate_manifest=lambda body: None,
+    ) -> tuple[Path, Path]:
+        """Re-sign and re-manifest a hostile sealed flight through every dependent identity."""
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        seal_law = self.walk.profile["seal"]
+        packet_law = self.walk.profile["packet"]
+
+        def rewrite(path: Path, id_key: str, prefix: str, change) -> dict:
+            body = load_json(path)
+            body.pop(id_key, None)
+            change(body)
+            value = sign(body, id_key, prefix)
+            law.write_canonical_json(path, value)
+            return value
+
+        run = rewrite(
+            sealed / seal_law["files"]["run"], seal_law["runIdKey"], seal_law["runIdPrefix"], mutate_run
+        )
+
+        def change_disposition(body: dict) -> None:
+            body.update(
+                {
+                    "runId": run[seal_law["runIdKey"]],
+                    "packetId": run["packetId"],
+                    "campaignLabel": run["campaignLabel"],
+                    "stageCount": run["stageCount"],
+                    "successfulStageCount": run["successfulStageCount"],
+                    "humanRequiredStageCount": run["humanRequiredStageCount"],
+                }
+            )
+            mutate_disposition(body)
+
+        disposition = rewrite(
+            sealed / seal_law["files"]["disposition"],
+            seal_law["dispositionIdKey"],
+            seal_law["dispositionIdPrefix"],
+            change_disposition,
+        )
+
+        def change_marker(body: dict) -> None:
+            body.update(
+                {
+                    "packetId": run["packetId"],
+                    "runId": run[seal_law["runIdKey"]],
+                    "dispositionId": disposition[seal_law["dispositionIdKey"]],
+                }
+            )
+            mutate_marker(body)
+
+        rewrite(
+            sealed / seal_law["files"]["marker"],
+            seal_law["markerIdKey"],
+            seal_law["markerIdPrefix"],
+            change_marker,
+        )
+
+        def change_verification(body: dict) -> None:
+            body.update(
+                {
+                    "packetId": run["packetId"],
+                    "runId": run[seal_law["runIdKey"]],
+                    "dispositionId": disposition[seal_law["dispositionIdKey"]],
+                    "stageCount": run["stageCount"],
+                    "privatePhysicalEvidenceBodyCount": run["privatePhysicalEvidenceBodyCount"],
+                }
+            )
+            mutate_verification(body)
+
+        verification = rewrite(
+            sealed / seal_law["files"]["verification"],
+            seal_law["verificationIdKey"],
+            seal_law["verificationIdPrefix"],
+            change_verification,
+        )
+        law.write_canonical_json(estate / "receipts" / "detached-verification.json", verification)
+
+        def change_manifest(body: dict) -> None:
+            body["runId"] = run[seal_law["runIdKey"]]
+            body["dispositionId"] = disposition[seal_law["dispositionIdKey"]]
+            body["files"] = [
+                {
+                    "path": name,
+                    "bytes": len((sealed / name).read_bytes()),
+                    "sha256": law.sha256_bytes((sealed / name).read_bytes()),
+                }
+                for name in seal_law["manifestFiles"]
+            ]
+            body["fileCount"] = len(body["files"])
+            mutate_manifest(body)
+
+        manifest = rewrite(
+            sealed / seal_law["files"]["manifest"],
+            seal_law["manifestIdKey"],
+            seal_law["manifestIdPrefix"],
+            change_manifest,
+        )
+        state = rewrite(
+            packet / packet_law["files"]["state"],
+            packet_law["stateIdKey"],
+            packet_law["stateIdPrefix"],
+            lambda body: body.update({"sealedDispositionId": disposition[seal_law["dispositionIdKey"]]}),
+        )
+        transaction_path = sealed.parent / f".{sealed.name}.seal-transaction.json"
+
+        def change_transaction(body: dict) -> None:
+            body.update(
+                {
+                    "status": "sealed_state_promoted",
+                    "proposedSealedStateId": state[packet_law["stateIdKey"]],
+                    "runId": run[seal_law["runIdKey"]],
+                    "dispositionId": disposition[seal_law["dispositionIdKey"]],
+                    "manifestId": manifest[seal_law["manifestIdKey"]],
+                    "postSealClosureId": None,
+                }
+            )
+
+        rewrite(
+            transaction_path,
+            seal_law["transaction"]["idKey"],
+            seal_law["transaction"]["idPrefix"],
+            change_transaction,
+        )
+        return sealed, packet
+
+    def seal_estate(self, estate: Path, *, name: str = "stc-mary-private-flight-sealed-hostile") -> dict:
+        return seal_adapter.seal_packet(
+            packet=estate / "campaign" / "stc-mary-private-flight-successor",
+            sealed=estate / "campaign" / name,
+            pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+            **closure_replay_arguments(estate),
+            repository=REPOSITORY_ROOT,
+            source_execution_receipt=self.walk.seal_execution_receipt_path,
+        )
+
     def create_symbolic_link(self, link: Path, target: Path) -> bool:
         try:
             link.symlink_to(target, target_is_directory=target.is_dir())
         except (NotImplementedError, OSError):
             return False
+        return True
+
+    def create_junction(self, link: Path, target: Path) -> bool:
+        if os.name != "nt":
+            return False
+        completed = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return completed.returncode == 0 and link.exists()
+
+    def mutate_packet_evidence_tree(self, estate: Path, attack: str) -> bool:
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        profile = self.walk.profile
+        state = load_json(packet / profile["packet"]["files"]["state"])
+        state_row = state["stages"][0]
+        directory = packet / state_row["evidenceDirectory"]
+        record = load_json(packet / Path(state_row["draftPath"]).parent / profile["packet"]["stageRecord"]["fileName"])
+        required = packet / record["evidenceFiles"][0]["relativePath"]
+        if attack == "extra-file":
+            (directory / "unrecorded.json").write_bytes(b"{}\n")
+        elif attack == "extra-directory":
+            (directory / "unrecorded-directory").mkdir()
+        elif attack == "extra-symlink":
+            return self.create_symbolic_link(directory / "unrecorded-link.json", required)
+        elif attack == "extra-junction":
+            target = estate.parent / "junction-target"
+            target.mkdir(exist_ok=True)
+            return self.create_junction(directory / "unrecorded-junction", target)
+        elif attack == "missing-file":
+            required.unlink()
+        elif attack == "file-as-directory":
+            required.unlink()
+            required.mkdir()
+        elif attack == "file-as-symlink":
+            target = estate.parent / "required-link-target.json"
+            shutil.copyfile(required, target)
+            required.unlink()
+            if not self.create_symbolic_link(required, target):
+                shutil.copyfile(target, required)
+                return False
+        else:  # pragma: no cover - the hostile attack denominator is closed here
+            raise AssertionError(attack)
         return True
 
     # -- the authenticated denominator --------------------------------------------
@@ -1487,6 +1742,101 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
             runtime.verify_evidence_custody(packet=packet, records=records)
         self.assertEqual(caught.exception.code, "STAGE_EVIDENCE_DRIFT")
 
+    def test_actual_packet_evidence_tree_substitutions_refuse_pre_seal(self) -> None:
+        attacks = (
+            "extra-file", "extra-directory", "extra-symlink", "extra-junction",
+            "missing-file", "file-as-directory", "file-as-symlink",
+        )
+        for attack in attacks:
+            with self.subTest(attack=attack):
+                estate = self.copy_pre_seal_estate()
+                if not self.mutate_packet_evidence_tree(estate, attack):
+                    continue
+                with self.assertRaises(pre_seal.PreSealClosureError) as caught:
+                    self.close_pre_seal(estate)
+                self.assertIn(
+                    caught.exception.code,
+                    {"PACKET_EVIDENCE_TREE_INVALID", "EVIDENCE_BODY_SUBSTITUTED", "EVIDENCE_DESTINATION_INVALID"},
+                )
+
+    def test_actual_packet_evidence_tree_substitutions_after_closure_refuse_sealing(self) -> None:
+        attacks = (
+            "extra-file", "extra-directory", "extra-symlink", "extra-junction",
+            "missing-file", "file-as-directory", "file-as-symlink",
+        )
+        for attack in attacks:
+            with self.subTest(attack=attack):
+                estate = self.copy_pre_seal_estate()
+                if not self.mutate_packet_evidence_tree(estate, attack):
+                    continue
+                with self.assertRaises(law.SuccessorFlightError) as caught:
+                    self.seal_estate(estate)
+                self.assertIn(
+                    caught.exception.code,
+                    {"PACKET_EVIDENCE_TREE_INVALID", "EVIDENCE_BODY_SUBSTITUTED", "EVIDENCE_DESTINATION_INVALID"},
+                )
+
+    def test_actual_packet_evidence_tree_substitutions_refuse_post_seal(self) -> None:
+        attacks = (
+            "extra-file", "extra-directory", "extra-symlink", "extra-junction",
+            "missing-file", "file-as-directory", "file-as-symlink",
+        )
+        for attack in attacks:
+            with self.subTest(attack=attack):
+                estate = self.copy_sealed_estate()
+                if not self.mutate_packet_evidence_tree(estate, attack):
+                    continue
+                with self.assertRaises(post_seal.PostSealClosureError) as caught:
+                    self.close_post_seal(estate)
+                self.assertIn(
+                    caught.exception.code,
+                    {"PACKET_EVIDENCE_TREE_INVALID", "EVIDENCE_BODY_SUBSTITUTED", "EVIDENCE_DESTINATION_INVALID"},
+                )
+
+    def test_forged_closure_roots_with_forged_producer_binding_refuse_replay(self) -> None:
+        fields = (
+            "stageRecordIdentityRoot",
+            "preSealEvidenceManifestRoot",
+            "evidenceAdmissionDigestRoot",
+            "authenticationVerificationId",
+            "materializationReceiptId",
+        )
+        for field in fields:
+            with self.subTest(field=field):
+                estate = self.copy_pre_seal_estate()
+                self.rewrite_closure_and_producer(
+                    estate, lambda body, key=field: body.update({key: cid("forgedclosurebinding1", {"field": key})})
+                )
+                with self.assertRaises(law.SuccessorFlightError) as caught:
+                    self.seal_estate(estate)
+                self.assertEqual(caught.exception.code, "PRE_SEAL_CLOSURE_REPLAY_MISMATCH")
+
+    def test_forged_closure_producer_digest_refuses_before_sealing(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        path = estate / "receipts" / "close-pre-seal-execution.json"
+        custody = self.walk.profile["executionCustody"]
+        receipt = load_json(path)
+        receipt.pop(custody["idKey"], None)
+        receipt["outputArtifactSha256"] = sha256_text("another closure")
+        law.write_canonical_json(path, sign(receipt, custody["idKey"], custody["idPrefix"]))
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            self.seal_estate(estate)
+        self.assertEqual(caught.exception.code, "PRE_SEAL_CLOSURE_OUTPUT_BINDING_INVALID")
+
+    def test_closure_reuse_against_another_packet_or_source_set_refuses(self) -> None:
+        substitutions = {
+            "packetId": cid("stcmaryprivateflightpacket1", {"foreign": True}),
+            "successorSourceSetId": cid("stcmarysuccessorsourceset1", {"foreign": True}),
+        }
+        for field, value in substitutions.items():
+            with self.subTest(field=field):
+                estate = self.copy_pre_seal_estate()
+                self.rewrite_closure_and_producer(
+                    estate, lambda body, key=field, replacement=value: body.update({key: replacement})
+                )
+                with self.assertRaises(law.SuccessorFlightError):
+                    self.seal_estate(estate)
+
     # -- sealing --------------------------------------------------------------------
     def test_sealing_without_a_pre_seal_closure_refuses(self) -> None:
         estate = self.copy_pre_seal_estate()
@@ -1495,6 +1845,7 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 packet=estate / "campaign" / "stc-mary-private-flight-successor",
                 sealed=estate / "campaign" / "stc-mary-private-flight-sealed-unclosed",
                 pre_seal_closure=estate / "receipts" / "absent-closure.json",
+                **closure_replay_arguments(estate),
                 repository=REPOSITORY_ROOT,
                 source_execution_receipt=self.walk.seal_execution_receipt_path,
             )
@@ -1513,6 +1864,7 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 packet=estate / "campaign" / "stc-mary-private-flight-successor",
                 sealed=estate / "campaign" / "stc-mary-private-flight-sealed-foreign",
                 pre_seal_closure=path,
+                **closure_replay_arguments(estate),
                 repository=REPOSITORY_ROOT,
                 source_execution_receipt=self.walk.seal_execution_receipt_path,
             )
@@ -1525,6 +1877,7 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 packet=estate / "campaign" / "stc-mary-private-flight-successor",
                 sealed=estate / "campaign" / "arbitrary-output",
                 pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                **closure_replay_arguments(estate),
                 repository=REPOSITORY_ROOT,
                 source_execution_receipt=self.walk.seal_execution_receipt_path,
             )
@@ -1540,6 +1893,7 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 packet=packet,
                 sealed=sealed,
                 pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                **closure_replay_arguments(estate),
                 repository=REPOSITORY_ROOT,
                 transaction_receipt=transaction,
                 source_execution_receipt=self.walk.seal_execution_receipt_path,
@@ -1561,6 +1915,7 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 packet=packet,
                 sealed=sealed,
                 pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                **closure_replay_arguments(estate),
                 repository=REPOSITORY_ROOT,
                 transaction_receipt=transaction,
                 source_execution_receipt=self.walk.seal_execution_receipt_path,
@@ -1735,6 +2090,11 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 packet=packet,
                 sealed=estate / "campaign" / "stc-mary-private-flight-sealed-witness",
                 pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                pre_seal_execution_receipt=estate / "receipts" / "close-pre-seal-execution.json",
+                admission_receipt=estate / "receipts" / "admission-admissible.json",
+                materialization_receipt=estate / "receipts" / "evidence-materialization.json",
+                authentication_receipt=estate / "receipts" / "authentication.json",
+                candidates=estate / "admission",
                 detached_verification=estate / "receipts" / "detached-verification.json",
                 profile_path=PROFILE,
                 repository=REPOSITORY_ROOT,
@@ -1753,6 +2113,11 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 packet=packet,
                 sealed=sealed,
                 pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                pre_seal_execution_receipt=estate / "receipts" / "close-pre-seal-execution.json",
+                admission_receipt=estate / "receipts" / "admission-admissible.json",
+                materialization_receipt=estate / "receipts" / "evidence-materialization.json",
+                authentication_receipt=estate / "receipts" / "authentication.json",
+                candidates=estate / "admission",
                 detached_verification=estate / "receipts" / "detached-verification.json",
                 profile_path=PROFILE,
                 repository=REPOSITORY_ROOT,
@@ -1772,6 +2137,11 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 packet=packet,
                 sealed=sealed,
                 pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                pre_seal_execution_receipt=estate / "receipts" / "close-pre-seal-execution.json",
+                admission_receipt=estate / "receipts" / "admission-admissible.json",
+                materialization_receipt=estate / "receipts" / "evidence-materialization.json",
+                authentication_receipt=estate / "receipts" / "authentication.json",
+                candidates=estate / "admission",
                 detached_verification=estate / "receipts" / "detached-verification.json",
                 profile_path=PROFILE,
                 repository=REPOSITORY_ROOT,
@@ -1792,11 +2162,98 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 packet=estate / "campaign" / "stc-mary-private-flight-successor",
                 sealed=estate / "campaign" / "stc-mary-private-flight-sealed-witness",
                 pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                pre_seal_execution_receipt=estate / "receipts" / "close-pre-seal-execution.json",
+                admission_receipt=estate / "receipts" / "admission-admissible.json",
+                materialization_receipt=estate / "receipts" / "evidence-materialization.json",
+                authentication_receipt=estate / "receipts" / "authentication.json",
+                candidates=estate / "admission",
                 detached_verification=path,
                 profile_path=PROFILE,
                 repository=REPOSITORY_ROOT,
             )
         self.assertEqual(caught.exception.code, "DETACHED_VERIFICATION_MISMATCH")
+
+    def test_twin_forged_verification_copies_refuse_deterministic_post_seal_replay(self) -> None:
+        estate = self.copy_sealed_estate()
+        self.rewrite_sealed_flight(
+            estate, mutate_verification=lambda body: body.update({"bodyFreePublicDisposition": False})
+        )
+        with self.assertRaises(post_seal.PostSealClosureError) as caught:
+            self.close_post_seal(estate)
+        self.assertEqual(caught.exception.code, "DETACHED_VERIFICATION_MISMATCH")
+
+    def test_self_consistently_altered_sealed_runs_refuse_packet_reconstruction(self) -> None:
+        attacks = {
+            "canonical": lambda body: body.update({"canonicalMissionStateDigest": sha256_text("foreign canonical")}),
+            "stage-count": lambda body: body.update({"stageCount": body["stageCount"] + 1}),
+            "successful-count": lambda body: body.update({"successfulStageCount": body["successfulStageCount"] - 1}),
+            "human-count": lambda body: body.update({"humanRequiredStageCount": body["humanRequiredStageCount"] + 1}),
+            "body-count": lambda body: body.update({"privatePhysicalEvidenceBodyCount": body["privatePhysicalEvidenceBodyCount"] + 1}),
+        }
+        for name, mutate in attacks.items():
+            with self.subTest(name=name):
+                estate = self.copy_sealed_estate()
+                self.rewrite_sealed_flight(estate, mutate_run=mutate)
+                with self.assertRaises(post_seal.PostSealClosureError) as caught:
+                    self.close_post_seal(estate)
+                self.assertEqual(caught.exception.code, "SEALED_RUN_REPLAY_MISMATCH")
+
+    def test_widened_marker_and_manifest_semantics_refuse_reconstruction(self) -> None:
+        attacks = (
+            ("marker-public-count", {"mutate_marker": lambda body: body.update({"publicEvidenceBodyCount": 1})}),
+            ("marker-authority", {"mutate_marker": lambda body: body.update({"authority": "mission"})}),
+            ("manifest-public-count", {"mutate_manifest": lambda body: body.update({"publicEvidenceBodyCount": 1})}),
+            ("manifest-authority", {"mutate_manifest": lambda body: body.update({"authority": "mission"})}),
+        )
+        for name, changes in attacks:
+            with self.subTest(name=name):
+                estate = self.copy_sealed_estate()
+                self.rewrite_sealed_flight(estate, **changes)
+                with self.assertRaises(post_seal.PostSealClosureError):
+                    self.close_post_seal(estate)
+
+    def test_every_sealed_claim_boundary_drift_refuses_reconstruction(self) -> None:
+        attacks = (
+            {"mutate_run": lambda body: body.update({"claimBoundary": "drifted run claim"})},
+            {"mutate_disposition": lambda body: body.update({"claimBoundary": "drifted disposition claim"})},
+            {"mutate_marker": lambda body: body.update({"claimBoundary": "drifted marker claim"})},
+            {"mutate_verification": lambda body: body.update({"claimBoundary": "drifted verification claim"})},
+            {"mutate_manifest": lambda body: body.update({"claimBoundary": "drifted manifest claim"})},
+        )
+        for index, changes in enumerate(attacks, start=1):
+            with self.subTest(object=index):
+                estate = self.copy_sealed_estate()
+                self.rewrite_sealed_flight(estate, **changes)
+                with self.assertRaises(post_seal.PostSealClosureError):
+                    self.close_post_seal(estate)
+
+    def test_every_sealed_authority_widening_refuses_reconstruction(self) -> None:
+        attacks = (
+            {"mutate_run": lambda body: body.update({"authority": "mission"})},
+            {"mutate_disposition": lambda body: body.update({"authority": "mission"})},
+            {"mutate_marker": lambda body: body.update({"authority": "mission"})},
+            {"mutate_verification": lambda body: body.update({"authority": "mission"})},
+            {"mutate_manifest": lambda body: body.update({"authority": "mission"})},
+        )
+        for index, changes in enumerate(attacks, start=1):
+            with self.subTest(object=index):
+                estate = self.copy_sealed_estate()
+                self.rewrite_sealed_flight(estate, **changes)
+                with self.assertRaises(post_seal.PostSealClosureError):
+                    self.close_post_seal(estate)
+
+    def test_self_consistent_sealed_count_substitutions_refuse_reconstruction(self) -> None:
+        attacks = (
+            {"mutate_verification": lambda body: body.update({"fileCount": body["fileCount"] + 1})},
+            {"mutate_manifest": lambda body: body.update({"fileCount": body["fileCount"] + 1})},
+            {"mutate_marker": lambda body: body.update({"publicEvidenceBodyCount": 1})},
+        )
+        for index, changes in enumerate(attacks, start=1):
+            with self.subTest(object=index):
+                estate = self.copy_sealed_estate()
+                self.rewrite_sealed_flight(estate, **changes)
+                with self.assertRaises(post_seal.PostSealClosureError):
+                    self.close_post_seal(estate)
 
     def test_each_self_consistent_stronger_qualification_refuses_detached_and_post_seal(self) -> None:
         for field in self.walk.profile["postSealClosure"]["strongerQualifications"]:
@@ -2391,23 +2848,32 @@ class VerifiedPrefixRestartWitnesses(unittest.TestCase):
         estate, _ = self.resume_recording(after_stage=15)
         packet = estate / "campaign" / "stc-mary-private-flight-successor"
         receipts = estate / "receipts"
-        closure = pre_seal.close_pre_seal(
-            packet=packet,
-            admission_receipt=receipts / "admission-admissible.json",
-            materialization_receipt=receipts / "evidence-materialization.json",
-            authentication_receipt=receipts / "authentication.json",
-            candidates=estate / "admission",
-            profile_path=PROFILE,
-            repository=REPOSITORY_ROOT,
-        )
-        self.assertEqual(closure, self.walk.pre_seal_closure)
         closure_path = receipts / "pre-seal-closure.json"
-        law.write_canonical_json(closure_path, closure)
+        closure_execution_path = receipts / "close-pre-seal-execution.json"
+        execution_bootstrap.execute(
+            role="close-pre-seal",
+            execution_receipt=closure_execution_path,
+            packet=packet,
+            repository=None,
+            source_admission_receipt=None,
+            module_args=[
+                "--packet", str(packet),
+                "--admission-receipt", str(receipts / "admission-admissible.json"),
+                "--materialization-receipt", str(receipts / "evidence-materialization.json"),
+                "--authentication-receipt", str(receipts / "authentication.json"),
+                "--candidates", str(estate / "admission"),
+                "--profile", "@profile",
+                "--repository-root", str(REPOSITORY_ROOT),
+                "--out", str(closure_path),
+            ],
+        )
+        self.assertEqual(load_json(closure_path), self.walk.pre_seal_closure)
         sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
         seal_adapter.seal_packet(
             packet=packet,
             sealed=sealed,
             pre_seal_closure=closure_path,
+            **closure_replay_arguments(estate),
             repository=REPOSITORY_ROOT,
             source_execution_receipt=self.walk.seal_execution_receipt_path,
         )
@@ -2418,6 +2884,11 @@ class VerifiedPrefixRestartWitnesses(unittest.TestCase):
             packet=packet,
             sealed=sealed,
             pre_seal_closure=closure_path,
+            pre_seal_execution_receipt=estate / "receipts" / "close-pre-seal-execution.json",
+            admission_receipt=estate / "receipts" / "admission-admissible.json",
+            materialization_receipt=estate / "receipts" / "evidence-materialization.json",
+            authentication_receipt=estate / "receipts" / "authentication.json",
+            candidates=estate / "admission",
             detached_verification=detached_path,
             profile_path=PROFILE,
             repository=REPOSITORY_ROOT,
@@ -2452,6 +2923,7 @@ class AtomicSealRestartWitnesses(unittest.TestCase):
             "packet": estate / "campaign" / "stc-mary-private-flight-successor",
             "sealed": sealed,
             "pre_seal_closure": estate / "receipts" / "pre-seal-closure.json",
+            **closure_replay_arguments(estate),
             "repository": REPOSITORY_ROOT,
             "transaction_receipt": transaction,
             "source_execution_receipt": self.walk.seal_execution_receipt_path,
@@ -2518,6 +2990,11 @@ class AtomicSealRestartWitnesses(unittest.TestCase):
             packet=arguments["packet"],
             sealed=arguments["sealed"],
             pre_seal_closure=arguments["pre_seal_closure"],
+            pre_seal_execution_receipt=arguments["pre_seal_execution_receipt"],
+            admission_receipt=arguments["admission_receipt"],
+            materialization_receipt=arguments["materialization_receipt"],
+            authentication_receipt=arguments["authentication_receipt"],
+            candidates=arguments["candidates"],
             detached_verification=detached_path,
             profile_path=PROFILE,
             repository=REPOSITORY_ROOT,
@@ -2922,6 +3399,11 @@ class FinalExecutionReceiptWitnesses(unittest.TestCase):
         run("close-post-seal", self.walk.packet, [
             "--packet", str(self.walk.packet), "--sealed", str(self.walk.sealed),
             "--pre-seal-closure", str(self.walk.pre_seal_path),
+            "--pre-seal-execution-receipt", str(root / "close-pre-seal.json"),
+            "--admission-receipt", str(self.walk.receipts / "admission-admissible.json"),
+            "--materialization-receipt", str(self.walk.materialization_path),
+            "--authentication-receipt", str(self.walk.authentication_path),
+            "--candidates", str(self.walk.candidates),
             "--detached-verification", str(self.walk.detached_path),
             "--profile", "@profile", "--repository-root", str(REPOSITORY_ROOT),
             "--out", str(root / "post-seal.json"),
@@ -3195,12 +3677,17 @@ class PowerShellOperatorEntrypointWitnesses(unittest.TestCase):
                 "-AuthenticationReceipt", value, "-Candidates", value, "-Out", value,
             ],
             "seal-or-resume": [
-                "-Packet", value, "-Sealed", value, "-PreSealClosure", value, "-Out", value,
+                "-Packet", value, "-Sealed", value, "-PreSealClosure", value,
+                "-PreSealExecutionReceipt", value, "-AdmissionReceipt", value,
+                "-MaterializationReceipt", value, "-AuthenticationReceipt", value,
+                "-Candidates", value, "-Out", value,
             ],
             "verify-detached": ["-Packet", value, "-Sealed", value, "-Out", value],
             "close-post-seal": [
                 "-Packet", value, "-Sealed", value, "-PreSealClosure", value,
-                "-DetachedVerification", value, "-Out", value,
+                "-PreSealExecutionReceipt", value, "-AdmissionReceipt", value,
+                "-MaterializationReceipt", value, "-AuthenticationReceipt", value,
+                "-Candidates", value, "-DetachedVerification", value, "-Out", value,
             ],
             "status": ["-Packet", value],
         }
@@ -3313,6 +3800,11 @@ class PowerShellOperatorEntrypointWitnesses(unittest.TestCase):
                 "-Candidates", str(sealing_estate / "admission"), "-Out", str(pre_seal_path),
             ],
         )
+        pre_seal_execution_path = self.root / "execution-receipts" / "close-pre-seal.json"
+        pre_seal_bytes = pre_seal_path.read_bytes()
+        self.assertEqual(receipts["close-pre-seal"]["outputArtifactId"], load_json(pre_seal_path)["preSealClosureId"])
+        self.assertEqual(receipts["close-pre-seal"]["outputArtifactSha256"], law.sha256_bytes(pre_seal_bytes))
+        self.assertEqual(receipts["close-pre-seal"]["outputArtifactBytes"], len(pre_seal_bytes))
         sealed = self.root / "stc-mary-private-flight-sealed-ps-witness"
         seal_transaction = sealing_receipts / "ps-seal-transaction.json"
         receipts["seal-or-resume"] = self.require_success(
@@ -3320,6 +3812,11 @@ class PowerShellOperatorEntrypointWitnesses(unittest.TestCase):
             [
                 "-Packet", str(sealing_packet), "-Sealed", str(sealed),
                 "-PreSealClosure", str(pre_seal_path),
+                "-PreSealExecutionReceipt", str(pre_seal_execution_path),
+                "-AdmissionReceipt", str(sealing_receipts / "admission-admissible.json"),
+                "-MaterializationReceipt", str(sealing_receipts / "evidence-materialization.json"),
+                "-AuthenticationReceipt", str(sealing_receipts / "authentication.json"),
+                "-Candidates", str(sealing_estate / "admission"),
                 "-SealTransactionReceipt", str(seal_transaction),
                 "-Out", str(sealing_receipts / "ps-seal.json"),
             ],
@@ -3334,6 +3831,11 @@ class PowerShellOperatorEntrypointWitnesses(unittest.TestCase):
             [
                 "-Packet", str(sealing_packet), "-Sealed", str(sealed),
                 "-PreSealClosure", str(pre_seal_path),
+                "-PreSealExecutionReceipt", str(pre_seal_execution_path),
+                "-AdmissionReceipt", str(sealing_receipts / "admission-admissible.json"),
+                "-MaterializationReceipt", str(sealing_receipts / "evidence-materialization.json"),
+                "-AuthenticationReceipt", str(sealing_receipts / "authentication.json"),
+                "-Candidates", str(sealing_estate / "admission"),
                 "-DetachedVerification", str(detached_path),
                 "-SealTransactionReceipt", str(seal_transaction),
                 "-Out", str(sealing_receipts / "ps-post-seal.json"),

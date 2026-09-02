@@ -125,6 +125,32 @@ def verify_execution_receipt(
     )
     require(receipt["operationRole"] == expected_role, "EXECUTION_ROLE_MISMATCH", "execution receipt names another operation role")
 
+    output_binding = custody["outputArtifactBindings"].get(expected_role)
+    if output_binding is None:
+        require(
+            receipt["outputArtifactId"] is None
+            and receipt["outputArtifactSha256"] is None
+            and receipt["outputArtifactBytes"] is None,
+            "EXECUTION_OUTPUT_BINDING_UNADMITTED",
+            "this operation role may not claim a produced artifact",
+        )
+    else:
+        output_id = receipt["outputArtifactId"]
+        output_digest = receipt["outputArtifactSha256"]
+        require(
+            isinstance(output_id, str)
+            and output_id.startswith(output_binding["idPrefix"] + "_")
+            and len(output_id.removeprefix(output_binding["idPrefix"] + "_")) == 64
+            and all(character in "0123456789abcdef" for character in output_id[-64:])
+            and isinstance(output_digest, str)
+            and len(output_digest) == 64
+            and all(character in "0123456789abcdef" for character in output_digest)
+            and type(receipt["outputArtifactBytes"]) is int
+            and receipt["outputArtifactBytes"] > 0,
+            "EXECUTION_OUTPUT_BINDING_INVALID",
+            "execution receipt does not bind one exact produced artifact identity, digest, and byte count",
+        )
+
     roles = custody["roles"]
     require(set(roles) == set(custody["roleDenominator"]), "EXECUTION_ROLE_MAP_INVALID", "role denominator differs")
     require(expected_role in roles, "EXECUTION_ROLE_UNADMITTED", "operation role is not admitted")

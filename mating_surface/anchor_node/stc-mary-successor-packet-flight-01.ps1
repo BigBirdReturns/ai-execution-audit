@@ -54,6 +54,7 @@ param(
     [string] $AuthenticationReceipt,
     [string] $Candidates,
     [string] $PreSealClosure,
+    [string] $PreSealExecutionReceipt,
     [string] $DetachedVerification,
     [string] $SourceAdmissionReceipt,
     [string] $SourceCommit,
@@ -248,11 +249,21 @@ switch ($Command) {
         Assert-Supplied -Name 'Packet' -Value $Packet
         Assert-Supplied -Name 'Sealed' -Value $Sealed
         Assert-Supplied -Name 'PreSealClosure' -Value $PreSealClosure
+        Assert-Supplied -Name 'PreSealExecutionReceipt' -Value $PreSealExecutionReceipt
+        Assert-Supplied -Name 'AdmissionReceipt' -Value $AdmissionReceipt
+        Assert-Supplied -Name 'MaterializationReceipt' -Value $MaterializationReceipt
+        Assert-Supplied -Name 'AuthenticationReceipt' -Value $AuthenticationReceipt
+        Assert-Supplied -Name 'Candidates' -Value $Candidates
         $arguments = @(
             'seal',
             '--packet', $Packet,
             '--sealed', $Sealed,
             '--pre-seal-closure', $PreSealClosure,
+            '--pre-seal-execution-receipt', $PreSealExecutionReceipt,
+            '--admission-receipt', $AdmissionReceipt,
+            '--materialization-receipt', $MaterializationReceipt,
+            '--authentication-receipt', $AuthenticationReceipt,
+            '--candidates', $Candidates,
             '--repository-root', $repositoryRoot
         )
         if ($SealTransactionReceipt) { $arguments += @('--transaction-receipt', $SealTransactionReceipt) }
@@ -276,11 +287,21 @@ switch ($Command) {
         Assert-Supplied -Name 'Packet' -Value $Packet
         Assert-Supplied -Name 'Sealed' -Value $Sealed
         Assert-Supplied -Name 'PreSealClosure' -Value $PreSealClosure
+        Assert-Supplied -Name 'PreSealExecutionReceipt' -Value $PreSealExecutionReceipt
+        Assert-Supplied -Name 'AdmissionReceipt' -Value $AdmissionReceipt
+        Assert-Supplied -Name 'MaterializationReceipt' -Value $MaterializationReceipt
+        Assert-Supplied -Name 'AuthenticationReceipt' -Value $AuthenticationReceipt
+        Assert-Supplied -Name 'Candidates' -Value $Candidates
         Assert-Supplied -Name 'DetachedVerification' -Value $DetachedVerification
         $arguments = @(
             '--packet', $Packet,
             '--sealed', $Sealed,
             '--pre-seal-closure', $PreSealClosure,
+            '--pre-seal-execution-receipt', $PreSealExecutionReceipt,
+            '--admission-receipt', $AdmissionReceipt,
+            '--materialization-receipt', $MaterializationReceipt,
+            '--authentication-receipt', $AuthenticationReceipt,
+            '--candidates', $Candidates,
             '--detached-verification', $DetachedVerification,
             '--profile', '@profile',
             '--repository-root', $repositoryRoot

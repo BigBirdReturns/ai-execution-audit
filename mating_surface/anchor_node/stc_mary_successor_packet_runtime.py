@@ -547,9 +547,45 @@ def read_stage_records(
 
 
 def verify_evidence_custody(*, packet: Path, records: Sequence[Mapping[str, Any]]) -> int:
-    """Re-hash every recorded evidence body and refuse any drift since recording."""
+    """Close each actual evidence directory, then re-hash every recorded body."""
     bodies = 0
     for record in records:
+        expected = {evidence["relativePath"] for evidence in record["evidenceFiles"]}
+        parents = {Path(relative).parent.as_posix() for relative in expected}
+        law.require(
+            len(parents) == 1,
+            "PACKET_EVIDENCE_TREE_INVALID",
+            f"{record['stage']} evidence rows do not name one exact stage directory",
+        )
+        evidence_directory = parents.pop()
+        directory = law.validate_lexical_coordinate(
+            packet / evidence_directory,
+            label=f"{record['stage']} evidence directory",
+            code="PACKET_EVIDENCE_TREE_INVALID",
+        )
+        law.require(
+            law.is_within(directory, packet) and directory.is_dir(),
+            "PACKET_EVIDENCE_TREE_INVALID",
+            f"{record['stage']} evidence directory is absent or escapes the packet",
+        )
+        entries = list(directory.iterdir())
+        observed = {f"{evidence_directory}/{entry.name}" for entry in entries}
+        law.require(
+            observed == expected,
+            "PACKET_EVIDENCE_TREE_INVALID",
+            f"{record['stage']} actual evidence entry denominator differs from the recorded set",
+        )
+        for entry in entries:
+            law.require(
+                not law.coordinate_component_is_link(
+                    entry,
+                    code="PACKET_EVIDENCE_TREE_INVALID",
+                    label=f"{record['stage']} evidence entry {entry.name}",
+                )
+                and entry.is_file(),
+                "PACKET_EVIDENCE_TREE_INVALID",
+                f"{record['stage']} evidence entry is not one regular non-link file: {entry.name}",
+            )
         for evidence in record["evidenceFiles"]:
             relative = evidence["relativePath"]
             law.require(

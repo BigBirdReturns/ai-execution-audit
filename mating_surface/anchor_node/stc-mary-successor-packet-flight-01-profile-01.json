@@ -216,6 +216,9 @@
       "moduleSha256",
       "noSite",
       "operationRole",
+      "outputArtifactBytes",
+      "outputArtifactId",
+      "outputArtifactSha256",
       "packetId",
       "packetRelativeModulePath",
       "processTerminal",
@@ -227,6 +230,14 @@
       "status",
       "successorSourceSetId"
     ],
+    "outputArtifactBindings": {
+      "close-pre-seal": {
+        "idKey": "preSealClosureId",
+        "idPrefix": "stcmarysuccessorpresealclosure1",
+        "schema": "stc-mary/successor-flight-pre-seal-closure/1",
+        "status": "PASS"
+      }
+    },
     "roleDenominator": [
       "close-post-seal",
       "close-pre-seal",
@@ -561,6 +572,7 @@
     ],
     "idKey": "preSealClosureId",
     "idPrefix": "stcmarysuccessorpresealclosure1",
+    "claimBoundary": "Pre-seal closure for one synthetic successor packet at exact sixteen of sixteen. It binds the authenticated named-human decisions, the final stage-record identity root, the complete admission root and the re-measured pre-seal evidence manifest of an unsealed packet. It asserts nothing about a sealed run, public disposition, sealed manifest or detached verification, seals nothing, records nothing, qualifies no physical estate, representative operator, field network, operational C2 or production Lattice, and grants no mission, command, targeting, engagement, effector or weapons authority.",
     "keys": [
       "admissionId",
       "authenticationVerificationId",
@@ -646,6 +658,7 @@
     ],
     "manifestIdKey": "manifestId",
     "manifestIdPrefix": "stcmarysuccessorflightsealedmanifest1",
+    "manifestClaimBoundary": "Digest manifest for one local sealed flight result. It contains no private evidence body or path and grants no independent qualification or authority.",
     "manifestKeys": [
       "authority",
       "claimBoundary",
@@ -660,6 +673,7 @@
     "manifestSchema": "stc-mary/successor-flight-sealed-manifest/1",
     "markerIdKey": "markerId",
     "markerIdPrefix": "stcmarysuccessorflightsealedroot1",
+    "markerClaimBoundary": "Marker for one local digest-only sealed flight result. Private evidence bodies remain in the packet and this directory grants no independent qualification or authority.",
     "markerKeys": [
       "authority",
       "claimBoundary",
@@ -675,6 +689,7 @@
     "rule": "The public disposition carries counts, content identities and claim boundaries only. It carries no private evidence body, no private path, and no campaign identity beyond the campaign label the packet already declares.",
     "runIdKey": "runId",
     "runIdPrefix": "stcmarysuccessorflightrun1",
+    "runClaimBoundary": "Local private flight run for one synthetic successor packet. It carries stage terminals, content identities and counts only, holds no private evidence body or path, and grants no physical, mission, command, targeting, engagement, effector, or weapons authority.",
     "runKeys": [
       "authority",
       "campaignLabel",
@@ -728,6 +743,7 @@
     },
     "verificationIdKey": "verificationId",
     "verificationIdPrefix": "stcmarysuccessorflightsealedverification1",
+    "verificationClaimBoundary": "Detached verification of one local sealed self-attestation package. It grants no independent physical, operator, field, operational, mission, command, targeting, engagement, effector, or weapons qualification or authority.",
     "verificationKeys": [
       "authority",
       "bodyFreePublicDisposition",

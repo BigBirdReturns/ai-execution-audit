@@ -20,12 +20,6 @@ SOURCE_SET_PACKET_PATH = "lineage/SUCCESSOR-SOURCE-SET.json"
 PACKET_MARKER_PATH = "PACKET-ROOT.json"
 MAX_MEMBER_BYTES = 8 * 1024 * 1024
 MAX_JSON_BYTES = 64 * 1024 * 1024
-CLAIM_BOUNDARY = (
-    "Measured execution custody for one closed successor operation. It proves which admitted "
-    "packet-carried or exact-Git module ran from one complete isolated source tree and records "
-    "the process terminal. It grants no authority."
-)
-
 ISOLATED_MODULE_LAUNCHER = r"""
 import pathlib
 import sys
@@ -271,6 +265,9 @@ def execution_receipt(
     *, profile: Mapping[str, Any], receipt: Mapping[str, Any], measured: Mapping[str, Any],
     role: str, repository_module_path: str, packet_module_path: str,
     module_git_blob_id: str, module_sha256: str, packet_id: str | None,
+    output_artifact_id: str | None = None,
+    output_artifact_sha256: str | None = None,
+    output_artifact_bytes: int | None = None,
 ) -> dict[str, Any]:
     custody = profile["executionCustody"]
     body = {
@@ -281,6 +278,9 @@ def execution_receipt(
         "successorSourceSetId": measured[profile["lineage"]["sourceSetIdKey"]],
         "completeMeasuredSourceSetId": measured[profile["lineage"]["sourceSetIdKey"]],
         "operationRole": role,
+        "outputArtifactId": output_artifact_id,
+        "outputArtifactSha256": output_artifact_sha256,
+        "outputArtifactBytes": output_artifact_bytes,
         "repositoryRelativeModulePath": repository_module_path,
         "packetRelativeModulePath": packet_module_path,
         "moduleGitBlobId": module_git_blob_id,
@@ -367,9 +367,58 @@ def execute(
             check=False,
             capture_output=True,
         )
+        require(completed.returncode == 0, "MEASURED_PROCESS_REFUSED", f"measured {role} process refused")
+        output_binding = custody["outputArtifactBindings"].get(role)
+        if output_binding is not None:
+            output_indexes = [index for index, value in enumerate(replaced_args) if value == "--out"]
+            require(
+                len(output_indexes) == 1 and output_indexes[0] + 1 < len(replaced_args),
+                "MEASURED_OUTPUT_BINDING_ABSENT",
+                f"measured {role} execution requires one exact output coordinate",
+            )
+            output_value = Path(replaced_args[output_indexes[0] + 1])
+            output_path = output_value if output_value.is_absolute() else foreign_path / output_value
+            output_data = read_bytes(
+                output_path,
+                MAX_JSON_BYTES,
+                code="MEASURED_OUTPUT_INVALID",
+                label=f"measured {role} output",
+            )
+            output_object = read_json(
+                output_path,
+                code="MEASURED_OUTPUT_INVALID",
+                label=f"measured {role} output",
+                canonical=True,
+            )
+            output_id = assert_identity(
+                output_object,
+                output_binding["idKey"],
+                output_binding["idPrefix"],
+                "MEASURED_OUTPUT_INVALID",
+                f"measured {role} output",
+            )
+            require(
+                output_object.get("schema") == output_binding["schema"]
+                and output_object.get("status") == output_binding["status"],
+                "MEASURED_OUTPUT_INVALID",
+                f"measured {role} output schema or terminal differs",
+            )
+            result = execution_receipt(
+                profile=profile,
+                receipt=receipt,
+                measured=measured,
+                role=role,
+                repository_module_path=repository_module_path,
+                packet_module_path=packet_module_path,
+                module_git_blob_id=module_row["gitBlob"],
+                module_sha256=sha256_bytes(module_data),
+                packet_id=packet_id,
+                output_artifact_id=output_id,
+                output_artifact_sha256=sha256_bytes(output_data),
+                output_artifact_bytes=len(output_data),
+            )
     sys.stdout.buffer.write(completed.stdout)
     sys.stderr.buffer.write(completed.stderr)
-    require(completed.returncode == 0, "MEASURED_PROCESS_REFUSED", f"measured {role} process refused")
     require(source_path is not None and not source_path.exists(), "TEMPORARY_SOURCE_TREE_RETAINED", "temporary execution source tree was not deleted")
     require(foreign_path is not None and not foreign_path.exists(), "FOREIGN_EXECUTION_DIRECTORY_RETAINED", "foreign execution directory was not deleted")
     execution_receipt_path.parent.mkdir(parents=True, exist_ok=True)
