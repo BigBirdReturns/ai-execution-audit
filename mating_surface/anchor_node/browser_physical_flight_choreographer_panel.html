@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AXM Browser Physical Flight Choreographer</title>
+  <link rel="stylesheet" href="browser_physical_flight_choreographer_panel.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">AXM HEAD · PRIVATE PHYSICAL AUDITION</p>
+      <h1>Browser Flight Choreographer</h1>
+      <p class="lede">Runs one content-bound seat card through the admitted browser probe. This panel records observations. It cannot qualify a supplier, the physical Estate, or any authority.</p>
+    </header>
+
+    <section aria-labelledby="card-heading">
+      <h2 id="card-heading">1. Bind the private seat card</h2>
+      <label>Flight card JSON <input id="card-file" type="file" accept="application/json,.json"></label>
+      <label>Exact prompt UTF-8 <input id="prompt-file" type="file" accept="text/plain,.txt"></label>
+      <label>Exact one-token reference output <input id="expected-output-file" type="file" accept="text/plain,.txt"></label>
+      <button id="load-card" type="button">Validate and bind</button>
+      <dl class="status-grid">
+        <div><dt>Card</dt><dd id="card-state">NOT LOADED</dd></div>
+        <div><dt>Seat</dt><dd id="seat-id">none</dd></div>
+        <div><dt>Role</dt><dd id="seat-role">none</dd></div>
+        <div><dt>Card ID</dt><dd id="card-id">none</dd></div>
+        <div><dt>Prompt tokens</dt><dd id="prompt-tokens">0</dd></div>
+        <div><dt>Session requests</dt><dd id="request-budget">0 / 512</dd></div>
+      </dl>
+      <details>
+        <summary>Exact private prompt</summary>
+        <pre id="prompt-preview">not loaded</pre>
+      </details>
+    </section>
+
+    <section aria-labelledby="session-heading">
+      <h2 id="session-heading">2. Bind the target document</h2>
+      <div class="button-row">
+        <button id="open-session" type="button">Open document session</button>
+        <button id="status-session" type="button">Inspect</button>
+        <button id="close-session" type="button">Close</button>
+      </div>
+      <dl class="status-grid">
+        <div><dt>Session</dt><dd id="session-state">CLOSED</dd></div>
+        <div><dt>Probe</dt><dd id="probe-state">unknown</dd></div>
+        <div><dt>Installed before app</dt><dd id="probe-early">unknown</dd></div>
+        <div><dt>Observed events</dt><dd id="probe-events">0</dd></div>
+      </dl>
+    </section>
+
+    <section aria-labelledby="static-heading">
+      <h2 id="static-heading">3. Record the static formation</h2>
+      <p>The target page must already show the shared room, exact model, all members, and bound model artifacts. The first call reads the private probe ledger and refuses any prior AXM flight mark.</p>
+      <label class="ack"><input id="static-ready" type="checkbox"> The complete static denominator is visible or independently evidenced now, and the availability observation is current.</label>
+      <button id="record-static" type="button">Preflight and record static denominator</button>
+      <dl class="status-grid">
+        <div><dt>Static phase</dt><dd id="static-state">PENDING</dd></div>
+        <div><dt>Members bound</dt><dd id="member-count">0</dd></div>
+        <div><dt>Artifacts bound</dt><dd id="artifact-count">0</dd></div>
+        <div><dt>Probe calls used</dt><dd id="invocation-count">0</dd></div>
+      </dl>
+    </section>
+
+    <section aria-labelledby="prompt-heading">
+      <h2 id="prompt-heading">4. Start the measured prompt</h2>
+      <label class="ack"><input id="prompt-ready" type="checkbox"> The exact prompt is ready to submit in the bound target document, and no earlier generation belongs to this capture.</label>
+      <button id="arm-prompt" type="button">Mark start and return to the target</button>
+      <p id="prompt-instruction" class="instruction">Static formation must pass first.</p>
+    </section>
+
+    <section aria-labelledby="output-heading">
+      <h2 id="output-heading">5. Bind the exact visible output</h2>
+      <label>Paste the exact visible output
+        <textarea id="candidate-output" rows="3" autocomplete="off" spellcheck="false"></textarea>
+      </label>
+      <label>Private output-equivalence evidence SHA-256
+        <input id="output-evidence-ref" type="text" inputmode="text" autocomplete="off" placeholder="sha256:…">
+      </label>
+      <button id="record-output" type="button">Verify one-token output and record</button>
+      <dl class="status-grid">
+        <div><dt>Output</dt><dd id="output-state">PENDING</dd></div>
+        <div><dt>Candidate digest</dt><dd id="candidate-digest">none</dd></div>
+      </dl>
+    </section>
+
+    <section aria-labelledby="drop-heading">
+      <h2 id="drop-heading">6. Perform the controlled member removal</h2>
+      <label class="ack"><input id="drop-ready" type="checkbox"> The designated member and recovery procedure are identified from the card. The removal will be intentional and separately evidenced.</label>
+      <button id="arm-drop" type="button">Open controlled-removal barrier</button>
+      <p id="drop-instruction" class="instruction">Output equivalence must pass first.</p>
+    </section>
+
+    <section aria-labelledby="postflight-heading">
+      <h2 id="postflight-heading">7. Record observed postflight evidence</h2>
+      <label>Content-bound postflight supplement <input id="supplement-file" type="file" accept="application/json,.json"></label>
+      <label class="ack"><input id="drop-performed" type="checkbox"> The designated member was removed and the recorded terminal and recovery state were observed in the bound transaction.</label>
+      <button id="record-postflight" type="button">Validate supplement and record postflight</button>
+      <dl class="status-grid">
+        <div><dt>Supplement</dt><dd id="supplement-state">NOT LOADED</dd></div>
+        <div><dt>Postflight</dt><dd id="postflight-state">PENDING</dd></div>
+      </dl>
+    </section>
+
+    <section aria-labelledby="export-heading">
+      <h2 id="export-heading">8. Export the private capture</h2>
+      <label class="ack"><input id="export-ready" type="checkbox"> The complete denominator has been reviewed. Export remains private and does not itself produce a route terminal.</label>
+      <button id="export-capture" type="button">Export exact private capture and close</button>
+      <dl class="status-grid">
+        <div><dt>Execution state</dt><dd id="execution-state">IDLE</dd></div>
+        <div><dt>Last phase</dt><dd id="last-phase">none</dd></div>
+      </dl>
+    </section>
+
+    <section aria-labelledby="log-heading">
+      <h2 id="log-heading">Local event log</h2>
+      <ol id="event-log" aria-live="polite"></ol>
+    </section>
+  </main>
+
+  <script src="browser_physical_audition_operator_contract.js"></script>
+  <script src="browser_physical_flight_choreographer_contract.js"></script>
+  <script src="browser_physical_flight_choreographer_panel.js"></script>
+</body>
+</html>
