@@ -1,0 +1,298 @@
+name: TEMP Issue 105 One Runner Two Host Range Custody Qualification 03
+
+on:
+  push:
+    branches:
+      - ops/issue105-w01-private-transfer-probe-01
+    paths:
+      - ".github/workflows/temp-issue105-one-runner-two-host-range-custody-qualification-03.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-one-runner-two-host-range-custody-qualification-03
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  SOURCE_ZIP_BYTES: "15472"
+  SOURCE_ZIP_SHA256: e514c42b7739ef5f4077868eb5d9cecfb9e12e11cae4ff00234aa6014bf32c3e
+  ORCHESTRATOR_BYTES: "23411"
+  ORCHESTRATOR_SHA256: 12ae3380d7b4091aef97902f5b3f00f7a67060b5f3452cb7a7936cb211c4a079
+  L01_HELPER_BYTES: "11803"
+  L01_HELPER_SHA256: ddfa5fdd411090424d9754f0014fb01483289d5181de21d0f2a1d945eaf12cb7
+  JOIN_BYTES: "10148"
+  JOIN_SHA256: 88f4d9c7fedb90c1a6878aebd1b24cd3d9663dc6cb21ecb9bddec7a6dc4e7f9c
+  TEST_BYTES: "7647"
+  TEST_SHA256: 5db3389677d3c94f256da8ccc59e68f34b918abc478e9cec5d08fc9354a11619
+  BOOTSTRAP_ID: axmswarmllmflightbootstrap_ed0110be1bac6030490751a098b37e83ce2edf7b460c9efb77eb83c194d6ca7b
+  RELEASE_ID: axmswarmllmexactcustodyrelease_6948e34bcdd927819b21b5ffaed97c4c287dff23d30dc5a10b12162d9e4e6f7b
+  WORKSPACE_ID: axmswarmllmvenueobserverworkspace_ed63f5fe5425e19f3f83287da7df60444d76f1089b4d2b8cf42aa24cda277994
+  CUSTODY_PLAN_ID: axmswarmllmcustodyplan_17c7d340d72ed5d8b707aca3ba6efe91a89564938f310bf76c7ba2f77610c162
+  TRANSACTION_ID: axmbrowserphysicalrun_39c742fdf6f8108d750adc3d4e0629b53acb9749e27f7d217679c0fa84553474
+
+jobs:
+  qualify-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Reconstruct, inspect, exercise, and export the exact source
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+
+          $Parts = @(
+            @{ Path = '.agent-carriers\issue105-range-custody-source-01.zip.b64.part-00'; Bytes = 8000; Blob = 'f213196f5a8154c4c3a5d9cc7f6308eecd75953b' },
+            @{ Path = '.agent-carriers\issue105-range-custody-source-01.zip.b64.part-01'; Bytes = 8000; Blob = 'e708f57f15305739b748cceb6f11f98b4c8114dd' },
+            @{ Path = '.agent-carriers\issue105-range-custody-source-01.zip.b64.part-02'; Bytes = 4632; Blob = '63374f090ffb9fecc970f67a0f229d2434954f3b' }
+          )
+          $Encoded = New-Object Text.StringBuilder
+          foreach ($Part in $Parts) {
+            $Full = Join-Path $env:GITHUB_WORKSPACE $Part.Path
+            if (-not (Test-Path -LiteralPath $Full -PathType Leaf)) { throw "SOURCE_FRAGMENT_MISSING:$($Part.Path)" }
+            if ((Get-Item -LiteralPath $Full -Force).Length -ne [int64]$Part.Bytes) { throw "SOURCE_FRAGMENT_SIZE_INVALID:$($Part.Path)" }
+            $Blob = (git hash-object -- $Full).Trim()
+            if ($LASTEXITCODE -ne 0 -or $Blob -ne $Part.Blob) { throw "SOURCE_FRAGMENT_BLOB_INVALID:$($Part.Path)" }
+            $Text = Get-Content -LiteralPath $Full -Raw
+            if ($Text -notmatch '^[A-Za-z0-9+/=]+$') { throw "SOURCE_FRAGMENT_ALPHABET_INVALID:$($Part.Path)" }
+            $null = $Encoded.Append($Text)
+          }
+          if ($Encoded.Length -ne 20632) { throw "SOURCE_ENCODED_DENOMINATOR_INVALID:$($Encoded.Length)" }
+          try { $SourceBytes = [Convert]::FromBase64String($Encoded.ToString()) }
+          catch { throw 'SOURCE_BASE64_INVALID' }
+          if ($SourceBytes.Length -ne [int64]$env:SOURCE_ZIP_BYTES) { throw "SOURCE_ZIP_SIZE_INVALID:$($SourceBytes.Length)" }
+
+          $Root = Join-Path $env:RUNNER_TEMP 'issue105-range-custody-qualified-03'
+          if (Test-Path -LiteralPath $Root) { Remove-Item -LiteralPath $Root -Recurse -Force }
+          $SourceRoot = Join-Path $Root 'source'
+          $ReceiptRoot = Join-Path $Root 'receipts'
+          New-Item -ItemType Directory -Path $SourceRoot -Force | Out-Null
+          New-Item -ItemType Directory -Path $ReceiptRoot -Force | Out-Null
+          $SourceZip = Join-Path $Root 'issue105-range-custody-source-01.zip'
+          [IO.File]::WriteAllBytes($SourceZip, $SourceBytes)
+          $SourceDigest = (Get-FileHash -LiteralPath $SourceZip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($SourceDigest -ne $env:SOURCE_ZIP_SHA256) { throw "SOURCE_ZIP_SHA256_INVALID:$SourceDigest" }
+          Expand-Archive -LiteralPath $SourceZip -DestinationPath $SourceRoot -Force
+
+          $Expected = @{
+            'Acquire-Both-Seat-Ranges.ps1' = @{ Bytes = [int64]$env:ORCHESTRATOR_BYTES; Sha = $env:ORCHESTRATOR_SHA256 }
+            'Acquire-L01-Seat01-Range-Custody.ps1' = @{ Bytes = [int64]$env:L01_HELPER_BYTES; Sha = $env:L01_HELPER_SHA256 }
+            'validate_range_custody_receipts.py' = @{ Bytes = [int64]$env:JOIN_BYTES; Sha = $env:JOIN_SHA256 }
+            'test_validate_range_custody_receipts.py' = @{ Bytes = [int64]$env:TEST_BYTES; Sha = $env:TEST_SHA256 }
+          }
+          $Observed = @(Get-ChildItem -LiteralPath $SourceRoot -File -Force | ForEach-Object { $_.Name } | Sort-Object)
+          $Wanted = @($Expected.Keys | Sort-Object)
+          if (($Observed -join "`n") -ne ($Wanted -join "`n")) { throw 'SOURCE_MEMBER_DENOMINATOR_INVALID' }
+          foreach ($Name in $Wanted) {
+            $Path = Join-Path $SourceRoot $Name
+            $Item = Get-Item -LiteralPath $Path -Force
+            $Digest = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($Item.Length -ne $Expected[$Name].Bytes -or $Digest -ne $Expected[$Name].Sha) {
+              throw "SOURCE_MEMBER_IDENTITY_INVALID:${Name}:$($Item.Length):$Digest"
+            }
+          }
+
+          $PowerShellPaths = @(
+            (Join-Path $SourceRoot 'Acquire-Both-Seat-Ranges.ps1'),
+            (Join-Path $SourceRoot 'Acquire-L01-Seat01-Range-Custody.ps1')
+          )
+          foreach ($Path in $PowerShellPaths) {
+            $Tokens = $null
+            $Errors = $null
+            $null = [Management.Automation.Language.Parser]::ParseFile($Path, [ref]$Tokens, [ref]$Errors)
+            if ($Errors.Count -ne 0) {
+              $Errors | ForEach-Object { Write-Error $_.Message }
+              throw "POWERSHELL_PARSE_FAILED:$([IO.Path]::GetFileName($Path))"
+            }
+          }
+          python -m py_compile `
+            (Join-Path $SourceRoot 'validate_range_custody_receipts.py') `
+            (Join-Path $SourceRoot 'test_validate_range_custody_receipts.py')
+          if ($LASTEXITCODE -ne 0) { throw 'PYTHON_COMPILE_FAILED' }
+
+          $OuterPath = Join-Path $SourceRoot 'Acquire-Both-Seat-Ranges.ps1'
+          $Outer = Get-Content -LiteralPath $OuterPath -Raw
+          $Remote = Get-Content -LiteralPath (Join-Path $SourceRoot 'Acquire-L01-Seat01-Range-Custody.ps1') -Raw
+          $Join = Get-Content -LiteralPath (Join-Path $SourceRoot 'validate_range_custody_receipts.py') -Raw
+          $All = $Outer + "`n" + $Remote + "`n" + $Join
+          foreach ($Required in @(
+            $env:BOOTSTRAP_ID,
+            $env:RELEASE_ID,
+            $env:WORKSPACE_ID,
+            $env:CUSTODY_PLAN_ID,
+            $env:TRANSACTION_ID,
+            'READY_FOR_PHYSICAL_SEAT_OPERATION',
+            'W01_SEAT02_RANGE_RECEIPT_INVALID',
+            'L01_RANGE_RECEIPT_INVALID',
+            'HOST_READY_RANGE_STATE_INVALID',
+            'RANGE_SHARD_REPLAY_REFUSED',
+            'RANGE_PAYLOAD_COLLISION_REFUSED',
+            'BatchMode=yes',
+            'StrictHostKeyChecking=yes',
+            'ForwardAgent=no',
+            'ForwardX11=no',
+            'ClearAllForwardings=yes',
+            'seat-02-range-custody.json'
+          )) {
+            if (-not $All.Contains($Required)) { throw "REQUIRED_CONTROL_MISSING:$Required" }
+          }
+          foreach ($Forbidden in @(
+            'http://',
+            'https://',
+            'Start-Process -FilePath $Browser',
+            'chrome.exe',
+            'msedge.exe',
+            'Launch-Seat.ps1',
+            'supplierEndpointContacted = $true',
+            'peerConnectionFormed = $true',
+            'inferenceExecuted = $true',
+            'routeTerminalProduced = $true',
+            'actualSupplierQualified = $true',
+            'physicalEstateQualified = $true'
+          )) {
+            if ($All.Contains($Forbidden)) { throw "FORBIDDEN_SURFACE_PRESENT:$Forbidden" }
+          }
+
+          $Tokens = $null
+          $Errors = $null
+          $OuterAst = [Management.Automation.Language.Parser]::ParseFile($OuterPath, [ref]$Tokens, [ref]$Errors)
+          if ($Errors.Count -ne 0) { throw 'OUTER_AST_PARSE_FAILED' }
+          $ScpCalls = @($OuterAst.FindAll({
+            param($Node)
+            $Node -is [Management.Automation.Language.CommandAst] -and
+            $Node.Extent.Text.Contains('$ScpOptions') -and
+            $Node.Extent.Text.Contains('$RemoteStageName')
+          }, $true))
+          $HelperUploads = @($ScpCalls | Where-Object { $_.Extent.Text.Contains('$RemoteHelper') })
+          $ReceiptDownloads = @($ScpCalls | Where-Object {
+            -not $_.Extent.Text.Contains('$RemoteHelper') -and
+            $_.Extent.Text.Contains('${PeerAlias}:$RemoteStageName/')
+          })
+          if ($ScpCalls.Count -ne 3 -or $HelperUploads.Count -ne 1 -or $ReceiptDownloads.Count -ne 2) {
+            throw "SEMANTIC_SCP_DENOMINATOR_INVALID:$($ScpCalls.Count):$($HelperUploads.Count):$($ReceiptDownloads.Count)"
+          }
+
+          $TestOutput = & python -m unittest discover -s $SourceRoot -p 'test_validate_range_custody_receipts.py' -v 2>&1
+          $TestCode = $LASTEXITCODE
+          $TestOutput | ForEach-Object { Write-Output $_ }
+          if ($TestCode -ne 0) { throw "RANGE_JOIN_WITNESSES_FAILED:$TestCode" }
+          $TestText = ($TestOutput -join "`n")
+          if (-not $TestText.Contains('Ran 9 tests') -or -not $TestText.Contains('OK')) { throw 'RANGE_JOIN_WITNESS_DENOMINATOR_INVALID' }
+
+          $OuterNegativeRoot = Join-Path $Root 'negative-outer'
+          $OuterNegativeOutput = Join-Path $OuterNegativeRoot 'receipts'
+          New-Item -ItemType Directory -Path $OuterNegativeRoot -Force | Out-Null
+          Copy-Item -LiteralPath (Join-Path $SourceRoot 'Acquire-L01-Seat01-Range-Custody.ps1') -Destination $OuterNegativeRoot
+          Copy-Item -LiteralPath (Join-Path $SourceRoot 'validate_range_custody_receipts.py') -Destination $OuterNegativeRoot
+          $OuterProcess = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', $OuterPath, '-OutputRoot', $OuterNegativeOutput
+          ) -Wait -PassThru -WindowStyle Hidden
+          if ($OuterProcess.ExitCode -ne 2) { throw "OUTER_NEGATIVE_EXIT_INVALID:$($OuterProcess.ExitCode)" }
+          $OuterReceipt = Get-Content -LiteralPath (Join-Path $OuterNegativeOutput 'ACQUIRE-BOTH-SEAT-RANGES-RECEIPT.json') -Raw | ConvertFrom-Json
+          if ($OuterReceipt.status -ne 'HOLD' -or
+              $OuterReceipt.terminal -ne 'HOLD' -or
+              $OuterReceipt.reasonCode -ne 'HOST_PREPARATION_PACKAGE_MISSING' -or
+              $OuterReceipt.hostPreparationAttempted -ne $false -or
+              $OuterReceipt.w01RangeDownloadAttempted -ne $false -or
+              $OuterReceipt.l01RangeDownloadAttempted -ne $false -or
+              $OuterReceipt.modelArtifactEndpointContactConfirmed -ne $false -or
+              $OuterReceipt.modelDownloaded -ne $false -or
+              [int]$OuterReceipt.rangeShardsDownloaded -ne 0 -or
+              [int64]$OuterReceipt.rangePayloadBytes -ne 0 -or
+              $OuterReceipt.physicalExecutionObserved -ne $false -or
+              $OuterReceipt.browserLaunched -ne $false -or
+              $OuterReceipt.supplierEndpointContacted -ne $false -or
+              $OuterReceipt.peerConnectionFormed -ne $false -or
+              $OuterReceipt.inferenceExecuted -ne $false -or
+              $OuterReceipt.routeTerminalProduced -ne $false -or
+              $OuterReceipt.actualSupplierQualified -ne $false -or
+              $OuterReceipt.physicalEstateQualified -ne $false -or
+              $OuterReceipt.missionAuthority -ne 'none' -or
+              $OuterReceipt.commandAuthority -ne 'none') {
+            throw 'OUTER_NEGATIVE_RECEIPT_INVALID'
+          }
+
+          $RemoteNegativeRoot = Join-Path $Root 'negative-l01'
+          $RemoteNegativeOutput = Join-Path $RemoteNegativeRoot 'receipts'
+          New-Item -ItemType Directory -Path $RemoteNegativeOutput -Force | Out-Null
+          $RemoteProcess = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', (Join-Path $SourceRoot 'Acquire-L01-Seat01-Range-Custody.ps1'),
+            '-OutputRoot', $RemoteNegativeOutput
+          ) -Wait -PassThru -WindowStyle Hidden
+          if ($RemoteProcess.ExitCode -ne 2) { throw "L01_NEGATIVE_EXIT_INVALID:$($RemoteProcess.ExitCode)" }
+          $RemoteReceipt = Get-Content -LiteralPath (Join-Path $RemoteNegativeOutput 'L01-RANGE-CUSTODY-RECEIPT.json') -Raw | ConvertFrom-Json
+          if ($RemoteReceipt.status -ne 'HOLD' -or
+              $RemoteReceipt.terminal -ne 'HOLD' -or
+              $RemoteReceipt.reasonCode -ne 'L01_PREPARED_ROLE_NOT_FOUND' -or
+              $RemoteReceipt.rangeDownloadAttempted -ne $false -or
+              $RemoteReceipt.modelArtifactEndpointContactConfirmed -ne $false -or
+              $RemoteReceipt.modelDownloaded -ne $false -or
+              [int]$RemoteReceipt.rangeShardsDownloaded -ne 0 -or
+              $RemoteReceipt.physicalExecutionObserved -ne $false -or
+              $RemoteReceipt.browserLaunched -ne $false -or
+              $RemoteReceipt.supplierEndpointContacted -ne $false -or
+              $RemoteReceipt.peerConnectionFormed -ne $false -or
+              $RemoteReceipt.inferenceExecuted -ne $false -or
+              $RemoteReceipt.routeTerminalProduced -ne $false -or
+              $RemoteReceipt.actualSupplierQualified -ne $false -or
+              $RemoteReceipt.physicalEstateQualified -ne $false -or
+              $RemoteReceipt.missionAuthority -ne 'none' -or
+              $RemoteReceipt.commandAuthority -ne 'none') {
+            throw 'L01_NEGATIVE_RECEIPT_INVALID'
+          }
+
+          $Qualification = [ordered]@{
+            schema = 'axm-private/issue105-range-custody-hosted-qualification@3'
+            status = 'PASS'
+            sourceZipBytes = [int64]$env:SOURCE_ZIP_BYTES
+            sourceZipSha256 = 'sha256:' + $env:SOURCE_ZIP_SHA256
+            sourceMembers = 4
+            powershellMembersParsed = 2
+            pythonMembersCompiled = 2
+            semanticScpCalls = 3
+            helperUploadCalls = 1
+            remoteReceiptDownloadCalls = 2
+            joinWitnesses = 9
+            noNetworkHoldWitnesses = 2
+            outerHoldReason = 'HOST_PREPARATION_PACKAGE_MISSING'
+            l01HoldReason = 'L01_PREPARED_ROLE_NOT_FOUND'
+            physicalExecutionObserved = $false
+            browserLaunched = $false
+            supplierEndpointContacted = $false
+            modelDownloaded = $false
+            rangeShardsDownloaded = 0
+            peerConnectionFormed = $false
+            inferenceExecuted = $false
+            routeTerminalProduced = $false
+            actualSupplierQualified = $false
+            physicalEstateQualified = $false
+            missionAuthority = 'none'
+            commandAuthority = 'none'
+          }
+          $Qualification | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $ReceiptRoot 'QUALIFICATION.json') -Encoding UTF8
+          Copy-Item -LiteralPath (Join-Path $OuterNegativeOutput 'ACQUIRE-BOTH-SEAT-RANGES-RECEIPT.json') -Destination (Join-Path $ReceiptRoot 'NEGATIVE-OUTER.json')
+          Copy-Item -LiteralPath (Join-Path $RemoteNegativeOutput 'L01-RANGE-CUSTODY-RECEIPT.json') -Destination (Join-Path $ReceiptRoot 'NEGATIVE-L01.json')
+          Remove-Item -LiteralPath (Join-Path $SourceRoot '__pycache__') -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Output "QUALIFIED_SOURCE_ROOT=$Root"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue105-range-custody-qualified-source-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-range-custody-qualified-03
+          if-no-files-found: error
+          retention-days: 14
