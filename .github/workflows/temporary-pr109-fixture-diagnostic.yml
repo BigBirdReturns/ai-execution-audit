@@ -54,7 +54,7 @@ jobs:
 
           source = source_path.read_text(encoding="utf-8")
           old_handler = '        except PacketError as exc:\n            terminal = "REFUSED"\n            reasons = [exc.code]\n'
-          new_handler = '        except PacketError as exc:\n            print(f"FIXTURE_DIAGNOSTIC case={row[\\"caseId\\"]} code={exc.code} message={exc.message}", file=sys.stderr)\n            terminal = "REFUSED"\n            reasons = [exc.code]\n'
+          new_handler = '        except PacketError as exc:\n            print("FIXTURE_DIAGNOSTIC case=%s code=%s message=%s" % (row["caseId"], exc.code, exc.message), file=sys.stderr)\n            terminal = "REFUSED"\n            reasons = [exc.code]\n'
           if source.count(old_handler) != 1:
               raise SystemExit(f"fixture handler count={source.count(old_handler)}")
           source_path.write_text(source.replace(old_handler, new_handler, 1), encoding="utf-8", newline="\n")
