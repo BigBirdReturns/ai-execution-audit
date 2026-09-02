@@ -1,0 +1,167 @@
+name: AXM HEAD Browser Physical Flight Choreographer 01
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/axm-head-browser-physical-flight-choreographer-01.yml"
+      - "mating_surface/anchor_node/*physical_flight_choreographer*"
+      - "mating_surface/anchor_node/*PHYSICAL-FLIGHT-CHOREOGRAPHER*"
+      - "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_flight_choreographer_01.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-browser-physical-flight-choreographer-cases-01.json"
+      - "mating_surface/anchor_node/browser_distributed_inference_probe.js"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_contract.js"
+      - "mating_surface/anchor_node/browser_physical_audition_operator_service_worker.js"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/axm-head-browser-physical-flight-choreographer-01.yml"
+      - "mating_surface/anchor_node/*physical_flight_choreographer*"
+      - "mating_surface/anchor_node/*PHYSICAL-FLIGHT-CHOREOGRAPHER*"
+      - "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_flight_choreographer_01.py"
+      - "mating_surface/anchor_node/fixtures/axm-head-browser-physical-flight-choreographer-cases-01.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flight-choreographer-01-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  WITNESSES: "68"
+  PLAN_COMMIT: e78bb4e8a4115b2191967d1ffcd1d744d77ce050
+  PLAN_TREE: 83006c13dd14f670785ffb57bd62d44b502d73a8
+  CONSOLE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+  CONSOLE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        coordinate: ${{ fromJSON(github.event_name == 'pull_request' && '["head","merge"]' || '["head"]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - id: ref
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == pull_request && "${{ matrix.coordinate }}" == head ]]; then
+            echo "value=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.ref.outputs.value }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Restore exact Git bytes and require the additive denominator
+        shell: bash
+        env:
+          REF: ${{ steps.ref.outputs.value }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, subprocess
+          profile_path="mating_surface/anchor_node/axm-head-browser-physical-flight-choreographer-profile-01.json"
+          ref=os.environ["REF"]
+          profile=json.loads(subprocess.check_output(["git","cat-file","blob",f"{ref}:{profile_path}"]))
+          for rel in profile["sourceMembers"]:
+              data=subprocess.check_output(["git","cat-file","blob",f"{ref}:{rel}"])
+              if b"\r" in data: raise SystemExit(f"CR byte in source: {rel}")
+              path=pathlib.Path(rel); path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(data)
+          for row in profile["dependencies"]:
+              data=subprocess.check_output(["git","cat-file","blob",f"{os.environ['CONSOLE_COMMIT']}:{row['path']}"])
+              if b"\r" in data: raise SystemExit(f"CR byte in dependency: {row['path']}")
+              path=pathlib.Path(row["path"]); path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(data)
+          if subprocess.check_output(["git","rev-parse",f"{os.environ['PLAN_COMMIT']}^{{tree}}"],text=True).strip()!=os.environ["PLAN_TREE"]: raise SystemExit("plan tree differs")
+          if subprocess.check_output(["git","rev-parse",f"{os.environ['CONSOLE_COMMIT']}^{{tree}}"],text=True).strip()!=os.environ["CONSOLE_TREE"]: raise SystemExit("console tree differs")
+          if os.environ.get("GITHUB_EVENT_NAME")=="pull_request":
+              expected=set(profile["sourceMembers"])
+              changed=set(subprocess.check_output(["git","diff","--name-only",os.environ["BASE"],ref],text=True).splitlines())
+              if changed!=expected: raise SystemExit(f"source denominator differs: {sorted(changed^expected)}")
+              for rel in expected:
+                  if not subprocess.check_output(["git","diff","--name-status",os.environ["BASE"],ref,"--",rel],text=True).startswith("A\t"): raise SystemExit(f"non-additive source: {rel}")
+          PY
+      - name: Execute source, runtime, and independent-verifier witnesses
+        shell: bash
+        env:
+          OUT: ${{ runner.temp }}/flight-choreographer
+          REF: ${{ steps.ref.outputs.value }}
+          PLATFORM: ${{ matrix.os }}
+          COORDINATE: ${{ matrix.coordinate }}
+        run: |
+          set -euo pipefail
+          R=mating_surface/anchor_node; P="$R/axm-head-browser-physical-flight-choreographer-profile-01.json"; T="$R/axm_head_browser_physical_flight_choreographer_01.py"; V="$R/verify_axm_head_browser_physical_flight_choreographer_01.py"; B="$R/verify_axm_head_browser_physical_flight_choreographer_01_bootstrap.py"; U="$R/conformance/test_axm_head_browser_physical_flight_choreographer_01.py"
+          mkdir -p "$OUT"
+          python -m py_compile "$T" "$V" "$B" "$U"
+          node --check "$R/browser_physical_flight_choreographer_contract.js"
+          node --check "$R/browser_physical_flight_choreographer_panel.js"
+          python "$T" validate-profile "$P" "$GITHUB_WORKSPACE" > "$OUT/profile.json"
+          python "$T" source-set "$P" "$GITHUB_WORKSPACE" > "$OUT/source.json"
+          python -m unittest discover -s "$R/conformance" -p 'test_axm_head_browser_physical_flight_choreographer_01.py' -v 2>&1 | tee "$OUT/tests.txt"
+          grep -F "Ran $WITNESSES tests" "$OUT/tests.txt"; grep -Fx OK "$OUT/tests.txt"
+          python "$T" build-extension "$P" "$GITHUB_WORKSPACE" "$OUT/extension" > "$OUT/build.json"
+          cmp "$OUT/build.json" "$OUT/extension/build-manifest.json"
+          python "$V" "$P" "$GITHUB_WORKSPACE" "$OUT/extension" > "$OUT/direct.json"
+          python "$B" "$V" "$P" "$GITHUB_WORKSPACE" "$OUT/extension" > "$OUT/bootstrap.json"
+          python - "$OUT" <<'PY'
+          import json,os,pathlib,subprocess,sys
+          root=pathlib.Path(sys.argv[1]); source=json.loads((root/"source.json").read_text()); build=json.loads((root/"build.json").read_text()); direct=json.loads((root/"direct.json").read_text()); boot=json.loads((root/"bootstrap.json").read_text())
+          if source.get("sourceMemberCount")!=13 or build.get("memberCount")!=8 or direct.get("extensionMemberCount")!=9 or boot.get("bootstrapAuthenticated") is not True: raise SystemExit("qualification denominator differs")
+          receipt={"schema":"axm-head/browser-physical-flight-choreographer-coordinate@1","status":"PASS","gitCommit":subprocess.check_output(["git","rev-parse",os.environ["REF"]],text=True).strip(),"gitTree":subprocess.check_output(["git","rev-parse",f"{os.environ['REF']}^{{tree}}"],text=True).strip(),"platform":os.environ["PLATFORM"],"coordinate":os.environ["COORDINATE"],"sourceBindingId":source["sourceBindingId"],"extensionId":build["extensionId"],"sourceMemberCount":13,"extensionMemberCount":9,"witnessDenominator":int(os.environ["WITNESSES"]),"physicalExecutionObserved":False,"actualSupplierQualified":False,"physicalEstateQualified":False,"missionAuthority":"none","commandAuthority":"none"}
+          (root/"coordinate.json").write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n")
+          PY
+          find "$R" -type d -name __pycache__ -prune -exec rm -rf {} +
+          git diff --check
+      - name: Exercise PowerShell entrypoint
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $R=Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node'; $E=Join-Path $R 'axm-head-browser-physical-flight-choreographer-01.ps1'; $P=Join-Path $R 'axm-head-browser-physical-flight-choreographer-profile-01.json'; $O=Join-Path $env:RUNNER_TEMP 'flight-choreographer-powershell'
+          & $E validate-profile $P $env:GITHUB_WORKSPACE; if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & $E source-set $P $env:GITHUB_WORKSPACE; if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & $E build-extension $P $env:GITHUB_WORKSPACE $O; exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flight-choreographer-${{ matrix.os }}-${{ matrix.coordinate }}-${{ github.sha }}
+          path: ${{ runner.temp }}/flight-choreographer
+          if-no-files-found: error
+          retention-days: 14
+  compare:
+    if: github.event_name == 'pull_request'
+    needs: qualify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: flight-choreographer-*-${{ github.sha }}
+          path: receipts
+      - name: Require four-coordinate semantic identity
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,pathlib
+          rows=[json.loads(p.read_text()) for p in sorted(pathlib.Path("receipts").glob("*/coordinate.json"))]
+          if len(rows)!=4: raise SystemExit(f"coordinate count {len(rows)}")
+          keys=("sourceBindingId","extensionId","sourceMemberCount","extensionMemberCount","witnessDenominator","physicalExecutionObserved","actualSupplierQualified","physicalEstateQualified","missionAuthority","commandAuthority")
+          first={k:rows[0][k] for k in keys}
+          if any({k:r[k] for k in keys}!=first for r in rows[1:]): raise SystemExit("semantic identity differs")
+          if {(r["platform"],r["coordinate"]) for r in rows}!={("ubuntu-latest","head"),("ubuntu-latest","merge"),("windows-latest","head"),("windows-latest","merge")}: raise SystemExit("coordinate denominator differs")
+          pathlib.Path("cross-coordinate.json").write_text(json.dumps({"schema":"axm-head/browser-physical-flight-choreographer-cross-coordinate@1","status":"PASS","coordinates":4,**first},sort_keys=True,indent=2)+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flight-choreographer-cross-coordinate-${{ github.sha }}
+          path: cross-coordinate.json
+          if-no-files-found: error
+          retention-days: 14
