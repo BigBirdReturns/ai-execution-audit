@@ -49,6 +49,16 @@ def make_directory_link(link: Path, target: Path) -> None:
         link.symlink_to(target, target_is_directory=True)
 
 
+def rewrite_kit_manifest(kit: Path, profile: dict) -> None:
+    files = {
+        path.relative_to(kit).as_posix(): path.read_bytes()
+        for path in kit.rglob("*")
+        if path.is_file() and path.name != "kit-manifest.json"
+    }
+    manifest = mod.kit_manifest_for(files, mod.source_binding_id(profile))
+    (kit / "kit-manifest.json").write_bytes(mod.pretty_bytes(manifest))
+
+
 class BrowserPhysicalAuditionPacketTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -420,8 +430,9 @@ class BrowserPhysicalAuditionPacketTests(unittest.TestCase):
         kit = self.work / "kit"
         result = mod.build_kit(self.profile, REPOSITORY_ROOT, kit)
         self.assertEqual(result["status"], "PASS")
-        self.assertEqual(result["memberCount"], 18)
+        self.assertEqual(result["memberCount"], 19)
         self.assertTrue((kit / "extension" / "manifest.json").is_file())
+        self.assertTrue((kit / "source" / "browser_distributed_inference_probe.js").is_file())
         self.assertTrue((kit / "source" / DIRECT.name).is_file())
         self.assertTrue((kit / "templates" / "named-human-confirmation.json").is_file())
         self.assertEqual(mod.sha256_ref((kit / "extension" / "browser_distributed_inference_probe.js").read_bytes()), mod.PROBE_SHA256_REF)
@@ -752,12 +763,14 @@ class BrowserPhysicalAuditionPacketTests(unittest.TestCase):
         self.assertIn('f"{commit}^{{tree}}"', source)
         self.assertNotIn('f"{commit}^{tree}"', source)
         self.assertIn("sourceMembers", source)
-        self.assertIn("Require the exact additive product denominator", source)
+        self.assertIn("Require the exact bounded source-change denominator", source)
+        self.assertIn("changed.issubset(allowed)", source)
+        self.assertIn("status.startswith(\"M\\t\")", source)
 
     def test_71_workflow_qualifies_tests_campaign_kit_packet_verifiers_and_powershell(self) -> None:
         source = WORKFLOW.read_text(encoding="utf-8")
         for token in (
-            "Ran 76 tests",
+            "Ran 82 tests",
             "validate-profile",
             "validate-fixtures",
             "campaign",
@@ -834,6 +847,91 @@ class BrowserPhysicalAuditionPacketTests(unittest.TestCase):
             '*[f":(exclude){relative}" for relative in source_members]],',
             source,
         )
+
+    def test_77_kit_contains_byte_identical_extension_and_runtime_probe_copies(self) -> None:
+        kit = self.work / "kit"
+        result = mod.build_kit(self.profile, REPOSITORY_ROOT, kit)
+        extension_probe = kit / "extension" / "browser_distributed_inference_probe.js"
+        runtime_probe = kit / "source" / "browser_distributed_inference_probe.js"
+        self.assertEqual(result["memberCount"], 19)
+        self.assertTrue(extension_probe.is_file())
+        self.assertTrue(runtime_probe.is_file())
+        self.assertEqual(extension_probe.read_bytes(), runtime_probe.read_bytes())
+        self.assertEqual(mod.sha256_ref(runtime_probe.read_bytes()), mod.PROBE_SHA256_REF)
+
+    def test_78_documented_source_assemble_command_executes_from_fresh_kit(self) -> None:
+        kit = self.work / "kit"
+        mod.build_kit(self.profile, REPOSITORY_ROOT, kit)
+        packet = self.work / "documented-command-packet"
+        foreign = self.work / "foreign-cwd"
+        foreign.mkdir()
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(kit / "source" / TOOL.name),
+                "assemble",
+                str(kit / "source" / PROFILE.name),
+                str(packet),
+                "--now-ms",
+                str(NOW_MS),
+            ],
+            cwd=foreign,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertEqual(json.loads(completed.stdout)["terminal"], "PREPARED_NOT_EXECUTED")
+        self.assertTrue((packet / "private" / "packet-decision.json").is_file())
+        self.assertTrue((packet / "public" / "status.json").is_file())
+
+    def test_79_missing_runtime_probe_is_refused(self) -> None:
+        kit = self.work / "kit"
+        mod.build_kit(self.profile, REPOSITORY_ROOT, kit)
+        (kit / "source" / "browser_distributed_inference_probe.js").unlink()
+        with self.assertRaises(mod.PacketError) as context:
+            mod.verify_kit(self.profile, kit)
+        self.assertEqual(context.exception.code, "REQUIRED_FILE_MISSING")
+
+    def test_80_runtime_probe_drift_from_profile_binding_is_refused(self) -> None:
+        kit = self.work / "kit"
+        mod.build_kit(self.profile, REPOSITORY_ROOT, kit)
+        runtime_probe = kit / "source" / "browser_distributed_inference_probe.js"
+        data = runtime_probe.read_bytes()
+        runtime_probe.write_bytes(bytes([data[0] ^ 1]) + data[1:])
+        rewrite_kit_manifest(kit, self.profile)
+        with self.assertRaises(mod.PacketError) as context:
+            mod.verify_kit(self.profile, kit)
+        self.assertEqual(context.exception.code, "SOURCE_BINDING_MISMATCH")
+
+    def test_81_rebound_runtime_probe_cannot_diverge_from_extension_probe(self) -> None:
+        kit = self.work / "kit"
+        mod.build_kit(self.profile, REPOSITORY_ROOT, kit)
+        runtime_probe = kit / "source" / "browser_distributed_inference_probe.js"
+        data = runtime_probe.read_bytes()
+        mutated = bytes([data[0] ^ 1]) + data[1:]
+        runtime_probe.write_bytes(mutated)
+        altered = copy.deepcopy(self.profile)
+        binding = next(row for row in altered["kitSourceBindings"] if Path(row["path"]).name == runtime_probe.name)
+        binding["bytes"] = len(mutated)
+        binding["sha256"] = mod.sha256_ref(mutated)
+        rewrite_kit_manifest(kit, altered)
+        with self.assertRaises(mod.PacketError) as context:
+            mod.verify_kit(altered, kit)
+        self.assertEqual(context.exception.code, "PROBE_COPY_DIVERGENCE")
+
+    def test_82_workflow_executes_documented_kit_runtime_on_every_matrix_platform(self) -> None:
+        source = WORKFLOW.read_text(encoding="utf-8")
+        for token in (
+            'DOCUMENTED_PACKET_ROOT',
+            '$KIT_ROOT/source/axm_head_browser_physical_audition_packet_01.py',
+            '$KIT_ROOT/source/axm-head-browser-physical-audition-packet-profile-01.json',
+            'documented-command-decision.json',
+            'PREPARED_NOT_EXECUTED',
+            'Invoke-AXMBrowserPhysicalAudition.ps1',
+            'pwsh-documented-packet',
+        ):
+            self.assertIn(token, source)
 
 
 if __name__ == "__main__":
