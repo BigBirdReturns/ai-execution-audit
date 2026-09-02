@@ -1,0 +1,102 @@
+name: TEMP Issue 105 One Runner Two Host Wrapper Export 01
+
+on:
+  push:
+    branches:
+      - ops/issue105-w01-private-transfer-probe-01
+    paths:
+      - ".github/workflows/temp-issue105-one-runner-two-host-wrapper-export-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-one-runner-two-host-wrapper-export-01
+  cancel-in-progress: true
+
+env:
+  WRAPPER_BYTES: "16481"
+  WRAPPER_SHA256: 2458428dcb92a11bdebad6e785aa768958b99fab087d7236efc0997057f3ee21
+
+jobs:
+  export-wrapper:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct the exact direct wrapper
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Parts = @(
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-00'; Bytes = 4000; Blob = 'e229bac6eb696e46a73dc73012cd14f070aa1ab2' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-01'; Bytes = 4000; Blob = '1b3d91cbc6f8020c3f5bd16ff34abf58e006730f' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-02'; Bytes = 4000; Blob = 'f98d21c30ea76a5fbc1cdd537fd559ff957ad87f' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-03'; Bytes = 4000; Blob = '8df10a51152fb7dbc36df6ff09f85d6ca8700094' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-04'; Bytes = 4000; Blob = '1b73d3136ea4058a18cf622302f5137b7bbff9d8' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-05'; Bytes = 1976; Blob = '62aeeed74a3b338f9345464bab46998a35478d6d' }
+          )
+          $Encoded = New-Object Text.StringBuilder
+          foreach ($Part in $Parts) {
+            $Full = Join-Path $env:GITHUB_WORKSPACE $Part.Path
+            if (-not (Test-Path -LiteralPath $Full -PathType Leaf)) { throw "WRAPPER_FRAGMENT_MISSING:$($Part.Path)" }
+            if ((Get-Item -LiteralPath $Full -Force).Length -ne [int64]$Part.Bytes) { throw "WRAPPER_FRAGMENT_SIZE_INVALID:$($Part.Path)" }
+            $Blob = (git hash-object -- $Full).Trim()
+            if ($LASTEXITCODE -ne 0 -or $Blob -ne $Part.Blob) { throw "WRAPPER_FRAGMENT_BLOB_INVALID:$($Part.Path)" }
+            $Text = Get-Content -LiteralPath $Full -Raw
+            if ($Text -notmatch '^[A-Za-z0-9+/=]+$') { throw "WRAPPER_FRAGMENT_ALPHABET_INVALID:$($Part.Path)" }
+            $null = $Encoded.Append($Text)
+          }
+          if ($Encoded.Length -ne 21976) { throw "WRAPPER_ENCODED_DENOMINATOR_INVALID:$($Encoded.Length)" }
+          try { $Bytes = [Convert]::FromBase64String($Encoded.ToString()) }
+          catch { throw 'WRAPPER_BASE64_INVALID' }
+          $Output = Join-Path $env:RUNNER_TEMP 'issue105-direct-wrapper-export'
+          New-Item -ItemType Directory -Path $Output -Force | Out-Null
+          $Script = Join-Path $Output 'Prepare-Both-Hosts.ps1'
+          [IO.File]::WriteAllBytes($Script, $Bytes)
+          $Digest = (Get-FileHash -LiteralPath $Script -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($Bytes.Length -ne [int64]$env:WRAPPER_BYTES -or $Digest -ne $env:WRAPPER_SHA256) {
+            throw "WRAPPER_IDENTITY_INVALID:$($Bytes.Length):$Digest"
+          }
+          $Tokens = $null
+          $Errors = $null
+          $null = [Management.Automation.Language.Parser]::ParseFile($Script, [ref]$Tokens, [ref]$Errors)
+          if ($Errors.Count -ne 0) {
+            $Errors | ForEach-Object { Write-Error $_.Message }
+            throw 'WRAPPER_POWERSHELL_PARSE_FAILED'
+          }
+          [ordered]@{
+            schema = 'axm-private/issue105-one-runner-two-host-wrapper-export@1'
+            status = 'PASS'
+            wrapperBytes = [int64]$env:WRAPPER_BYTES
+            wrapperSha256 = 'sha256:' + $env:WRAPPER_SHA256
+            carrierFragments = 6
+            encodedBytes = 21976
+            powershellParsed = $true
+            physicalExecutionObserved = $false
+            browserLaunched = $false
+            supplierEndpointContacted = $false
+            modelDownloaded = $false
+            rangeShardsDownloaded = 0
+            peerConnectionFormed = $false
+            inferenceExecuted = $false
+            routeTerminalProduced = $false
+            actualSupplierQualified = $false
+            physicalEstateQualified = $false
+            missionAuthority = 'none'
+            commandAuthority = 'none'
+          } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $Output 'EXPORT.json') -Encoding UTF8
+          "$($env:WRAPPER_SHA256)  Prepare-Both-Hosts.ps1" | Set-Content -LiteralPath (Join-Path $Output 'Prepare-Both-Hosts.ps1.sha256') -Encoding ASCII
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue105-one-runner-two-host-wrapper-export-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-direct-wrapper-export
+          if-no-files-found: error
+          retention-days: 14
