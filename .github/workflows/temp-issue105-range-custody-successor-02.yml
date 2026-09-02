@@ -1,0 +1,234 @@
+name: TEMP Issue 105 Range Custody Successor 02
+
+on:
+  push:
+    branches:
+      - ops/issue105-w01-private-transfer-probe-01
+    paths:
+      - ".github/workflows/temp-issue105-range-custody-successor-02.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-range-custody-successor-02
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  PREDECESSOR_SOURCE_BYTES: "15472"
+  PREDECESSOR_SOURCE_SHA256: e514c42b7739ef5f4077868eb5d9cecfb9e12e11cae4ff00234aa6014bf32c3e
+  SUCCESSOR_SOURCE_BYTES: "15468"
+  SUCCESSOR_SOURCE_SHA256: bc04ce4499b86ed571d747903d32a83830990e28b594b680c89c922bd1b7eb49
+  PACKAGE_NAME: AXM-Issue-105-One-Runner-Two-Host-Prepare-02.zip
+  PACKAGE_BYTES: "33104493"
+  PACKAGE_SHA256: 308af4071dc9ae69431582e46bce50b585afdbc06c7b0273a35d3064c0cc6e83
+  OUTER_SHA256: 65f202c5b7ad65103de36a7764b516f486db68cc7b1422092b9c40e75ad8540e
+
+jobs:
+  qualify-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Reconstruct, succeed, qualify, and export the exact source
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+          $Parts = @(
+            @{ Path = '.agent-carriers\issue105-range-custody-source-01.zip.b64.part-00'; Bytes = 8000; Blob = 'f213196f5a8154c4c3a5d9cc7f6308eecd75953b' },
+            @{ Path = '.agent-carriers\issue105-range-custody-source-01.zip.b64.part-01'; Bytes = 8000; Blob = 'e708f57f15305739b748cceb6f11f98b4c8114dd' },
+            @{ Path = '.agent-carriers\issue105-range-custody-source-01.zip.b64.part-02'; Bytes = 4632; Blob = '63374f090ffb9fecc970f67a0f229d2434954f3b' }
+          )
+          $Encoded = New-Object Text.StringBuilder
+          foreach ($Part in $Parts) {
+            $Path = Join-Path $env:GITHUB_WORKSPACE $Part.Path
+            if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "PREDECESSOR_FRAGMENT_MISSING:$($Part.Path)" }
+            if ((Get-Item -LiteralPath $Path -Force).Length -ne [int64]$Part.Bytes) { throw "PREDECESSOR_FRAGMENT_SIZE_INVALID:$($Part.Path)" }
+            $Blob = (git hash-object -- $Path).Trim()
+            if ($LASTEXITCODE -ne 0 -or $Blob -ne $Part.Blob) { throw "PREDECESSOR_FRAGMENT_BLOB_INVALID:$($Part.Path)" }
+            $Text = Get-Content -LiteralPath $Path -Raw
+            if ($Text -notmatch '^[A-Za-z0-9+/=]+$') { throw "PREDECESSOR_FRAGMENT_ALPHABET_INVALID:$($Part.Path)" }
+            $null = $Encoded.Append($Text)
+          }
+          try { $Bytes = [Convert]::FromBase64String($Encoded.ToString()) }
+          catch { throw 'PREDECESSOR_BASE64_INVALID' }
+          if ($Bytes.Length -ne [int64]$env:PREDECESSOR_SOURCE_BYTES) { throw 'PREDECESSOR_SOURCE_SIZE_INVALID' }
+
+          $Root = Join-Path $env:RUNNER_TEMP 'issue105-range-custody-successor-02'
+          if (Test-Path -LiteralPath $Root) { Remove-Item -LiteralPath $Root -Recurse -Force }
+          $Source = Join-Path $Root 'source'
+          $Receipts = Join-Path $Root 'receipts'
+          New-Item -ItemType Directory -Path $Source -Force | Out-Null
+          New-Item -ItemType Directory -Path $Receipts -Force | Out-Null
+          $PredecessorZip = Join-Path $Root 'predecessor-source.zip'
+          [IO.File]::WriteAllBytes($PredecessorZip, $Bytes)
+          if ((Get-FileHash -LiteralPath $PredecessorZip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:PREDECESSOR_SOURCE_SHA256) {
+            throw 'PREDECESSOR_SOURCE_SHA256_INVALID'
+          }
+          Expand-Archive -LiteralPath $PredecessorZip -DestinationPath $Source -Force
+
+          $OuterPath = Join-Path $Source 'Acquire-Both-Seat-Ranges.ps1'
+          $Outer = Get-Content -LiteralPath $OuterPath -Raw
+          $Substitutions = [ordered]@{
+            'AXM-Issue-105-One-Runner-Two-Host-Prepare-01.zip' = $env:PACKAGE_NAME
+            'HostPackageBytes = 33069857L' = "HostPackageBytes = $($env:PACKAGE_BYTES)L"
+            "HostPackageSha256 = '792a2ae6bbace4d13da00fd9cb3dbc33e6a6381acf166183d195c0c24ef6b5cd'" = "HostPackageSha256 = '$($env:PACKAGE_SHA256)'"
+          }
+          foreach ($Pair in $Substitutions.GetEnumerator()) {
+            if (($Outer.Split($Pair.Key).Count - 1) -ne 1) { throw "SUCCESSION_COORDINATE_INVALID:$($Pair.Key)" }
+            $Outer = $Outer.Replace($Pair.Key, $Pair.Value)
+          }
+          [IO.File]::WriteAllText($OuterPath, $Outer, (New-Object Text.UTF8Encoding($false)))
+
+          $Expected = [ordered]@{
+            'Acquire-Both-Seat-Ranges.ps1' = @{ Bytes = 23411L; Sha = $env:OUTER_SHA256 }
+            'Acquire-L01-Seat01-Range-Custody.ps1' = @{ Bytes = 11803L; Sha = 'ddfa5fdd411090424d9754f0014fb01483289d5181de21d0f2a1d945eaf12cb7' }
+            'validate_range_custody_receipts.py' = @{ Bytes = 10148L; Sha = '88f4d9c7fedb90c1a6878aebd1b24cd3d9663dc6cb21ecb9bddec7a6dc4e7f9c' }
+            'test_validate_range_custody_receipts.py' = @{ Bytes = 7647L; Sha = '5db3389677d3c94f256da8ccc59e68f34b918abc478e9cec5d08fc9354a11619' }
+          }
+          $Observed = @(Get-ChildItem -LiteralPath $Source -File -Force | ForEach-Object { $_.Name } | Sort-Object)
+          $Wanted = @($Expected.Keys | Sort-Object)
+          if (($Observed -join "`n") -ne ($Wanted -join "`n")) { throw 'SUCCESSOR_MEMBER_DENOMINATOR_INVALID' }
+          foreach ($Name in $Wanted) {
+            $Path = Join-Path $Source $Name
+            $Item = Get-Item -LiteralPath $Path -Force
+            $Digest = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($Item.Length -ne $Expected[$Name].Bytes -or $Digest -ne $Expected[$Name].Sha) {
+              throw "SUCCESSOR_MEMBER_IDENTITY_INVALID:${Name}:$($Item.Length):$Digest"
+            }
+          }
+
+          foreach ($Name in @('Acquire-Both-Seat-Ranges.ps1', 'Acquire-L01-Seat01-Range-Custody.ps1')) {
+            $Tokens = $null
+            $Errors = $null
+            $null = [Management.Automation.Language.Parser]::ParseFile((Join-Path $Source $Name), [ref]$Tokens, [ref]$Errors)
+            if ($Errors.Count -ne 0) { throw "POWERSHELL_PARSE_FAILED:$Name" }
+          }
+          python -m py_compile (Join-Path $Source 'validate_range_custody_receipts.py') (Join-Path $Source 'test_validate_range_custody_receipts.py')
+          if ($LASTEXITCODE -ne 0) { throw 'PYTHON_COMPILE_FAILED' }
+
+          $All = (Get-Content -LiteralPath $OuterPath -Raw) + "`n" +
+                 (Get-Content -LiteralPath (Join-Path $Source 'Acquire-L01-Seat01-Range-Custody.ps1') -Raw) + "`n" +
+                 (Get-Content -LiteralPath (Join-Path $Source 'validate_range_custody_receipts.py') -Raw)
+          foreach ($Required in @(
+            $env:PACKAGE_NAME, $env:PACKAGE_BYTES, $env:PACKAGE_SHA256,
+            'READY_FOR_PHYSICAL_SEAT_OPERATION', 'W01_SEAT02_RANGE_RECEIPT_INVALID', 'L01_RANGE_RECEIPT_INVALID',
+            'HOST_READY_RANGE_STATE_INVALID', 'RANGE_SHARD_REPLAY_REFUSED', 'RANGE_PAYLOAD_COLLISION_REFUSED',
+            'BatchMode=yes', 'StrictHostKeyChecking=yes', 'ForwardAgent=no', 'ForwardX11=no', 'ClearAllForwardings=yes'
+          )) { if (-not $All.Contains($Required)) { throw "REQUIRED_CONTROL_MISSING:$Required" } }
+          foreach ($Forbidden in @(
+            'AXM-Issue-105-One-Runner-Two-Host-Prepare-01.zip', '33069857L', '792a2ae6bbace4d13da00fd9cb3dbc33e6a6381acf166183d195c0c24ef6b5cd',
+            'http://', 'https://', 'chrome.exe', 'msedge.exe', 'Launch-Seat.ps1',
+            'routeTerminalProduced = $true', 'actualSupplierQualified = $true', 'physicalEstateQualified = $true'
+          )) { if ($All.Contains($Forbidden)) { throw "FORBIDDEN_SURFACE_PRESENT:$Forbidden" } }
+
+          $Tokens = $null
+          $Errors = $null
+          $Ast = [Management.Automation.Language.Parser]::ParseFile($OuterPath, [ref]$Tokens, [ref]$Errors)
+          $ScpCalls = @($Ast.FindAll({ param($Node) $Node -is [Management.Automation.Language.CommandAst] -and $Node.Extent.Text.Contains('$ScpOptions') -and $Node.Extent.Text.Contains('$RemoteStageName') }, $true))
+          $Uploads = @($ScpCalls | Where-Object { $_.Extent.Text.Contains('$RemoteHelper') })
+          $Downloads = @($ScpCalls | Where-Object { -not $_.Extent.Text.Contains('$RemoteHelper') -and $_.Extent.Text.Contains('${PeerAlias}:$RemoteStageName/') })
+          if ($ScpCalls.Count -ne 3 -or $Uploads.Count -ne 1 -or $Downloads.Count -ne 2) { throw 'SEMANTIC_SCP_DENOMINATOR_INVALID' }
+
+          $TestOut = Join-Path $Root 'tests.stdout.txt'
+          $TestErr = Join-Path $Root 'tests.stderr.txt'
+          $Test = Start-Process -FilePath 'python.exe' -ArgumentList @('-m','unittest','discover','-s',$Source,'-p','test_validate_range_custody_receipts.py','-v') -RedirectStandardOutput $TestOut -RedirectStandardError $TestErr -Wait -PassThru -WindowStyle Hidden
+          $TestText = ((Get-Content -LiteralPath $TestOut -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -LiteralPath $TestErr -Raw -ErrorAction SilentlyContinue))
+          if ($Test.ExitCode -ne 0 -or -not $TestText.Contains('Ran 9 tests') -or -not $TestText.Contains('OK')) { throw 'RANGE_JOIN_WITNESSES_FAILED' }
+
+          $OuterNegative = Join-Path $Root 'negative-outer'
+          $OuterNegativeReceipts = Join-Path $OuterNegative 'receipts'
+          New-Item -ItemType Directory -Path $OuterNegative -Force | Out-Null
+          Copy-Item -LiteralPath (Join-Path $Source 'Acquire-L01-Seat01-Range-Custody.ps1') -Destination $OuterNegative
+          Copy-Item -LiteralPath (Join-Path $Source 'validate_range_custody_receipts.py') -Destination $OuterNegative
+          $OuterProcess = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$OuterPath,'-OutputRoot',$OuterNegativeReceipts) -Wait -PassThru -WindowStyle Hidden
+          if ($OuterProcess.ExitCode -ne 2) { throw 'OUTER_HOLD_EXIT_INVALID' }
+          $OuterReceipt = Get-Content -LiteralPath (Join-Path $OuterNegativeReceipts 'ACQUIRE-BOTH-SEAT-RANGES-RECEIPT.json') -Raw | ConvertFrom-Json
+          if ($OuterReceipt.status -ne 'HOLD' -or $OuterReceipt.reasonCode -ne 'HOST_PREPARATION_PACKAGE_MISSING' -or $OuterReceipt.modelDownloaded -ne $false -or [int]$OuterReceipt.rangeShardsDownloaded -ne 0 -or $OuterReceipt.physicalExecutionObserved -ne $false -or $OuterReceipt.routeTerminalProduced -ne $false) { throw 'OUTER_HOLD_INVALID' }
+
+          $L01Negative = Join-Path $Root 'negative-l01'
+          $L01NegativeReceipts = Join-Path $L01Negative 'receipts'
+          New-Item -ItemType Directory -Path $L01NegativeReceipts -Force | Out-Null
+          $L01Process = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',(Join-Path $Source 'Acquire-L01-Seat01-Range-Custody.ps1'),'-OutputRoot',$L01NegativeReceipts) -Wait -PassThru -WindowStyle Hidden
+          if ($L01Process.ExitCode -ne 2) { throw 'L01_HOLD_EXIT_INVALID' }
+          $L01Receipt = Get-Content -LiteralPath (Join-Path $L01NegativeReceipts 'L01-RANGE-CUSTODY-RECEIPT.json') -Raw | ConvertFrom-Json
+          if ($L01Receipt.status -ne 'HOLD' -or $L01Receipt.reasonCode -ne 'L01_PREPARED_ROLE_NOT_FOUND' -or $L01Receipt.modelDownloaded -ne $false -or [int]$L01Receipt.rangeShardsDownloaded -ne 0 -or $L01Receipt.physicalExecutionObserved -ne $false -or $L01Receipt.routeTerminalProduced -ne $false) { throw 'L01_HOLD_INVALID' }
+
+          Remove-Item -LiteralPath (Join-Path $Source '__pycache__') -Recurse -Force -ErrorAction SilentlyContinue
+          $SuccessorZip = Join-Path $Root 'AXM-Issue-105-One-Runner-Two-Host-Range-Custody-02-source.zip'
+          $PythonZip = @'
+          import pathlib, sys, zipfile
+          root = pathlib.Path(sys.argv[1])
+          out = pathlib.Path(sys.argv[2])
+          with zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9, strict_timestamps=True) as archive:
+              for path in sorted(p for p in root.iterdir() if p.is_file()):
+                  info = zipfile.ZipInfo(path.name, (1980, 1, 1, 0, 0, 0))
+                  info.compress_type = zipfile.ZIP_DEFLATED
+                  info.create_system = 3
+                  info.external_attr = 0o100644 << 16
+                  info.flag_bits |= 0x800
+                  archive.writestr(info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+          '@
+          $ZipScript = Join-Path $Root 'build_source_zip.py'
+          [IO.File]::WriteAllText($ZipScript, $PythonZip, (New-Object Text.UTF8Encoding($false)))
+          python $ZipScript $Source $SuccessorZip
+          if ($LASTEXITCODE -ne 0) { throw 'SUCCESSOR_ZIP_BUILD_FAILED' }
+          $SuccessorItem = Get-Item -LiteralPath $SuccessorZip -Force
+          $SuccessorDigest = (Get-FileHash -LiteralPath $SuccessorZip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($SuccessorItem.Length -ne [int64]$env:SUCCESSOR_SOURCE_BYTES -or $SuccessorDigest -ne $env:SUCCESSOR_SOURCE_SHA256) { throw "SUCCESSOR_ZIP_IDENTITY_INVALID:$($SuccessorItem.Length):$SuccessorDigest" }
+
+          [ordered]@{
+            schema = 'axm-private/issue105-range-custody-successor-hosted-qualification@2'
+            status = 'PASS'
+            predecessorSourceBytes = [int64]$env:PREDECESSOR_SOURCE_BYTES
+            predecessorSourceSha256 = 'sha256:' + $env:PREDECESSOR_SOURCE_SHA256
+            successorSourceBytes = [int64]$env:SUCCESSOR_SOURCE_BYTES
+            successorSourceSha256 = 'sha256:' + $env:SUCCESSOR_SOURCE_SHA256
+            successorPackageName = $env:PACKAGE_NAME
+            successorPackageBytes = [int64]$env:PACKAGE_BYTES
+            successorPackageSha256 = 'sha256:' + $env:PACKAGE_SHA256
+            sourceMembers = 4
+            changedMembers = 1
+            bindingSubstitutions = 3
+            powershellMembersParsed = 2
+            pythonMembersCompiled = 2
+            semanticScpCalls = 3
+            helperUploadCalls = 1
+            remoteReceiptDownloadCalls = 2
+            joinWitnesses = 9
+            noNetworkHoldWitnesses = 2
+            physicalExecutionObserved = $false
+            browserLaunched = $false
+            supplierEndpointContacted = $false
+            modelDownloaded = $false
+            rangeShardsDownloaded = 0
+            peerConnectionFormed = $false
+            inferenceExecuted = $false
+            routeTerminalProduced = $false
+            actualSupplierQualified = $false
+            physicalEstateQualified = $false
+            missionAuthority = 'none'
+            commandAuthority = 'none'
+          } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $Receipts 'QUALIFICATION.json') -Encoding UTF8
+          Copy-Item -LiteralPath (Join-Path $OuterNegativeReceipts 'ACQUIRE-BOTH-SEAT-RANGES-RECEIPT.json') -Destination (Join-Path $Receipts 'NEGATIVE-OUTER.json')
+          Copy-Item -LiteralPath (Join-Path $L01NegativeReceipts 'L01-RANGE-CUSTODY-RECEIPT.json') -Destination (Join-Path $Receipts 'NEGATIVE-L01.json')
+          Remove-Item -LiteralPath $PredecessorZip, $ZipScript -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue105-range-custody-successor-02-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-range-custody-successor-02
+          if-no-files-found: error
+          retention-days: 14
