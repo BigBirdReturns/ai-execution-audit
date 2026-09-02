@@ -1,0 +1,224 @@
+            "bytes": 11228,
+            "gitBlobSha": "9c3854efd2859ab21747672d4916989aff550a04",
+            "sha256": "sha256:260eb0a5f6edd0f2a448e5665245d29962bb5ab28fb21829fc9fe196abd8bb03",
+        },
+    ]
+
+
+def validate_profile(path: Path, repository_root: Path) -> dict[str, Any]:
+    profile, _ = load_json(path, 262144)
+    exact_keys(profile, {"schema", "profileId", "protocol", "interface", "admittedOperationPlan", "admittedConsole", "dependencies", "sourceMembers", "extensionMembers", "limits", "claimBoundary"}, "PROFILE_KEYS_INVALID")
+    if profile["schema"] != PROFILE_SCHEMA or profile["profileId"] != PROFILE_ID or profile["protocol"] != PROTOCOL or profile["interface"] != INTERFACE:
+        fail("PROFILE_IDENTITY_INVALID", str(path))
+    if profile["admittedOperationPlan"] != {
+        "commit": ADMITTED_OPERATION_PLAN_COMMIT,
+        "tree": ADMITTED_OPERATION_PLAN_TREE,
+        "sourceBindingId": ADMITTED_OPERATION_PLAN_SOURCE,
+        "extensionId": ADMITTED_OPERATION_PLAN_EXTENSION,
+    }:
+        fail("ADMITTED_OPERATION_PLAN_INVALID", str(path))
+    if profile["admittedConsole"] != {
+        "commit": ADMITTED_CONSOLE_COMMIT,
+        "tree": ADMITTED_CONSOLE_TREE,
+        "sourceBindingId": ADMITTED_CONSOLE_SOURCE,
+        "extensionId": ADMITTED_CONSOLE_EXTENSION,
+        "protocol": OPERATOR_PROTOCOL,
+    }:
+        fail("ADMITTED_CONSOLE_INVALID", str(path))
+    if profile["dependencies"] != dependency_rows():
+        fail("DEPENDENCY_DENOMINATOR_INVALID", str(path))
+    limits = {
+        "maximumArtifacts": MAX_ARTIFACTS,
+        "maximumAvailabilityAgeMs": MAX_AVAILABILITY_AGE_MS,
+        "maximumCardBytes": MAX_CARD_BYTES,
+        "maximumMembers": MAX_MEMBERS,
+        "maximumPrivateTextBytes": MAX_PRIVATE_TEXT_BYTES,
+        "maximumSessionRequests": MAX_SESSION_REQUESTS,
+        "maximumSupplementBytes": MAX_SUPPLEMENT_BYTES,
+        "outputTokenCount": OUTPUT_TOKEN_COUNT,
+        "sessionRequestReserve": SESSION_REQUEST_RESERVE,
+        "sessionRequestsPerProbeInvocation": SESSION_REQUESTS_PER_INVOCATION,
+    }
+    if profile["limits"] != limits:
+        fail("PROFILE_LIMITS_INVALID", str(profile["limits"]))
+    validate_claim_boundary(profile["claimBoundary"], "profile")
+    for row in profile["dependencies"]:
+        path_value = repository_root / PurePosixPath(row["path"])
+        data = inspect_regular(path_value, 262144)
+        if len(data) != row["bytes"] or sha256_ref(data) != row["sha256"]:
+            fail("DEPENDENCY_CONTENT_MISMATCH", row["path"])
+    if len(profile["sourceMembers"]) != len(set(profile["sourceMembers"])) or len(profile["extensionMembers"]) != len(set(profile["extensionMembers"])):
+        fail("PROFILE_MEMBER_DUPLICATE", str(path))
+    for relative in profile["sourceMembers"]:
+        string_value(relative, "sourceMember", maximum=240)
+        inspect_regular(repository_root / PurePosixPath(relative), 2_000_000)
+    return profile
+
+
+def source_set(profile_path: Path, repository_root: Path) -> dict[str, Any]:
+    profile = validate_profile(profile_path, repository_root)
+    rows = []
+    for relative in sorted(profile["sourceMembers"]):
+        data = inspect_regular(repository_root / PurePosixPath(relative), 2_000_000)
+        rows.append({"path": relative, "bytes": len(data), "sha256": sha256_ref(data)})
+    identity = content_id("axmphysicalflightchoreographersource", rows)
+    return {
+        "schema": "axm-head/browser-physical-flight-choreographer-source-set@1",
+        "status": "PASS",
+        "sourceBindingId": identity,
+        "sourceMemberCount": len(rows),
+        "members": rows,
+        "actualSupplierQualified": False,
+        "physicalEstateQualified": False,
+        "missionAuthority": "none",
+        "commandAuthority": "none",
+    }
+
+
+def extension_manifest() -> dict[str, Any]:
+    return {
+        "manifest_version": 3,
+        "name": "AXM Browser Physical Flight Choreographer",
+        "version": "0.1.0",
+        "minimum_chrome_version": "116",
+        "permissions": ["activeTab", "scripting", "sidePanel"],
+        "background": {"service_worker": "browser_physical_audition_operator_service_worker.js"},
+        "content_scripts": [
+            {
+                "matches": ["<all_urls>"],
+                "js": ["browser_distributed_inference_probe.js"],
+                "run_at": "document_start",
+                "world": "MAIN",
+                "all_frames": False,
+            }
+        ],
+        "side_panel": {"default_path": "browser_physical_flight_choreographer_panel.html"},
+        "action": {"default_title": "Open AXM physical flight choreographer"},
+        "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'"},
+    }
+
+
+def build_extension(profile_path: Path, repository_root: Path, output_root: Path) -> dict[str, Any]:
+    profile = validate_profile(profile_path, repository_root)
+    output = require_new_directory(output_root, repository_root)
+    source = source_set(profile_path, repository_root)
+    mapping = {
+        "manifest.json": None,
+        "browser_distributed_inference_probe.js": "mating_surface/anchor_node/browser_distributed_inference_probe.js",
+        "browser_physical_audition_operator_contract.js": "mating_surface/anchor_node/browser_physical_audition_operator_contract.js",
+        "browser_physical_audition_operator_service_worker.js": "mating_surface/anchor_node/browser_physical_audition_operator_service_worker.js",
+        "browser_physical_flight_choreographer_contract.js": "mating_surface/anchor_node/browser_physical_flight_choreographer_contract.js",
+        "browser_physical_flight_choreographer_panel.html": "mating_surface/anchor_node/browser_physical_flight_choreographer_panel.html",
+        "browser_physical_flight_choreographer_panel.js": "mating_surface/anchor_node/browser_physical_flight_choreographer_panel.js",
+        "browser_physical_flight_choreographer_panel.css": "mating_surface/anchor_node/browser_physical_flight_choreographer_panel.css",
+    }
+    members = []
+    try:
+        for destination, source_relative in mapping.items():
+            data = pretty_bytes(extension_manifest()) if source_relative is None else inspect_regular(repository_root / PurePosixPath(source_relative), 2_000_000)
+            (output / destination).write_bytes(data)
+            members.append({"path": destination, "bytes": len(data), "sha256": sha256_ref(data)})
+        if sorted(mapping) != sorted(profile["extensionMembers"]):
+            fail("EXTENSION_MEMBER_DENOMINATOR_INVALID", str(sorted(mapping)))
+        build: dict[str, Any] = {
+            "schema": BUILD_SCHEMA,
+            "status": "PASS",
+            "profileId": PROFILE_ID,
+            "protocol": PROTOCOL,
+            "operatorProtocol": OPERATOR_PROTOCOL,
+            "interface": INTERFACE,
+            "admittedOperationPlan": profile["admittedOperationPlan"],
+            "admittedConsole": profile["admittedConsole"],
+            "sourceBindingId": source["sourceBindingId"],
+            "extensionId": None,
+            "memberCount": len(members),
+            "members": sorted(members, key=lambda row: row["path"]),
+            "claimBoundary": CLAIM_BOUNDARY,
+        }
+        build["extensionId"] = content_id("axmphysicalflightchoreographerextension", {**build, "extensionId": None})
+        (output / "build-manifest.json").write_bytes(pretty_bytes(build))
+        return build
+    except Exception:
+        shutil.rmtree(output, ignore_errors=True)
+        raise
+
+
+def response(status: str, **values: Any) -> dict[str, Any]:
+    return {
+        "schema": "axm-head/browser-physical-flight-choreographer-result@1",
+        "status": status,
+        **values,
+        "actualSupplierQualified": False,
+        "physicalEstateQualified": False,
+        "missionAuthority": "none",
+        "commandAuthority": "none",
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build and verify the supplier-neutral browser physical-flight choreographer.")
+    sub = parser.add_subparsers(dest="command", required=True)
+    command = sub.add_parser("validate-profile")
+    command.add_argument("profile")
+    command.add_argument("repository_root")
+    command = sub.add_parser("source-set")
+    command.add_argument("profile")
+    command.add_argument("repository_root")
+    command = sub.add_parser("build-card")
+    command.add_argument("recipe")
+    command.add_argument("prompt")
+    command.add_argument("expected_output")
+    command.add_argument("output")
+    command = sub.add_parser("validate-card")
+    command.add_argument("card")
+    command = sub.add_parser("build-supplement")
+    command.add_argument("card")
+    command.add_argument("input")
+    command.add_argument("output")
+    command = sub.add_parser("validate-supplement")
+    command.add_argument("card")
+    command.add_argument("supplement")
+    command = sub.add_parser("build-extension")
+    command.add_argument("profile")
+    command.add_argument("repository_root")
+    command.add_argument("output")
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "validate-profile":
+            result = response("PASS", profileId=validate_profile(Path(args.profile), Path(args.repository_root))["profileId"])
+        elif args.command == "source-set":
+            result = source_set(Path(args.profile), Path(args.repository_root))
+        elif args.command == "build-card":
+            recipe, _ = load_json(Path(args.recipe), MAX_RECIPE_BYTES)
+            card = build_card(recipe, inspect_regular(Path(args.prompt), MAX_PRIVATE_TEXT_BYTES), inspect_regular(Path(args.expected_output), 256))
+            write_new(Path(args.output), pretty_bytes(card))
+            result = response("PASS", cardId=card["cardId"], requestBudget=card["requestBudget"])
+        elif args.command == "validate-card":
+            card, _ = load_json(Path(args.card), MAX_CARD_BYTES)
+            card = validate_card(card)
+            result = response("PASS", cardId=card["cardId"], requestBudget=card["requestBudget"])
+        elif args.command == "build-supplement":
+            card, _ = load_json(Path(args.card), MAX_CARD_BYTES)
+            raw, _ = load_json(Path(args.input), MAX_SUPPLEMENT_BYTES)
+            supplement = build_supplement(card, raw)
+            write_new(Path(args.output), pretty_bytes(supplement))
+            result = response("PASS", supplementId=supplement["supplementId"], cardId=supplement["cardId"])
+        elif args.command == "validate-supplement":
+            card, _ = load_json(Path(args.card), MAX_CARD_BYTES)
+            supplement, _ = load_json(Path(args.supplement), MAX_SUPPLEMENT_BYTES)
+            supplement = validate_supplement(supplement, card)
+            result = response("PASS", supplementId=supplement["supplementId"], cardId=supplement["cardId"])
+        elif args.command == "build-extension":
+            build = build_extension(Path(args.profile), Path(args.repository_root), Path(args.output))
+            result = build
+        else:
+            raise AssertionError(args.command)
+        sys.stdout.buffer.write(pretty_bytes(result))
+        return 0
+    except ChoreographerError as exc:
+        sys.stdout.buffer.write(pretty_bytes(response("REFUSED", code=exc.code, message=str(exc))))
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
