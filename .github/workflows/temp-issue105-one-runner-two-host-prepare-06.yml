@@ -1,0 +1,303 @@
+name: TEMP Issue 105 One Runner Two Host Prepare 06
+
+on:
+  push:
+    branches:
+      - ops/issue105-w01-private-transfer-probe-01
+    paths:
+      - ".github/workflows/temp-issue105-one-runner-two-host-prepare-06.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-w01-private-transfer-probe-03
+  cancel-in-progress: true
+
+env:
+  EXPECTED_ARCHIVE_NAME: AXM-Issue-105-Physical-Flight-Bootstrap-03.zip
+  EXPECTED_ARCHIVE_BYTES: "33026569"
+  EXPECTED_ARCHIVE_SHA256: 435a44defad35aa3abd7b67c281f543aae7225efc0351bae05f5d7ae378b98c0
+  EXPECTED_BOOTSTRAP_ID: axmswarmllmflightbootstrap_ed0110be1bac6030490751a098b37e83ce2edf7b460c9efb77eb83c194d6ca7b
+  EXPECTED_RELEASE_ID: axmswarmllmexactcustodyrelease_6948e34bcdd927819b21b5ffaed97c4c287dff23d30dc5a10b12162d9e4e6f7b
+  EXPECTED_WORKSPACE_ID: axmswarmllmvenueobserverworkspace_ed63f5fe5425e19f3f83287da7df60444d76f1089b4d2b8cf42aa24cda277994
+  EXPECTED_CUSTODY_PLAN_ID: axmswarmllmcustodyplan_17c7d340d72ed5d8b707aca3ba6efe91a89564938f310bf76c7ba2f77610c162
+  EXPECTED_TRANSACTION_ID: axmbrowserphysicalrun_39c742fdf6f8108d750adc3d4e0629b53acb9749e27f7d217679c0fa84553474
+  WRAPPER_BYTES: "16481"
+  WRAPPER_SHA256: 2458428dcb92a11bdebad6e785aa768958b99fab087d7236efc0997057f3ee21
+
+jobs:
+  qualify-hosted:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct and exercise the exact wrapper
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Parts = @(
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-00'; Bytes = 4000; Blob = 'e229bac6eb696e46a73dc73012cd14f070aa1ab2' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-01'; Bytes = 4000; Blob = '1b3d91cbc6f8020c3f5bd16ff34abf58e006730f' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-02'; Bytes = 4000; Blob = 'f98d21c30ea76a5fbc1cdd537fd559ff957ad87f' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-03'; Bytes = 4000; Blob = '8df10a51152fb7dbc36df6ff09f85d6ca8700094' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-04'; Bytes = 4000; Blob = '1b73d3136ea4058a18cf622302f5137b7bbff9d8' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-05'; Bytes = 1976; Blob = '62aeeed74a3b338f9345464bab46998a35478d6d' }
+          )
+          $Encoded = New-Object Text.StringBuilder
+          foreach ($Part in $Parts) {
+            $Full = Join-Path $env:GITHUB_WORKSPACE $Part.Path
+            if (-not (Test-Path -LiteralPath $Full -PathType Leaf)) { throw "WRAPPER_FRAGMENT_MISSING:$($Part.Path)" }
+            $Item = Get-Item -LiteralPath $Full -Force
+            if ($Item.Length -ne [int64]$Part.Bytes) { throw "WRAPPER_FRAGMENT_SIZE_INVALID:$($Part.Path)" }
+            $Blob = (git hash-object -- $Full).Trim()
+            if ($LASTEXITCODE -ne 0 -or $Blob -ne $Part.Blob) { throw "WRAPPER_FRAGMENT_BLOB_INVALID:$($Part.Path)" }
+            $Text = Get-Content -LiteralPath $Full -Raw
+            if ($Text -notmatch '^[A-Za-z0-9+/=]+$') { throw "WRAPPER_FRAGMENT_ALPHABET_INVALID:$($Part.Path)" }
+            $null = $Encoded.Append($Text)
+          }
+          if ($Encoded.Length -ne 21976) { throw "WRAPPER_ENCODED_DENOMINATOR_INVALID:$($Encoded.Length)" }
+          try { $Bytes = [Convert]::FromBase64String($Encoded.ToString()) }
+          catch { throw 'WRAPPER_BASE64_INVALID' }
+          $Root = Join-Path $env:RUNNER_TEMP 'issue105-one-runner-two-host-hosted'
+          New-Item -ItemType Directory -Path $Root -Force | Out-Null
+          $Script = Join-Path $Root 'Prepare-Both-Hosts.ps1'
+          [IO.File]::WriteAllBytes($Script, $Bytes)
+          $Digest = (Get-FileHash -LiteralPath $Script -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($Bytes.Length -ne [int64]$env:WRAPPER_BYTES -or $Digest -ne $env:WRAPPER_SHA256) {
+            throw "WRAPPER_IDENTITY_INVALID:$($Bytes.Length):$Digest"
+          }
+          $Tokens = $null
+          $Errors = $null
+          $null = [Management.Automation.Language.Parser]::ParseFile($Script, [ref]$Tokens, [ref]$Errors)
+          if ($Errors.Count -ne 0) {
+            $Errors | ForEach-Object { Write-Error $_.Message }
+            throw 'WRAPPER_POWERSHELL_PARSE_FAILED'
+          }
+
+          $Output = Join-Path $Root 'receipts'
+          $Process = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', $Script, '-OutputRoot', $Output
+          ) -Wait -PassThru -WindowStyle Hidden
+          if ($Process.ExitCode -ne 2) { throw "HOSTED_NEGATIVE_EXIT_INVALID:$($Process.ExitCode)" }
+          $ReceiptPath = Join-Path $Output 'PREPARE-BOTH-HOSTS-RECEIPT.json'
+          if (-not (Test-Path -LiteralPath $ReceiptPath -PathType Leaf)) { throw 'HOSTED_NEGATIVE_RECEIPT_MISSING' }
+          $Receipt = Get-Content -LiteralPath $ReceiptPath -Raw | ConvertFrom-Json
+          if ($Receipt.status -ne 'HOLD' -or
+              $Receipt.terminal -ne 'HOLD' -or
+              $Receipt.reasonCode -ne 'BOOTSTRAP_03_MISSING' -or
+              $Receipt.physicalExecutionObserved -ne $false -or
+              $Receipt.browserLaunched -ne $false -or
+              $Receipt.supplierEndpointContacted -ne $false -or
+              $Receipt.modelDownloaded -ne $false -or
+              [int]$Receipt.rangeShardsDownloaded -ne 0 -or
+              $Receipt.peerConnectionFormed -ne $false -or
+              $Receipt.inferenceExecuted -ne $false -or
+              [int]$Receipt.physicalMemberEvidenceAccepted -ne 0 -or
+              [int]$Receipt.rawCapturesAccepted -ne 0 -or
+              $Receipt.namedHumanConfirmationSupplied -ne $false -or
+              $Receipt.routeTerminalProduced -ne $false -or
+              $Receipt.actualSupplierQualified -ne $false -or
+              $Receipt.physicalEstateQualified -ne $false -or
+              $Receipt.missionAuthority -ne 'none' -or
+              $Receipt.commandAuthority -ne 'none') {
+            throw 'HOSTED_NEGATIVE_RECEIPT_INVALID'
+          }
+
+          [ordered]@{
+            schema = 'axm-private/issue105-one-runner-two-host-current-qualification@1'
+            status = 'PASS'
+            wrapperBytes = [int64]$env:WRAPPER_BYTES
+            wrapperSha256 = 'sha256:' + $env:WRAPPER_SHA256
+            carrierFragments = 6
+            encodedBytes = 21976
+            powershellParsed = $true
+            emptyCarrierHold = $true
+            emptyCarrierReasonCode = 'BOOTSTRAP_03_MISSING'
+            physicalExecutionObserved = $false
+            browserLaunched = $false
+            supplierEndpointContacted = $false
+            modelDownloaded = $false
+            rangeShardsDownloaded = 0
+            peerConnectionFormed = $false
+            inferenceExecuted = $false
+            routeTerminalProduced = $false
+            actualSupplierQualified = $false
+            physicalEstateQualified = $false
+            missionAuthority = 'none'
+            commandAuthority = 'none'
+          } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'issue105-one-runner-two-host-current-qualification.json') -Encoding UTF8
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue105-one-runner-two-host-current-hosted-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/issue105-one-runner-two-host-current-qualification.json
+            ${{ runner.temp }}/issue105-one-runner-two-host-hosted/receipts/PREPARE-BOTH-HOSTS-RECEIPT.json
+          if-no-files-found: error
+          retention-days: 14
+
+  prepare-both-hosts:
+    needs: qualify-hosted
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct the exact direct wrapper
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($Value in @($env:COMPUTERNAME, $env:RUNNER_NAME, $env:USERPROFILE, $env:RUNNER_WORKSPACE, $env:RUNNER_TEMP, $env:OneDrive, $env:GoogleDrive, $env:GDRIVE)) {
+            if (-not [string]::IsNullOrWhiteSpace($Value)) { Write-Output "::add-mask::$Value" }
+          }
+          $Parts = @(
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-00'; Bytes = 4000; Blob = 'e229bac6eb696e46a73dc73012cd14f070aa1ab2' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-01'; Bytes = 4000; Blob = '1b3d91cbc6f8020c3f5bd16ff34abf58e006730f' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-02'; Bytes = 4000; Blob = 'f98d21c30ea76a5fbc1cdd537fd559ff957ad87f' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-03'; Bytes = 4000; Blob = '8df10a51152fb7dbc36df6ff09f85d6ca8700094' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-04'; Bytes = 4000; Blob = '1b73d3136ea4058a18cf622302f5137b7bbff9d8' },
+            @{ Path = '.agent-carriers\issue105-one-runner-two-host-prepare-01.ps1.b64.part-05'; Bytes = 1976; Blob = '62aeeed74a3b338f9345464bab46998a35478d6d' }
+          )
+          $Encoded = New-Object Text.StringBuilder
+          foreach ($Part in $Parts) {
+            $Full = Join-Path $env:GITHUB_WORKSPACE $Part.Path
+            if (-not (Test-Path -LiteralPath $Full -PathType Leaf)) { throw "WRAPPER_FRAGMENT_MISSING:$($Part.Path)" }
+            $Item = Get-Item -LiteralPath $Full -Force
+            if ($Item.Length -ne [int64]$Part.Bytes) { throw "WRAPPER_FRAGMENT_SIZE_INVALID:$($Part.Path)" }
+            $Blob = (git hash-object -- $Full).Trim()
+            if ($LASTEXITCODE -ne 0 -or $Blob -ne $Part.Blob) { throw "WRAPPER_FRAGMENT_BLOB_INVALID:$($Part.Path)" }
+            $Text = Get-Content -LiteralPath $Full -Raw
+            if ($Text -notmatch '^[A-Za-z0-9+/=]+$') { throw "WRAPPER_FRAGMENT_ALPHABET_INVALID:$($Part.Path)" }
+            $null = $Encoded.Append($Text)
+          }
+          try { $Bytes = [Convert]::FromBase64String($Encoded.ToString()) }
+          catch { throw 'WRAPPER_BASE64_INVALID' }
+          $Root = Join-Path $env:RUNNER_TEMP 'issue105-one-runner-two-host-current'
+          if (Test-Path -LiteralPath $Root) { Remove-Item -LiteralPath $Root -Recurse -Force }
+          New-Item -ItemType Directory -Path $Root -Force | Out-Null
+          $Script = Join-Path $Root 'Prepare-Both-Hosts.ps1'
+          [IO.File]::WriteAllBytes($Script, $Bytes)
+          $Digest = (Get-FileHash -LiteralPath $Script -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($Bytes.Length -ne [int64]$env:WRAPPER_BYTES -or $Digest -ne $env:WRAPPER_SHA256) {
+            throw "WRAPPER_IDENTITY_INVALID:$($Bytes.Length):$Digest"
+          }
+          "CURRENT_WRAPPER_ROOT=$Root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CURRENT_WRAPPER_SCRIPT=$Script" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Recover the exact private Bootstrap 03 into wrapper custody
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Ingress = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-private-transfer-ingress-03.ps1'
+          $IngressRoot = Join-Path $env:RUNNER_TEMP 'issue105-current-bootstrap-ingress'
+          & $Ingress -ReceiptRoot $IngressRoot
+          if ($LASTEXITCODE -ne 0) { throw "INGRESS_EXIT_INVALID:$LASTEXITCODE" }
+          $IngressReceipt = Get-Content -LiteralPath (Join-Path $IngressRoot 'receipt.json') -Raw | ConvertFrom-Json
+          if ($IngressReceipt.status -notin @('PASS', 'HOLD') -or
+              $IngressReceipt.physicalExecutionObserved -ne $false -or
+              $IngressReceipt.browserLaunched -ne $false -or
+              $IngressReceipt.supplierEndpointContacted -ne $false -or
+              $IngressReceipt.modelDownloaded -ne $false -or
+              [int]$IngressReceipt.rangeShardsDownloaded -ne 0 -or
+              $IngressReceipt.peerConnectionFormed -ne $false -or
+              $IngressReceipt.inferenceExecuted -ne $false -or
+              $IngressReceipt.routeTerminalProduced -ne $false -or
+              $IngressReceipt.actualSupplierQualified -ne $false -or
+              $IngressReceipt.physicalEstateQualified -ne $false -or
+              $IngressReceipt.missionAuthority -ne 'none' -or
+              $IngressReceipt.commandAuthority -ne 'none') {
+            throw 'INGRESS_RECEIPT_INVALID'
+          }
+
+          $Exact = New-Object 'System.Collections.Generic.List[string]'
+          foreach ($DriveName in @('D', 'E', 'C')) {
+            $Drive = Get-PSDrive -Name $DriveName -PSProvider FileSystem -ErrorAction SilentlyContinue
+            if (-not $Drive) { continue }
+            $Candidate = Join-Path $Drive.Root $env:EXPECTED_ARCHIVE_NAME
+            if (-not (Test-Path -LiteralPath $Candidate -PathType Leaf)) { continue }
+            $Item = Get-Item -LiteralPath $Candidate -Force
+            if ($Item.Length -ne [int64]$env:EXPECTED_ARCHIVE_BYTES) { continue }
+            $Hash = (Get-FileHash -LiteralPath $Candidate -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($Hash -eq $env:EXPECTED_ARCHIVE_SHA256) { $Exact.Add($Candidate) }
+          }
+          if ($Exact.Count -eq 0) {
+            throw "BOOTSTRAP_03_NOT_SERVICE_VISIBLE:$($IngressReceipt.reasonCode)"
+          }
+          $Source = $Exact[0]
+          Write-Output "::add-mask::$Source"
+          $Target = Join-Path $env:CURRENT_WRAPPER_ROOT $env:EXPECTED_ARCHIVE_NAME
+          Copy-Item -LiteralPath $Source -Destination $Target -Force
+          $TargetItem = Get-Item -LiteralPath $Target -Force
+          $TargetHash = (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($TargetItem.Length -ne [int64]$env:EXPECTED_ARCHIVE_BYTES -or $TargetHash -ne $env:EXPECTED_ARCHIVE_SHA256) {
+            throw 'WRAPPER_BOOTSTRAP_IDENTITY_INVALID'
+          }
+
+      - name: Prepare W01 and L01 through the direct wrapper
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Output = Join-Path $env:RUNNER_TEMP 'issue105-one-runner-two-host-current-receipts'
+          $Process = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', $env:CURRENT_WRAPPER_SCRIPT, '-OutputRoot', $Output
+          ) -Wait -PassThru -WindowStyle Hidden
+          if ($Process.ExitCode -notin @(0, 2)) { throw "WRAPPER_EXIT_INVALID:$($Process.ExitCode)" }
+          $ReceiptPath = Join-Path $Output 'PREPARE-BOTH-HOSTS-RECEIPT.json'
+          if (-not (Test-Path -LiteralPath $ReceiptPath -PathType Leaf)) { throw 'WRAPPER_RECEIPT_MISSING' }
+          $Receipt = Get-Content -LiteralPath $ReceiptPath -Raw | ConvertFrom-Json
+          if ($Receipt.status -notin @('PASS', 'HOLD') -or
+              $Receipt.physicalExecutionObserved -ne $false -or
+              $Receipt.browserLaunched -ne $false -or
+              $Receipt.supplierEndpointContacted -ne $false -or
+              $Receipt.modelDownloaded -ne $false -or
+              [int]$Receipt.rangeShardsDownloaded -ne 0 -or
+              $Receipt.peerConnectionFormed -ne $false -or
+              $Receipt.inferenceExecuted -ne $false -or
+              [int]$Receipt.physicalMemberEvidenceAccepted -ne 0 -or
+              [int]$Receipt.rawCapturesAccepted -ne 0 -or
+              $Receipt.namedHumanConfirmationSupplied -ne $false -or
+              $Receipt.routeTerminalProduced -ne $false -or
+              $Receipt.actualSupplierQualified -ne $false -or
+              $Receipt.physicalEstateQualified -ne $false -or
+              $Receipt.missionAuthority -ne 'none' -or
+              $Receipt.commandAuthority -ne 'none') {
+            throw 'WRAPPER_RECEIPT_BOUNDARY_INVALID'
+          }
+          if ($Receipt.status -eq 'PASS') {
+            if ($Process.ExitCode -ne 0 -or
+                $Receipt.terminal -notin @('W01_AND_L01_HOSTS_PREPARED', 'READY_FOR_EXACT_RANGE_CUSTODY') -or
+                [string]::IsNullOrWhiteSpace([string]$Receipt.w01HostReceiptRef) -or
+                [string]::IsNullOrWhiteSpace([string]$Receipt.crossHostReceiptRef) -or
+                [string]::IsNullOrWhiteSpace([string]$Receipt.l01HostReceiptRef) -or
+                [string]::IsNullOrWhiteSpace([string]$Receipt.finalJoinReceiptRef) -or
+                $Receipt.stagedBootstrapRemoved -ne $true) {
+              throw 'WRAPPER_PASS_TERMINAL_INVALID'
+            }
+          }
+          else {
+            if ($Process.ExitCode -ne 2 -or $Receipt.terminal -ne 'HOLD') { throw 'WRAPPER_HOLD_TERMINAL_INVALID' }
+          }
+
+      - name: Upload body-free current preparation receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue105-one-runner-two-host-current-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/issue105-current-bootstrap-ingress/receipt.json
+            ${{ runner.temp }}/issue105-one-runner-two-host-current-receipts/*.json
+          if-no-files-found: warn
+          retention-days: 14
