@@ -1,0 +1,38 @@
+name: TEMP Cancel Stale Issue 105 Preparation 01
+
+on:
+  push:
+    branches:
+      - ops/issue105-range-custody-03
+    paths:
+      - ".github/workflows/temp-cancel-stale-issue105-preparation-01.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-w01-private-transfer-probe-03
+  cancel-in-progress: true
+
+jobs:
+  supersede:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record stale-queue supersession
+        run: |
+          printf '%s\n' \
+            'superseded_run=33671102301' \
+            'successor_run=33689658348' \
+            'physical_execution_observed=false' \
+            'browser_launched=false' \
+            'supplier_endpoint_contacted=false' \
+            'model_downloaded=false' \
+            'range_shards_downloaded=0' \
+            'peer_connection_formed=false' \
+            'inference_executed=false' \
+            'route_terminal_produced=false' \
+            'actual_supplier_qualified=false' \
+            'physical_estate_qualified=false' \
+            'mission_authority=none' \
+            'command_authority=none'
