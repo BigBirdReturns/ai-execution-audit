@@ -1,0 +1,443 @@
+{
+  "baseRecipe": {
+    "claimBoundary": {
+      "actualSupplierQualified": false,
+      "browserLaunched": false,
+      "commandAuthority": "none",
+      "inferenceExecuted": false,
+      "missionAuthority": "none",
+      "modelDownloaded": false,
+      "namedHumanConfirmationSupplied": false,
+      "operationCardConstructed": true,
+      "operationCardExecuted": false,
+      "peerConnectionFormed": false,
+      "physicalAuditionCompleted": false,
+      "physicalEstateQualified": false,
+      "routeTerminalProduced": false,
+      "supplierEndpointContacted": false
+    },
+    "dropTarget": {
+      "memberAlias": "output-seat"
+    },
+    "expectedRole": "pipeline-input",
+    "interface": "axm/distributed-model-inference@1",
+    "profileId": "axm-head/browser-physical-flight-choreographer/0.1",
+    "promptTokenCount": 12,
+    "protocol": "axm-head/browser-physical-flight-choreographer@1",
+    "referenceOutputEvidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "schema": "axm-head/browser-physical-flight-card-recipe@1",
+    "seatId": "seat-01",
+    "seatRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "static": {
+      "adapterArtifact": {
+        "artifactBytes": 8192,
+        "artifactDigest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "executableObserved": true
+      },
+      "availability": {
+        "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "observed": true,
+        "observedAtUnixMs": 1788300000000
+      },
+      "formation": {
+        "artifactBound": true,
+        "capacityBasis": "artifact-bound-shards",
+        "capacityReceiptRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "modelCapacityBytes": 3000,
+        "partitionMode": "pipeline-layer",
+        "topologyReceiptRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "members": [
+        {
+          "alias": "input-seat",
+          "args": {
+            "memberId": "member-input",
+            "pledgedBytes": 1600,
+            "role": "pipeline-input"
+          }
+        },
+        {
+          "alias": "output-seat",
+          "args": {
+            "memberId": "member-output",
+            "pledgedBytes": 1600,
+            "role": "pipeline-output"
+          }
+        }
+      ],
+      "modelArtifacts": [
+        {
+          "args": {
+            "artifactId": "artifact-layers-0-31",
+            "bytes": 1500,
+            "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "layerEnd": 31,
+            "layerStart": 0
+          },
+          "memberAlias": "input-seat"
+        },
+        {
+          "args": {
+            "artifactId": "artifact-layers-32-63",
+            "bytes": 1500,
+            "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "layerEnd": 63,
+            "layerStart": 32
+          },
+          "memberAlias": "output-seat"
+        }
+      ],
+      "modelManifest": {
+        "boundModelId": "model:synthetic-one-token@q4",
+        "claimedId": "model:synthetic-one-token",
+        "observedManifestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    "tokenizerEvidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "transactionRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "baseSupplementInput": {
+    "cardId": "__CARD_ID__",
+    "claimBoundary": {
+      "actualSupplierQualified": false,
+      "browserLaunched": false,
+      "commandAuthority": "none",
+      "inferenceExecuted": false,
+      "missionAuthority": "none",
+      "modelDownloaded": false,
+      "namedHumanConfirmationSupplied": false,
+      "operationCardConstructed": true,
+      "operationCardExecuted": false,
+      "peerConnectionFormed": false,
+      "physicalAuditionCompleted": false,
+      "physicalEstateQualified": false,
+      "routeTerminalProduced": false,
+      "supplierEndpointContacted": false
+    },
+    "drop": {
+      "controlled": true,
+      "evidenceRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "observedTerminal": "RECOVERED",
+      "recovered": true
+    },
+    "interface": "axm/distributed-model-inference@1",
+    "outputEvidenceRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "privacy": {
+      "claimsEndToEndConfidentiality": false,
+      "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "scope": "browser-observed-network-surface-only"
+    },
+    "profileId": "axm-head/browser-physical-flight-choreographer/0.1",
+    "protocol": "axm-head/browser-physical-flight-choreographer@1",
+    "receipts": [
+      {
+        "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "kind": "current-availability-observation"
+      },
+      {
+        "evidenceRef": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "kind": "executable-adapter-artifact"
+      },
+      {
+        "evidenceRef": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "kind": "formation-capacity-receipt"
+      },
+      {
+        "evidenceRef": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "kind": "formation-topology-receipt"
+      },
+      {
+        "evidenceRef": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "kind": "member-drop-behavior-receipt"
+      },
+      {
+        "evidenceRef": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "kind": "model-output-equivalence-receipt"
+      },
+      {
+        "evidenceRef": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "kind": "performance-receipt"
+      },
+      {
+        "evidenceRef": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "kind": "network-exposure-observation"
+      },
+      {
+        "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "kind": "privacy-declaration"
+      }
+    ],
+    "schema": "axm-head/browser-physical-flight-postflight-input@1",
+    "seatRef": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "transactionRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "claimBoundary": {
+    "actualSupplierQualified": false,
+    "browserLaunched": false,
+    "commandAuthority": "none",
+    "inferenceExecuted": false,
+    "missionAuthority": "none",
+    "modelDownloaded": false,
+    "namedHumanConfirmationSupplied": false,
+    "operationCardConstructed": true,
+    "operationCardExecuted": false,
+    "peerConnectionFormed": false,
+    "physicalAuditionCompleted": false,
+    "physicalEstateQualified": false,
+    "routeTerminalProduced": false,
+    "supplierEndpointContacted": false
+  },
+  "expectedOutputUtf8": "7",
+  "hostileCases": [
+    {
+      "code": "SEAT_ROLE_MISMATCH",
+      "id": "recipe-seat-role-mismatch",
+      "path": [
+        "expectedRole"
+      ],
+      "target": "recipe",
+      "value": "pipeline-output"
+    },
+    {
+      "code": "MEMBER_ALIAS_DUPLICATE",
+      "id": "recipe-duplicate-member-alias",
+      "path": [
+        "static",
+        "members",
+        1,
+        "alias"
+      ],
+      "target": "recipe",
+      "value": "input-seat"
+    },
+    {
+      "code": "MEMBER_ID_DUPLICATE",
+      "id": "recipe-duplicate-member-id",
+      "path": [
+        "static",
+        "members",
+        1,
+        "args",
+        "memberId"
+      ],
+      "target": "recipe",
+      "value": "member-input"
+    },
+    {
+      "code": "MEMBER_ROLE_DENOMINATOR_INVALID",
+      "id": "recipe-missing-output-role",
+      "path": [
+        "static",
+        "members",
+        1,
+        "args",
+        "role"
+      ],
+      "target": "recipe",
+      "value": "pipeline-stage"
+    },
+    {
+      "code": "FORMATION_CAPACITY_MISMATCH",
+      "id": "recipe-capacity-mismatch",
+      "path": [
+        "static",
+        "formation",
+        "modelCapacityBytes"
+      ],
+      "target": "recipe",
+      "value": 3001
+    },
+    {
+      "code": "LAYER_DENOMINATOR_NOT_CONTIGUOUS",
+      "id": "recipe-layer-gap",
+      "path": [
+        "static",
+        "modelArtifacts",
+        1,
+        "args",
+        "layerStart"
+      ],
+      "target": "recipe",
+      "value": 33
+    },
+    {
+      "code": "MEMBER_ALIAS_UNRESOLVED",
+      "id": "recipe-unresolved-artifact-member",
+      "path": [
+        "static",
+        "modelArtifacts",
+        1,
+        "memberAlias"
+      ],
+      "target": "recipe",
+      "value": "absent-seat"
+    },
+    {
+      "code": "DROP_MEMBER_ALIAS_UNRESOLVED",
+      "id": "recipe-unresolved-drop-member",
+      "path": [
+        "dropTarget",
+        "memberAlias"
+      ],
+      "target": "recipe",
+      "value": "absent-seat"
+    },
+    {
+      "code": "AVAILABILITY_NOT_OBSERVED",
+      "id": "recipe-availability-not-observed",
+      "path": [
+        "static",
+        "availability",
+        "observed"
+      ],
+      "target": "recipe",
+      "value": false
+    },
+    {
+      "code": "ADAPTER_NOT_EXECUTABLE",
+      "id": "recipe-adapter-not-executable",
+      "path": [
+        "static",
+        "adapterArtifact",
+        "executableObserved"
+      ],
+      "target": "recipe",
+      "value": false
+    },
+    {
+      "code": "FORMATION_SEMANTICS_INVALID",
+      "id": "recipe-formation-not-bound",
+      "path": [
+        "static",
+        "formation",
+        "artifactBound"
+      ],
+      "target": "recipe",
+      "value": false
+    },
+    {
+      "code": "CLAIM_BOUNDARY_INVALID",
+      "id": "recipe-authority-widened",
+      "path": [
+        "claimBoundary",
+        "commandAuthority"
+      ],
+      "target": "recipe",
+      "value": "operator"
+    },
+    {
+      "code": "CARD_CONTENT_ID_INVALID",
+      "id": "card-id-tamper",
+      "path": [
+        "cardId"
+      ],
+      "target": "card",
+      "value": "axmphysicalflightcard_0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "code": "ONE_TOKEN_CHALLENGE_REQUIRED",
+      "id": "card-output-token-count",
+      "path": [
+        "expectedOutput",
+        "tokenCount"
+      ],
+      "target": "card",
+      "value": 2
+    },
+    {
+      "code": "REQUEST_BUDGET_INVALID",
+      "id": "card-request-budget",
+      "path": [
+        "requestBudget",
+        "sessionRequestCount"
+      ],
+      "target": "card",
+      "value": 55
+    },
+    {
+      "code": "SEAT_ROLE_MISMATCH",
+      "id": "card-seat-role-mismatch",
+      "path": [
+        "expectedRole"
+      ],
+      "target": "card",
+      "value": "pipeline-output"
+    },
+    {
+      "code": "SUPPLEMENT_CARD_BINDING_INVALID",
+      "id": "supplement-wrong-card",
+      "path": [
+        "cardId"
+      ],
+      "target": "supplement",
+      "value": "axmphysicalflightcard_0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "code": "DROP_CONTROL_INVALID",
+      "id": "supplement-uncontrolled-drop",
+      "path": [
+        "drop",
+        "controlled"
+      ],
+      "target": "supplement",
+      "value": false
+    },
+    {
+      "code": "PRIVACY_SCOPE_INVALID",
+      "id": "supplement-privacy-overclaim",
+      "path": [
+        "privacy",
+        "claimsEndToEndConfidentiality"
+      ],
+      "target": "supplement",
+      "value": true
+    },
+    {
+      "code": "RECEIPT_ORDER_INVALID",
+      "id": "supplement-receipt-order",
+      "operation": "swap",
+      "otherPath": [
+        "receipts",
+        1
+      ],
+      "path": [
+        "receipts",
+        0
+      ],
+      "target": "supplement"
+    },
+    {
+      "code": "RECEIPT_EVIDENCE_BINDING_MISMATCH",
+      "id": "supplement-capacity-receipt-mismatch",
+      "path": [
+        "receipts",
+        2,
+        "evidenceRef"
+      ],
+      "target": "supplement",
+      "value": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "code": "RECEIPT_EVIDENCE_BINDING_MISMATCH",
+      "id": "supplement-output-evidence-mismatch",
+      "path": [
+        "outputEvidenceRef"
+      ],
+      "target": "supplement",
+      "value": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "code": "SUPPLEMENT_CONTENT_ID_INVALID",
+      "id": "supplement-id-tamper",
+      "path": [
+        "supplementId"
+      ],
+      "target": "supplement",
+      "value": "axmphysicalflightpostflight_0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "promptUtf8": "Return exactly the single ASCII digit 7 and nothing else.",
+  "schema": "axm-head/browser-physical-flight-choreographer-cases@1",
+  "syntheticConformanceOnly": true
+}
