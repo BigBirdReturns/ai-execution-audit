@@ -1,0 +1,136 @@
+name: TEMP Issue 105 W01 Private Transfer Probe 03
+
+on:
+  push:
+    branches:
+      - ops/issue105-w01-private-transfer-probe-01
+    paths:
+      - ".github/workflows/temp-issue105-w01-private-transfer-probe-03.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-w01-private-transfer-probe-03
+  cancel-in-progress: true
+
+env:
+  EXPECTED_ARCHIVE_NAME: AXM-Issue-105-Physical-Flight-Bootstrap-03.zip
+  EXPECTED_ARCHIVE_BYTES: "33026569"
+  EXPECTED_ARCHIVE_SHA256: 435a44defad35aa3abd7b67c281f543aae7225efc0351bae05f5d7ae378b98c0
+  EXPECTED_BOOTSTRAP_ID: axmswarmllmflightbootstrap_ed0110be1bac6030490751a098b37e83ce2edf7b460c9efb77eb83c194d6ca7b
+  EXPECTED_RELEASE_ID: axmswarmllmexactcustodyrelease_6948e34bcdd927819b21b5ffaed97c4c287dff23d30dc5a10b12162d9e4e6f7b
+  EXPECTED_WORKSPACE_ID: axmswarmllmvenueobserverworkspace_ed63f5fe5425e19f3f83287da7df60444d76f1089b4d2b8cf42aa24cda277994
+  EXPECTED_CUSTODY_PLAN_ID: axmswarmllmcustodyplan_17c7d340d72ed5d8b707aca3ba6efe91a89564938f310bf76c7ba2f77610c162
+  EXPECTED_TRANSACTION_ID: axmbrowserphysicalrun_39c742fdf6f8108d750adc3d4e0629b53acb9749e27f7d217679c0fa84553474
+
+jobs:
+  qualify-hosted:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Parse the reusable PowerShell boundary
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Script = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-private-transfer-probe-01.ps1'
+          $Tokens = $null
+          $Errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile($Script, [ref]$Tokens, [ref]$Errors)
+          if ($Errors.Count -ne 0) {
+            $Errors | ForEach-Object { Write-Error $_.Message }
+            throw 'POWERSHELL_PARSE_FAILED'
+          }
+
+      - name: Exercise the no-transfer HOLD terminal
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($Value in @($env:COMPUTERNAME, $env:RUNNER_NAME, $env:USERPROFILE, $env:RUNNER_WORKSPACE, $env:RUNNER_TEMP)) {
+            if (-not [string]::IsNullOrWhiteSpace($Value)) { Write-Output "::add-mask::$Value" }
+          }
+          $Script = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-private-transfer-probe-01.ps1'
+          & $Script
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $Receipt = Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'issue105-w01-private-transfer-probe-01\receipt.json') -Raw | ConvertFrom-Json
+          if ($Receipt.status -ne 'HOLD' -or
+              $Receipt.terminal -ne 'HOLD' -or
+              $Receipt.reasonCode -ne 'PRIVATE_TRANSFER_NOT_SYNCED' -or
+              $Receipt.archiveLocated -ne $false -or
+              $Receipt.physicalExecutionObserved -ne $false -or
+              $Receipt.browserLaunched -ne $false -or
+              $Receipt.supplierEndpointContacted -ne $false -or
+              $Receipt.modelDownloaded -ne $false -or
+              $Receipt.rangeShardsDownloaded -ne 0 -or
+              $Receipt.peerConnectionFormed -ne $false -or
+              $Receipt.inferenceExecuted -ne $false -or
+              $Receipt.routeTerminalProduced -ne $false -or
+              $Receipt.actualSupplierQualified -ne $false -or
+              $Receipt.physicalEstateQualified -ne $false -or
+              $Receipt.missionAuthority -ne 'none' -or
+              $Receipt.commandAuthority -ne 'none') {
+            throw 'HOSTED_NEGATIVE_RECEIPT_INVALID'
+          }
+
+  probe-and-prepare:
+    needs: qualify-hosted
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Locate Bootstrap 03 and prepare W01 controller plus Seat 02
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($Value in @($env:COMPUTERNAME, $env:RUNNER_NAME, $env:USERPROFILE, $env:RUNNER_WORKSPACE, $env:RUNNER_TEMP, $env:OneDrive, $env:GoogleDrive, $env:GDRIVE)) {
+            if (-not [string]::IsNullOrWhiteSpace($Value)) { Write-Output "::add-mask::$Value" }
+          }
+          $Script = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-private-transfer-probe-01.ps1'
+          & $Script
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $ReceiptPath = Join-Path $env:RUNNER_TEMP 'issue105-w01-private-transfer-probe-01\receipt.json'
+          $Receipt = Get-Content -LiteralPath $ReceiptPath -Raw | ConvertFrom-Json
+          if ($Receipt.status -notin @('PASS', 'HOLD') -or
+              $Receipt.physicalExecutionObserved -ne $false -or
+              $Receipt.browserLaunched -ne $false -or
+              $Receipt.supplierEndpointContacted -ne $false -or
+              $Receipt.modelDownloaded -ne $false -or
+              $Receipt.rangeShardsDownloaded -ne 0 -or
+              $Receipt.peerConnectionFormed -ne $false -or
+              $Receipt.inferenceExecuted -ne $false -or
+              $Receipt.routeTerminalProduced -ne $false -or
+              $Receipt.actualSupplierQualified -ne $false -or
+              $Receipt.physicalEstateQualified -ne $false -or
+              $Receipt.missionAuthority -ne 'none' -or
+              $Receipt.commandAuthority -ne 'none') {
+            throw 'SELF_HOSTED_RECEIPT_INVALID'
+          }
+          if ($Receipt.status -eq 'PASS' -and
+              ($Receipt.terminal -ne 'W01_CONTROLLER_AND_SEAT02_PREPARED' -or
+               $Receipt.w01HardwareMatch -ne $true -or
+               $Receipt.archiveLocated -ne $true -or
+               $Receipt.controllerRoleState -notin @('PREPARED', 'REUSED_EXACT') -or
+               $Receipt.seat02RoleState -notin @('PREPARED', 'REUSED_EXACT'))) {
+            throw 'SELF_HOSTED_PASS_TERMINAL_INVALID'
+          }
+
+      - name: Upload body-free self-hosted receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue105-w01-private-transfer-preflight-03-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-w01-private-transfer-probe-01/receipt.json
+          if-no-files-found: error
+          retention-days: 14
