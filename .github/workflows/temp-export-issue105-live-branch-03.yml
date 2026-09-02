@@ -1,0 +1,86 @@
+name: TEMP Export Issue 105 Live Branch 03
+
+on:
+  push:
+    branches:
+      - ops/issue105-w01-private-transfer-probe-01
+    paths:
+      - ".github/workflows/temp-export-issue105-live-branch-03.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-export-issue105-live-branch-03
+  cancel-in-progress: true
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Export the exact live Issue 105 source and carrier denominator
+        shell: bash
+        run: |
+          set -euo pipefail
+          export_root="$RUNNER_TEMP/issue105-live-branch"
+          mkdir -p "$export_root"
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              .agent-carriers/issue105*|.github/scripts/issue105*|.github/workflows/*issue105*|.github/issue105*)
+                mkdir -p "$export_root/$(dirname "$path")"
+                cp -- "$path" "$export_root/$path"
+                ;;
+            esac
+          done < <(find .agent-carriers .github -type f -print0)
+          git rev-parse HEAD > "$export_root/HEAD.txt"
+          git rev-parse 'HEAD^{tree}' > "$export_root/TREE.txt"
+          python - "$export_root" <<'PY'
+          import hashlib, json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          files = sorted(p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file())
+          sums = []
+          for name in files:
+              sums.append(f"{hashlib.sha256((root/name).read_bytes()).hexdigest()}  {name}")
+          (root/'SHA256SUMS.txt').write_text('\n'.join(sums)+'\n', encoding='utf-8')
+          files = sorted(p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file())
+          payload = {
+              'schema': 'axm-private/issue105-live-branch-export@3',
+              'status': 'PASS',
+              'head': (root/'HEAD.txt').read_text().strip(),
+              'tree': (root/'TREE.txt').read_text().strip(),
+              'memberCount': len(files),
+              'members': files,
+              'physicalExecutionObserved': False,
+              'browserLaunched': False,
+              'supplierEndpointContacted': False,
+              'modelDownloaded': False,
+              'rangeShardsDownloaded': 0,
+              'peerConnectionFormed': False,
+              'inferenceExecuted': False,
+              'routeTerminalProduced': False,
+              'actualSupplierQualified': False,
+              'physicalEstateQualified': False,
+              'missionAuthority': 'none',
+              'commandAuthority': 'none',
+          }
+          (root/'EXPORT.json').write_text(json.dumps(payload, indent=2, sort_keys=True)+'\n', encoding='utf-8')
+          if payload['memberCount'] < 40:
+              raise SystemExit(f"Issue 105 export denominator unexpectedly small: {payload['memberCount']}")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue105-live-branch-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-live-branch
+          include-hidden-files: true
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 14
