@@ -1,0 +1,340 @@
+name: TEMP Issue 105 W01 and L01 Host Prepare 05
+
+on:
+  push:
+    branches:
+      - ops/issue105-w01-private-transfer-probe-01
+    paths:
+      - ".github/workflows/temp-issue105-w01-and-l01-host-prepare-05.yml"
+      - ".github/scripts/issue105-final-host-preparation-01.ps1"
+      - ".github/scripts/issue105-w01-private-transfer-ingress-03.ps1"
+      - ".github/scripts/issue105-w01-private-transfer-probe-01.ps1"
+      - ".agent-carriers/issue105-w01-l01-ssh-prepare-01.ps1.b64.part-*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-w01-private-transfer-probe-03
+  cancel-in-progress: true
+
+env:
+  EXPECTED_ARCHIVE_NAME: AXM-Issue-105-Physical-Flight-Bootstrap-03.zip
+  EXPECTED_ARCHIVE_BYTES: "33026569"
+  EXPECTED_ARCHIVE_SHA256: 435a44defad35aa3abd7b67c281f543aae7225efc0351bae05f5d7ae378b98c0
+  EXPECTED_BOOTSTRAP_ID: axmswarmllmflightbootstrap_ed0110be1bac6030490751a098b37e83ce2edf7b460c9efb77eb83c194d6ca7b
+  EXPECTED_RELEASE_ID: axmswarmllmexactcustodyrelease_6948e34bcdd927819b21b5ffaed97c4c287dff23d30dc5a10b12162d9e4e6f7b
+  EXPECTED_WORKSPACE_ID: axmswarmllmvenueobserverworkspace_ed63f5fe5425e19f3f83287da7df60444d76f1089b4d2b8cf42aa24cda277994
+  EXPECTED_CUSTODY_PLAN_ID: axmswarmllmcustodyplan_17c7d340d72ed5d8b707aca3ba6efe91a89564938f310bf76c7ba2f77610c162
+  EXPECTED_TRANSACTION_ID: axmbrowserphysicalrun_39c742fdf6f8108d750adc3d4e0629b53acb9749e27f7d217679c0fa84553474
+  CROSS_HOST_SOURCE_BYTES: "17737"
+  CROSS_HOST_SOURCE_SHA256: a9937cb50426a7308a0c3c37c4119cff206b228c58ab0a75a74c4e0b40f4eb80
+  PREPARER_SOURCE_BYTES: "10360"
+  PREPARER_SOURCE_SHA256: 6f7001104498a95183df36cdd26ed71b4739f929a821fa83208fdfdec9592fd9
+
+jobs:
+  qualify-hosted:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct the exact cross-host source
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Parts = @(
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00a'; Bytes = 1000; Blob = 'a63068c5e159d5c154c276b581b5926c42750d9c' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00b'; Bytes = 1000; Blob = 'b3ed58dbeea6744daa80927f410c75e2d342ee87' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00c'; Bytes = 1000; Blob = 'cc2b56bf773910c0ed9f70ab1be514858c50c268' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00d'; Bytes = 1000; Blob = '8e372348dda531a7e4634af4d737d6a9cedc0593' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00e'; Bytes = 1000; Blob = '3b08416ebe58174061d8847c14a967317bd74fed' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00f'; Bytes = 1000; Blob = '63788ffd1df1504db9010f3015ea20b3436e34b9' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-01'; Bytes = 6000; Blob = 'd3b0277c0017b8634194b296da85b68ba4452c51' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-02'; Bytes = 11652; Blob = '9a44099dfea11839c392ebb27ff4e19a07e997a7' }
+          )
+          $Encoded = New-Object Text.StringBuilder
+          foreach ($Part in $Parts) {
+            $Full = Join-Path $env:GITHUB_WORKSPACE $Part.Path
+            if (-not (Test-Path -LiteralPath $Full -PathType Leaf)) { throw "CARRIER_FRAGMENT_MISSING:$($Part.Path)" }
+            $Item = Get-Item -LiteralPath $Full -Force
+            if ($Item.Length -ne [int64]$Part.Bytes) { throw "CARRIER_FRAGMENT_SIZE_INVALID:$($Part.Path)" }
+            $Blob = (git hash-object -- $Full).Trim()
+            if ($LASTEXITCODE -ne 0 -or $Blob -ne $Part.Blob) { throw "CARRIER_FRAGMENT_BLOB_INVALID:$($Part.Path)" }
+            $Text = Get-Content -LiteralPath $Full -Raw
+            if ($Text -notmatch '^[A-Za-z0-9+/=]+$') { throw "CARRIER_FRAGMENT_ALPHABET_INVALID:$($Part.Path)" }
+            $null = $Encoded.Append($Text)
+          }
+          if ($Encoded.Length -ne 23652) { throw "CARRIER_DENOMINATOR_INVALID:$($Encoded.Length)" }
+          try { $Bytes = [Convert]::FromBase64String($Encoded.ToString()) }
+          catch { throw 'CARRIER_BASE64_INVALID' }
+          $Output = Join-Path $env:RUNNER_TEMP 'issue105-w01-l01-ssh-prepare-01.ps1'
+          [IO.File]::WriteAllBytes($Output, $Bytes)
+          $Digest = (Get-FileHash -LiteralPath $Output -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($Bytes.Length -ne [int64]$env:CROSS_HOST_SOURCE_BYTES -or $Digest -ne $env:CROSS_HOST_SOURCE_SHA256) {
+            throw "CROSS_HOST_SOURCE_IDENTITY_INVALID:$($Bytes.Length):$Digest"
+          }
+          "CROSS_HOST_SCRIPT=$Output" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Parse every PowerShell boundary
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($Script in @(
+            $env:CROSS_HOST_SCRIPT,
+            (Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-final-host-preparation-01.ps1'),
+            (Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-private-transfer-ingress-03.ps1'),
+            (Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-private-transfer-probe-01.ps1')
+          )) {
+            $Tokens = $null
+            $Errors = $null
+            $null = [Management.Automation.Language.Parser]::ParseFile($Script, [ref]$Tokens, [ref]$Errors)
+            if ($Errors.Count -ne 0) {
+              $Errors | ForEach-Object { Write-Error $_.Message }
+              throw "POWERSHELL_PARSE_FAILED:$Script"
+            }
+          }
+
+      - name: Bind the preparer source and closed SSH surface
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Preparer = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-final-host-preparation-01.ps1'
+          $Raw = [IO.File]::ReadAllBytes($Preparer)
+          $Strict = New-Object Text.UTF8Encoding($false, $true)
+          $Text = $Strict.GetString($Raw).Replace("`r`n", "`n")
+          if ($Text.Contains("`r")) { throw 'PREPARER_LINE_ENDING_INVALID' }
+          $Bytes = (New-Object Text.UTF8Encoding($false)).GetBytes($Text)
+          $Sha = [Security.Cryptography.SHA256]::Create()
+          try { $Digest = (($Sha.ComputeHash($Bytes) | ForEach-Object { $_.ToString('x2') }) -join '') }
+          finally { $Sha.Dispose() }
+          if ($Bytes.Length -ne [int64]$env:PREPARER_SOURCE_BYTES -or $Digest -ne $env:PREPARER_SOURCE_SHA256) {
+            throw 'PREPARER_SOURCE_IDENTITY_INVALID'
+          }
+          $Cross = Get-Content -LiteralPath $env:CROSS_HOST_SCRIPT -Raw
+          foreach ($Required in @(
+            'OCTO-L01', 'BatchMode=yes', 'StrictHostKeyChecking=yes', 'ConnectionAttempts=1',
+            'ForwardAgent=no', 'ForwardX11=no', 'ClearAllForwardings=yes',
+            'W01_AND_L01_HOSTS_PREPARED', 'HOST_REFERENCE_COLLISION',
+            $env:EXPECTED_BOOTSTRAP_ID, $env:EXPECTED_RELEASE_ID, $env:EXPECTED_WORKSPACE_ID,
+            $env:EXPECTED_CUSTODY_PLAN_ID, $env:EXPECTED_TRANSACTION_ID
+          )) {
+            if (-not $Cross.Contains($Required)) { throw "CROSS_HOST_BINDING_MISSING:$Required" }
+          }
+          foreach ($Forbidden in @(
+            'StrictHostKeyChecking=no', 'UserKnownHostsFile=/dev/null', 'ForwardAgent=yes',
+            'routeTerminalProduced = $true', 'actualSupplierQualified = $true',
+            'physicalEstateQualified = $true', 'missionAuthority = ', 'commandAuthority = '
+          )) {
+            if ($Forbidden -in @('missionAuthority = ', 'commandAuthority = ')) { continue }
+            if ($Cross.Contains($Forbidden)) { throw "CROSS_HOST_FORBIDDEN_SURFACE:$Forbidden" }
+          }
+
+      - name: Exercise the pre-W01 refusal without opening SSH
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($Value in @($env:COMPUTERNAME, $env:RUNNER_NAME, $env:USERPROFILE, $env:RUNNER_WORKSPACE, $env:RUNNER_TEMP)) {
+            if (-not [string]::IsNullOrWhiteSpace($Value)) { Write-Output "::add-mask::$Value" }
+          }
+          $Ingress = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-private-transfer-ingress-03.ps1'
+          $Preparer = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-final-host-preparation-01.ps1'
+          $W01Root = Join-Path $env:RUNNER_TEMP 'issue105-w01-private-transfer-probe-03'
+          & $Ingress -ReceiptRoot $W01Root
+          if ($LASTEXITCODE -ne 0) { throw "HOSTED_INGRESS_EXIT_INVALID:$LASTEXITCODE" }
+          $W01Path = Join-Path $W01Root 'receipt.json'
+          $W01 = Get-Content -LiteralPath $W01Path -Raw | ConvertFrom-Json
+          if ($W01.status -ne 'HOLD' -or $W01.reasonCode -ne 'PRIVATE_TRANSFER_NOT_SYNCED') {
+            throw 'HOSTED_W01_NEGATIVE_RECEIPT_INVALID'
+          }
+          $CrossRoot = Join-Path $env:RUNNER_TEMP 'issue105-w01-l01-ssh-prepare-01'
+          & $env:CROSS_HOST_SCRIPT -ReceiptRoot $CrossRoot -W01ReceiptPath $W01Path -PreparerScript $Preparer
+          if ($LASTEXITCODE -ne 0) { throw "HOSTED_CROSS_HOST_EXIT_INVALID:$LASTEXITCODE" }
+          $Receipt = Get-Content -LiteralPath (Join-Path $CrossRoot 'receipt.json') -Raw | ConvertFrom-Json
+          if ($Receipt.status -ne 'HOLD' -or
+              $Receipt.terminal -ne 'HOLD' -or
+              $Receipt.reasonCode -ne 'W01_PREPARATION_RECEIPT_INVALID' -or
+              $Receipt.sshHostKeyVerified -ne $false -or
+              $Receipt.remoteTransferExecuted -ne $false -or
+              $Receipt.remoteCommandExecuted -ne $false -or
+              $Receipt.remoteCleanupCompleted -ne $false -or
+              $Receipt.remoteStageRetainedForRetry -ne $false -or
+              $Receipt.distinctHostRefs -ne $false -or
+              $Receipt.physicalExecutionObserved -ne $false -or
+              $Receipt.browserLaunched -ne $false -or
+              $Receipt.supplierEndpointContacted -ne $false -or
+              $Receipt.modelDownloaded -ne $false -or
+              [int]$Receipt.rangeShardsDownloaded -ne 0 -or
+              $Receipt.peerConnectionFormed -ne $false -or
+              $Receipt.inferenceExecuted -ne $false -or
+              [int]$Receipt.physicalMemberEvidenceAccepted -ne 0 -or
+              [int]$Receipt.rawCapturesAccepted -ne 0 -or
+              $Receipt.namedHumanConfirmationSupplied -ne $false -or
+              $Receipt.routeTerminalProduced -ne $false -or
+              $Receipt.actualSupplierQualified -ne $false -or
+              $Receipt.physicalEstateQualified -ne $false -or
+              $Receipt.missionAuthority -ne 'none' -or
+              $Receipt.commandAuthority -ne 'none') {
+            throw 'HOSTED_CROSS_HOST_NEGATIVE_RECEIPT_INVALID'
+          }
+          if (Test-Path -LiteralPath (Join-Path $CrossRoot 'L01-HOST-PREPARATION-RECEIPT.json')) {
+            throw 'HOSTED_CROSS_HOST_UNEXPECTED_L01_RECEIPT'
+          }
+          [ordered]@{
+            schema = 'axm-private/issue105-w01-l01-ssh-preparation-hosted-qualification@1'
+            status = 'PASS'
+            crossHostSourceBytes = [int64]$env:CROSS_HOST_SOURCE_BYTES
+            crossHostSourceSha256 = 'sha256:' + $env:CROSS_HOST_SOURCE_SHA256
+            preparerSourceBytes = [int64]$env:PREPARER_SOURCE_BYTES
+            preparerSourceSha256 = 'sha256:' + $env:PREPARER_SOURCE_SHA256
+            carrierFragments = 8
+            carrierEncodedBytes = 23652
+            powershellBoundariesParsed = 4
+            preW01RefusalObserved = $true
+            sshAttempted = $false
+            remoteTransferExecuted = $false
+            remoteCommandExecuted = $false
+            physicalExecutionObserved = $false
+            browserLaunched = $false
+            supplierEndpointContacted = $false
+            modelDownloaded = $false
+            rangeShardsDownloaded = 0
+            peerConnectionFormed = $false
+            inferenceExecuted = $false
+            routeTerminalProduced = $false
+            actualSupplierQualified = $false
+            physicalEstateQualified = $false
+            missionAuthority = 'none'
+            commandAuthority = 'none'
+          } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'issue105-w01-l01-ssh-preparation-hosted-qualification.json') -Encoding UTF8
+
+      - name: Upload hosted qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue105-w01-l01-ssh-preparation-hosted-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/issue105-w01-l01-ssh-preparation-hosted-qualification.json
+            ${{ runner.temp }}/issue105-w01-private-transfer-probe-03/receipt.json
+            ${{ runner.temp }}/issue105-w01-l01-ssh-prepare-01/receipt.json
+          if-no-files-found: error
+          retention-days: 14
+
+  prepare-both-hosts:
+    needs: qualify-hosted
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct the exact cross-host source
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Paths = @(
+            '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00a',
+            '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00b',
+            '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00c',
+            '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00d',
+            '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00e',
+            '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00f',
+            '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-01',
+            '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-02'
+          )
+          $Encoded = ($Paths | ForEach-Object { Get-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE $_) -Raw }) -join ''
+          if ($Encoded.Length -ne 23652) { throw 'CARRIER_DENOMINATOR_INVALID' }
+          $Bytes = [Convert]::FromBase64String($Encoded)
+          $Output = Join-Path $env:RUNNER_TEMP 'issue105-w01-l01-ssh-prepare-01.ps1'
+          [IO.File]::WriteAllBytes($Output, $Bytes)
+          $Digest = (Get-FileHash -LiteralPath $Output -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($Bytes.Length -ne [int64]$env:CROSS_HOST_SOURCE_BYTES -or $Digest -ne $env:CROSS_HOST_SOURCE_SHA256) {
+            throw 'CROSS_HOST_SOURCE_IDENTITY_INVALID'
+          }
+          "CROSS_HOST_SCRIPT=$Output" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Prepare W01 and then L01 over the established strict-host-key lane
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($Value in @($env:COMPUTERNAME, $env:RUNNER_NAME, $env:USERPROFILE, $env:RUNNER_WORKSPACE, $env:RUNNER_TEMP, $env:OneDrive, $env:GoogleDrive, $env:GDRIVE)) {
+            if (-not [string]::IsNullOrWhiteSpace($Value)) { Write-Output "::add-mask::$Value" }
+          }
+          $Ingress = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-private-transfer-ingress-03.ps1'
+          $Preparer = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-final-host-preparation-01.ps1'
+          $W01Root = Join-Path $env:RUNNER_TEMP 'issue105-w01-private-transfer-probe-03'
+          & $Ingress -ReceiptRoot $W01Root
+          if ($LASTEXITCODE -ne 0) { throw "W01_INGRESS_EXIT_INVALID:$LASTEXITCODE" }
+          $W01Path = Join-Path $W01Root 'receipt.json'
+          $W01 = Get-Content -LiteralPath $W01Path -Raw | ConvertFrom-Json
+          if ($W01.status -notin @('PASS', 'HOLD') -or
+              $W01.physicalExecutionObserved -ne $false -or
+              $W01.browserLaunched -ne $false -or
+              $W01.supplierEndpointContacted -ne $false -or
+              $W01.modelDownloaded -ne $false -or
+              [int]$W01.rangeShardsDownloaded -ne 0 -or
+              $W01.peerConnectionFormed -ne $false -or
+              $W01.inferenceExecuted -ne $false -or
+              $W01.routeTerminalProduced -ne $false -or
+              $W01.actualSupplierQualified -ne $false -or
+              $W01.physicalEstateQualified -ne $false -or
+              $W01.missionAuthority -ne 'none' -or
+              $W01.commandAuthority -ne 'none') {
+            throw 'W01_PREPARATION_RECEIPT_INVALID'
+          }
+
+          $CrossRoot = Join-Path $env:RUNNER_TEMP 'issue105-w01-l01-ssh-prepare-01'
+          & $env:CROSS_HOST_SCRIPT -ReceiptRoot $CrossRoot -W01ReceiptPath $W01Path -PreparerScript $Preparer
+          if ($LASTEXITCODE -ne 0) { throw "CROSS_HOST_BOUNDARY_EXIT_INVALID:$LASTEXITCODE" }
+          $Receipt = Get-Content -LiteralPath (Join-Path $CrossRoot 'receipt.json') -Raw | ConvertFrom-Json
+          if ($Receipt.status -notin @('PASS', 'HOLD') -or
+              $Receipt.physicalExecutionObserved -ne $false -or
+              $Receipt.browserLaunched -ne $false -or
+              $Receipt.supplierEndpointContacted -ne $false -or
+              $Receipt.modelDownloaded -ne $false -or
+              [int]$Receipt.rangeShardsDownloaded -ne 0 -or
+              $Receipt.peerConnectionFormed -ne $false -or
+              $Receipt.inferenceExecuted -ne $false -or
+              [int]$Receipt.physicalMemberEvidenceAccepted -ne 0 -or
+              [int]$Receipt.rawCapturesAccepted -ne 0 -or
+              $Receipt.namedHumanConfirmationSupplied -ne $false -or
+              $Receipt.routeTerminalProduced -ne $false -or
+              $Receipt.actualSupplierQualified -ne $false -or
+              $Receipt.physicalEstateQualified -ne $false -or
+              $Receipt.missionAuthority -ne 'none' -or
+              $Receipt.commandAuthority -ne 'none') {
+            throw 'CROSS_HOST_RECEIPT_INVALID'
+          }
+          if ($Receipt.status -eq 'PASS' -and
+              ($Receipt.terminal -ne 'W01_AND_L01_HOSTS_PREPARED' -or
+               $Receipt.sshHostKeyVerified -ne $true -or
+               $Receipt.remoteTransferExecuted -ne $true -or
+               $Receipt.remoteCommandExecuted -ne $true -or
+               $Receipt.remoteCleanupCompleted -ne $true -or
+               $Receipt.remoteStageRetainedForRetry -ne $false -or
+               $Receipt.distinctHostRefs -ne $true -or
+               -not (Test-Path -LiteralPath (Join-Path $CrossRoot 'L01-HOST-PREPARATION-RECEIPT.json') -PathType Leaf))) {
+            throw 'CROSS_HOST_PASS_TERMINAL_INVALID'
+          }
+          if ($Receipt.status -eq 'HOLD' -and $Receipt.remoteTransferExecuted -eq $true -and $Receipt.remoteCleanupCompleted -eq $false -and $Receipt.remoteStageRetainedForRetry -ne $true) {
+            throw 'CROSS_HOST_RETRY_CUSTODY_INVALID'
+          }
+
+      - name: Upload body-free two-host preparation receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue105-w01-and-l01-host-preparation-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/issue105-w01-private-transfer-probe-03/receipt.json
+            ${{ runner.temp }}/issue105-w01-l01-ssh-prepare-01/receipt.json
+            ${{ runner.temp }}/issue105-w01-l01-ssh-prepare-01/L01-HOST-PREPARATION-RECEIPT.json
+          if-no-files-found: warn
+          retention-days: 14
