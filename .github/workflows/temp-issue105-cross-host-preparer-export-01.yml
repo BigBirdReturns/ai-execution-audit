@@ -1,0 +1,108 @@
+name: TEMP Issue 105 Cross Host Preparer Export 01
+
+on:
+  push:
+    branches:
+      - ops/issue105-w01-private-transfer-probe-01
+    paths:
+      - ".github/workflows/temp-issue105-cross-host-preparer-export-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-cross-host-preparer-export-01
+  cancel-in-progress: true
+
+env:
+  CROSS_HOST_SOURCE_BYTES: "17737"
+  CROSS_HOST_SOURCE_SHA256: a9937cb50426a7308a0c3c37c4119cff206b228c58ab0a75a74c4e0b40f4eb80
+
+jobs:
+  export-cross-host-preparer:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reconstruct the exact cross-host preparer
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Parts = @(
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00a'; Bytes = 1000; Blob = 'a63068c5e159d5c154c276b581b5926c42750d9c' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00b'; Bytes = 1000; Blob = 'b3ed58dbeea6744daa80927f410c75e2d342ee87' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00c'; Bytes = 1000; Blob = 'cc2b56bf773910c0ed9f70ab1be514858c50c268' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00d'; Bytes = 1000; Blob = '8e372348dda531a7e4634af4d737d6a9cedc0593' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00e'; Bytes = 1000; Blob = '3b08416ebe58174061d8847c14a967317bd74fed' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-00f'; Bytes = 1000; Blob = '63788ffd1df1504db9010f3015ea20b3436e34b9' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-01'; Bytes = 6000; Blob = 'd3b0277c0017b8634194b296da85b68ba4452c51' },
+            @{ Path = '.agent-carriers\issue105-w01-l01-ssh-prepare-01.ps1.b64.part-02'; Bytes = 11652; Blob = '9a44099dfea11839c392ebb27ff4e19a07e997a7' }
+          )
+          $Encoded = New-Object Text.StringBuilder
+          foreach ($Part in $Parts) {
+            $Full = Join-Path $env:GITHUB_WORKSPACE $Part.Path
+            if (-not (Test-Path -LiteralPath $Full -PathType Leaf)) { throw "CARRIER_FRAGMENT_MISSING:$($Part.Path)" }
+            if ((Get-Item -LiteralPath $Full -Force).Length -ne [int64]$Part.Bytes) { throw "CARRIER_FRAGMENT_SIZE_INVALID:$($Part.Path)" }
+            $Blob = (git hash-object -- $Full).Trim()
+            if ($LASTEXITCODE -ne 0 -or $Blob -ne $Part.Blob) { throw "CARRIER_FRAGMENT_BLOB_INVALID:$($Part.Path)" }
+            $Text = Get-Content -LiteralPath $Full -Raw
+            if ($Text -notmatch '^[A-Za-z0-9+/=]+$') { throw "CARRIER_FRAGMENT_ALPHABET_INVALID:$($Part.Path)" }
+            $null = $Encoded.Append($Text)
+          }
+          if ($Encoded.Length -ne 23652) { throw "CARRIER_ENCODED_DENOMINATOR_INVALID:$($Encoded.Length)" }
+          try { $Bytes = [Convert]::FromBase64String($Encoded.ToString()) }
+          catch { throw 'CARRIER_BASE64_INVALID' }
+          $Output = Join-Path $env:RUNNER_TEMP 'issue105-cross-host-preparer-export'
+          New-Item -ItemType Directory -Path $Output -Force | Out-Null
+          $Script = Join-Path $Output 'issue105-w01-l01-ssh-prepare-01.ps1'
+          [IO.File]::WriteAllBytes($Script, $Bytes)
+          $Digest = (Get-FileHash -LiteralPath $Script -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($Bytes.Length -ne [int64]$env:CROSS_HOST_SOURCE_BYTES -or $Digest -ne $env:CROSS_HOST_SOURCE_SHA256) {
+            throw "CROSS_HOST_SOURCE_IDENTITY_INVALID:$($Bytes.Length):$Digest"
+          }
+          $Tokens = $null
+          $Errors = $null
+          $null = [Management.Automation.Language.Parser]::ParseFile($Script, [ref]$Tokens, [ref]$Errors)
+          if ($Errors.Count -ne 0) {
+            $Errors | ForEach-Object { Write-Error $_.Message }
+            throw 'CROSS_HOST_POWERSHELL_PARSE_FAILED'
+          }
+          [ordered]@{
+            schema = 'axm-private/issue105-cross-host-preparer-export@1'
+            status = 'PASS'
+            sourceBytes = [int64]$env:CROSS_HOST_SOURCE_BYTES
+            sourceSha256 = 'sha256:' + $env:CROSS_HOST_SOURCE_SHA256
+            carrierFragments = 8
+            encodedBytes = 23652
+            powershellParsed = $true
+            peerAlias = 'OCTO-L01'
+            strictHostKeyCheckingRequired = $true
+            batchModeRequired = $true
+            forwardingDisabled = $true
+            physicalExecutionObserved = $false
+            browserLaunched = $false
+            supplierEndpointContacted = $false
+            modelDownloaded = $false
+            rangeShardsDownloaded = 0
+            peerConnectionFormed = $false
+            inferenceExecuted = $false
+            routeTerminalProduced = $false
+            actualSupplierQualified = $false
+            physicalEstateQualified = $false
+            missionAuthority = 'none'
+            commandAuthority = 'none'
+          } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $Output 'EXPORT.json') -Encoding UTF8
+          "$($env:CROSS_HOST_SOURCE_SHA256)  issue105-w01-l01-ssh-prepare-01.ps1" | Set-Content -LiteralPath (Join-Path $Output 'issue105-w01-l01-ssh-prepare-01.ps1.sha256') -Encoding ASCII
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue105-cross-host-preparer-export-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-cross-host-preparer-export
+          if-no-files-found: error
+          retention-days: 14
