@@ -14,6 +14,8 @@ jobs:
   repair:
     runs-on: windows-latest
     timeout-minutes: 35
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,10 +26,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Repair the dual repository and generated-kit wrapper coordinate
+      - name: Repair and rematerialize the exact source surfaces
         shell: pwsh
         run: |
           @'
+          import ast
           import hashlib
           import json
           import subprocess
@@ -103,6 +106,26 @@ jobs:
               (json.dumps(profile, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
           )
 
+          source_ref = subprocess.check_output(
+              ["git", "rev-parse", "HEAD"], text=True
+          ).strip()
+          preserved = {
+              wrapper_path.as_posix(),
+              profile_path.as_posix(),
+          }
+          for relative_text in profile["sourceMembers"]:
+              relative = PurePosixPath(relative_text)
+              if relative.as_posix() in preserved:
+                  continue
+              data = subprocess.check_output(
+                  ["git", "cat-file", "blob", f"{source_ref}:{relative.as_posix()}"]
+              )
+              if b"\r" in data:
+                  raise SystemExit(f"authoritative source contains CR bytes: {relative}")
+              target = Path(relative.as_posix())
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+
           admitted_ref = profile["admittedAudition"]["admissionCommit"]
           for row in profile["kitSourceBindings"]:
               relative = PurePosixPath("mating_surface/anchor_node") / row["path"]
@@ -118,11 +141,21 @@ jobs:
               target.parent.mkdir(parents=True, exist_ok=True)
               target.write_bytes(data)
 
+          for relative_text in profile["sourceMembers"]:
+              path = Path(relative_text)
+              data = path.read_bytes()
+              if b"\r" in data:
+                  raise SystemExit(f"materialized source contains CR bytes: {path}")
+              if path.suffix == ".py":
+                  ast.parse(data.decode("utf-8"), filename=str(path))
+
+          for path in anchor.rglob("__pycache__"):
+              raise SystemExit(f"bytecode cache appeared before qualification: {path}")
+
           print(json.dumps(rows[0], sort_keys=True))
           '@ | python -
 
           git diff --check
-          python -m compileall -q mating_surface/anchor_node
 
       - name: Run focused source and generated-kit qualification
         shell: pwsh
@@ -141,6 +174,8 @@ jobs:
           & $Wrapper 'validate-fixtures' $Profile $Fixtures
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $Wrapper 'campaign' $Profile $Fixtures
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $Wrapper 'source-set' $Profile $env:GITHUB_WORKSPACE
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           python -m unittest discover `
