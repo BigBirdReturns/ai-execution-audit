@@ -1,0 +1,276 @@
+name: TEMP Materialize Issue 106 Kit Layout Repair 01
+
+on:
+  push:
+    branches:
+      - staging/issue106-kit-layout-export-01
+    paths:
+      - ".github/workflows/temp-materialize-issue106-kit-layout-repair-01.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-materialize-issue106-kit-layout-repair-01
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  BASE_COMMIT: e78bb4e8a4115b2191967d1ffcd1d744d77ce050
+  BASE_TREE: 83006c13dd14f670785ffb57bd62d44b502d73a8
+  PRODUCT_BRANCH: work/axm-head-browser-physical-audition-kit-layout-01
+  PATCH_SHA256: 37343bc788553548fbba53679f500e6eacdac13dd7ab561f50d6365dab43dca1
+  EXPECTED_SOURCE_BINDING: axmbrowserphysicalpacketsource_a2ffcdcb6d658faa971f10791febdcfd940bd95bfcbbba406766abf6907f1290
+  EXPECTED_SOURCE_SET: axmbrowserphysicalpacketsource_368bcd305eed117e356979efafc4e9df71c825c05332fe4727f3e8b26a395b32
+  EXPECTED_KIT_ID: axmbrowserphysicalkit_5c60bc2f3f0433124b52602eedb6ef7f98bdc1a50fe26ed952bdee066cea3450
+
+jobs:
+  qualify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: staging/issue106-kit-layout-export-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Require exact floor and reconstruct transparent patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]] || {
+            echo "main moved" >&2
+            exit 2
+          }
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]] || {
+            echo "main tree differs" >&2
+            exit 2
+          }
+          if git ls-remote --exit-code --heads origin "refs/heads/$PRODUCT_BRANCH" >/dev/null 2>&1; then
+            echo "product branch already exists" >&2
+            exit 2
+          fi
+          parts=(
+            '.agent-carriers/issue106-kit-layout-repair.patch.part-00'
+            '.agent-carriers/issue106-kit-layout-repair.patch.part-01'
+            '.agent-carriers/issue106-kit-layout-repair.patch.part-02'
+          )
+          sizes=(12000 12000 9079)
+          for index in "${!parts[@]}"; do
+            part="${parts[$index]}"
+            [[ -f "$part" ]] || {
+              echo "patch segment missing: $part" >&2
+              exit 2
+            }
+            [[ "$(wc -c < "$part")" -eq "${sizes[$index]}" ]] || {
+              echo "patch segment size differs: $part" >&2
+              exit 2
+            }
+          done
+          cat "${parts[@]}" > "$RUNNER_TEMP/issue106.patch"
+          [[ "$(wc -c < "$RUNNER_TEMP/issue106.patch")" -eq 33079 ]]
+          observed="$(sha256sum "$RUNNER_TEMP/issue106.patch" | awk '{print $1}')"
+          [[ "$observed" == "$PATCH_SHA256" ]] || {
+            echo "patch digest differs: $observed" >&2
+            exit 2
+          }
+
+      - name: Apply exact five-path repair above admitted main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$BASE_COMMIT"
+          git apply --check "$RUNNER_TEMP/issue106.patch"
+          git apply "$RUNNER_TEMP/issue106.patch"
+          expected=(
+            '.github/workflows/axm-head-browser-physical-audition-packet-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-PACKET-01.md'
+            'mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json'
+            'mating_surface/anchor_node/axm_head_browser_physical_audition_packet_01.py'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_packet_01.py'
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          mapfile -t observed < <(git diff --name-only | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]] || {
+            echo "repair denominator differs" >&2
+            printf 'observed:\n%s\nexpected:\n%s\n' \
+              "$(printf '%s\n' "${observed[@]}")" \
+              "$(printf '%s\n' "${wanted[@]}")" >&2
+            exit 2
+          }
+          git diff --check
+
+      - name: Run complete Issue 106 qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-physical-audition-packet-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-physical-audition-packet-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_physical_audition_packet_01.py"
+          DIRECT="$ROOT/verify_axm_head_browser_physical_audition_packet_01.py"
+          BOOT="$ROOT/verify_axm_head_browser_physical_audition_packet_01_bootstrap.py"
+          TESTS="$ROOT/conformance/test_axm_head_browser_physical_audition_packet_01.py"
+          RECEIPTS="$RUNNER_TEMP/issue106-receipts"
+          KIT="$RUNNER_TEMP/issue106-kit"
+          EXTRACTED="$RUNNER_TEMP/issue106-kit-extracted"
+          PACKET="$RUNNER_TEMP/issue106-documented-packet"
+          mkdir -p "$RECEIPTS"
+
+          python -m py_compile "$TOOL" "$DIRECT" "$BOOT" "$TESTS"
+          find "$ROOT" -type d -name __pycache__ -prune -exec rm -rf {} +
+          node --check "$ROOT/browser_distributed_inference_probe.js"
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPTS/profile.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPTS/fixtures.json"
+          python "$TOOL" campaign "$PROFILE" "$FIXTURES" > "$RECEIPTS/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" > "$RECEIPTS/source-set.json"
+          python -m unittest discover \
+            -s "$ROOT/conformance" \
+            -p 'test_axm_head_browser_physical_audition_packet_01.py' \
+            -v 2>&1 | tee "$RECEIPTS/tests.txt"
+          grep -F 'Ran 82 tests' "$RECEIPTS/tests.txt"
+          grep -Fx 'OK' "$RECEIPTS/tests.txt"
+          python "$TOOL" build-kit "$PROFILE" "$GITHUB_WORKSPACE" "$KIT" > "$RECEIPTS/kit.json"
+
+          python - "$KIT" "$RUNNER_TEMP/issue106-kit.zip" "$EXTRACTED" <<'PY'
+          import pathlib
+          import sys
+          import zipfile
+
+          source = pathlib.Path(sys.argv[1])
+          archive_path = pathlib.Path(sys.argv[2])
+          extracted = pathlib.Path(sys.argv[3])
+          with zipfile.ZipFile(archive_path, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+              for path in sorted(p for p in source.rglob('*') if p.is_file()):
+                  archive.write(path, path.relative_to(source).as_posix())
+          with zipfile.ZipFile(archive_path) as archive:
+              names = archive.namelist()
+              if len(names) != len(set(names)):
+                  raise SystemExit('duplicate kit archive member')
+              archive.extractall(extracted)
+          PY
+
+          python "$EXTRACTED/source/axm_head_browser_physical_audition_packet_01.py" assemble \
+            "$EXTRACTED/source/axm-head-browser-physical-audition-packet-profile-01.json" \
+            "$PACKET" \
+            --now-ms 2000000000000 > "$RECEIPTS/documented-command.json"
+
+          python - "$RECEIPTS" "$KIT" "$EXTRACTED" "$PACKET" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          receipts, kit, extracted, packet = map(pathlib.Path, sys.argv[1:])
+          profile = json.loads((receipts / 'profile.json').read_text())
+          fixtures = json.loads((receipts / 'fixtures.json').read_text())
+          campaign = json.loads((receipts / 'campaign.json').read_text())
+          source = json.loads((receipts / 'source-set.json').read_text())
+          built = json.loads((receipts / 'kit.json').read_text())
+          decision = json.loads((receipts / 'documented-command.json').read_text())
+          if profile.get('status') != 'PASS' or fixtures.get('status') != 'PASS':
+              raise SystemExit('profile or fixture validation failed')
+          if campaign.get('status') != 'PASS' or campaign.get('caseCount') != 23:
+              raise SystemExit(campaign)
+          if campaign.get('terminalCounts') != {
+              'PREPARED_NOT_EXECUTED': 1,
+              'READY_FOR_NAMED_HUMAN': 1,
+              'OBSERVED_ROUTE_CANDIDATE': 1,
+              'HOLD': 15,
+              'REFUSED': 5,
+          }:
+              raise SystemExit(campaign)
+          if source.get('sourceBindingId') != os.environ['EXPECTED_SOURCE_SET']:
+              raise SystemExit(source)
+          if built.get('sourceBindingId') != os.environ['EXPECTED_SOURCE_BINDING']:
+              raise SystemExit(built)
+          if built.get('kitId') != os.environ['EXPECTED_KIT_ID'] or built.get('memberCount') != 19:
+              raise SystemExit(built)
+          if decision.get('terminal') != 'PREPARED_NOT_EXECUTED' or decision.get('reasonCodes') != []:
+              raise SystemExit(decision)
+          for key in ('physicalExecutionObserved', 'actualSupplierQualified', 'supplierAdmissionReceiptPresent', 'physicalEstateQualified'):
+              if decision.get(key) is not False:
+                  raise SystemExit(f'claim promoted: {key}')
+          for key in ('missionAuthority', 'commandAuthority', 'targetingAuthority', 'engagementAuthority', 'effectorAuthority', 'weaponsAuthority'):
+              if decision.get(key) != 'none':
+                  raise SystemExit(f'authority promoted: {key}')
+          if not (packet / 'private' / 'packet-decision.json').is_file() or not (packet / 'public' / 'status.json').is_file():
+              raise SystemExit('documented command outputs missing')
+          for relative in (
+              'extension/browser_distributed_inference_probe.js',
+              'source/browser_distributed_inference_probe.js',
+          ):
+              if (kit / relative).read_bytes() != (extracted / relative).read_bytes():
+                  raise SystemExit(f'archive round-trip differs: {relative}')
+          if (kit / 'extension' / 'browser_distributed_inference_probe.js').read_bytes() != (kit / 'source' / 'browser_distributed_inference_probe.js').read_bytes():
+              raise SystemExit('probe copies differ')
+          summary = {
+              'schema': 'axm-head/issue106-kit-layout-qualification@1',
+              'status': 'PASS',
+              'baseCommit': os.environ['BASE_COMMIT'],
+              'baseTree': os.environ['BASE_TREE'],
+              'sourceBindingId': built['sourceBindingId'],
+              'sourceSetId': source['sourceBindingId'],
+              'kitId': built['kitId'],
+              'hostileWitnesses': {'passed': 82, 'denominator': 82},
+              'fixtureCases': {'passed': 23, 'denominator': 23},
+              'kitPayloadMembers': 19,
+              'kitFilesIncludingManifest': 20,
+              'documentedCommandTerminal': decision['terminal'],
+              'physicalExecutionObserved': False,
+              'actualSupplierQualified': False,
+              'physicalEstateQualified': False,
+              'missionAuthority': 'none',
+              'commandAuthority': 'none',
+          }
+          (receipts / 'qualification.json').write_text(json.dumps(summary, sort_keys=True, indent=2) + '\n')
+          PY
+          git diff --check
+
+      - name: Publish four non-workflow source members
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout "$BASE_COMMIT" -- .github/workflows/axm-head-browser-physical-audition-packet-01.yml
+          expected=(
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-PACKET-01.md'
+            'mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json'
+            'mating_surface/anchor_node/axm_head_browser_physical_audition_packet_01.py'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_packet_01.py'
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          mapfile -t observed < <(git diff --name-only | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]] || {
+            echo "non-workflow publication denominator differs" >&2
+            exit 2
+          }
+          git add -- "${expected[@]}"
+          mapfile -t staged < <(git diff --cached --name-only | LC_ALL=C sort)
+          [[ "${staged[*]}" == "${wanted[*]}" ]] || {
+            echo "staged publication denominator differs" >&2
+            exit 2
+          }
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Repair the physical-audition kit runtime layout'
+          echo "PRODUCT_HEAD=$(git rev-parse HEAD)"
+          echo "PRODUCT_TREE=$(git rev-parse 'HEAD^{tree}')"
+          git push origin "HEAD:refs/heads/$PRODUCT_BRANCH"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue106-kit-layout-repair-qualification
+          path: ${{ runner.temp }}/issue106-receipts
+          if-no-files-found: error
+          retention-days: 14
