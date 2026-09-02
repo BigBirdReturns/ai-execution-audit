@@ -1,0 +1,95 @@
+name: TEMP Publish Issue 106 Qualified Workflow Blob 01
+
+on:
+  push:
+    branches:
+      - staging/issue106-kit-layout-export-01
+    paths:
+      - ".github/workflows/temp-publish-issue106-qualified-workflow-blob-01.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-publish-issue106-qualified-workflow-blob-01
+  cancel-in-progress: false
+
+env:
+  BASE_COMMIT: e78bb4e8a4115b2191967d1ffcd1d744d77ce050
+  BASE_TREE: 83006c13dd14f670785ffb57bd62d44b502d73a8
+  TARGET_BRANCH: staging/issue106-qualified-workflow-blob-01
+  PATCH_SHA256: 37343bc788553548fbba53679f500e6eacdac13dd7ab561f50d6365dab43dca1
+  WORKFLOW_BLOB: 368a56aafcfbc90abf7e8ed88508799f8cf22a1a
+  WORKFLOW_SHA256: b17a0aa4f45969a54bc5eed59b391ac18ea74384c3d8947a2e4bd0be3399d8da
+  WORKFLOW_BYTES: "29346"
+
+jobs:
+  publish-blob:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: staging/issue106-kit-layout-export-01
+          fetch-depth: 0
+
+      - name: Reconstruct the exact qualified workflow bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]]
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]]
+          if git ls-remote --exit-code --heads origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "target branch already exists" >&2
+            exit 2
+          fi
+          parts=(
+            '.agent-carriers/issue106-kit-layout-repair.patch.part-00'
+            '.agent-carriers/issue106-kit-layout-repair.patch.part-01'
+            '.agent-carriers/issue106-kit-layout-repair.patch.part-02'
+          )
+          blobs=(
+            1cc3feb4c9a3b0e28de1094f5cfa5f3e79093fb7
+            2c481a40537d2a6bafa214589b65dd54888f0834
+            afb7ea568ec8a39f14d6a2f6e93fe52a6b6c25ba
+          )
+          for index in "${!parts[@]}"; do
+            [[ "$(git hash-object "${parts[$index]}")" == "${blobs[$index]}" ]] || {
+              echo "patch segment differs: ${parts[$index]}" >&2
+              exit 2
+            }
+          done
+          cat "${parts[@]}" > "$RUNNER_TEMP/issue106.patch"
+          [[ "$(wc -c < "$RUNNER_TEMP/issue106.patch")" -eq 33079 ]]
+          [[ "$(sha256sum "$RUNNER_TEMP/issue106.patch" | awk '{print $1}')" == "$PATCH_SHA256" ]]
+          git checkout --detach "$BASE_COMMIT"
+          git apply --check "$RUNNER_TEMP/issue106.patch"
+          git apply "$RUNNER_TEMP/issue106.patch"
+          SOURCE='.github/workflows/axm-head-browser-physical-audition-packet-01.yml'
+          [[ "$(wc -c < "$SOURCE")" -eq "$WORKFLOW_BYTES" ]]
+          [[ "$(sha256sum "$SOURCE" | awk '{print $1}')" == "$WORKFLOW_SHA256" ]]
+          [[ "$(git hash-object "$SOURCE")" == "$WORKFLOW_BLOB" ]]
+          cp -- "$SOURCE" "$RUNNER_TEMP/qualified-workflow.yml"
+
+      - name: Publish the bytes only at a non-workflow path
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard "$BASE_COMMIT"
+          TARGET='.agent-candidates/issue106-kit-layout-workflow.yml'
+          mkdir -p "$(dirname "$TARGET")"
+          cp -- "$RUNNER_TEMP/qualified-workflow.yml" "$TARGET"
+          [[ "$(wc -c < "$TARGET")" -eq "$WORKFLOW_BYTES" ]]
+          [[ "$(sha256sum "$TARGET" | awk '{print $1}')" == "$WORKFLOW_SHA256" ]]
+          [[ "$(git hash-object "$TARGET")" == "$WORKFLOW_BLOB" ]]
+          git add -- "$TARGET"
+          [[ "$(git diff --cached --name-only)" == "$TARGET" ]]
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Stage the qualified Issue 106 workflow blob'
+          echo "BLOB_COMMIT=$(git rev-parse HEAD)"
+          echo "BLOB_TREE=$(git rev-parse 'HEAD^{tree}')"
+          echo "WORKFLOW_BLOB=$(git rev-parse "HEAD:$TARGET")"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
