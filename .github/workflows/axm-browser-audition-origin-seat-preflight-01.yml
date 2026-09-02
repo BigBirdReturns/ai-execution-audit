@@ -1,0 +1,384 @@
+name: AXM Browser Audition Origin Seat Preflight 01
+
+on:
+  push:
+    branches:
+      - ops/browser-audition-origin-seat-preflight-01
+    paths:
+      - ".github/workflows/axm-browser-audition-origin-seat-preflight-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: axm-browser-audition-origin-seat-preflight-01
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  ADMISSION_COMMIT: e78bb4e8a4115b2191967d1ffcd1d744d77ce050
+  ADMISSION_TREE: 83006c13dd14f670785ffb57bd62d44b502d73a8
+  SOURCE_BINDING: axmoperationplansource_c16c73e2f3923a1c271bd4840d05f56a8bf639f947b4a47a565e5980c615ea9c
+  EXTENSION_ID: axmoperationplanextension_43261df0433ae81596aa1d0a85fdc86f4f85d2004098d604ecc6bda694e3ffa6
+
+jobs:
+  physical-origin-seat-preflight:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 25
+
+    steps:
+      - name: Mask private host coordinates
+        shell: pwsh
+        run: |
+          foreach ($Value in @($env:COMPUTERNAME, $env:RUNNER_NAME, $env:USERPROFILE, $env:RUNNER_WORKSPACE, $env:RUNNER_TEMP)) {
+            if (-not [string]::IsNullOrWhiteSpace($Value)) { Write-Output "::add-mask::$Value" }
+          }
+
+      - name: Check out the exact admitted floor
+        uses: actions/checkout@v6
+        with:
+          ref: e78bb4e8a4115b2191967d1ffcd1d744d77ce050
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Reconstruct the admitted derivative extension
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ((git rev-parse HEAD).Trim() -ne $env:ADMISSION_COMMIT) { throw 'admission commit differs' }
+          if ((git rev-parse 'HEAD^{tree}').Trim() -ne $env:ADMISSION_TREE) { throw 'admission tree differs' }
+          $Root = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node'
+          $Profile = Join-Path $Root 'axm-head-browser-audition-operation-plan-profile-01.json'
+          $Tool = Join-Path $Root 'axm_head_browser_audition_operation_plan_01.py'
+          $Verifier = Join-Path $Root 'verify_axm_head_browser_audition_operation_plan_01.py'
+          $Output = Join-Path $env:RUNNER_TEMP 'axm-origin-seat-preflight-extension'
+          if (Test-Path -LiteralPath $Output) { Remove-Item -LiteralPath $Output -Recurse -Force }
+          python $Tool build-extension $Profile $env:GITHUB_WORKSPACE $Output | Out-File -LiteralPath (Join-Path $env:RUNNER_TEMP 'build.json') -Encoding utf8NoBOM
+          python $Verifier $Profile $env:GITHUB_WORKSPACE $Output | Out-File -LiteralPath (Join-Path $env:RUNNER_TEMP 'verify.json') -Encoding utf8NoBOM
+          $Build = Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'build.json') -Raw | ConvertFrom-Json
+          $Verify = Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'verify.json') -Raw | ConvertFrom-Json
+          if ($Build.extensionId -ne $env:EXTENSION_ID) { throw 'extension identity differs' }
+          if ($Verify.status -ne 'PASS' -or $Verify.sourceBindingId -ne $env:SOURCE_BINDING) { throw 'extension verification differs' }
+          "AXM_EXTENSION_ROOT=$Output" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Create a loopback-only browser probe target
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $WebRoot = Join-Path $env:RUNNER_TEMP 'axm-origin-seat-loopback'
+          New-Item -ItemType Directory -Path $WebRoot -Force | Out-Null
+          @'
+          <!doctype html>
+          <html><head><meta charset="utf-8"><title>AXM loopback seat preflight</title>
+          <script>globalThis.__AXM_LOCAL_APPLICATION_STARTED__ = performance.now();</script>
+          </head><body><main id="ready">loopback-ready</main></body></html>
+          '@ | Set-Content -LiteralPath (Join-Path $WebRoot 'index.html') -Encoding utf8NoBOM
+          @'
+          import http.server, pathlib, socketserver, sys
+          root = pathlib.Path(sys.argv[1]).resolve()
+          port_file = pathlib.Path(sys.argv[2]).resolve()
+          class Handler(http.server.SimpleHTTPRequestHandler):
+              def log_message(self, *_args):
+                  pass
+          class Server(socketserver.TCPServer):
+              allow_reuse_address = True
+          import os
+          os.chdir(root)
+          with Server(("127.0.0.1", 0), Handler) as server:
+              port_file.write_text(str(server.server_address[1]), encoding="ascii")
+              server.serve_forever()
+          '@ | Set-Content -LiteralPath (Join-Path $WebRoot 'server.py') -Encoding utf8NoBOM
+          $PortFile = Join-Path $env:RUNNER_TEMP 'axm-origin-seat-loopback.port'
+          $Server = Start-Process -FilePath 'python' -ArgumentList @((Join-Path $WebRoot 'server.py'), $WebRoot, $PortFile) -PassThru -WindowStyle Hidden
+          $Deadline = [DateTime]::UtcNow.AddSeconds(20)
+          while (-not (Test-Path -LiteralPath $PortFile)) {
+            if ($Server.HasExited) { throw 'loopback server exited' }
+            if ([DateTime]::UtcNow -gt $Deadline) { throw 'loopback server did not publish a port' }
+            Start-Sleep -Milliseconds 100
+          }
+          "AXM_LOOPBACK_PORT=$(Get-Content -LiteralPath $PortFile -Raw)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "AXM_LOOPBACK_SERVER_PID=$($Server.Id)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Locate a Chromium seat and launch the admitted extension
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Candidates = @(
+            @{ Product = 'chrome'; Path = Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe' },
+            @{ Product = 'chrome'; Path = Join-Path ${env:ProgramFiles(x86)} 'Google\Chrome\Application\chrome.exe' },
+            @{ Product = 'chrome'; Path = Join-Path $env:LOCALAPPDATA 'Google\Chrome\Application\chrome.exe' },
+            @{ Product = 'edge'; Path = Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe' },
+            @{ Product = 'edge'; Path = Join-Path $env:ProgramFiles 'Microsoft\Edge\Application\msedge.exe' }
+          )
+          $Browser = $Candidates | Where-Object { Test-Path -LiteralPath $_.Path -PathType Leaf } | Select-Object -First 1
+          if ($null -eq $Browser) { throw 'no supported Chromium browser was found' }
+          Write-Output "::add-mask::$($Browser.Path)"
+          $Version = [Diagnostics.FileVersionInfo]::GetVersionInfo($Browser.Path).ProductVersion
+          $Profile = Join-Path $env:RUNNER_TEMP 'axm-origin-seat-browser-profile'
+          if (Test-Path -LiteralPath $Profile) { Remove-Item -LiteralPath $Profile -Recurse -Force }
+          New-Item -ItemType Directory -Path $Profile -Force | Out-Null
+          $Arguments = @(
+            '--headless=new',
+            '--remote-debugging-port=0',
+            "--user-data-dir=$Profile",
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--disable-background-networking',
+            '--disable-component-update',
+            '--disable-sync',
+            '--metrics-recording-only',
+            '--enable-unsafe-webgpu',
+            '--use-angle=d3d11',
+            "--disable-extensions-except=$env:AXM_EXTENSION_ROOT",
+            "--load-extension=$env:AXM_EXTENSION_ROOT",
+            'about:blank'
+          )
+          $Process = Start-Process -FilePath $Browser.Path -ArgumentList $Arguments -PassThru -WindowStyle Hidden
+          $PortFile = Join-Path $Profile 'DevToolsActivePort'
+          $Deadline = [DateTime]::UtcNow.AddSeconds(30)
+          while (-not (Test-Path -LiteralPath $PortFile)) {
+            if ($Process.HasExited) { throw 'Chromium exited before publishing DevToolsActivePort' }
+            if ([DateTime]::UtcNow -gt $Deadline) { throw 'Chromium did not publish DevToolsActivePort' }
+            Start-Sleep -Milliseconds 100
+          }
+          "AXM_BROWSER_PRODUCT=$($Browser.Product)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "AXM_BROWSER_VERSION=$Version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "AXM_BROWSER_PID=$($Process.Id)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "AXM_DEVTOOLS_PORT_FILE=$PortFile" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Exercise the extension at document_start on the physical origin seat
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Script = Join-Path $env:RUNNER_TEMP 'axm-origin-seat-cdp.mjs'
+          @'
+          import fs from "node:fs";
+          import crypto from "node:crypto";
+
+          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+          const [port] = fs.readFileSync(process.env.AXM_DEVTOOLS_PORT_FILE, "utf8").trim().split(/\r?\n/);
+          const base = `http://127.0.0.1:${port}`;
+          const localTarget = `http://127.0.0.1:${process.env.AXM_LOOPBACK_PORT}/index.html`;
+          const target = await (await fetch(`${base}/json/new?${encodeURIComponent(localTarget)}`, { method: "PUT" })).json();
+
+          class Cdp {
+            constructor(url) {
+              this.nextId = 1;
+              this.pending = new Map();
+              this.socket = new WebSocket(url);
+            }
+            async open() {
+              if (this.socket.readyState === WebSocket.OPEN) return;
+              await new Promise((resolve, reject) => {
+                this.socket.addEventListener("open", resolve, { once: true });
+                this.socket.addEventListener("error", reject, { once: true });
+              });
+              this.socket.addEventListener("message", (event) => {
+                const message = JSON.parse(String(event.data));
+                if (!message.id) return;
+                const pending = this.pending.get(message.id);
+                if (!pending) return;
+                this.pending.delete(message.id);
+                if (message.error) pending.reject(new Error(JSON.stringify(message.error)));
+                else pending.resolve(message.result);
+              });
+            }
+            send(method, params = {}) {
+              const id = this.nextId++;
+              return new Promise((resolve, reject) => {
+                this.pending.set(id, { resolve, reject });
+                this.socket.send(JSON.stringify({ id, method, params }));
+              });
+            }
+            close() { this.socket.close(); }
+          }
+
+          const cdp = new Cdp(target.webSocketDebuggerUrl);
+          await cdp.open();
+          await cdp.send("Page.enable");
+          await cdp.send("Runtime.enable");
+          let ready = false;
+          for (let index = 0; index < 200; index += 1) {
+            const result = await cdp.send("Runtime.evaluate", { expression: "document.readyState", returnByValue: true });
+            ready = ["interactive", "complete"].includes(result.result.value);
+            if (ready) break;
+            await sleep(100);
+          }
+          if (!ready) throw new Error("loopback page did not become ready");
+          await sleep(1500);
+
+          const expression = `
+          (async () => {
+            const probe = globalThis.__AXM_AUDITION__;
+            const capture = probe?.exportCapture?.() ?? null;
+            const counts = {};
+            for (const row of capture?.events ?? []) counts[row.type] = (counts[row.type] ?? 0) + 1;
+            let gpu = { navigatorExposed: Boolean(navigator.gpu), adapterAvailable: false, featureCount: 0, limits: {} };
+            if (navigator.gpu) {
+              try {
+                const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+                gpu.adapterAvailable = Boolean(adapter);
+                if (adapter) {
+                  gpu.featureCount = Array.from(adapter.features ?? []).length;
+                  for (const key of ["maxBufferSize", "maxStorageBufferBindingSize", "maxComputeWorkgroupStorageSize", "maxComputeInvocationsPerWorkgroup"]) {
+                    const value = Number(adapter.limits?.[key]);
+                    if (Number.isFinite(value)) gpu.limits[key] = value;
+                  }
+                }
+              } catch (error) {
+                gpu.errorClass = error?.constructor?.name ?? "Error";
+              }
+            }
+            return {
+              pageReady: document.readyState === "complete" || document.readyState === "interactive",
+              localApplicationStarted: Number.isFinite(globalThis.__AXM_LOCAL_APPLICATION_STARTED__),
+              probeAvailable: Boolean(probe),
+              probeVersion: probe?.version ?? null,
+              capture: capture ? {
+                installedBeforeApplication: capture.installedBeforeApplication === true,
+                refused: capture.refused ?? null,
+                eventCount: capture.observed?.eventCount ?? null,
+                encodedBytes: capture.observed?.encodedBytes ?? null,
+                eventTypeCounts: counts,
+                peerConnectionCount: capture.summaries?.peerConnectionCount ?? null,
+                dataChannelCount: capture.summaries?.dataChannelCount ?? null,
+                memberCount: capture.summaries?.memberCount ?? null,
+                artifactCount: capture.summaries?.artifactCount ?? null,
+                tokenMarkCount: capture.summaries?.tokenMarks?.length ?? null
+              } : null,
+              capabilities: {
+                webgpu: gpu,
+                sharedArrayBufferExposed: typeof SharedArrayBuffer === "function",
+                webAssemblyExposed: typeof WebAssembly === "object",
+                crossOriginIsolated: globalThis.crossOriginIsolated === true,
+                rtcPeerConnectionExposed: typeof RTCPeerConnection === "function"
+              }
+            };
+          })()`;
+          const evaluated = await cdp.send("Runtime.evaluate", {
+            expression,
+            awaitPromise: true,
+            returnByValue: true,
+          });
+          const observation = evaluated.result.value;
+          cdp.close();
+
+          const identityMaterial = [
+            process.env.GITHUB_RUN_ID,
+            process.env.GITHUB_RUN_ATTEMPT,
+            process.env.RUNNER_NAME,
+            process.env.COMPUTERNAME,
+            process.env.PROCESSOR_IDENTIFIER,
+          ].join("|");
+          const runnerIdentityRef = `sha256:${crypto.createHash("sha256").update(identityMaterial).digest("hex")}`;
+          const pass = Boolean(
+            observation.pageReady &&
+            observation.localApplicationStarted &&
+            observation.probeAvailable &&
+            observation.capture?.installedBeforeApplication &&
+            observation.capture?.refused === null
+          );
+          const receipt = {
+            schema: "axm-head/browser-audition-origin-seat-preflight@1",
+            status: pass ? "PASS" : "HOLD",
+            admissionCommit: process.env.ADMISSION_COMMIT,
+            admissionTree: process.env.ADMISSION_TREE,
+            sourceBindingId: process.env.SOURCE_BINDING,
+            extensionId: process.env.EXTENSION_ID,
+            runnerIdentityRef,
+            browser: {
+              product: process.env.AXM_BROWSER_PRODUCT,
+              version: process.env.AXM_BROWSER_VERSION,
+              headless: true,
+            },
+            observation,
+            claimBoundary: {
+              physicalOriginSeatPreflightObserved: true,
+              browserLaunched: true,
+              loopbackTargetOnly: true,
+              supplierEndpointContacted: false,
+              modelDownloaded: false,
+              peerConnectionFormed: false,
+              inferenceExecuted: false,
+              physicalMemberEvidenceAccepted: false,
+              rawCaptureAccepted: false,
+              namedHumanConfirmationSupplied: false,
+              routeTerminalProduced: false,
+              actualSupplierQualified: false,
+              physicalEstateQualified: false,
+              missionAuthority: "none",
+              commandAuthority: "none"
+            }
+          };
+          fs.writeFileSync(process.env.AXM_PREFLIGHT_RECEIPT, JSON.stringify(receipt, null, 2) + "\n", "utf8");
+          if (!pass) process.exitCode = 2;
+          '@ | Set-Content -LiteralPath $Script -Encoding utf8NoBOM
+          $Receipt = Join-Path $env:RUNNER_TEMP 'axm-origin-seat-preflight.json'
+          "AXM_PREFLIGHT_RECEIPT=$Receipt" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $env:AXM_PREFLIGHT_RECEIPT = $Receipt
+          node $Script
+
+      - name: Enforce the public-safe receipt projection
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path -LiteralPath $env:AXM_PREFLIGHT_RECEIPT -PathType Leaf)) { throw 'preflight receipt missing' }
+          python - $env:AXM_PREFLIGHT_RECEIPT <<'PY'
+          import json, pathlib, re, sys
+          path = pathlib.Path(sys.argv[1])
+          body = json.loads(path.read_text(encoding="utf-8"))
+          forbidden_keys = {"url", "uri", "hostname", "hostName", "endpoint", "endpointUrl", "browserPath", "localPath", "runnerName", "computerName"}
+          def walk(value):
+              if isinstance(value, dict):
+                  for key, item in value.items():
+                      if key in forbidden_keys:
+                          raise SystemExit(f"forbidden key: {key}")
+                      walk(item)
+              elif isinstance(value, list):
+                  for item in value: walk(item)
+              elif isinstance(value, str):
+                  if re.search(r"(?:https?|chrome-extension)://|[A-Za-z]:\\|(?:^|\s)(?:\d{1,3}\.){3}\d{1,3}(?:\s|$)", value):
+                      raise SystemExit("forbidden coordinate in receipt")
+          walk(body)
+          if body.get("claimBoundary", {}).get("supplierEndpointContacted") is not False:
+              raise SystemExit("supplier endpoint claim widened")
+          if body.get("claimBoundary", {}).get("inferenceExecuted") is not False:
+              raise SystemExit("inference claim widened")
+          print(json.dumps({"status": body.get("status"), "runnerIdentityRef": body.get("runnerIdentityRef"), "extensionId": body.get("extensionId")}, sort_keys=True))
+          PY
+
+      - name: Upload the body-free physical-seat preflight receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: axm-browser-origin-seat-preflight-${{ github.run_id }}
+          path: ${{ env.AXM_PREFLIGHT_RECEIPT }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Destroy temporary browser state
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($Raw in @($env:AXM_BROWSER_PID, $env:AXM_LOOPBACK_SERVER_PID)) {
+            if ($Raw -match '^\d+$') {
+              Stop-Process -Id ([int]$Raw) -Force -ErrorAction SilentlyContinue
+            }
+          }
+          foreach ($Path in @(
+            (Join-Path $env:RUNNER_TEMP 'axm-origin-seat-browser-profile'),
+            (Join-Path $env:RUNNER_TEMP 'axm-origin-seat-loopback'),
+            (Join-Path $env:RUNNER_TEMP 'axm-origin-seat-preflight-extension')
+          )) {
+            if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue }
+          }
