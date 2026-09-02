@@ -1,0 +1,38 @@
+name: TEMP Cancel Browser Audition Origin Seat Preflight 01
+
+on:
+  push:
+    branches:
+      - ops/browser-audition-origin-seat-preflight-01
+    paths:
+      - ".github/workflows/temp-cancel-browser-audition-origin-seat-preflight-01.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: axm-browser-audition-origin-seat-preflight-01
+  cancel-in-progress: true
+
+jobs:
+  retire-stale-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Retire the superseded origin-seat preflight only
+        run: |
+          printf '%s\n' \
+            'status=PASS' \
+            'superseded=AXM Browser Audition Origin Seat Preflight 01' \
+            'successor=Bootstrap 03 final-host role preparation' \
+            'physicalExecutionObserved=false' \
+            'browserLaunched=false' \
+            'supplierEndpointContacted=false' \
+            'modelDownloaded=false' \
+            'peerConnectionFormed=false' \
+            'inferenceExecuted=false' \
+            'routeTerminalProduced=false' \
+            'actualSupplierQualified=false' \
+            'physicalEstateQualified=false' \
+            'missionAuthority=none' \
+            'commandAuthority=none'
