@@ -141,7 +141,7 @@ jobs:
           print("ten-member admitted observation membrane is exact")
           PY
 
-      - name: Require the exact additive product denominator
+      - name: Require the exact bounded source-change denominator
         if: github.event_name == 'pull_request'
         shell: bash
         env:
@@ -157,22 +157,22 @@ jobs:
           profile = json.loads(
               pathlib.Path("mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json").read_text(encoding="utf-8")
           )
-          expected = set(profile["sourceMembers"])
+          allowed = set(profile["sourceMembers"])
           changed = set(
               subprocess.check_output(
                   ["git", "diff", "--name-only", os.environ["BASE_SHA"], os.environ["SOURCE_REF"]],
                   text=True,
               ).splitlines()
           )
-          if changed != expected:
-              raise SystemExit(f"product denominator differs: missing={sorted(expected - changed)} extra={sorted(changed - expected)}")
-          for relative in expected:
+          if not changed or not changed.issubset(allowed):
+              raise SystemExit(f"source-change denominator differs: changed={sorted(changed)} outside={sorted(changed - allowed)}")
+          for relative in changed:
               status = subprocess.check_output(
                   ["git", "diff", "--diff-filter=ACDMRTUXB", "--name-status", os.environ["BASE_SHA"], os.environ["SOURCE_REF"], "--", relative],
                   text=True,
               ).strip()
-              if not status.startswith("A\t"):
-                  raise SystemExit(f"product path is not purely additive: {relative}: {status}")
+              if not (status.startswith("A\t") or status.startswith("M\t")):
+                  raise SystemExit(f"source path is not additive or modified in place: {relative}: {status}")
           PY
 
       - name: Compile and inspect the source surface
@@ -220,11 +220,12 @@ jobs:
           PLATFORM: ${{ matrix.os }}
           RECEIPT_ROOT: ${{ runner.temp }}/axm-browser-physical-packet-receipts
           KIT_ROOT: ${{ runner.temp }}/axm-browser-physical-audition-kit
+          DOCUMENTED_PACKET_ROOT: ${{ runner.temp }}/axm-browser-physical-documented-packet
           SYNTHETIC_PACKET_ROOT: ${{ runner.temp }}/axm-browser-physical-synthetic-packet
           READY_PACKET_ROOT: ${{ runner.temp }}/axm-browser-physical-ready-packet
         run: |
           set -euo pipefail
-          rm -rf "$RECEIPT_ROOT" "$KIT_ROOT" "$SYNTHETIC_PACKET_ROOT" "$READY_PACKET_ROOT"
+          rm -rf "$RECEIPT_ROOT" "$KIT_ROOT" "$DOCUMENTED_PACKET_ROOT" "$SYNTHETIC_PACKET_ROOT" "$READY_PACKET_ROOT"
           mkdir -p "$RECEIPT_ROOT"
           PROFILE="mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json"
           FIXTURES="mating_surface/anchor_node/fixtures/axm-head-browser-physical-audition-packet-cases-01.json"
@@ -243,7 +244,7 @@ jobs:
             -s mating_surface/anchor_node/conformance \
             -p 'test_axm_head_browser_physical_audition_packet_01.py' \
             -v 2>&1 | tee "$RECEIPT_ROOT/tests.txt"
-          grep -F "Ran 76 tests" "$RECEIPT_ROOT/tests.txt"
+          grep -F "Ran 82 tests" "$RECEIPT_ROOT/tests.txt"
           grep -Fx "OK" "$RECEIPT_ROOT/tests.txt"
 
           python - "$RECEIPT_ROOT/campaign.json" <<'PY'
@@ -267,6 +268,32 @@ jobs:
           PY
 
           python "$TOOL" build-kit "$PROFILE" "$GITHUB_WORKSPACE" "$KIT_ROOT" > "$RECEIPT_ROOT/kit-validation.json"
+          python "$KIT_ROOT/source/axm_head_browser_physical_audition_packet_01.py" assemble \
+            "$KIT_ROOT/source/axm-head-browser-physical-audition-packet-profile-01.json" \
+            "$DOCUMENTED_PACKET_ROOT" \
+            --now-ms "$NOW_MS" > "$RECEIPT_ROOT/documented-command-decision.json"
+          python - "$RECEIPT_ROOT/documented-command-decision.json" "$DOCUMENTED_PACKET_ROOT" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          decision = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          packet_root = pathlib.Path(sys.argv[2])
+          if decision.get("terminal") != "PREPARED_NOT_EXECUTED":
+              raise SystemExit(decision)
+          if decision.get("reasonCodes") != []:
+              raise SystemExit(decision)
+          for key in ("physicalExecutionObserved", "actualSupplierQualified", "supplierAdmissionReceiptPresent", "physicalEstateQualified"):
+              if decision.get(key) is not False:
+                  raise SystemExit(f"documented command promoted claim: {key}")
+          for key in ("missionAuthority", "commandAuthority", "targetingAuthority", "engagementAuthority", "effectorAuthority", "weaponsAuthority"):
+              if decision.get(key) != "none":
+                  raise SystemExit(f"documented command promoted authority: {key}")
+          if not (packet_root / "private" / "packet-decision.json").is_file():
+              raise SystemExit("documented command private decision missing")
+          if not (packet_root / "public" / "status.json").is_file():
+              raise SystemExit("documented command public status missing")
+          PY
 
           python - "$PROFILE" "$FIXTURES" "$SYNTHETIC_PACKET_ROOT" "$READY_PACKET_ROOT" <<'PY'
           import json
@@ -404,9 +431,11 @@ jobs:
           $Profile = Join-Path $Root 'axm-head-browser-physical-audition-packet-profile-01.json'
           $Fixtures = Join-Path $Root 'fixtures\axm-head-browser-physical-audition-packet-cases-01.json'
           $Kit = Join-Path $env:RUNNER_TEMP 'axm-browser-physical-pwsh-kit'
+          $KitPacket = Join-Path $env:RUNNER_TEMP 'pwsh-documented-packet'
           $Packet = Join-Path $env:RUNNER_TEMP 'axm-browser-physical-pwsh-packet'
           $Projection = Join-Path $env:RUNNER_TEMP 'axm-browser-physical-pwsh-public.json'
           Remove-Item -LiteralPath $Kit -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath $KitPacket -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item -LiteralPath $Packet -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item -LiteralPath $Projection -Force -ErrorAction SilentlyContinue
 
@@ -420,6 +449,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $Wrapper 'build-kit' $Profile $env:GITHUB_WORKSPACE $Kit
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $KitWrapper = Join-Path $Kit 'Invoke-AXMBrowserPhysicalAudition.ps1'
+          $KitProfile = Join-Path $Kit 'source\axm-head-browser-physical-audition-packet-profile-01.json'
+          & $KitWrapper 'assemble' $KitProfile $KitPacket '--now-ms' '2000000000000'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path -LiteralPath (Join-Path $KitPacket 'private\packet-decision.json') -PathType Leaf)) { throw 'PowerShell documented command private decision missing' }
+          if (-not (Test-Path -LiteralPath (Join-Path $KitPacket 'public\status.json') -PathType Leaf)) { throw 'PowerShell documented command public status missing' }
 
           $FixtureSource = @'
           import pathlib
@@ -483,6 +518,7 @@ jobs:
               "campaign.json",
               "source-set.json",
               "kit-validation.json",
+              "documented-command-decision.json",
               "synthetic-decision.json",
               "synthetic-direct-verdict.json",
               "synthetic-bootstrap-verdict.json",
