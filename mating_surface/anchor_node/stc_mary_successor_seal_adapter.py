@@ -30,6 +30,7 @@ if str(HERE) not in sys.path:
 
 import stc_mary_successor_flight_law as law  # noqa: E402
 import stc_mary_successor_packet_runtime as runtime  # noqa: E402
+import verify_stc_mary_successor_execution_receipt as execution_receipt_verifier  # noqa: E402
 
 PROFILE_PATH = HERE / "stc-mary-successor-packet-flight-01-profile-01.json"
 
@@ -83,6 +84,7 @@ def seal_transaction(
     *, profile: Mapping[str, Any], packet_id: str, pre_seal_closure_id: str,
     prior_state_id: str, proposed_state_id: str, run_id: str, disposition_id: str,
     manifest_id: str, staging: Path, sealed: Path, status: str,
+    source_execution_receipt_id: str,
     post_seal_closure_id: str | None = None,
 ) -> dict[str, Any]:
     block = profile["seal"]["transaction"]
@@ -99,6 +101,7 @@ def seal_transaction(
         "postSealClosureId": post_seal_closure_id,
         "temporaryDirectoryName": staging.name,
         "finalDirectoryName": sealed.name,
+        "sourceExecutionReceiptId": source_execution_receipt_id,
         "authority": law.AUTHORITY,
         "claimBoundary": block["claimBoundary"],
     }
@@ -186,7 +189,8 @@ def load_pre_seal_closure(
 
 def seal_packet(
     *, packet: Path, sealed: Path, pre_seal_closure: Path, repository: Path,
-    transaction_receipt: Path | None = None, profile_path: Path = PROFILE_PATH,
+    transaction_receipt: Path | None = None, source_execution_receipt: Path | None = None,
+    profile_path: Path = PROFILE_PATH,
     interrupt_after_file: int | None = None,
     interrupt_after_staging_verification: bool = False,
     interrupt_after_promotion: bool = False,
@@ -204,6 +208,17 @@ def seal_packet(
 
     loaded = law.load_packet(profile, packet)
     marker, state, config = loaded["marker"], loaded["state"], loaded["config"]
+    law.require(source_execution_receipt is not None, "SOURCE_EXECUTION_RECEIPT_ABSENT", "sealing requires the exact measured execution receipt")
+    try:
+        execution = execution_receipt_verifier.verify_execution_receipt(
+            profile=profile,
+            execution_receipt=source_execution_receipt,
+            expected_role="seal-or-resume",
+            packet=packet,
+        )
+    except execution_receipt_verifier.ExecutionReceiptError as exc:
+        law.fail(exc.code, str(exc))
+    source_execution_receipt_id = execution[profile["executionCustody"]["idKey"]]
     law.require(
         state["completedStageCount"] == profile["denominator"]["stageDenominator"]
         and state["nextStage"] is None,
@@ -417,6 +432,7 @@ def seal_packet(
             staging=staging,
             sealed=resolved,
             status=transaction["status"],
+            source_execution_receipt_id=source_execution_receipt_id,
             post_seal_closure_id=transaction["postSealClosureId"],
         )
         law.require(
@@ -442,6 +458,7 @@ def seal_packet(
             staging=staging,
             sealed=resolved,
             status="in_progress",
+            source_execution_receipt_id=source_execution_receipt_id,
         )
         law.write_canonical_json(transaction_path, transaction)
 
@@ -523,6 +540,7 @@ def seal_packet(
         staging=staging,
         sealed=resolved,
         status="sealed_state_promoted",
+        source_execution_receipt_id=source_execution_receipt_id,
     )
     if transaction["status"] == "complete":
         promoted_transaction = dict(transaction)
@@ -697,6 +715,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     seal.add_argument("--sealed", type=Path, required=True)
     seal.add_argument("--pre-seal-closure", type=Path, required=True)
     seal.add_argument("--transaction-receipt", type=Path)
+    seal.add_argument("--source-execution-receipt", type=Path, required=True)
     seal.add_argument("--repository-root", type=Path, default=HERE.parent.parent)
     seal.add_argument("--out", type=Path)
     detached = sub.add_parser("verify-detached", help="verify one sealed directory with nothing carried over")
@@ -730,6 +749,7 @@ def main(argv: list[str] | None = None) -> int:
                 pre_seal_closure=args.pre_seal_closure,
                 repository=args.repository_root,
                 transaction_receipt=args.transaction_receipt,
+                source_execution_receipt=args.source_execution_receipt,
             )
             emit(
                 {

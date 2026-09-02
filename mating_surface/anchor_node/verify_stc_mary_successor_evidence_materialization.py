@@ -43,6 +43,8 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+import verify_stc_mary_successor_execution_receipt as execution_receipt_verifier
+
 PROFILE_SCHEMA = "stc-mary/successor-packet-flight-profile/1"
 PROFILE_ID = "stc-mary/successor-packet-flight-01@1"
 ADMISSION_PROFILE_SCHEMA = "stc-mary/packet-evidence-admission-profile/1"
@@ -756,6 +758,7 @@ def materialize_evidence(
     profile_path: Path,
     transaction_workspace: Path | None = None,
     completion_receipt: Path | None = None,
+    source_execution_receipt: Path | None = None,
     interrupt_after_bodies: int | None = None,
     interrupt_before_completion: bool = False,
 ) -> dict[str, Any]:
@@ -773,6 +776,19 @@ def materialize_evidence(
     codes = materialization_law["refusalCodes"]
     packet_law = profile["packet"]
     denominator = profile["denominator"]
+    source_execution_receipt_id: str | None = None
+    if transaction_workspace is not None:
+        require(source_execution_receipt is not None, "SOURCE_EXECUTION_RECEIPT_ABSENT", "transactional materialization requires an exact execution receipt")
+        try:
+            execution = execution_receipt_verifier.verify_execution_receipt(
+                profile=profile,
+                execution_receipt=source_execution_receipt,
+                expected_role="materialize-or-resume",
+                packet=packet,
+            )
+        except execution_receipt_verifier.ExecutionReceiptError as exc:
+            fail(exc.code, str(exc))
+        source_execution_receipt_id = execution[profile["executionCustody"]["idKey"]]
     # A role row is a member of one authenticated receipt, never a portable assertion. The
     # profile declares that, and the declaration is read rather than assumed.
     require(
@@ -1112,6 +1128,7 @@ def materialize_evidence(
             receipt=signed,
             transaction_workspace=transaction_workspace,
             completion_receipt=completion_receipt,
+            source_execution_receipt_id=source_execution_receipt_id,
             interrupt_after_bodies=interrupt_after_bodies,
             interrupt_before_completion=interrupt_before_completion,
         )
@@ -1119,7 +1136,8 @@ def materialize_evidence(
 
 
 def transaction_state(
-    *, profile: Mapping[str, Any], receipt: Mapping[str, Any], promoted: int, status: str
+    *, profile: Mapping[str, Any], receipt: Mapping[str, Any], promoted: int, status: str,
+    source_execution_receipt_id: str,
 ) -> dict[str, Any]:
     transaction_law = profile["evidenceMaterialization"]["transaction"]
     body = {
@@ -1129,6 +1147,7 @@ def transaction_state(
         "materializationReceiptId": receipt[profile["evidenceMaterialization"]["idKey"]],
         "expectedPhysicalBodyCount": receipt["physicalBodyCount"],
         "promotedPhysicalBodyCount": promoted,
+        "sourceExecutionReceiptId": source_execution_receipt_id,
         "authority": AUTHORITY,
         "claimBoundary": transaction_law["claimBoundary"],
     }
@@ -1156,7 +1175,8 @@ def promotion_pairs(receipt: Mapping[str, Any]) -> list[tuple[str, str, str, int
 
 def promote_materialized_evidence(
     *, profile: Mapping[str, Any], packet: Path, candidates: Path, receipt: Mapping[str, Any],
-    transaction_workspace: Path, completion_receipt: Path, interrupt_after_bodies: int | None = None,
+    transaction_workspace: Path, completion_receipt: Path, source_execution_receipt_id: str,
+    interrupt_after_bodies: int | None = None,
     interrupt_before_completion: bool = False,
 ) -> None:
     """Promote a verified exact prefix and issue completion only at the full denominator."""
@@ -1207,7 +1227,8 @@ def promote_materialized_evidence(
         require(
             state["packetId"] == receipt["packetId"]
             and state["materializationReceiptId"] == receipt[profile["evidenceMaterialization"]["idKey"]]
-            and state["expectedPhysicalBodyCount"] == len(expected),
+            and state["expectedPhysicalBodyCount"] == len(expected)
+            and state["sourceExecutionReceiptId"] == source_execution_receipt_id,
             "MATERIALIZATION_TRANSACTION_MISMATCH", "materialization transaction belongs to another receipt",
         )
         require(
@@ -1218,7 +1239,7 @@ def promote_materialized_evidence(
         )
         require(state["promotedPhysicalBodyCount"] <= len(present_entries), "MATERIALIZATION_PREFIX_INCONSISTENT", "transaction claims bodies the packet does not hold")
     else:
-        write_canonical(state_path, transaction_state(profile=profile, receipt=receipt, promoted=0, status="in_progress"))
+        write_canonical(state_path, transaction_state(profile=profile, receipt=receipt, promoted=0, status="in_progress", source_execution_receipt_id=source_execution_receipt_id))
 
     promoted = len(present_entries)
     for _, destination_relative, _, _ in expected:
@@ -1231,13 +1252,13 @@ def promote_materialized_evidence(
         promoted += 1
         write_canonical(
             state_path,
-            transaction_state(profile=profile, receipt=receipt, promoted=promoted, status="in_progress"),
+            transaction_state(profile=profile, receipt=receipt, promoted=promoted, status="in_progress", source_execution_receipt_id=source_execution_receipt_id),
         )
         if interrupt_after_bodies is not None and promoted == interrupt_after_bodies:
             fail("MATERIALIZATION_INTERRUPTED", f"synthetic interruption after {promoted} promoted bodies")
 
     require(promoted == len(expected), "MATERIALIZATION_PREFIX_INCOMPLETE", "materialization did not reach the full denominator")
-    write_canonical(state_path, transaction_state(profile=profile, receipt=receipt, promoted=promoted, status="complete"))
+    write_canonical(state_path, transaction_state(profile=profile, receipt=receipt, promoted=promoted, status="complete", source_execution_receipt_id=source_execution_receipt_id))
     if interrupt_before_completion:
         fail("MATERIALIZATION_INTERRUPTED", "synthetic interruption before completion receipt")
     data = canonical_json_bytes(receipt)
@@ -1275,6 +1296,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--out", type=Path)
     parser.add_argument("--transaction-workspace", type=Path)
+    parser.add_argument("--source-execution-receipt", type=Path)
     return parser.parse_args(argv)
 
 
@@ -1289,6 +1311,7 @@ def main(argv: list[str] | None = None) -> int:
             profile_path=args.profile,
             transaction_workspace=args.transaction_workspace,
             completion_receipt=args.out,
+            source_execution_receipt=args.source_execution_receipt,
         )
         data = canonical_json_bytes(receipt)
         if args.out is None:

@@ -72,6 +72,14 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def scrubbed_environment() -> dict[str, str]:
+    admitted = {
+        "COMSPEC", "LANG", "LC_ALL", "PATH", "PATHEXT", "SYSTEMDRIVE", "SYSTEMROOT",
+        "TEMP", "TMP", "TMPDIR", "WINDIR",
+    }
+    return {key: value for key, value in os.environ.items() if key.upper() in admitted}
+
+
 def coordinate_component_is_link(path: Path) -> bool:
     try:
         if path.is_symlink():
@@ -171,6 +179,7 @@ def main(argv: list[str] | None = None) -> int:
                 sys.executable,
                 "-I",
                 "-S",
+                "-B",
                 "-c",
                 ISOLATED_VERIFIER_LAUNCHER,
                 "--packet",
@@ -184,6 +193,7 @@ def main(argv: list[str] | None = None) -> int:
             input=verifier_bytes,
             check=False,
             capture_output=True,
+            env=scrubbed_environment(),
         )
         try:
             receipt = json.loads(completed.stdout.decode("utf-8"))

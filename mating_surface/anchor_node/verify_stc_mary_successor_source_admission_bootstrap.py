@@ -83,8 +83,21 @@ def content_id(prefix: str, value: Any) -> str:
     return f"{prefix}_{sha256_bytes(canonical_json(value).encode('utf-8'))}"
 
 
+def scrubbed_environment() -> dict[str, str]:
+    admitted = {
+        "COMSPEC", "LANG", "LC_ALL", "PATH", "PATHEXT", "SYSTEMDRIVE", "SYSTEMROOT",
+        "TEMP", "TMP", "TMPDIR", "WINDIR",
+    }
+    return {key: value for key, value in os.environ.items() if key.upper() in admitted}
+
+
 def git(repository: Path, arguments: list[str], *, code: str) -> bytes:
-    completed = subprocess.run(["git", "-C", str(repository), *arguments], check=False, capture_output=True)
+    completed = subprocess.run(
+        ["git", "-c", f"safe.directory={repository}", "-C", str(repository), *arguments],
+        check=False,
+        capture_output=True,
+        env=scrubbed_environment(),
+    )
     require(completed.returncode == 0, code, "the requested verifier blob is unavailable")
     return completed.stdout
 
@@ -152,13 +165,13 @@ def authenticate(*, repository: Path, source_commit: str) -> dict[str, Any]:
     observed = sha256_bytes(measured)
     with tempfile.TemporaryDirectory(prefix="stc-mary-source-admission-bootstrap-") as foreign:
         completed = subprocess.run(
-            [sys.executable, "-I", "-c", ISOLATED_LAUNCHER, "--repository-root", str(repository),
+            [sys.executable, "-I", "-S", "-B", "-c", ISOLATED_LAUNCHER, "--repository-root", str(repository),
              "--source-commit", source_commit],
             input=measured,
             cwd=foreign,
             check=False,
             capture_output=True,
-            env={key: value for key, value in os.environ.items() if key.upper() != "PYTHONPATH"},
+            env=scrubbed_environment(),
         )
     require(
         completed.returncode == 0,

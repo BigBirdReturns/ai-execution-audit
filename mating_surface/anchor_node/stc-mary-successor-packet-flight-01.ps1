@@ -6,8 +6,10 @@
     Drives the admitted legal order for one stc-mary/private-flight-packet/0.2 successor
     packet, in the only sequence the source set admits:
 
-        compile -> verify -> (admit, outside this script) -> materialize -> record
-                -> close-pre-seal -> seal -> verify-detached -> close-post-seal
+        compile -> verify-packet -> (admit, outside this script)
+                -> verify-evidence-materialization -> materialize-or-resume
+                -> record-or-resume -> close-pre-seal -> seal-or-resume
+                -> verify-detached -> close-post-seal -> status
 
     This script orchestrates nothing on its own authority. Every step shells out to the
     measured Python surface that owns it, and every step writes its receipt outside the
@@ -25,8 +27,7 @@
     record refuses rather than let that happen.
 
 .PARAMETER Command
-    One of: admit-source, compile, verify, materialize, record, close-pre-seal, seal, verify-detached, status,
-    close-post-seal, qualify.
+    One of the exact ten operation roles, plus admit-source and qualify.
 
 .NOTES
     Campaign application is held. Every fixture this source set can build is synthetic and
@@ -41,7 +42,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('admit-source', 'compile', 'verify', 'materialize', 'record', 'close-pre-seal', 'seal', 'verify-detached', 'close-post-seal', 'status', 'qualify')]
+    [ValidateSet('admit-source', 'compile', 'verify-packet', 'verify-evidence-materialization', 'materialize-or-resume', 'record-or-resume', 'close-pre-seal', 'seal-or-resume', 'verify-detached', 'close-post-seal', 'status', 'qualify')]
     [string] $Command,
 
     [string] $Workstation,
@@ -83,7 +84,7 @@ function Invoke-Surface {
     if (-not (Test-Path -LiteralPath $script)) {
         throw "measured surface is absent: $Module"
     }
-    & $Python $script @Arguments
+    & $Python -I -S -B $script @Arguments
     if ($LASTEXITCODE -ne 0) {
         throw "$Module refused with exit code $LASTEXITCODE"
     }
@@ -91,7 +92,7 @@ function Invoke-Surface {
 
 function Invoke-MeasuredSurface {
     param([string] $Role, [string[]] $Arguments, [switch] $CompileMode)
-    $launcher = Join-Path $anchor 'invoke_stc_mary_successor_packet_source.py'
+    $launcher = Join-Path $anchor 'invoke_stc_mary_successor_packet_source_bootstrap.py'
     if (-not (Test-Path -LiteralPath $launcher)) {
         throw 'measured execution launcher is absent'
     }
@@ -100,7 +101,7 @@ function Invoke-MeasuredSurface {
         if ([string]::IsNullOrWhiteSpace($Out)) {
             throw "$Command requires -ExecutionReceipt when -Out is absent"
         }
-        $custodyOut = "$Out.execution-custody.json"
+        $custodyOut = "$Out.execution-receipt.json"
     }
     $launcherArguments = @('--role', $Role, '--execution-receipt', $custodyOut)
     if ($CompileMode) {
@@ -115,7 +116,7 @@ function Invoke-MeasuredSurface {
     }
     $launcherArguments += '--'
     $launcherArguments += $Arguments
-    & $Python $launcher @launcherArguments
+    & $Python -I -S -B $launcher @launcherArguments
     if ($LASTEXITCODE -ne 0) {
         throw "measured $Role execution refused with exit code $LASTEXITCODE"
     }
@@ -149,7 +150,7 @@ switch ($Command) {
         Invoke-MeasuredSurface -Role 'compile' -Arguments $arguments -CompileMode
     }
 
-    'verify' {
+    'verify-packet' {
         # Always through the bootstrap. The verifier cannot authenticate itself, and a
         # direct run reports bootstrapAuthenticated: false by design.
         Assert-Supplied -Name 'Packet' -Value $Packet
@@ -159,10 +160,25 @@ switch ($Command) {
             '--repository-root', $repositoryRoot
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-MeasuredSurface -Role 'verify-successor-packet' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'verify-packet' -Arguments $arguments
     }
 
-    'materialize' {
+    'verify-evidence-materialization' {
+        Assert-Supplied -Name 'Packet' -Value $Packet
+        Assert-Supplied -Name 'AdmissionReceipt' -Value $AdmissionReceipt
+        Assert-Supplied -Name 'Candidates' -Value $Candidates
+        $arguments = @(
+            '--packet', $Packet,
+            '--admission-receipt', $AdmissionReceipt,
+            '--candidates', $Candidates,
+            '--profile', '@profile',
+            '--repository-root', $repositoryRoot
+        )
+        if ($Out) { $arguments += @('--out', $Out) }
+        Invoke-MeasuredSurface -Role 'verify-evidence-materialization' -Arguments $arguments
+    }
+
+    'materialize-or-resume' {
         # The bridge verifies the complete evidence denominator, promotes an exact
         # recoverable prefix, and emits completion only at 43 / 43. It records no stage.
         Assert-Supplied -Name 'Packet' -Value $Packet
@@ -182,10 +198,10 @@ switch ($Command) {
             '--transaction-workspace', $materializationTransactions
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-MeasuredSurface -Role 'verify-evidence-materialization' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'materialize-or-resume' -Arguments $arguments
     }
 
-    'record' {
+    'record-or-resume' {
         Assert-Supplied -Name 'Packet' -Value $Packet
         Assert-Supplied -Name 'AdmissionReceipt' -Value $AdmissionReceipt
         Assert-Supplied -Name 'MaterializationReceipt' -Value $MaterializationReceipt
@@ -206,7 +222,7 @@ switch ($Command) {
             '--transaction-workspace', $recordingTransactions
         )
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-MeasuredSurface -Role 'record-or-resume-stages' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'record-or-resume' -Arguments $arguments
     }
 
     'close-pre-seal' {
@@ -228,7 +244,7 @@ switch ($Command) {
         Invoke-MeasuredSurface -Role 'close-pre-seal' -Arguments $arguments
     }
 
-    'seal' {
+    'seal-or-resume' {
         Assert-Supplied -Name 'Packet' -Value $Packet
         Assert-Supplied -Name 'Sealed' -Value $Sealed
         Assert-Supplied -Name 'PreSealClosure' -Value $PreSealClosure
@@ -241,7 +257,7 @@ switch ($Command) {
         )
         if ($SealTransactionReceipt) { $arguments += @('--transaction-receipt', $SealTransactionReceipt) }
         if ($Out) { $arguments += @('--out', $Out) }
-        Invoke-MeasuredSurface -Role 'seal' -Arguments $arguments
+        Invoke-MeasuredSurface -Role 'seal-or-resume' -Arguments $arguments
     }
 
     'verify-detached' {
@@ -286,7 +302,7 @@ switch ($Command) {
         $conformance = Join-Path $anchor 'conformance'
         Push-Location $conformance
         try {
-            & $Python -m unittest discover -s . -p 'test_stc_mary_successor_packet_flight_01.py' -v
+            & $Python -I -S -B -m unittest discover -s . -p 'test_stc_mary_successor_packet_flight_01.py' -v
             if ($LASTEXITCODE -ne 0) {
                 throw "the successor flight witness denominator refused with exit code $LASTEXITCODE"
             }

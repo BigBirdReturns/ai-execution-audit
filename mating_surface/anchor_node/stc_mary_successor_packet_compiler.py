@@ -9,6 +9,7 @@ What the successor carries, and why each is measured rather than asserted:
     lineage/predecessor-packet/PACKET-ROOT.json    the predecessor marker, copied verbatim
     lineage/predecessor-packet/packet-state.json   the predecessor state, copied verbatim
     lineage/PACKET-HANDOFF.json                    binds both packets and both profiles
+    lineage/SOURCE-ADMISSION.json                  authenticated exact Git-object receipt
     lineage/SUCCESSOR-SOURCE-SET.json              measured over the member bytes below
     lineage/successor-source/**                    every successor source member, verbatim
     SUCCESSOR-CONTRACT.json                        names all three coordinates above
@@ -299,7 +300,9 @@ def git_bytes(repository: Path, arguments: list[str], *, code: str, label: str) 
     """Read one object through Git plumbing; no working-tree fallback exists."""
     try:
         completed = subprocess.run(
-            ["git", "-C", str(repository), *arguments], check=False, capture_output=True
+            ["git", "-c", f"safe.directory={repository}", "-C", str(repository), *arguments],
+            check=False,
+            capture_output=True,
         )
     except OSError as exc:
         law.fail(code, f"{label} could not invoke Git: {exc}")

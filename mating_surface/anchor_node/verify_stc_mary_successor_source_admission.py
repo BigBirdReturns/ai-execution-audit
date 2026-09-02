@@ -111,7 +111,11 @@ def exact_keys(value: Any, expected: Iterable[str], code: str, label: str) -> Ma
 
 def git(repository: Path, arguments: list[str], *, code: str, label: str) -> bytes:
     try:
-        completed = subprocess.run(["git", "-C", str(repository), *arguments], check=False, capture_output=True)
+        completed = subprocess.run(
+            ["git", "-c", f"safe.directory={repository}", "-C", str(repository), *arguments],
+            check=False,
+            capture_output=True,
+        )
     except OSError as exc:
         fail(code, f"{label} could not invoke Git: {exc}")
         raise

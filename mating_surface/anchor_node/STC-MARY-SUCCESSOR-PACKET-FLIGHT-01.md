@@ -65,10 +65,12 @@ the intended blast radius.
 ```text
 stc_mary_successor_flight_law.py               shared construction law (producers only)
 invoke_stc_mary_successor_packet_source.py     measured closed-role execution launcher
+invoke_stc_mary_successor_packet_source_bootstrap.py external launcher measurement boundary
 stc_mary_successor_packet_compiler.py          0.2 compiler and materializer
 stc_mary_successor_packet_runtime.py           0.2 packet runtime
 stc_mary_successor_packet_orchestrator.py      admission-driven recording orchestrator
 verify_stc_mary_successor_evidence_materialization.py  admitted-role to packet-body bridge
+verify_stc_mary_successor_execution_receipt.py independent final execution-receipt verifier
 verify_stc_mary_successor_packet.py            independent successor packet verifier
 verify_stc_mary_successor_packet_bootstrap.py  measured-source bootstrap
 verify_stc_mary_successor_source_admission.py  exact commit/tree/blob source verifier
@@ -91,7 +93,7 @@ the construction law cannot authenticate the objects that law produced.
 
 Compilation never reads a successor source member from the ambient checkout. Before a
 packet can exist, the external source bootstrap reads the source-admission verifier itself
-from one exact full Git commit, executes those measured bytes under `python -I` from a
+from one exact full Git commit, executes those measured bytes under `python -I -S -B` from a
 foreign temporary directory, and emits a content-addressed receipt. The receipt binds the
 commit, tree, profile blob and canonical profile digest, then binds every declared member's
 repository path, packet path, Git blob, SHA-256 and byte count. Its derived
@@ -108,21 +110,27 @@ including CRLF checkout conversion, is outside the source identity.
 
 ## Packet-carried execution custody
 
-The PowerShell entrypoint never selects a repository-side successor module for a packet
-operation. For `compile`, the launcher reconstructs all eighteen members from the exact
-Git blobs in the source-admission receipt. For every later command it authenticates the
-packet-carried admission and source-set receipts, remeasures the complete eighteen-member
-packet source tree, requires equality with the Git-admitted identity, and only then copies
-that complete tree into an isolated temporary root. The selected module runs under
-`python -I -B` with ambient Python paths removed; its temporary tree is deleted before the
-content-addressed execution-custody receipt is emitted.
+The PowerShell entrypoint calls an external bootstrap, never the ambient launcher. For
+`compile`, that bootstrap obtains the launcher from the exact admitted Git object,
+measures its Git blob, SHA-256, and byte count, and executes only those measured bytes.
+For every packet operation it first reproduces all twenty packet-carried members,
+requires exact equality with `lineage/SOURCE-ADMISSION.json` and
+`lineage/SUCCESSOR-SOURCE-SET.json`, measures the carried launcher, and executes only
+those bytes. Editing only the ambient repository launcher therefore has no effect.
 
-The closed roles are compile, successor verification, evidence materialization,
-record/resume, pre-seal closure, seal, detached verification, post-seal closure, and
-status. Every receipt binds the source admission, commit, tree, source-set identity,
-module role, packet-relative module path and digest, complete measured denominator,
-process terminal, and authority `none`. Repository drift after packet compilation cannot
-be an import fallback.
+The measured launcher executes every selected module under `python -I -S -B`, from a
+foreign working directory and a scrubbed environment. Its content-addressed receipt
+permanently records `isolated = 1`, `noSite = 1`, `dontWriteBytecode = 1`, and
+`ambientRepositorySourceTrusted: false`. The independently measured receipt verifier
+consumes that false value and binds the source admission, commit, tree, Git object format,
+complete source-set identity, packet identity, exact role/module member, Git blob,
+SHA-256, process terminal, and authority `none`.
+
+The final public role map contains exactly: `compile`, `verify-packet`,
+`verify-evidence-materialization`, `materialize-or-resume`, `record-or-resume`,
+`close-pre-seal`, `seal-or-resume`, `verify-detached`, `close-post-seal`, and `status`.
+Verification and mutation are distinct roles even when one admitted module implements
+both modes.
 
 ## The forty-three admitted roles reach the packet, or nothing does
 
@@ -274,8 +282,9 @@ SUCCESSOR-CONTRACT.json                        names all three lineage coordinat
 lineage/predecessor-packet/PACKET-ROOT.json    predecessor marker, copied verbatim
 lineage/predecessor-packet/packet-state.json   predecessor state, copied verbatim
 lineage/PACKET-HANDOFF.json                    binds both packets and both profiles
+lineage/SOURCE-ADMISSION.json                  authenticated exact Git-object source receipt
 lineage/SUCCESSOR-SOURCE-SET.json              measured over the member bytes below
-lineage/successor-source/**                    all fifteen source members, verbatim
+lineage/successor-source/**                    all twenty source members, verbatim
 NN-STAGE/evidence/                             the empty stage skeleton
 ```
 
@@ -291,31 +300,37 @@ materialization and refuses on any difference:
 PREDECESSOR_MUTATED_DURING_COMPILATION
 ```
 
-### The source-set identity is a property of the checkout
+### Source identity is a property of exact Git objects
 
-Members are copied byte for byte rather than normalized, so a working tree with different
-line endings produces a different `successorSourceSetId`. That is the honest reading: a
-different checkout is a different source set. Do not pin the measured identity across
-platforms; pin the members.
+Authoritative bytes: exact Git objects.
+
+Working-tree bytes: untrusted diagnostic material.
+
+The `successorSourceSetId` is derived from packet-relative paths, SHA-256 digests, and byte
+counts of the admitted Git blobs. Checkout line-ending conversion therefore cannot change
+it. Ubuntu and Windows, at both exact PR head and synthesized merge, must emit one
+parseable `SUCCESSOR_SOURCE_SET_ID` and the aggregation gate requires one identity, one
+member denominator, one path set, and one member-digest set. Source-admission receipt IDs
+may differ when commit or tree names differ; identical authoritative member blobs must
+produce the same successor source-set identity.
 
 ## The legal order
 
 ```text
-1  compile           configured 0.1 predecessor        -> distinct 0.2 successor
-2  verify            measured-source bootstrap         -> successor packet verification
-3  admit             admitted @2 gate + its bootstrap  -> ADMISSIBLE_FOR_PACKET_RECORDING
-4  authenticate      issue #94 mechanism               -> authentication verification
-5  materialize       evidence-materialization bridge   -> 43 admitted roles, 43 coordinates
-6  record            orchestrator                      -> 16 stage records, in order
-7  close pre-seal    pre-seal closure verifier         -> pre-seal closure
-8  seal              seal adapter                      -> sealed root
-9  verify detached   seal adapter                      -> detached verification
-10 close post-seal   post-seal closure verifier        -> post-seal closure
+1  compile                         configured predecessor -> distinct successor
+2  verify-packet                   packet verifier        -> packet verification
+3  verify-evidence-materialization bridge verifier        -> verified 43-role mapping
+4  materialize-or-resume           bridge mutation        -> 43 packet coordinates
+5  record-or-resume                orchestrator           -> 16 stage records
+6  close-pre-seal                  closure verifier       -> pre-seal closure
+7  seal-or-resume                  seal adapter           -> atomic sealed root
+8  verify-detached                 seal adapter           -> detached verification
+9  close-post-seal                 closure verifier       -> post-seal closure
+10 status                          packet runtime          -> terminal status
 ```
 
-Step 3 is **not** part of this source set. Evidence admission belongs to the separately
-admitted gate in production. Run it yourself and hand its bootstrap-authenticated receipt
-to step 5, which turns it into the receipt the orchestrator is held to.
+Evidence admission and named-human authentication occur between roles 2 and 3. They are
+separately admitted production boundaries, not extra roles in this ten-role source map.
 
 ## Recording consent has exactly one channel
 
@@ -484,21 +499,22 @@ number of witnesses, on any skip, and on any drift in the pinned admitted profil
 ```powershell
 .\stc-mary-successor-packet-flight-01.ps1 admit-source    -SourceCommit <full-sha> -Out <source-admission>
 .\stc-mary-successor-packet-flight-01.ps1 compile         -Workstation <dir> -Predecessor <dir> -Packet <dir> -SourceAdmissionReceipt <source-admission> -Out <receipt>
-.\stc-mary-successor-packet-flight-01.ps1 verify          -Packet <dir> -Out <verdict>
-.\stc-mary-successor-packet-flight-01.ps1 materialize     -Packet <dir> -AdmissionReceipt <file> -Candidates <dir> -Out <receipt>
-.\stc-mary-successor-packet-flight-01.ps1 record          -Packet <dir> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <receipt>
+.\stc-mary-successor-packet-flight-01.ps1 verify-packet   -Packet <dir> -Out <verdict>
+.\stc-mary-successor-packet-flight-01.ps1 verify-evidence-materialization -Packet <dir> -AdmissionReceipt <file> -Candidates <dir> -Out <receipt>
+.\stc-mary-successor-packet-flight-01.ps1 materialize-or-resume -Packet <dir> -AdmissionReceipt <file> -Candidates <dir> -Out <receipt>
+.\stc-mary-successor-packet-flight-01.ps1 record-or-resume -Packet <dir> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 close-pre-seal  -Packet <dir> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <closure>
-.\stc-mary-successor-packet-flight-01.ps1 seal            -Packet <dir> -Sealed <dir> -PreSealClosure <file> -Out <receipt>
+.\stc-mary-successor-packet-flight-01.ps1 seal-or-resume  -Packet <dir> -Sealed <dir> -PreSealClosure <file> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 verify-detached -Packet <dir> -Sealed <dir> -Out <verification>
 .\stc-mary-successor-packet-flight-01.ps1 close-post-seal -Packet <dir> -Sealed <dir> -PreSealClosure <file> -DetachedVerification <file> -Out <closure>
 .\stc-mary-successor-packet-flight-01.ps1 status           -Packet <dir> -Out <status>
 ```
 
-`admit-source` and `verify` always run through their respective bootstraps. Neither
+`admit-source` and `verify-packet` always run through their respective bootstraps. Neither
 verifier can authenticate itself; each
 reports `bootstrapAuthenticated: false` on any direct run, by design.
 For packet operations, `-ExecutionReceipt <file>` may be supplied explicitly; when
-`-Out` is present the wrapper otherwise writes `<Out>.execution-custody.json`.
+`-Out` is present the wrapper otherwise writes `<Out>.execution-receipt.json`.
 
 ## Stop wall
 

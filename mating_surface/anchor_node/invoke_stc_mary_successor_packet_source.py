@@ -26,6 +26,22 @@ CLAIM_BOUNDARY = (
     "the process terminal. It grants no authority."
 )
 
+ISOLATED_MODULE_LAUNCHER = r"""
+import pathlib
+import sys
+module_path = pathlib.Path(sys.argv[1])
+module_args = sys.argv[2:]
+source = sys.stdin.buffer.read()
+if not (sys.flags.isolated == 1 and sys.flags.no_site == 1 and sys.flags.dont_write_bytecode == 1):
+    raise SystemExit("isolated child flags differ")
+sys.path[:] = [str(module_path.parent), *[entry for entry in sys.path if entry and entry != str(module_path.parent)]]
+sys.argv = [str(module_path), *module_args]
+namespace = {"__name__": "__main__", "__file__": str(module_path)}
+exec(compile(source, str(module_path), "exec"), namespace)
+"""
+
+MUTATING_ROLES = {"materialize-or-resume", "record-or-resume", "seal-or-resume"}
+
 
 class ExecutionCustodyError(RuntimeError):
     def __init__(self, code: str, message: str) -> None:
@@ -108,7 +124,12 @@ def safe_relative(value: Any, *, code: str, label: str) -> str:
 
 
 def git(repository: Path, arguments: list[str], *, code: str, label: str) -> bytes:
-    completed = subprocess.run(["git", "-C", str(repository), *arguments], check=False, capture_output=True)
+    completed = subprocess.run(
+        ["git", "-c", f"safe.directory={repository}", "-C", str(repository), *arguments],
+        check=False,
+        capture_output=True,
+        env=scrubbed_environment(),
+    )
     require(completed.returncode == 0, code, f"{label} is unavailable from the Git object database")
     return completed.stdout
 
@@ -119,6 +140,15 @@ def git_text(repository: Path, arguments: list[str], *, code: str, label: str) -
     except UnicodeDecodeError:
         fail(code, f"{label} is not ASCII Git metadata")
         raise
+
+
+def scrubbed_environment() -> dict[str, str]:
+    """Retain only process-launch essentials; Python and user import inputs are absent."""
+    admitted = {
+        "COMSPEC", "LANG", "LC_ALL", "PATH", "PATHEXT", "SYSTEMDRIVE", "SYSTEMROOT",
+        "TEMP", "TMP", "TMPDIR", "WINDIR",
+    }
+    return {key: value for key, value in os.environ.items() if key.upper() in admitted}
 
 
 def validate_profile_and_receipt(
@@ -239,21 +269,28 @@ def packet_source(
 
 def execution_receipt(
     *, profile: Mapping[str, Any], receipt: Mapping[str, Any], measured: Mapping[str, Any],
-    role: str, module_path: str, module_sha256: str, packet_id: str | None,
-    exit_code: int, stdout: bytes, stderr: bytes, temporary_deleted: bool,
+    role: str, repository_module_path: str, packet_module_path: str,
+    module_git_blob_id: str, module_sha256: str, packet_id: str | None,
 ) -> dict[str, Any]:
     custody = profile["executionCustody"]
     body = {
-        "schema": custody["schema"], "status": "PASS" if exit_code == 0 else "REFUSED",
+        "schema": custody["schema"], "status": "PASS",
         "packetId": packet_id, "sourceAdmissionId": receipt[profile["sourceAdmission"]["idKey"]],
         "sourceCommit": receipt["sourceCommit"], "sourceTree": receipt["sourceTree"],
+        "gitObjectFormat": receipt["gitObjectFormat"],
         "successorSourceSetId": measured[profile["lineage"]["sourceSetIdKey"]],
-        "completeMeasuredSourceSetIdentity": measured[profile["lineage"]["sourceSetIdKey"]],
-        "measuredSourceMemberCount": measured["memberCount"], "measuredSourceTotalBytes": measured["totalBytes"],
-        "moduleRole": role, "modulePath": module_path, "moduleSha256": module_sha256,
-        "processExitCode": exit_code, "processTerminal": "PASS" if exit_code == 0 else "REFUSED",
-        "stdoutSha256": sha256_bytes(stdout), "stderrSha256": sha256_bytes(stderr),
-        "temporarySourceTreeDeleted": temporary_deleted, "authority": AUTHORITY,
+        "completeMeasuredSourceSetId": measured[profile["lineage"]["sourceSetIdKey"]],
+        "operationRole": role,
+        "repositoryRelativeModulePath": repository_module_path,
+        "packetRelativeModulePath": packet_module_path,
+        "moduleGitBlobId": module_git_blob_id,
+        "moduleSha256": module_sha256,
+        "processTerminal": "PASS",
+        "isolated": 1,
+        "noSite": 1,
+        "dontWriteBytecode": 1,
+        "ambientRepositorySourceTrusted": False,
+        "authority": AUTHORITY,
         "claimBoundary": custody["claimBoundary"],
     }
     result = {**body, custody["idKey"]: content_id(custody["idPrefix"], body)}
@@ -266,59 +303,82 @@ def execute(
     repository: Path | None = None, source_admission_receipt: Path | None = None,
 ) -> dict[str, Any]:
     require(not execution_receipt_path.exists(), "EXECUTION_RECEIPT_EXISTS", "execution-custody receipt output exists")
-    temporary_path: Path | None = None
-    with tempfile.TemporaryDirectory(prefix="stc-mary-successor-execution-") as temporary:
-        temporary_path = Path(temporary)
+    source_path: Path | None = None
+    foreign_path: Path | None = None
+    with tempfile.TemporaryDirectory(prefix="stc-mary-successor-source-") as source_temporary, tempfile.TemporaryDirectory(prefix="stc-mary-successor-foreign-") as foreign_temporary:
+        source_path = Path(source_temporary)
+        foreign_path = Path(foreign_temporary)
         if role == "compile":
             require(repository is not None and source_admission_receipt is not None, "COMPILE_SOURCE_CUSTODY_INCOMPLETE", "compile requires repository and source admission")
-            profile, receipt, measured = compile_source(repository=repository, receipt_path=source_admission_receipt, destination=temporary_path)
+            profile, receipt, measured = compile_source(repository=repository, receipt_path=source_admission_receipt, destination=source_path)
             packet_id = None
         else:
             require(packet is not None, "PACKET_REQUIRED", "post-compilation execution requires the packet")
-            profile, receipt, measured = packet_source(packet=packet, destination=temporary_path)
+            profile, receipt, measured = packet_source(packet=packet, destination=source_path)
             marker = read_json(packet / PACKET_MARKER_PATH, code="PACKET_MARKER_INVALID", label="packet marker")
             packet_id = marker.get("packetId") if isinstance(marker.get("packetId"), str) else None
         custody = profile["executionCustody"]
         roles = custody["roles"]
+        require(set(roles) == set(custody["roleDenominator"]) and len(roles) == 10, "MODULE_ROLE_MAP_INVALID", "the final role map is not the exact ten-role denominator")
         require(role in roles, "MODULE_ROLE_UNADMITTED", "requested module role is not admitted")
-        module_path = roles[role]
-        require(module_path in profile["successorSourceMembers"].values(), "MODULE_ROLE_UNADMITTED", "module role does not name a source member")
-        module = temporary_path / module_path
+        role_mapping = roles[role]
+        repository_module_path = role_mapping["repositoryPath"]
+        packet_module_path = role_mapping["packetPath"]
+        require(
+            profile["successorSourceMembers"].get(repository_module_path) == packet_module_path,
+            "MODULE_ROLE_UNADMITTED",
+            "module role does not name one exact source member",
+        )
+        module = source_path / packet_module_path
         module_data = read_bytes(module, MAX_MEMBER_BYTES, code="MEASURED_MODULE_ABSENT", label="measured module")
-        replaced_args = [str(temporary_path / PROFILE_PACKET_PATH) if value == "@profile" else value for value in module_args]
-        environment = {key: value for key, value in os.environ.items() if key.upper() not in ("PYTHONPATH", "PYTHONHOME")}
-        environment["PYTHONNOUSERSITE"] = "1"
-        environment["STC_MARY_SOURCE_EXECUTION_IDENTITY"] = content_id(
-            "stcmarysuccessorsourceexecution1",
-            {
-                "sourceAdmissionId": receipt[profile["sourceAdmission"]["idKey"]],
-                "successorSourceSetId": measured[profile["lineage"]["sourceSetIdKey"]],
-                "moduleRole": role,
-                "modulePath": module_path,
-                "moduleSha256": sha256_bytes(module_data),
-            },
+        matching_rows = [
+            row for row in receipt["members"]
+            if row.get("repositoryPath") == repository_module_path and row.get("packetPath") == packet_module_path
+        ]
+        require(len(matching_rows) == 1, "MEASURED_MODULE_MEMBER_INVALID", "module does not resolve to exactly one admitted member row")
+        module_row = matching_rows[0]
+        require(
+            module_row["sha256"] == sha256_bytes(module_data),
+            "MEASURED_MODULE_MEMBER_INVALID",
+            "measured module bytes differ from the admitted member row",
         )
+        result = execution_receipt(
+            profile=profile,
+            receipt=receipt,
+            measured=measured,
+            role=role,
+            repository_module_path=repository_module_path,
+            packet_module_path=packet_module_path,
+            module_git_blob_id=module_row["gitBlob"],
+            module_sha256=sha256_bytes(module_data),
+            packet_id=packet_id,
+        )
+        provisional = foreign_path / "execution-receipt.json"
+        provisional.write_bytes(canonical_json_bytes(result))
+        replaced_args = [str(source_path / PROFILE_PACKET_PATH) if value == "@profile" else value for value in module_args]
+        if role in MUTATING_ROLES:
+            require("--source-execution-receipt" not in replaced_args, "SOURCE_EXECUTION_RECEIPT_DUPLICATED", "launcher owns the source execution receipt argument")
+            replaced_args.extend(["--source-execution-receipt", str(provisional)])
         completed = subprocess.run(
-            [sys.executable, "-I", "-B", str(module), *replaced_args], cwd=temporary_path,
-            env=environment, check=False, capture_output=True,
+            [sys.executable, "-I", "-S", "-B", "-c", ISOLATED_MODULE_LAUNCHER, str(module), *replaced_args],
+            cwd=foreign_path,
+            input=module_data,
+            env=scrubbed_environment(),
+            check=False,
+            capture_output=True,
         )
-    temporary_deleted = temporary_path is not None and not temporary_path.exists()
-    result = execution_receipt(
-        profile=profile, receipt=receipt, measured=measured, role=role, module_path=module_path,
-        module_sha256=sha256_bytes(module_data), packet_id=packet_id, exit_code=completed.returncode,
-        stdout=completed.stdout, stderr=completed.stderr, temporary_deleted=temporary_deleted,
-    )
-    execution_receipt_path.parent.mkdir(parents=True, exist_ok=True)
-    execution_receipt_path.write_bytes(canonical_json_bytes(result))
     sys.stdout.buffer.write(completed.stdout)
     sys.stderr.buffer.write(completed.stderr)
     require(completed.returncode == 0, "MEASURED_PROCESS_REFUSED", f"measured {role} process refused")
-    require(temporary_deleted, "TEMPORARY_SOURCE_TREE_RETAINED", "temporary execution source tree was not deleted")
+    require(source_path is not None and not source_path.exists(), "TEMPORARY_SOURCE_TREE_RETAINED", "temporary execution source tree was not deleted")
+    require(foreign_path is not None and not foreign_path.exists(), "FOREIGN_EXECUTION_DIRECTORY_RETAINED", "foreign execution directory was not deleted")
+    execution_receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    execution_receipt_path.write_bytes(canonical_json_bytes(result))
     return result
 
 
 def refusal(code: str, message: str) -> dict[str, Any]:
-    return {"schema": "stc-mary/successor-execution-custody/1", "status": "REFUSED", "code": code,
+    return {"schema": "stc-mary/successor-execution-receipt/1", "status": "REFUSED", "code": code,
             "message": message, "authority": AUTHORITY}
 
 

@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -52,11 +53,13 @@ if str(ANCHOR) not in sys.path:
 
 import stc_mary_successor_flight_law as law  # noqa: E402
 import invoke_stc_mary_successor_packet_source as execution_launcher  # noqa: E402
+import invoke_stc_mary_successor_packet_source_bootstrap as execution_bootstrap  # noqa: E402
 import stc_mary_successor_packet_compiler as compiler  # noqa: E402
 import stc_mary_successor_packet_orchestrator as orchestrator  # noqa: E402
 import stc_mary_successor_packet_runtime as runtime  # noqa: E402
 import stc_mary_successor_seal_adapter as seal_adapter  # noqa: E402
 import verify_stc_mary_successor_evidence_materialization as materialization_bridge  # noqa: E402
+import verify_stc_mary_successor_execution_receipt as execution_receipt_verifier  # noqa: E402
 import verify_stc_mary_successor_packet as packet_verifier  # noqa: E402
 import verify_stc_mary_successor_post_seal_closure as post_seal  # noqa: E402
 import verify_stc_mary_successor_pre_seal_closure as pre_seal  # noqa: E402
@@ -235,11 +238,13 @@ class SuccessorFlightWalk:
         )
         law.write_canonical_json(self.source_admission_path, self.source_admission)
         compile_result_path = self.receipts / "compile.json"
-        self.compile_execution_receipt = execution_launcher.execute(
+        compile_execution_path = self.receipts / "compile-execution-custody.json"
+        execution_bootstrap.execute(
             role="compile",
-            execution_receipt_path=self.receipts / "compile-execution-custody.json",
+            execution_receipt=compile_execution_path,
             repository=self.source_repository,
             source_admission_receipt=self.source_admission_path,
+            packet=None,
             module_args=[
                 "compile",
                 "--workstation", str(self.workstation),
@@ -250,6 +255,7 @@ class SuccessorFlightWalk:
                 "--out", str(compile_result_path),
             ],
         )
+        self.compile_execution_receipt = load_json(compile_execution_path)
         receipt = load_json(compile_result_path)
         self.predecessor_fence_after = self.fence(self.predecessor)
         self.compile_receipt = receipt
@@ -266,10 +272,14 @@ class SuccessorFlightWalk:
     # -- step 3: verify the compiled packet under measured-source bootstrap ------
     def verify_packet(self) -> dict:
         out = self.receipts / "successor-packet-verification.json"
-        completed = subprocess.run(
-            [
-                sys.executable,
-                str(ANCHOR / "verify_stc_mary_successor_packet_bootstrap.py"),
+        execution_path = self.receipts / "verify-packet-execution.json"
+        execution_bootstrap.execute(
+            role="verify-packet",
+            execution_receipt=execution_path,
+            packet=self.packet,
+            repository=None,
+            source_admission_receipt=None,
+            module_args=[
                 "--packet",
                 str(self.packet),
                 "--profile",
@@ -279,13 +289,8 @@ class SuccessorFlightWalk:
                 "--out",
                 str(out),
             ],
-            check=False,
-            capture_output=True,
         )
-        if completed.returncode != 0:
-            raise AssertionError(
-                f"successor packet bootstrap refused: {completed.stdout.decode('utf-8', 'replace')}"
-            )
+        self.verify_packet_execution_receipt = load_json(execution_path)
         self.packet_verification = load_json(out)
         return self.packet_verification
 
@@ -458,26 +463,23 @@ class SuccessorFlightWalk:
     def run_admission(self, name: str) -> dict:
         """Run the separately admitted gate through its own bootstrap."""
         out = self.receipts / name
-        completed = subprocess.run(
-            [
-                sys.executable,
-                str(ADMISSION_BOOTSTRAP),
-                "--workstation",
-                str(self.workstation),
-                "--packet",
-                str(self.packet),
-                "--candidates",
-                str(self.candidates),
-                "--profile",
-                str(ADMISSION_PROFILE),
-                "--admission-source-root",
-                str(self.source_repository),
-                "--out",
-                str(out),
-            ],
-            check=False,
-            capture_output=True,
-        )
+        with tempfile.TemporaryDirectory(prefix="stc-mary-admission-foreign-") as foreign:
+            completed = subprocess.run(
+                [
+                    sys.executable, "-I", "-S", "-B",
+                    str(ADMISSION_BOOTSTRAP),
+                    "--workstation", str(self.workstation),
+                    "--packet", str(self.packet),
+                    "--candidates", str(self.candidates),
+                    "--profile", str(ADMISSION_PROFILE),
+                    "--admission-source-root", str(self.source_repository),
+                    "--out", str(out),
+                ],
+                cwd=foreign,
+                env=execution_launcher.scrubbed_environment(),
+                check=False,
+                capture_output=True,
+            )
         if completed.returncode != 0:
             raise AssertionError(
                 f"admission bootstrap refused: {completed.stdout.decode('utf-8', 'replace')}"
@@ -573,16 +575,26 @@ class SuccessorFlightWalk:
     def run_materialization(self, name: str = "evidence-materialization.json") -> dict:
         """Replay the admitted candidate-body mapping into one exact materialization receipt."""
         self.materialization_path = self.receipts / name
-        receipt = materialization_bridge.materialize_evidence(
+        execution_path = self.receipts / "materialize-or-resume-execution.json"
+        execution_bootstrap.execute(
+            role="materialize-or-resume",
+            execution_receipt=execution_path,
             packet=self.packet,
-            admission_receipt=self.receipts / "admission-admissible.json",
-            candidates=self.candidates,
-            repository=self.source_repository,
-            profile_path=PROFILE,
-            transaction_workspace=self.receipts / "materialization-transaction",
-            completion_receipt=self.materialization_path,
+            repository=None,
+            source_admission_receipt=None,
+            module_args=[
+                "--packet", str(self.packet),
+                "--admission-receipt", str(self.receipts / "admission-admissible.json"),
+                "--candidates", str(self.candidates),
+                "--repository-root", str(self.source_repository),
+                "--profile", "@profile",
+                "--transaction-workspace", str(self.receipts / "materialization-transaction"),
+                "--out", str(self.materialization_path),
+            ],
         )
-        return receipt
+        self.materialization_execution_receipt_path = execution_path
+        self.materialization_execution_receipt = load_json(execution_path)
+        return load_json(self.materialization_path)
 
     # -- step 7: draft each stage, then record it -------------------------------
     def write_stage_drafts(self, admission_receipt: Mapping[str, Any]) -> list[dict]:
@@ -634,16 +646,28 @@ class SuccessorFlightWalk:
         self.pre_record_snapshot = self.root.parent / "snapshot-pre-record"
         shutil.copytree(self.root, self.pre_record_snapshot)
 
-        self.orchestration_receipt = orchestrator.orchestrate(
+        orchestration_path = self.receipts / "orchestration.json"
+        recording_execution_path = self.receipts / "record-or-resume-execution.json"
+        execution_bootstrap.execute(
+            role="record-or-resume",
+            execution_receipt=recording_execution_path,
             packet=self.packet,
-            admission_receipt=self.receipts / "admission-admissible.json",
-            materialization_receipt=self.materialization_path,
-            authentication_receipt=self.authentication_path,
-            candidates=self.candidates,
-            repository=self.source_repository,
-            transaction_workspace=self.receipts / "recording-transactions",
-            source_execution_identity="synthetic-measured-source-execution-identity",
+            repository=None,
+            source_admission_receipt=None,
+            module_args=[
+                "--packet", str(self.packet),
+                "--admission-receipt", str(self.receipts / "admission-admissible.json"),
+                "--materialization-receipt", str(self.materialization_path),
+                "--authentication-receipt", str(self.authentication_path),
+                "--candidates", str(self.candidates),
+                "--repository-root", str(self.source_repository),
+                "--transaction-workspace", str(self.receipts / "recording-transactions"),
+                "--out", str(orchestration_path),
+            ],
         )
+        self.recording_execution_receipt_path = recording_execution_path
+        self.recording_execution_receipt = load_json(recording_execution_path)
+        self.orchestration_receipt = load_json(orchestration_path)
         self.pre_seal_closure = pre_seal.close_pre_seal(
             packet=self.packet,
             admission_receipt=self.receipts / "admission-admissible.json",
@@ -661,11 +685,31 @@ class SuccessorFlightWalk:
         self.pre_seal_snapshot = self.root.parent / "snapshot-pre-seal"
         shutil.copytree(self.root, self.pre_seal_snapshot)
 
+        seal_receipt_path = self.receipts / "seal.json"
+        seal_execution_path = self.receipts / "seal-or-resume-execution.json"
+        execution_bootstrap.execute(
+            role="seal-or-resume",
+            execution_receipt=seal_execution_path,
+            packet=self.packet,
+            repository=None,
+            source_admission_receipt=None,
+            module_args=[
+                "seal",
+                "--packet", str(self.packet),
+                "--sealed", str(self.sealed),
+                "--pre-seal-closure", str(self.pre_seal_path),
+                "--repository-root", str(self.source_repository),
+                "--out", str(seal_receipt_path),
+            ],
+        )
+        self.seal_execution_receipt_path = seal_execution_path
+        self.seal_execution_receipt = load_json(seal_execution_path)
         self.seal_result = seal_adapter.seal_packet(
             packet=self.packet,
             sealed=self.sealed,
             pre_seal_closure=self.pre_seal_path,
             repository=self.source_repository,
+            source_execution_receipt=seal_execution_path,
         )
         self.detached_verification = seal_adapter.verify_detached(
             sealed=self.sealed, repository=self.source_repository
@@ -738,7 +782,7 @@ class LegalOrderTraversal(unittest.TestCase):
         self.assertEqual(receipt["completedStageCount"], 0)
         self.assertEqual(receipt["stagesRecordedByThisSurface"], 0)
         self.assertEqual(receipt["authority"], "none")
-        self.assertEqual(self.walk.compile_execution_receipt["moduleRole"], "compile")
+        self.assertEqual(self.walk.compile_execution_receipt["operationRole"], "compile")
         self.assertEqual(self.walk.compile_execution_receipt["processTerminal"], "PASS")
         self.assertIsNone(self.walk.compile_execution_receipt["packetId"])
 
@@ -1350,6 +1394,7 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 sealed=estate / "campaign" / "stc-mary-private-flight-sealed-unclosed",
                 pre_seal_closure=estate / "receipts" / "absent-closure.json",
                 repository=REPOSITORY_ROOT,
+                source_execution_receipt=self.walk.seal_execution_receipt_path,
             )
         self.assertEqual(caught.exception.code, "PRE_SEAL_CLOSURE_ABSENT")
 
@@ -1367,6 +1412,7 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 sealed=estate / "campaign" / "stc-mary-private-flight-sealed-foreign",
                 pre_seal_closure=path,
                 repository=REPOSITORY_ROOT,
+                source_execution_receipt=self.walk.seal_execution_receipt_path,
             )
         self.assertEqual(caught.exception.code, "PRE_SEAL_CLOSURE_BINDING_INVALID")
 
@@ -1378,6 +1424,7 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 sealed=estate / "campaign" / "arbitrary-output",
                 pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
                 repository=REPOSITORY_ROOT,
+                source_execution_receipt=self.walk.seal_execution_receipt_path,
             )
         self.assertEqual(caught.exception.code, "SEALED_OUTPUT_UNSAFE")
 
@@ -1599,7 +1646,7 @@ class MaterializedEvidenceHostileWitnesses(unittest.TestCase):
             candidates=estate / "admission",
             repository=REPOSITORY_ROOT,
             transaction_workspace=estate / "receipts" / "recording-transactions",
-            source_execution_identity="synthetic-measured-source-execution-identity",
+            source_execution_receipt=self.walk.recording_execution_receipt_path,
         )
 
     def resign_materialization(self, estate: Path, mutate) -> Path:
@@ -1895,10 +1942,12 @@ class MaterializedEvidenceHostileWitnesses(unittest.TestCase):
         """
         estate = self.copy_pre_record_estate()
         packet = estate / "campaign" / "stc-mary-private-flight-successor"
-        completed = subprocess.run(
-            [
-                sys.executable,
-                str(ANCHOR / "verify_stc_mary_successor_evidence_materialization.py"),
+        module = ANCHOR / "verify_stc_mary_successor_evidence_materialization.py"
+        with tempfile.TemporaryDirectory(prefix="stc-mary-materialization-foreign-") as foreign:
+            completed = subprocess.run(
+                [
+                sys.executable, "-I", "-S", "-B", "-c", execution_launcher.ISOLATED_MODULE_LAUNCHER,
+                str(module),
                 "--packet",
                 str(packet),
                 "--admission-receipt",
@@ -1911,10 +1960,13 @@ class MaterializedEvidenceHostileWitnesses(unittest.TestCase):
                 str(PROFILE),
                 "--out",
                 str(packet / "smuggled.json"),
-            ],
-            check=False,
-            capture_output=True,
-        )
+                ],
+                input=module.read_bytes(),
+                cwd=foreign,
+                env=execution_launcher.scrubbed_environment(),
+                check=False,
+                capture_output=True,
+            )
         self.assertEqual(completed.returncode, 1)
         refusal = json.loads(completed.stdout.decode("utf-8"))
         self.assertEqual(refusal["code"], "RECEIPT_INSIDE_MEASURED_SURFACE")
@@ -1923,8 +1975,6 @@ class MaterializedEvidenceHostileWitnesses(unittest.TestCase):
 
 class VerifiedPrefixRestartWitnesses(unittest.TestCase):
     """Crash witnesses for evidence promotion and the contiguous recording prefix."""
-
-    SOURCE_EXECUTION_IDENTITY = "synthetic-measured-source-execution-identity"
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -1960,6 +2010,7 @@ class VerifiedPrefixRestartWitnesses(unittest.TestCase):
             "profile_path": PROFILE,
             "transaction_workspace": transaction,
             "completion_receipt": receipt_path,
+            "source_execution_receipt": estate / "receipts" / "materialize-or-resume-execution.json",
         }
         with self.assertRaises(materialization_bridge.MaterializationError) as caught:
             materialization_bridge.materialize_evidence(
@@ -1997,7 +2048,7 @@ class VerifiedPrefixRestartWitnesses(unittest.TestCase):
             "candidates": estate / "admission",
             "repository": REPOSITORY_ROOT,
             "transaction_workspace": estate / "receipts" / "recording-transactions",
-            "source_execution_identity": self.SOURCE_EXECUTION_IDENTITY,
+            "source_execution_receipt": self.walk.recording_execution_receipt_path,
         }
         with self.assertRaises(law.SuccessorFlightError) as caught:
             orchestrator.orchestrate(
@@ -2047,6 +2098,7 @@ class VerifiedPrefixRestartWitnesses(unittest.TestCase):
             sealed=sealed,
             pre_seal_closure=closure_path,
             repository=REPOSITORY_ROOT,
+            source_execution_receipt=self.walk.seal_execution_receipt_path,
         )
         detached = seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
         detached_path = receipts / "detached-verification.json"
@@ -2091,6 +2143,7 @@ class AtomicSealRestartWitnesses(unittest.TestCase):
             "pre_seal_closure": estate / "receipts" / "pre-seal-closure.json",
             "repository": REPOSITORY_ROOT,
             "transaction_receipt": transaction,
+            "source_execution_receipt": self.walk.seal_execution_receipt_path,
         }
         return sealed, staging, transaction, arguments
 
@@ -2300,16 +2353,29 @@ class PacketCarriedExecutionCustodyWitnesses(unittest.TestCase):
             packet=packet,
         )
 
+    def invoke_status_bootstrap(self, packet: Path, name: str) -> dict[str, Any]:
+        path = packet.parent / f"{name}-bootstrap-execution.json"
+        execution_bootstrap.execute(
+            role="status",
+            execution_receipt=path,
+            module_args=["status", "--packet", str(packet)],
+            packet=packet,
+            repository=None,
+            source_admission_receipt=None,
+        )
+        return load_json(path)
+
     def test_status_executes_from_complete_packet_source_custody(self) -> None:
         receipt = self.receipt
         self.assertEqual(receipt["status"], "PASS")
         self.assertEqual(receipt["processTerminal"], "PASS")
-        self.assertEqual(receipt["moduleRole"], "status")
+        self.assertEqual(receipt["operationRole"], "status")
         self.assertEqual(receipt["packetId"], self.walk.packet_id)
         self.assertEqual(receipt["sourceAdmissionId"], self.walk.source_admission["sourceAdmissionId"])
         self.assertEqual(receipt["successorSourceSetId"], self.walk.compile_receipt["successorSourceSetId"])
-        self.assertEqual(receipt["measuredSourceMemberCount"], 18)
-        self.assertTrue(receipt["temporarySourceTreeDeleted"])
+        self.assertEqual(receipt["completeMeasuredSourceSetId"], self.walk.compile_receipt["successorSourceSetId"])
+        self.assertEqual((receipt["isolated"], receipt["noSite"], receipt["dontWriteBytecode"]), (1, 1, 1))
+        self.assertFalse(receipt["ambientRepositorySourceTrusted"])
         self.assertEqual(load_json(self.receipt_path), receipt)
 
     def test_ambient_repository_drift_after_compilation_is_ignored(self) -> None:
@@ -2326,6 +2392,48 @@ class PacketCarriedExecutionCustodyWitnesses(unittest.TestCase):
         finally:
             ambient.write_bytes(original)
 
+    def test_ambient_launcher_changed_has_no_effect(self) -> None:
+        ambient = ANCHOR / "invoke_stc_mary_successor_packet_source.py"
+        original = ambient.read_bytes()
+        try:
+            ambient.write_bytes(b"raise SystemExit('ambient launcher must never execute')\n")
+            receipt = self.invoke_status_bootstrap(self.walk.packet, "ambient-launcher-drift")
+            self.assertEqual(receipt["processTerminal"], "PASS")
+            self.assertFalse(receipt["ambientRepositorySourceTrusted"])
+        finally:
+            ambient.write_bytes(original)
+
+    def test_packet_carried_launcher_changed_refuses_before_execution(self) -> None:
+        packet = self.packet_copy("launcher-drift")
+        launcher = packet / "lineage/successor-source/anchor_node/invoke_stc_mary_successor_packet_source.py"
+        launcher.write_bytes(b"raise SystemExit('substituted packet launcher')\n")
+        with self.assertRaises(execution_bootstrap.LauncherBootstrapError) as caught:
+            self.invoke_status_bootstrap(packet, "launcher-drift")
+        self.assertEqual(caught.exception.code, "MEASURED_SOURCE_MEMBER_DRIFT")
+
+    def test_user_site_pythonpath_and_sitecustomize_cannot_influence_imports(self) -> None:
+        hostile = Path(tempfile.mkdtemp(prefix="stc-mary-hostile-user-site-"))
+        self.addCleanup(shutil.rmtree, hostile, ignore_errors=True)
+        (hostile / "sitecustomize.py").write_text("raise SystemExit('sitecustomize imported')\n", encoding="utf-8")
+        (hostile / "stc_mary_successor_flight_law.py").write_text("raise SystemExit('fallback imported')\n", encoding="utf-8")
+        with mock.patch.dict(
+            os.environ,
+            {"PYTHONPATH": str(hostile), "PYTHONUSERBASE": str(hostile), "PYTHONSTARTUP": str(hostile / "sitecustomize.py")},
+            clear=False,
+        ):
+            receipt = self.invoke_status_bootstrap(self.walk.packet, "hostile-user-site")
+        self.assertEqual((receipt["isolated"], receipt["noSite"], receipt["dontWriteBytecode"]), (1, 1, 1))
+
+    def test_source_receipt_for_another_tree_refuses(self) -> None:
+        packet = self.packet_copy("foreign-tree")
+        admission_path = packet / self.walk.profile["lineage"]["sourceAdmissionFile"]
+        admission = load_json(admission_path)
+        admission["sourceTree"] = "0" * len(admission["sourceTree"])
+        law.write_canonical_json(admission_path, admission)
+        with self.assertRaises(execution_bootstrap.LauncherBootstrapError) as caught:
+            self.invoke_status_bootstrap(packet, "foreign-tree")
+        self.assertEqual(caught.exception.code, "SOURCE_ADMISSION_IDENTITY_INVALID")
+
     def test_packet_member_drift_refuses_while_repository_copy_is_intact(self) -> None:
         packet = self.packet_copy("member-drift")
         module = packet / "lineage/successor-source/anchor_node/stc_mary_successor_packet_runtime.py"
@@ -2333,6 +2441,183 @@ class PacketCarriedExecutionCustodyWitnesses(unittest.TestCase):
         with self.assertRaises(execution_launcher.ExecutionCustodyError) as caught:
             self.invoke_status(packet, "member-drift")
         self.assertEqual(caught.exception.code, "PACKET_SOURCE_MEMBER_DRIFT")
+
+
+class FinalExecutionReceiptWitnesses(unittest.TestCase):
+    """The final receipt, ten-role map, and mutation identity are executable law."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.walk = shared_walk()
+        cls.profile = cls.walk.profile
+        cls.base_receipt = execution_launcher.execute(
+            role="status",
+            execution_receipt_path=cls.walk.receipts / "final-receipt-hostile-status.json",
+            module_args=["status", "--packet", str(cls.walk.packet)],
+            packet=cls.walk.packet,
+        )
+
+    def packet_copy(self, name: str) -> Path:
+        root = Path(tempfile.mkdtemp(prefix=f"stc-mary-final-custody-{name}-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        packet = root / "packet"
+        shutil.copytree(self.walk.packet, packet)
+        return packet
+
+    def invoke_status(self, packet: Path, name: str, role: str = "status") -> dict[str, Any]:
+        return execution_launcher.execute(
+            role=role,
+            execution_receipt_path=packet.parent / f"{name}-execution.json",
+            module_args=["status", "--packet", str(packet)],
+            packet=packet,
+        )
+
+    def forged_receipt(self, mutate, name: str) -> Path:
+        body = copy.deepcopy(self.base_receipt)
+        custody = self.profile["executionCustody"]
+        body.pop(custody["idKey"], None)
+        mutate(body)
+        forged = law.sign(body, custody["idKey"], custody["idPrefix"])
+        root = Path(tempfile.mkdtemp(prefix=f"stc-mary-execution-receipt-{name}-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        path = root / "receipt.json"
+        law.write_canonical_json(path, forged)
+        return path
+
+    def verify_forged(self, path: Path, expected_role: str = "status") -> None:
+        execution_receipt_verifier.verify_execution_receipt(
+            profile=self.profile,
+            execution_receipt=path,
+            expected_role=expected_role,
+            packet=self.walk.packet,
+        )
+
+    def test_execution_receipt_naming_another_git_blob_refuses(self) -> None:
+        path = self.forged_receipt(lambda body: body.update({"moduleGitBlobId": "0" * len(body["moduleGitBlobId"])}), "blob")
+        with self.assertRaises(execution_receipt_verifier.ExecutionReceiptError) as caught:
+            self.verify_forged(path)
+        self.assertEqual(caught.exception.code, "EXECUTION_MODULE_MEMBER_INVALID")
+
+    def test_wrong_operation_role_refuses(self) -> None:
+        path = self.forged_receipt(lambda body: body.update({"operationRole": "verify-detached"}), "role")
+        with self.assertRaises(execution_receipt_verifier.ExecutionReceiptError) as caught:
+            self.verify_forged(path)
+        self.assertEqual(caught.exception.code, "EXECUTION_ROLE_MISMATCH")
+
+    def test_one_role_mapped_to_another_admitted_module_refuses(self) -> None:
+        mapping = self.profile["executionCustody"]["roles"]["verify-detached"]
+        path = self.forged_receipt(
+            lambda body: body.update({
+                "repositoryRelativeModulePath": mapping["repositoryPath"],
+                "packetRelativeModulePath": mapping["packetPath"],
+            }),
+            "mapped-module",
+        )
+        with self.assertRaises(execution_receipt_verifier.ExecutionReceiptError) as caught:
+            self.verify_forged(path)
+        self.assertEqual(caught.exception.code, "EXECUTION_ROLE_MODULE_MISMATCH")
+
+    def test_receipt_verifier_consumes_ambient_repository_trust_false(self) -> None:
+        path = self.forged_receipt(lambda body: body.update({"ambientRepositorySourceTrusted": True}), "ambient-trust")
+        with self.assertRaises(execution_receipt_verifier.ExecutionReceiptError) as caught:
+            self.verify_forged(path)
+        self.assertEqual(caught.exception.code, "EXECUTION_RECEIPT_TERMINAL_INVALID")
+
+    def test_launcher_self_authentication_refuses(self) -> None:
+        path = self.forged_receipt(lambda body: body.update({"bootstrapAuthenticated": True}), "self-authentication")
+        with self.assertRaises(execution_receipt_verifier.ExecutionReceiptError) as caught:
+            self.verify_forged(path)
+        self.assertEqual(caught.exception.code, "EXECUTION_RECEIPT_INVALID")
+
+    def test_environment_only_source_execution_identity_refuses(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="stc-mary-environment-only-execution-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        estate = root / "estate"
+        shutil.copytree(self.walk.pre_record_snapshot, estate)
+        with mock.patch.dict(os.environ, {"STC_MARY_SOURCE_EXECUTION_IDENTITY": "environment-only"}, clear=False):
+            with self.assertRaises(law.SuccessorFlightError) as caught:
+                orchestrator.orchestrate(
+                    packet=estate / "campaign/stc-mary-private-flight-successor",
+                    admission_receipt=estate / "receipts/admission-admissible.json",
+                    materialization_receipt=estate / "receipts/evidence-materialization.json",
+                    authentication_receipt=estate / "receipts/authentication.json",
+                    candidates=estate / "admission",
+                    repository=REPOSITORY_ROOT,
+                    transaction_workspace=estate / "receipts/recording-transactions",
+                    source_execution_receipt=None,
+                )
+        self.assertEqual(caught.exception.code, "SOURCE_EXECUTION_RECEIPT_ABSENT")
+
+    def test_profile_exposes_exact_final_ten_role_map(self) -> None:
+        expected = {
+            "compile", "verify-packet", "verify-evidence-materialization", "materialize-or-resume",
+            "record-or-resume", "close-pre-seal", "seal-or-resume", "verify-detached",
+            "close-post-seal", "status",
+        }
+        custody = self.profile["executionCustody"]
+        self.assertEqual(set(custody["roleDenominator"]), expected)
+        self.assertEqual(set(custody["roles"]), expected)
+        self.assertEqual(len(custody["roles"]), 10)
+        for role, mapping in custody["roles"].items():
+            self.assertEqual(self.profile["successorSourceMembers"][mapping["repositoryPath"]], mapping["packetPath"], role)
+
+    def test_all_ten_roles_emit_independently_verified_receipts(self) -> None:
+        root = Path(tempfile.mkdtemp(prefix="stc-mary-ten-role-custody-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        receipts = {
+            "compile": self.walk.compile_execution_receipt,
+            "verify-packet": self.walk.verify_packet_execution_receipt,
+            "materialize-or-resume": self.walk.materialization_execution_receipt,
+            "record-or-resume": self.walk.recording_execution_receipt,
+            "seal-or-resume": self.walk.seal_execution_receipt,
+        }
+
+        def run(role: str, packet: Path, arguments: list[str]) -> None:
+            path = root / f"{role}.json"
+            execution_bootstrap.execute(
+                role=role,
+                execution_receipt=path,
+                module_args=arguments,
+                packet=packet,
+                repository=None,
+                source_admission_receipt=None,
+            )
+            receipts[role] = load_json(path)
+
+        pre_record = self.walk.pre_record_snapshot
+        pre_record_packet = pre_record / "campaign/stc-mary-private-flight-successor"
+        run("verify-evidence-materialization", pre_record_packet, [
+            "--packet", str(pre_record_packet),
+            "--admission-receipt", str(pre_record / "receipts/admission-admissible.json"),
+            "--candidates", str(pre_record / "admission"),
+            "--repository-root", str(REPOSITORY_ROOT),
+            "--profile", "@profile",
+            "--out", str(root / "verified-materialization.json"),
+        ])
+        pre_seal_packet = self.walk.pre_seal_snapshot / "campaign/stc-mary-private-flight-successor"
+        run("close-pre-seal", pre_seal_packet, [
+            "--packet", str(pre_seal_packet),
+            "--admission-receipt", str(self.walk.pre_seal_snapshot / "receipts/admission-admissible.json"),
+            "--materialization-receipt", str(self.walk.pre_seal_snapshot / "receipts/evidence-materialization.json"),
+            "--authentication-receipt", str(self.walk.pre_seal_snapshot / "receipts/authentication.json"),
+            "--candidates", str(self.walk.pre_seal_snapshot / "admission"),
+            "--profile", "@profile", "--repository-root", str(REPOSITORY_ROOT),
+            "--out", str(root / "pre-seal.json"),
+        ])
+        run("verify-detached", self.walk.packet, [
+            "verify-detached", "--sealed", str(self.walk.sealed),
+            "--repository-root", str(REPOSITORY_ROOT), "--out", str(root / "detached.json"),
+        ])
+        run("close-post-seal", self.walk.packet, [
+            "--packet", str(self.walk.packet), "--sealed", str(self.walk.sealed),
+            "--pre-seal-closure", str(self.walk.pre_seal_path),
+            "--detached-verification", str(self.walk.detached_path),
+            "--profile", "@profile", "--repository-root", str(REPOSITORY_ROOT),
+            "--out", str(root / "post-seal.json"),
+        ])
+        run("status", self.walk.packet, ["status", "--packet", str(self.walk.packet)])
+        self.assertEqual(set(receipts), set(self.profile["executionCustody"]["roleDenominator"]))
+        self.assertTrue(all(receipt["processTerminal"] == "PASS" for receipt in receipts.values()))
 
     def test_import_fallback_into_the_repository_is_impossible(self) -> None:
         packet = self.packet_copy("import-fallback")
@@ -2396,6 +2681,397 @@ class PacketCarriedExecutionCustodyWitnesses(unittest.TestCase):
         self.assertEqual(caught.exception.code, "PACKET_SOURCE_MEMBER_DRIFT")
 
 
+class PowerShellOperatorEntrypointWitnesses(unittest.TestCase):
+    """Execute and hostile-test the admitted PowerShell ten-role operator surface."""
+
+    ROLE_MODULES = {
+        "compile": (
+            "mating_surface/anchor_node/stc_mary_successor_packet_compiler.py",
+            "anchor_node/stc_mary_successor_packet_compiler.py",
+        ),
+        "verify-packet": (
+            "mating_surface/anchor_node/verify_stc_mary_successor_packet_bootstrap.py",
+            "anchor_node/verify_stc_mary_successor_packet_bootstrap.py",
+        ),
+        "verify-evidence-materialization": (
+            "mating_surface/anchor_node/verify_stc_mary_successor_evidence_materialization.py",
+            "anchor_node/verify_stc_mary_successor_evidence_materialization.py",
+        ),
+        "materialize-or-resume": (
+            "mating_surface/anchor_node/verify_stc_mary_successor_evidence_materialization.py",
+            "anchor_node/verify_stc_mary_successor_evidence_materialization.py",
+        ),
+        "record-or-resume": (
+            "mating_surface/anchor_node/stc_mary_successor_packet_orchestrator.py",
+            "anchor_node/stc_mary_successor_packet_orchestrator.py",
+        ),
+        "close-pre-seal": (
+            "mating_surface/anchor_node/verify_stc_mary_successor_pre_seal_closure.py",
+            "anchor_node/verify_stc_mary_successor_pre_seal_closure.py",
+        ),
+        "seal-or-resume": (
+            "mating_surface/anchor_node/stc_mary_successor_seal_adapter.py",
+            "anchor_node/stc_mary_successor_seal_adapter.py",
+        ),
+        "verify-detached": (
+            "mating_surface/anchor_node/stc_mary_successor_seal_adapter.py",
+            "anchor_node/stc_mary_successor_seal_adapter.py",
+        ),
+        "close-post-seal": (
+            "mating_surface/anchor_node/verify_stc_mary_successor_post_seal_closure.py",
+            "anchor_node/verify_stc_mary_successor_post_seal_closure.py",
+        ),
+        "status": (
+            "mating_surface/anchor_node/stc_mary_successor_packet_runtime.py",
+            "anchor_node/stc_mary_successor_packet_runtime.py",
+        ),
+    }
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.walk = shared_walk()
+        cls.profile = cls.walk.profile
+        cls.shell = shutil.which("pwsh") or shutil.which("powershell")
+        if cls.shell is None:
+            raise AssertionError("PowerShell is required to qualify the admitted PS1 operator entrypoint")
+        cls.operator = (
+            cls.walk.source_repository
+            / "mating_surface/anchor_node/stc-mary-successor-packet-flight-01.ps1"
+        )
+        row = next(
+            member for member in cls.walk.source_admission["members"]
+            if member["repositoryPath"]
+            == "mating_surface/anchor_node/stc-mary-successor-packet-flight-01.ps1"
+        )
+        admitted = subprocess.check_output(
+            [
+                "git", "-c", f"safe.directory={cls.walk.source_repository}",
+                "-C", str(cls.walk.source_repository), "cat-file", "blob", row["gitBlob"],
+            ]
+        )
+        if cls.operator.read_bytes() != admitted:
+            raise AssertionError("the executed PS1 differs from its admitted Git blob")
+        if law.sha256_bytes(admitted) != row["sha256"] or len(admitted) != row["bytes"]:
+            raise AssertionError("the executed PS1 differs from its source-admission measurement")
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp(prefix="stc-mary-powershell-operator-"))
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.foreign_cwd = self.root / "foreign-working-directory"
+        self.foreign_cwd.mkdir()
+        self.assertFalse(law.is_within(self.foreign_cwd, REPOSITORY_ROOT))
+        self.assertFalse(law.is_within(self.foreign_cwd, self.walk.source_repository))
+
+    def invoke(
+        self, operator: Path, command: str, arguments: list[str], *, python: str | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        invocation = [
+            self.shell, "-NoLogo", "-NoProfile", "-NonInteractive",
+            "-ExecutionPolicy", "Bypass", "-File", str(operator), command,
+            "-Python", sys.executable if python is None else python,
+            *arguments,
+        ]
+        return subprocess.run(
+            invocation,
+            cwd=self.foreign_cwd,
+            env=execution_launcher.scrubbed_environment(),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            errors="replace",
+            check=False,
+        )
+
+    def require_success(
+        self,
+        role: str,
+        packet: Path | None,
+        arguments: list[str],
+        *,
+        source_admission_receipt: Path | None = None,
+    ) -> Mapping[str, Any]:
+        execution_receipt = self.root / "execution-receipts" / f"{role}.json"
+        execution_receipt.parent.mkdir(exist_ok=True)
+        completed = self.invoke(
+            self.operator,
+            role,
+            ["-ExecutionReceipt", str(execution_receipt), *arguments],
+        )
+        self.assertEqual(
+            completed.returncode,
+            0,
+            f"{role} failed through admitted PS1\nstdout:\n{completed.stdout}\nstderr:\n{completed.stderr}",
+        )
+        receipt = execution_receipt_verifier.verify_execution_receipt(
+            profile=self.profile,
+            execution_receipt=execution_receipt,
+            expected_role=role,
+            packet=packet,
+            source_admission_receipt=source_admission_receipt,
+        )
+        repository_path, packet_path = self.ROLE_MODULES[role]
+        row = next(
+            member for member in self.walk.source_admission["members"]
+            if member["repositoryPath"] == repository_path
+        )
+        self.assertEqual(receipt["operationRole"], role)
+        self.assertEqual(receipt["repositoryRelativeModulePath"], repository_path)
+        self.assertEqual(receipt["packetRelativeModulePath"], packet_path)
+        self.assertEqual(receipt["moduleGitBlobId"], row["gitBlob"])
+        self.assertEqual(
+            receipt["completeMeasuredSourceSetId"],
+            self.walk.source_admission["successorSourceSetId"],
+        )
+        self.assertIs(receipt["ambientRepositorySourceTrusted"], False)
+        self.assertEqual(receipt["authority"], "none")
+        return receipt
+
+    def copy_estate(self, source: Path, name: str) -> Path:
+        estate = self.root / name
+        shutil.copytree(source, estate)
+        return estate
+
+    def trace_arguments(self, operator: Path, command: str, arguments: list[str]) -> tuple[int, list[str]]:
+        trace = self.root / f"trace-{command}.json"
+        tracer = self.root / f"trace-{command}.py"
+        tracer.write_text(
+            "import json,sys\n"
+            "from pathlib import Path\n"
+            f"Path({str(trace)!r}).write_text(json.dumps(sys.argv[1:]), encoding='utf-8')\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        if os.name == "nt":
+            wrapper = self.root / f"trace-{command}.cmd"
+            wrapper.write_text(
+                f'@echo off\r\n"{sys.executable}" "{tracer}" %*\r\n',
+                encoding="utf-8",
+                newline="",
+            )
+        else:
+            import shlex
+
+            wrapper = self.root / f"trace-{command}.sh"
+            wrapper.write_text(
+                f"#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(tracer))} \"$@\"\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            wrapper.chmod(0o700)
+        completed = self.invoke(operator, command, arguments, python=str(wrapper))
+        return completed.returncode, load_json(trace) if trace.is_file() else []
+
+    def trace_parameters(self, command: str) -> list[str]:
+        value = str(self.root / "synthetic-coordinate")
+        common = ["-ExecutionReceipt", str(self.root / f"{command}-execution.json")]
+        by_role = {
+            "compile": ["-Workstation", value, "-Predecessor", value, "-Packet", value,
+                        "-SourceAdmissionReceipt", value, "-Out", value],
+            "verify-packet": ["-Packet", value, "-Out", value],
+            "verify-evidence-materialization": [
+                "-Packet", value, "-AdmissionReceipt", value, "-Candidates", value, "-Out", value,
+            ],
+            "materialize-or-resume": [
+                "-Packet", value, "-AdmissionReceipt", value, "-Candidates", value, "-Out", value,
+            ],
+            "record-or-resume": [
+                "-Packet", value, "-AdmissionReceipt", value, "-MaterializationReceipt", value,
+                "-AuthenticationReceipt", value, "-Candidates", value, "-Out", value,
+            ],
+            "close-pre-seal": [
+                "-Packet", value, "-AdmissionReceipt", value, "-MaterializationReceipt", value,
+                "-AuthenticationReceipt", value, "-Candidates", value, "-Out", value,
+            ],
+            "seal-or-resume": [
+                "-Packet", value, "-Sealed", value, "-PreSealClosure", value, "-Out", value,
+            ],
+            "verify-detached": ["-Packet", value, "-Sealed", value, "-Out", value],
+            "close-post-seal": [
+                "-Packet", value, "-Sealed", value, "-PreSealClosure", value,
+                "-DetachedVerification", value, "-Out", value,
+            ],
+            "status": ["-Packet", value],
+        }
+        return [*common, *by_role[command]]
+
+    def assert_dispatch(
+        self, operator: Path, command: str, profile: Mapping[str, Any] | None = None,
+    ) -> None:
+        profile = self.profile if profile is None else profile
+        expected_repository, expected_packet = self.ROLE_MODULES[command]
+        mapping = profile["executionCustody"]["roles"][command]
+        self.assertEqual(mapping["repositoryPath"], expected_repository)
+        self.assertEqual(mapping["packetPath"], expected_packet)
+        returncode, traced = self.trace_arguments(operator, command, self.trace_parameters(command))
+        self.assertEqual(returncode, 0)
+        self.assertGreaterEqual(len(traced), 7, "the PS1 did not dispatch through Python")
+        self.assertEqual(traced[:3], ["-I", "-S", "-B"])
+        self.assertEqual(
+            Path(traced[3]).resolve(),
+            (operator.parent / "invoke_stc_mary_successor_packet_source_bootstrap.py").resolve(),
+        )
+        role_index = traced.index("--role")
+        self.assertEqual(traced[role_index + 1], command)
+
+    def mutated_operator(self, old: bytes, new: bytes, name: str) -> Path:
+        anchor = self.root / name / "mating_surface" / "anchor_node"
+        anchor.mkdir(parents=True)
+        data = self.operator.read_bytes()
+        self.assertEqual(data.count(old), 1, name)
+        (anchor / self.operator.name).write_bytes(data.replace(old, new, 1))
+        for launcher in (
+            "invoke_stc_mary_successor_packet_source_bootstrap.py",
+            "invoke_stc_mary_successor_packet_source.py",
+        ):
+            (anchor / launcher).write_bytes(b"# qualification trace placeholder\n")
+        return anchor / self.operator.name
+
+    def test_actual_admitted_ps1_dispatches_all_ten_roles_with_verified_receipts(self) -> None:
+        compile_root = self.root / "compile"
+        workstation = compile_root / "workstation"
+        predecessor = compile_root / "predecessor"
+        packet = compile_root / "successor"
+        shutil.copytree(self.walk.workstation, workstation)
+        shutil.copytree(self.walk.predecessor, predecessor)
+        receipts: dict[str, Mapping[str, Any]] = {}
+        receipts["compile"] = self.require_success(
+            "compile",
+            None,
+            [
+                "-Workstation", str(workstation), "-Predecessor", str(predecessor),
+                "-Packet", str(packet), "-SourceAdmissionReceipt", str(self.walk.source_admission_path),
+                "-Out", str(compile_root / "compile.json"),
+            ],
+            source_admission_receipt=self.walk.source_admission_path,
+        )
+        receipts["verify-packet"] = self.require_success(
+            "verify-packet", packet,
+            ["-Packet", str(packet), "-Out", str(compile_root / "verify-packet.json")],
+        )
+
+        evidence_estate = self.copy_estate(self.walk.pre_record_snapshot, "evidence-estate")
+        evidence_packet = evidence_estate / "campaign/stc-mary-private-flight-successor"
+        evidence_admission = evidence_estate / "receipts/admission-admissible.json"
+        evidence_candidates = evidence_estate / "admission"
+        receipts["verify-evidence-materialization"] = self.require_success(
+            "verify-evidence-materialization", evidence_packet,
+            [
+                "-Packet", str(evidence_packet), "-AdmissionReceipt", str(evidence_admission),
+                "-Candidates", str(evidence_candidates),
+                "-Out", str(evidence_estate / "receipts/ps-verify-materialization.json"),
+            ],
+        )
+        receipts["materialize-or-resume"] = self.require_success(
+            "materialize-or-resume", evidence_packet,
+            [
+                "-Packet", str(evidence_packet), "-AdmissionReceipt", str(evidence_admission),
+                "-Candidates", str(evidence_candidates),
+                "-TransactionWorkspace", str(evidence_estate / "receipts/materialization-transaction"),
+                "-Out", str(evidence_estate / "receipts/evidence-materialization.json"),
+            ],
+        )
+
+        recording_estate = self.copy_estate(self.walk.pre_record_snapshot, "recording-estate")
+        recording_packet = recording_estate / "campaign/stc-mary-private-flight-successor"
+        recording_receipts = recording_estate / "receipts"
+        receipts["record-or-resume"] = self.require_success(
+            "record-or-resume", recording_packet,
+            [
+                "-Packet", str(recording_packet),
+                "-AdmissionReceipt", str(recording_receipts / "admission-admissible.json"),
+                "-MaterializationReceipt", str(recording_receipts / "evidence-materialization.json"),
+                "-AuthenticationReceipt", str(recording_receipts / "authentication.json"),
+                "-Candidates", str(recording_estate / "admission"),
+                "-TransactionWorkspace", str(recording_receipts / "ps-recording-transactions"),
+                "-Out", str(recording_receipts / "ps-orchestration.json"),
+            ],
+        )
+
+        sealing_estate = self.copy_estate(self.walk.pre_seal_snapshot, "sealing-estate")
+        sealing_packet = sealing_estate / "campaign/stc-mary-private-flight-successor"
+        sealing_receipts = sealing_estate / "receipts"
+        pre_seal_path = sealing_receipts / "ps-pre-seal.json"
+        receipts["close-pre-seal"] = self.require_success(
+            "close-pre-seal", sealing_packet,
+            [
+                "-Packet", str(sealing_packet),
+                "-AdmissionReceipt", str(sealing_receipts / "admission-admissible.json"),
+                "-MaterializationReceipt", str(sealing_receipts / "evidence-materialization.json"),
+                "-AuthenticationReceipt", str(sealing_receipts / "authentication.json"),
+                "-Candidates", str(sealing_estate / "admission"), "-Out", str(pre_seal_path),
+            ],
+        )
+        sealed = self.root / "stc-mary-private-flight-sealed-ps-witness"
+        seal_transaction = sealing_receipts / "ps-seal-transaction.json"
+        receipts["seal-or-resume"] = self.require_success(
+            "seal-or-resume", sealing_packet,
+            [
+                "-Packet", str(sealing_packet), "-Sealed", str(sealed),
+                "-PreSealClosure", str(pre_seal_path),
+                "-SealTransactionReceipt", str(seal_transaction),
+                "-Out", str(sealing_receipts / "ps-seal.json"),
+            ],
+        )
+        detached_path = sealing_receipts / "ps-detached.json"
+        receipts["verify-detached"] = self.require_success(
+            "verify-detached", sealing_packet,
+            ["-Packet", str(sealing_packet), "-Sealed", str(sealed), "-Out", str(detached_path)],
+        )
+        receipts["close-post-seal"] = self.require_success(
+            "close-post-seal", sealing_packet,
+            [
+                "-Packet", str(sealing_packet), "-Sealed", str(sealed),
+                "-PreSealClosure", str(pre_seal_path),
+                "-DetachedVerification", str(detached_path),
+                "-SealTransactionReceipt", str(seal_transaction),
+                "-Out", str(sealing_receipts / "ps-post-seal.json"),
+            ],
+        )
+        receipts["status"] = self.require_success(
+            "status", sealing_packet, ["-Packet", str(sealing_packet)],
+        )
+        self.assertEqual(set(receipts), set(self.ROLE_MODULES))
+
+    def test_ps1_wrong_role_route_is_detected(self) -> None:
+        operator = self.mutated_operator(
+            b"Invoke-MeasuredSurface -Role 'status' -Arguments $arguments",
+            b"Invoke-MeasuredSurface -Role 'verify-detached' -Arguments $arguments",
+            "wrong-role-route",
+        )
+        with self.assertRaises(AssertionError):
+            self.assert_dispatch(operator, "status")
+
+    def test_ps1_measured_bootstrap_bypass_is_detected(self) -> None:
+        operator = self.mutated_operator(
+            b"invoke_stc_mary_successor_packet_source_bootstrap.py",
+            b"invoke_stc_mary_successor_packet_source.py",
+            "bootstrap-bypass",
+        )
+        with self.assertRaises(AssertionError):
+            self.assert_dispatch(operator, "status")
+
+    def test_ps1_missing_final_command_is_detected(self) -> None:
+        operator = self.mutated_operator(b"'status' {", b"'missing-status' {", "missing-command")
+        with self.assertRaises(AssertionError):
+            self.assert_dispatch(operator, "status")
+
+    def test_ps1_obsolete_public_commands_refuse(self) -> None:
+        for command in ("record-or-resume-stages", "verify-successor-packet"):
+            with self.subTest(command=command):
+                returncode, traced = self.trace_arguments(self.operator, command, [])
+                self.assertNotEqual(returncode, 0)
+                self.assertEqual(traced, [])
+
+    def test_ps1_profile_role_map_disagreement_is_detected(self) -> None:
+        hostile = copy.deepcopy(self.profile)
+        hostile["executionCustody"]["roles"]["status"] = copy.deepcopy(
+            hostile["executionCustody"]["roles"]["verify-detached"]
+        )
+        with self.assertRaises(AssertionError):
+            self.assert_dispatch(self.operator, "status", hostile)
+
+
 class ExactGitSourceAdmissionWitnesses(unittest.TestCase):
     """Hostile witnesses for the exact commit/tree/blob source boundary."""
 
@@ -2423,9 +3099,9 @@ class ExactGitSourceAdmissionWitnesses(unittest.TestCase):
         self.assertTrue(receipt["bootstrapAuthenticated"])
         self.assertFalse(receipt["workingTreeBytesTrusted"])
         self.assertEqual(receipt["sourceCommit"], self.commit)
-        self.assertEqual(receipt["memberCount"], 18)
-        self.assertEqual(receipt["declaredSourceMemberDenominator"], 18)
-        self.assertEqual(len({row["gitBlob"] for row in receipt["members"]}), 18)
+        self.assertEqual(receipt["memberCount"], 20)
+        self.assertEqual(receipt["declaredSourceMemberDenominator"], 20)
+        self.assertEqual(len({row["gitBlob"] for row in receipt["members"]}), 20)
         self.assertTrue(receipt["successorSourceSetId"].startswith("stcmarysuccessorsourceset1_"))
 
     def test_unknown_or_abbreviated_commit_refuses(self) -> None:
@@ -2556,6 +3232,20 @@ class ExactGitSourceAdmissionWitnesses(unittest.TestCase):
                 source_bootstrap.authenticate(repository=self.repository, source_commit=self.commit)
         self.assertEqual(caught.exception.code, "EXECUTED_VERIFIER_BYTES_DIFFER")
 
+    def test_SOURCE_ADMISSION_SELF_AUTHENTICATED_hostile_witness(self) -> None:
+        forged = copy.deepcopy(self.direct)
+        forged["bootstrapAuthenticated"] = True
+        blob, measured = source_bootstrap.verifier_blob(self.repository, self.commit)
+        with self.assertRaises(source_bootstrap.BootstrapError) as caught:
+            source_bootstrap.annotate_authenticated(
+                forged,
+                source_commit=self.commit,
+                executed_sha256=law.sha256_bytes(measured),
+                executed_bytes_count=len(measured),
+                executed_blob_id=blob,
+            )
+        self.assertEqual(caught.exception.code, "SOURCE_ADMISSION_SELF_AUTHENTICATED")
+
 
 class SourceBoundaryWitnesses(unittest.TestCase):
     """The source set stays inside its own product boundary."""
@@ -2592,7 +3282,7 @@ class SourceBoundaryWitnesses(unittest.TestCase):
     def test_every_declared_source_member_exists(self) -> None:
         members = self.profile["successorSourceMembers"]
         self.assertEqual(len(members), self.profile["successorSourceMemberDenominator"])
-        self.assertEqual(self.profile["successorSourceMemberDenominator"], 18)
+        self.assertEqual(self.profile["successorSourceMemberDenominator"], 20)
         self.assertEqual(len(set(members.values())), len(members))
         for relative in members:
             self.assertTrue((REPOSITORY_ROOT / relative).is_file(), relative)
@@ -2712,6 +3402,21 @@ class SourceBoundaryWitnesses(unittest.TestCase):
             return 1
 
         self.assertEqual(pinned, count(discovered))
+
+    def test_hosted_source_identity_aggregates_exact_four_leg_denominator(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        for leg in (
+            "source-identity-ubuntu-latest-head",
+            "source-identity-ubuntu-latest-merge",
+            "source-identity-windows-latest-head",
+            "source-identity-windows-latest-merge",
+        ):
+            self.assertIn(leg, workflow)
+        self.assertIn("aggregate-source-identity:", workflow)
+        self.assertIn("SUCCESSOR_SOURCE_SET_ID=", workflow)
+        self.assertIn("four identity artifacts required", workflow)
+        self.assertIn("one exact member-path set", workflow)
+        self.assertIn("one exact member-digest set", workflow)
 
 
 if __name__ == "__main__":  # pragma: no cover

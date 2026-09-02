@@ -35,7 +35,6 @@ There is no ``operatorConfirmed`` input anywhere in this module.
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -46,6 +45,7 @@ if str(HERE) not in sys.path:
 
 import stc_mary_successor_flight_law as law  # noqa: E402
 import stc_mary_successor_packet_runtime as runtime  # noqa: E402
+import verify_stc_mary_successor_execution_receipt as execution_receipt_verifier  # noqa: E402
 
 PROFILE_PATH = HERE / "stc-mary-successor-packet-flight-01-profile-01.json"
 
@@ -650,14 +650,14 @@ def read_packet_lineage(profile: Mapping[str, Any], packet: Path) -> dict[str, A
 def recording_transaction(
     *, profile: Mapping[str, Any], packet_id: str, sequence: int, stage: str,
     prior_state_id: str, record_digest: str, next_state_id: str,
-    source_execution_identity: str, status: str,
+    source_execution_receipt_id: str, status: str,
 ) -> dict[str, Any]:
     block = profile["recordingTransaction"]
     body = {
         "schema": block["schema"], "status": status, "packetId": packet_id,
         "sequence": sequence, "stage": stage, "priorStateId": prior_state_id,
         "proposedRecordDigest": record_digest, "proposedNextStateId": next_state_id,
-        "sourceExecutionIdentity": source_execution_identity, "authority": law.AUTHORITY,
+        "sourceExecutionReceiptId": source_execution_receipt_id, "authority": law.AUTHORITY,
         "claimBoundary": block["claimBoundary"],
     }
     return law.sign(body, block["idKey"], block["idPrefix"])
@@ -674,7 +674,7 @@ def write_transaction(path: Path, value: Mapping[str, Any]) -> None:
 
 def reconcile_recording_transactions(
     *, profile: Mapping[str, Any], packet: Path, workspace: Path,
-    source_execution_identity: str,
+    source_execution_receipt_id: str,
 ) -> None:
     block = profile["recordingTransaction"]
     packet_law = profile["packet"]
@@ -698,7 +698,7 @@ def reconcile_recording_transactions(
             transaction["packetId"] == law.load_packet(profile, packet)["marker"]["packetId"]
             and transaction["sequence"] == row["sequence"]
             and transaction["stage"] == row["stage"]
-            and transaction["sourceExecutionIdentity"] == source_execution_identity,
+            and transaction["sourceExecutionReceiptId"] == source_execution_receipt_id,
             "RECORDING_TRANSACTION_MISMATCH", "recording transaction belongs to another execution",
         )
         current = law.load_packet(profile, packet)["state"]
@@ -740,7 +740,7 @@ def reconcile_recording_transactions(
             profile=profile, packet_id=transaction["packetId"], sequence=transaction["sequence"],
             stage=transaction["stage"], prior_state_id=transaction["priorStateId"],
             record_digest=transaction["proposedRecordDigest"], next_state_id=transaction["proposedNextStateId"],
-            source_execution_identity=source_execution_identity, status="complete",
+            source_execution_receipt_id=source_execution_receipt_id, status="complete",
         )
         write_transaction(path, complete)
 
@@ -803,7 +803,7 @@ def orchestrate(
     candidates: Path,
     repository: Path,
     transaction_workspace: Path,
-    source_execution_identity: str | None = None,
+    source_execution_receipt: Path | None = None,
     interrupt_after_stage: int | None = None,
     interrupt_phase: str | None = None,
     profile_path: Path = PROFILE_PATH,
@@ -916,19 +916,27 @@ def orchestrate(
         "RECORDING_TRANSACTION_INVALID",
         "recording transaction workspace may not live inside the packet",
     )
-    if source_execution_identity is None:
-        source_execution_identity = os.environ.get("STC_MARY_SOURCE_EXECUTION_IDENTITY")
     law.require(
-        isinstance(source_execution_identity, str) and bool(source_execution_identity),
-        "SOURCE_EXECUTION_IDENTITY_ABSENT",
-        "recording requires the exact measured source-execution identity",
+        source_execution_receipt is not None,
+        "SOURCE_EXECUTION_RECEIPT_ABSENT",
+        "recording requires the exact measured execution receipt, not an environment identity",
     )
+    try:
+        execution = execution_receipt_verifier.verify_execution_receipt(
+            profile=profile,
+            execution_receipt=source_execution_receipt,
+            expected_role="record-or-resume",
+            packet=packet,
+        )
+    except execution_receipt_verifier.ExecutionReceiptError as exc:
+        law.fail(exc.code, str(exc))
+    source_execution_receipt_id = execution[profile["executionCustody"]["idKey"]]
 
     reconcile_recording_transactions(
         profile=profile,
         packet=packet,
         workspace=transaction_workspace,
-        source_execution_identity=source_execution_identity,
+        source_execution_receipt_id=source_execution_receipt_id,
     )
     loaded = law.load_packet(profile, packet)
 
@@ -972,7 +980,7 @@ def orchestrate(
                 prior_state_id=prior_state[profile["packet"]["stateIdKey"]],
                 record_digest=record[profile["packet"]["stageRecord"]["idKey"]],
                 next_state_id=next_state[profile["packet"]["stateIdKey"]],
-                source_execution_identity=source_execution_identity,
+                source_execution_receipt_id=source_execution_receipt_id,
                 status="complete" if phase == "state-promoted" else "in_progress",
             )
             if phase == "prepared":
@@ -1128,6 +1136,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--authentication-receipt", type=Path, required=True)
     parser.add_argument("--candidates", type=Path, required=True)
     parser.add_argument("--transaction-workspace", type=Path, required=True)
+    parser.add_argument("--source-execution-receipt", type=Path, required=True)
     parser.add_argument("--repository-root", type=Path, default=HERE.parent.parent)
     parser.add_argument("--out", type=Path)
     return parser.parse_args(argv)
@@ -1144,6 +1153,7 @@ def main(argv: list[str] | None = None) -> int:
             candidates=args.candidates,
             repository=args.repository_root,
             transaction_workspace=args.transaction_workspace,
+            source_execution_receipt=args.source_execution_receipt,
         )
         data = law.canonical_json_bytes(receipt)
         if args.out is None:
