@@ -1,0 +1,161 @@
+name: TEMP SwarmLLM Qwen3.8 Whole File Hash 01
+
+on:
+  push:
+    branches:
+      - ops/swarmllm-live-artifact-custody-01
+    paths:
+      - ".github/workflows/temp-swarmllm-qwen38-whole-file-hash-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-swarmllm-qwen38-whole-file-hash-01
+  cancel-in-progress: false
+
+env:
+  MODEL_URL: https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-Q4_0.gguf
+  EXPECTED_BYTES: "16056478688"
+  EXPECTED_SHA256: ede16c7b36e578ca87a8c70e011e4b4633a32c831c0ce76d0f474582384e671d
+
+jobs:
+  whole-file-sha256:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Stream the entire GGUF through Python SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check requests
+          python - "$RUNNER_TEMP/python-hash.json" <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import requests
+          import sys
+          import time
+
+          url = os.environ["MODEL_URL"]
+          expected_bytes = int(os.environ["EXPECTED_BYTES"])
+          expected_sha = os.environ["EXPECTED_SHA256"]
+          output = pathlib.Path(sys.argv[1])
+          started = time.time()
+          digest = hashlib.sha256()
+          total = 0
+          with requests.get(url, stream=True, timeout=(60, 600), allow_redirects=True, headers={"User-Agent": "AXM-whole-file-custody/1.0"}) as response:
+              response.raise_for_status()
+              headers = dict(sorted(response.headers.items()))
+              final_url = response.url
+              for chunk in response.iter_content(chunk_size=8 * 1024 * 1024):
+                  if not chunk:
+                      continue
+                  digest.update(chunk)
+                  total += len(chunk)
+                  if total and total % (1024 * 1024 * 1024) < len(chunk):
+                      print(f"hashed_bytes={total}", flush=True)
+          observed_sha = digest.hexdigest()
+          receipt = {
+              "schema": "axm-private/swarmllm-qwen38-whole-file-hash@1",
+              "status": "PASS" if total == expected_bytes and observed_sha == expected_sha else "REFUSED",
+              "requestUrl": url,
+              "finalUrl": final_url,
+              "responseHeaders": headers,
+              "bytes": total,
+              "sha256": f"sha256:{observed_sha}",
+              "expectedBytes": expected_bytes,
+              "expectedSha256": f"sha256:{expected_sha}",
+              "elapsedSeconds": round(time.time() - started, 3),
+              "implementation": "python-hashlib-requests-stream",
+              "rawModelRetained": False,
+              "physicalExecutionObserved": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none",
+          }
+          output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps({key: receipt[key] for key in ("status", "bytes", "sha256", "elapsedSeconds")}, sort_keys=True))
+          if receipt["status"] != "PASS":
+              raise SystemExit(2)
+          PY
+
+      - name: Stream the entire GGUF through curl and sha256sum
+        shell: bash
+        run: |
+          set -euo pipefail
+          start="$(date +%s)"
+          observed="$(curl --fail --location --silent --show-error --retry 5 --retry-all-errors --connect-timeout 60 "$MODEL_URL" | tee >(wc -c > "$RUNNER_TEMP/curl-bytes.txt") | sha256sum | awk '{print $1}')"
+          bytes="$(tr -d '[:space:]' < "$RUNNER_TEMP/curl-bytes.txt")"
+          elapsed="$(( $(date +%s) - start ))"
+          [[ "$bytes" == "$EXPECTED_BYTES" ]] || { echo "curl byte count differs: $bytes" >&2; exit 2; }
+          [[ "$observed" == "$EXPECTED_SHA256" ]] || { echo "curl SHA-256 differs: $observed" >&2; exit 2; }
+          python - "$RUNNER_TEMP/curl-hash.json" "$bytes" "$observed" "$elapsed" <<'PY'
+          import json, pathlib, sys
+          receipt = {
+              "schema": "axm-private/swarmllm-qwen38-whole-file-hash@1",
+              "status": "PASS",
+              "bytes": int(sys.argv[2]),
+              "sha256": "sha256:" + sys.argv[3],
+              "elapsedSeconds": int(sys.argv[4]),
+              "implementation": "curl-tee-wc-sha256sum",
+              "rawModelRetained": False,
+              "physicalExecutionObserved": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none",
+          }
+          pathlib.Path(sys.argv[1]).write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Require independent whole-file identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "$RUNNER_TEMP/python-hash.json" "$RUNNER_TEMP/curl-hash.json" "$RUNNER_TEMP/whole-file-identity.json" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import sys
+          left = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          right = json.loads(pathlib.Path(sys.argv[2]).read_text())
+          keys = ("status", "bytes", "sha256", "rawModelRetained", "physicalExecutionObserved", "actualSupplierQualified", "physicalEstateQualified", "missionAuthority", "commandAuthority")
+          if {key: left[key] for key in keys} != {key: right[key] for key in keys}:
+              raise SystemExit("independent whole-file identities differ")
+          body = {
+              "schema": "axm-private/swarmllm-qwen38-whole-file-identity@1",
+              "status": "PASS",
+              "bytes": left["bytes"],
+              "sha256": left["sha256"],
+              "observations": [left, right],
+              "rawModelRetained": False,
+              "physicalExecutionObserved": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none",
+          }
+          encoded = (json.dumps(body, sort_keys=True, indent=2) + "\n").encode()
+          body["receiptId"] = "axmswarmllmwholefile_" + hashlib.sha256(encoded).hexdigest()
+          pathlib.Path(sys.argv[3]).write_text(json.dumps(body, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps({"receiptId": body["receiptId"], "bytes": body["bytes"], "sha256": body["sha256"]}, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swarmllm-qwen38-whole-file-identity-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/python-hash.json
+            ${{ runner.temp }}/curl-hash.json
+            ${{ runner.temp }}/whole-file-identity.json
+          if-no-files-found: error
+          retention-days: 7
