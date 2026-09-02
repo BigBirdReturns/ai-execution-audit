@@ -28,7 +28,7 @@
      return {"schema": KIT_MANIFEST_SCHEMA, "status": "PASS", "kitId": manifest["kitId"], "sourceBindingId": manifest["sourceBindingId"], "memberCount": len(member_paths)}
  
  
- diff --git a/mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_packet_01.py b/mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_packet_01.py
+diff --git a/mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_packet_01.py b/mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_packet_01.py
 index 1f148bd8c31c2a191c2f9de899f4c712d4eb0f6f..b07870f9ddb2c746c5fd26a63f67aac4312e91ea 100644
 --- a/mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_packet_01.py
 +++ b/mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_packet_01.py
