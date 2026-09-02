@@ -1,0 +1,261 @@
+name: TEMP Issue 105 W01 Range Custody 03 Hardware Bound
+
+on:
+  push:
+    branches:
+      - ops/issue105-range-custody-03
+    paths:
+      - ".github/workflows/temp-issue105-w01-range-custody-03-hardware-bound.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-w01-range-custody-03
+  cancel-in-progress: true
+
+env:
+  EXPECTED_ARCHIVE_NAME: AXM-Issue-105-Range-Custody-Transaction-03.zip
+  EXPECTED_ARCHIVE_BYTES: "10673635"
+  EXPECTED_ARCHIVE_SHA256: 3d098e96f68b7a080faca888d5c5d11d755bfe5024239fb9faa3381cbc3dbfa4
+  EXPECTED_TRANSACTION_ID: axmissue105rangecustodytransaction_d04361beed3870611380cfb9a8141e82077c1f95d759a89cadf3ea2aef5877d9
+  EXPECTED_PACKAGE_ID: axmissue105onerunnertwohostpackage_0f05332460544ddfc40499aa83825da0a5235621d9227a259abb543e992e0101
+  EXPECTED_RANGE_SOURCE_SHA256: a1c4ed9316811275ebf09f9766cd9ab86bb63fa0a2b5b367edb6c7ec388bd0dc
+  EXPECTED_HOSTED_RUN: "33688952874"
+
+jobs:
+  qualify-hosted:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-range-custody-03
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Requalify the exact execution script and no-transfer terminal
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Script = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-range-custody-03.ps1'
+          $Tokens = $null
+          $Errors = $null
+          $null = [Management.Automation.Language.Parser]::ParseFile($Script, [ref]$Tokens, [ref]$Errors)
+          if ($Errors.Count -ne 0) {
+            $Errors | ForEach-Object { Write-Error $_.Message }
+            throw 'POWERSHELL_PARSE_FAILED'
+          }
+          $Source = Get-Content -LiteralPath $Script -Raw
+          foreach ($Required in @(
+            $env:EXPECTED_ARCHIVE_NAME,
+            $env:EXPECTED_ARCHIVE_BYTES,
+            $env:EXPECTED_ARCHIVE_SHA256,
+            $env:EXPECTED_TRANSACTION_ID,
+            $env:EXPECTED_PACKAGE_ID,
+            $env:EXPECTED_RANGE_SOURCE_SHA256,
+            $env:EXPECTED_HOSTED_RUN,
+            'READY_FOR_PHYSICAL_SEAT_OPERATION',
+            'PRIVATE_TRANSACTION_NOT_SYNCED'
+          )) {
+            if (-not $Source.Contains($Required)) {
+              throw "REQUIRED_BINDING_MISSING:$Required"
+            }
+          }
+          $ReceiptRoot = Join-Path $env:RUNNER_TEMP 'issue105-w01-range-custody-03'
+          $Process = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', $Script, '-ReceiptRoot', $ReceiptRoot
+          ) -Wait -PassThru -WindowStyle Hidden
+          if ($Process.ExitCode -ne 0) {
+            throw "HOSTED_HOLD_EXIT_INVALID:$($Process.ExitCode)"
+          }
+          $Summary = Get-Content -LiteralPath (Join-Path $ReceiptRoot 'PUBLIC-SUMMARY.json') -Raw | ConvertFrom-Json
+          if ($Summary.status -ne 'HOLD' -or
+              $Summary.reasonCode -ne 'PRIVATE_TRANSACTION_NOT_SYNCED' -or
+              $Summary.transactionVerified -ne $false -or
+              $Summary.modelDownloaded -ne $false -or
+              [int]$Summary.rangeShardsDownloaded -ne 0 -or
+              $Summary.physicalExecutionObserved -ne $false -or
+              $Summary.browserLaunched -ne $false -or
+              $Summary.supplierEndpointContacted -ne $false -or
+              $Summary.peerConnectionFormed -ne $false -or
+              $Summary.inferenceExecuted -ne $false -or
+              $Summary.routeTerminalProduced -ne $false -or
+              $Summary.actualSupplierQualified -ne $false -or
+              $Summary.physicalEstateQualified -ne $false -or
+              $Summary.missionAuthority -ne 'none' -or
+              $Summary.commandAuthority -ne 'none') {
+            throw 'HOSTED_HOLD_SUMMARY_INVALID'
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue105-w01-range-custody-03-hardware-bound-hosted-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-w01-range-custody-03/PUBLIC-SUMMARY.json
+          if-no-files-found: error
+          retention-days: 14
+
+  execute-w01:
+    needs: qualify-hosted
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-range-custody-03
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Require the W01 hardware class before transaction execution
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($Value in @($env:COMPUTERNAME, $env:RUNNER_NAME, $env:USERPROFILE, $env:RUNNER_WORKSPACE, $env:RUNNER_TEMP, $env:OneDrive, $env:GoogleDrive, $env:GDRIVE)) {
+            if (-not [string]::IsNullOrWhiteSpace($Value)) {
+              Write-Output "::add-mask::$Value"
+            }
+          }
+
+          $ReceiptRoot = Join-Path $env:RUNNER_TEMP 'issue105-w01-range-custody-03'
+          if (Test-Path -LiteralPath $ReceiptRoot) {
+            Remove-Item -LiteralPath $ReceiptRoot -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $ReceiptRoot -Force | Out-Null
+          $SummaryPath = Join-Path $ReceiptRoot 'PUBLIC-SUMMARY.json'
+
+          $GpuNames = @()
+          try {
+            $GpuNames = @(Get-CimInstance Win32_VideoController -ErrorAction Stop | ForEach-Object { [string]$_.Name })
+          }
+          catch {
+            $GpuNames = @()
+          }
+          $Has4060 = @($GpuNames | Where-Object { $_ -match 'RTX\s*4060' }).Count -gt 0
+          $Has3090 = @($GpuNames | Where-Object { $_ -match 'RTX\s*3090' }).Count -gt 0
+
+          if (-not $Has4060) {
+            [ordered]@{
+              schema = 'axm-private/issue105-w01-range-custody-summary@3'
+              status = 'HOLD'
+              terminal = 'HOLD'
+              reasonCode = 'RUNNER_NOT_W01_HARDWARE_CLASS'
+              observedAtUtc = [DateTime]::UtcNow.ToString('o')
+              expectedArchiveName = $env:EXPECTED_ARCHIVE_NAME
+              expectedArchiveBytes = [int64]$env:EXPECTED_ARCHIVE_BYTES
+              expectedArchiveSha256 = 'sha256:' + $env:EXPECTED_ARCHIVE_SHA256
+              transactionId = $env:EXPECTED_TRANSACTION_ID
+              packageId = $env:EXPECTED_PACKAGE_ID
+              rangeSourceSha256 = 'sha256:' + $env:EXPECTED_RANGE_SOURCE_SHA256
+              hostedQualificationRun = [int64]$env:EXPECTED_HOSTED_RUN
+              w01HardwareMatch = $false
+              rtx4060Observed = $false
+              rtx3090Observed = $Has3090
+              exactCandidateCount = 0
+              transactionVerified = $false
+              modelArtifactEndpointContactConfirmed = $false
+              modelDownloaded = $false
+              rangeShardsDownloaded = 0
+              rangePayloadBytes = 0
+              physicalExecutionObserved = $false
+              browserLaunched = $false
+              supplierEndpointContacted = $false
+              peerConnectionFormed = $false
+              inferenceExecuted = $false
+              physicalMemberEvidenceAccepted = 0
+              rawCapturesAccepted = 0
+              namedHumanConfirmationSupplied = $false
+              routeTerminalProduced = $false
+              actualSupplierQualified = $false
+              physicalEstateQualified = $false
+              missionAuthority = 'none'
+              commandAuthority = 'none'
+            } | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $SummaryPath -Encoding UTF8
+            "AXM_RANGE_CUSTODY_EXIT=0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            exit 0
+          }
+
+          $Script = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-range-custody-03.ps1'
+          $Process = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', $Script, '-ReceiptRoot', $ReceiptRoot
+          ) -Wait -PassThru -WindowStyle Hidden
+          if (-not (Test-Path -LiteralPath $SummaryPath -PathType Leaf)) {
+            throw 'EXECUTION_SUMMARY_MISSING'
+          }
+          $Summary = Get-Content -LiteralPath $SummaryPath -Raw | ConvertFrom-Json
+          $Summary | Add-Member -NotePropertyName w01HardwareMatch -NotePropertyValue $true -Force
+          $Summary | Add-Member -NotePropertyName rtx4060Observed -NotePropertyValue $true -Force
+          $Summary | Add-Member -NotePropertyName rtx3090Observed -NotePropertyValue $Has3090 -Force
+          $Summary | ConvertTo-Json -Depth 60 | Set-Content -LiteralPath $SummaryPath -Encoding UTF8
+          "AXM_RANGE_CUSTODY_EXIT=$($Process.ExitCode)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          exit 0
+
+      - name: Validate the hardware-bound body-free summary
+        if: always()
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $SummaryPath = Join-Path $env:RUNNER_TEMP 'issue105-w01-range-custody-03\PUBLIC-SUMMARY.json'
+          if (-not (Test-Path -LiteralPath $SummaryPath -PathType Leaf)) {
+            throw 'SELF_HOSTED_SUMMARY_MISSING'
+          }
+          $Summary = Get-Content -LiteralPath $SummaryPath -Raw | ConvertFrom-Json
+          if ($Summary.expectedArchiveName -ne $env:EXPECTED_ARCHIVE_NAME -or
+              [int64]$Summary.expectedArchiveBytes -ne [int64]$env:EXPECTED_ARCHIVE_BYTES -or
+              $Summary.expectedArchiveSha256 -ne ('sha256:' + $env:EXPECTED_ARCHIVE_SHA256) -or
+              $Summary.transactionId -ne $env:EXPECTED_TRANSACTION_ID -or
+              $Summary.packageId -ne $env:EXPECTED_PACKAGE_ID -or
+              $Summary.rangeSourceSha256 -ne ('sha256:' + $env:EXPECTED_RANGE_SOURCE_SHA256) -or
+              [int64]$Summary.hostedQualificationRun -ne [int64]$env:EXPECTED_HOSTED_RUN -or
+              $Summary.physicalExecutionObserved -ne $false -or
+              $Summary.browserLaunched -ne $false -or
+              $Summary.supplierEndpointContacted -ne $false -or
+              $Summary.peerConnectionFormed -ne $false -or
+              $Summary.inferenceExecuted -ne $false -or
+              $Summary.routeTerminalProduced -ne $false -or
+              $Summary.actualSupplierQualified -ne $false -or
+              $Summary.physicalEstateQualified -ne $false -or
+              $Summary.missionAuthority -ne 'none' -or
+              $Summary.commandAuthority -ne 'none') {
+            throw 'SELF_HOSTED_SUMMARY_BOUNDARY_INVALID'
+          }
+          if ($Summary.status -eq 'PASS') {
+            if ($Summary.w01HardwareMatch -ne $true -or
+                $Summary.rtx4060Observed -ne $true -or
+                $Summary.terminal -ne 'READY_FOR_PHYSICAL_SEAT_OPERATION' -or
+                $Summary.transactionVerified -ne $true -or
+                $Summary.modelArtifactEndpointContactConfirmed -ne $true -or
+                $Summary.modelDownloaded -ne $true -or
+                [int]$Summary.rangeShardsDownloaded -ne 2 -or
+                [int64]$Summary.rangePayloadBytes -ne 15780284416L -or
+                [int]$env:AXM_RANGE_CUSTODY_EXIT -ne 0) {
+              throw 'SELF_HOSTED_PASS_SUMMARY_INVALID'
+            }
+          }
+          elseif ($Summary.status -eq 'HOLD') {
+            if ($Summary.terminal -ne 'HOLD' -or [int]$env:AXM_RANGE_CUSTODY_EXIT -ne 0) {
+              throw 'SELF_HOSTED_HOLD_SUMMARY_INVALID'
+            }
+            if ($Summary.reasonCode -eq 'RUNNER_NOT_W01_HARDWARE_CLASS' -and $Summary.w01HardwareMatch -ne $false) {
+              throw 'SELF_HOSTED_HARDWARE_HOLD_INVALID'
+            }
+          }
+          elseif ($Summary.status -eq 'REFUSED') {
+            throw "SELF_HOSTED_EXECUTION_REFUSED:$($Summary.reasonCode)"
+          }
+          else {
+            throw 'SELF_HOSTED_STATUS_INVALID'
+          }
+
+      - name: Upload the hardware-bound body-free execution summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue105-w01-range-custody-03-hardware-bound-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-w01-range-custody-03/PUBLIC-SUMMARY.json
+          if-no-files-found: error
+          retention-days: 14
