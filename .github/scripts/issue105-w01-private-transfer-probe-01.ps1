@@ -1,0 +1,354 @@
+#requires -Version 5.1
+param(
+    [string]$ReceiptRoot = (Join-Path $env:RUNNER_TEMP 'issue105-w01-private-transfer-probe-01')
+)
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
+if (Test-Path -LiteralPath $ReceiptRoot) {
+    Remove-Item -LiteralPath $ReceiptRoot -Recurse -Force
+}
+New-Item -ItemType Directory -Path $ReceiptRoot | Out-Null
+$ReceiptPath = Join-Path $ReceiptRoot 'receipt.json'
+
+function Get-TextSha256([string]$Value) {
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return 'sha256:' + (($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) -join '')
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+
+function Write-Receipt([hashtable]$Receipt) {
+    $Receipt | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $ReceiptPath -Encoding UTF8
+}
+
+function Resolve-Python311 {
+    $candidates = @(
+        @{ File = 'python'; Prefix = @() },
+        @{ File = 'python3'; Prefix = @() },
+        @{ File = 'py'; Prefix = @('-3') }
+    )
+    foreach ($candidate in $candidates) {
+        try {
+            $null = & $candidate.File @($candidate.Prefix) -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 2)" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                return $candidate
+            }
+        }
+        catch {
+            continue
+        }
+    }
+    throw 'PYTHON_311_NOT_FOUND'
+}
+
+function Invoke-BootstrapJson {
+    param(
+        [hashtable]$Python,
+        [string]$Script,
+        [string[]]$Arguments
+    )
+    $lines = & $Python.File @($Python.Prefix) $Script @Arguments 2>&1
+    $code = $LASTEXITCODE
+    $text = ($lines -join "`n")
+    if ($code -ne 0) {
+        throw "BOOTSTRAP_COMMAND_REFUSED:$code"
+    }
+    return $text | ConvertFrom-Json
+}
+
+function Test-ReparseCoordinate([string]$Path) {
+    $cursor = [System.IO.Path]::GetFullPath($Path)
+    while ($cursor) {
+        if (Test-Path -LiteralPath $cursor) {
+            $item = Get-Item -LiteralPath $cursor -Force
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                return $true
+            }
+        }
+        $parent = Split-Path -Parent $cursor
+        if (-not $parent -or $parent -eq $cursor) {
+            break
+        }
+        $cursor = $parent
+    }
+    return $false
+}
+
+function Assert-ZeroAuthority($Value, [string]$Label) {
+    if ($Value.physicalExecutionObserved -ne $false -or
+        $Value.actualSupplierQualified -ne $false -or
+        $Value.physicalEstateQualified -ne $false -or
+        $Value.missionAuthority -ne 'none' -or
+        $Value.commandAuthority -ne 'none') {
+        throw "${Label}_AUTHORITY_BOUNDARY_INVALID"
+    }
+}
+
+function Ensure-ExactRole {
+    param(
+        [hashtable]$Python,
+        [string]$Script,
+        [string]$Role,
+        [string]$Destination
+    )
+
+    if (Test-ReparseCoordinate $Destination) {
+        throw "ROLE_COORDINATE_LINKED:$Role"
+    }
+
+    if (Test-Path -LiteralPath $Destination) {
+        $rolePath = Join-Path $Destination 'ROLE.json'
+        if (-not (Test-Path -LiteralPath $rolePath -PathType Leaf)) {
+            throw "ROLE_PREEXISTING_UNBOUND:$Role"
+        }
+        $roleBody = Get-Content -LiteralPath $rolePath -Raw | ConvertFrom-Json
+        if ($roleBody.bootstrapId -ne $env:EXPECTED_BOOTSTRAP_ID -or
+            $roleBody.releaseId -ne $env:EXPECTED_RELEASE_ID -or
+            $roleBody.workspaceId -ne $env:EXPECTED_WORKSPACE_ID -or
+            $roleBody.custodyPlanId -ne $env:EXPECTED_CUSTODY_PLAN_ID -or
+            $roleBody.transactionId -ne $env:EXPECTED_TRANSACTION_ID -or
+            $roleBody.role -ne $Role) {
+            throw "ROLE_PREEXISTING_IDENTITY_MISMATCH:$Role"
+        }
+        Assert-ZeroAuthority $roleBody "ROLE_PREEXISTING_$Role"
+
+        $status = Invoke-BootstrapJson -Python $Python -Script $Script -Arguments @('status', $Destination)
+        if ($status.workspaceId -ne $env:EXPECTED_WORKSPACE_ID -or
+            $status.custodyPlanId -ne $env:EXPECTED_CUSTODY_PLAN_ID -or
+            $status.transactionId -ne $env:EXPECTED_TRANSACTION_ID -or
+            $status.routeTerminalProduced -ne $false) {
+            throw "ROLE_PREEXISTING_STATUS_MISMATCH:$Role"
+        }
+        if ($status.physicalExecutionObserved -ne $false -or
+            $status.actualSupplierQualified -ne $false -or
+            $status.physicalEstateQualified -ne $false) {
+            throw "ROLE_PREEXISTING_STATUS_AUTHORITY_INVALID:$Role"
+        }
+        return @{ state = 'REUSED_EXACT'; freeBytes = [int64]$roleBody.preparedFreeBytes }
+    }
+
+    $prepared = Invoke-BootstrapJson -Python $Python -Script $Script -Arguments @('prepare-role', $Role, $Destination)
+    if ($prepared.status -ne 'PASS' -or
+        $prepared.bootstrapId -ne $env:EXPECTED_BOOTSTRAP_ID -or
+        $prepared.releaseId -ne $env:EXPECTED_RELEASE_ID -or
+        $prepared.workspaceId -ne $env:EXPECTED_WORKSPACE_ID -or
+        $prepared.role -ne $Role -or
+        $prepared.qwen38Status -ne 'PREPARED_FOR_EXACT_RANGE_CUSTODY') {
+        throw "ROLE_PREPARATION_RESULT_INVALID:$Role"
+    }
+    Assert-ZeroAuthority $prepared "ROLE_PREPARATION_$Role"
+    return @{ state = 'PREPARED'; freeBytes = [int64]$prepared.freeBytesObserved }
+}
+
+$machineGuid = 'unavailable'
+try {
+    $machineGuid = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Cryptography' -Name MachineGuid).MachineGuid
+}
+catch {
+    $machineGuid = 'unavailable'
+}
+$hostRef = Get-TextSha256 ("{0}|{1}|{2}|{3}" -f $env:COMPUTERNAME, $env:RUNNER_NAME, $env:PROCESSOR_ARCHITECTURE, $machineGuid)
+
+$receipt = [ordered]@{
+    schema = 'axm-private/issue105-w01-transfer-preflight@1'
+    status = 'HOLD'
+    terminal = 'HOLD'
+    reasonCode = 'NOT_STARTED'
+    observedAtUtc = [DateTime]::UtcNow.ToString('o')
+    bootstrapId = $env:EXPECTED_BOOTSTRAP_ID
+    releaseId = $env:EXPECTED_RELEASE_ID
+    workspaceId = $env:EXPECTED_WORKSPACE_ID
+    custodyPlanId = $env:EXPECTED_CUSTODY_PLAN_ID
+    transactionId = $env:EXPECTED_TRANSACTION_ID
+    archiveBytes = [int64]$env:EXPECTED_ARCHIVE_BYTES
+    archiveSha256 = 'sha256:' + $env:EXPECTED_ARCHIVE_SHA256
+    archiveLocated = $false
+    archivePathRef = $null
+    runnerHostRef = $hostRef
+    w01HardwareMatch = $false
+    rtx4060Observed = $false
+    rtx3090Observed = $false
+    controllerRoleState = 'NOT_PREPARED'
+    seat02RoleState = 'NOT_PREPARED'
+    persistentRootRef = $null
+    physicalExecutionObserved = $false
+    browserLaunched = $false
+    supplierEndpointContacted = $false
+    modelDownloaded = $false
+    rangeShardsDownloaded = 0
+    peerConnectionFormed = $false
+    inferenceExecuted = $false
+    physicalMemberEvidenceAccepted = 0
+    rawCapturesAccepted = 0
+    namedHumanConfirmationSupplied = $false
+    routeTerminalProduced = $false
+    actualSupplierQualified = $false
+    physicalEstateQualified = $false
+    missionAuthority = 'none'
+    commandAuthority = 'none'
+}
+
+try {
+    $candidateSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    function Add-Candidate([string]$Path) {
+        if ([string]::IsNullOrWhiteSpace($Path)) {
+            return
+        }
+        try {
+            $null = $candidateSet.Add([System.IO.Path]::GetFullPath($Path))
+        }
+        catch {
+        }
+    }
+
+    $name = $env:EXPECTED_ARCHIVE_NAME
+    foreach ($base in @(
+        $env:USERPROFILE,
+        (Join-Path $env:USERPROFILE 'My Drive'),
+        (Join-Path $env:USERPROFILE 'Google Drive'),
+        (Join-Path $env:USERPROFILE 'Google Drive\My Drive'),
+        (Join-Path $env:USERPROFILE 'Drive'),
+        (Join-Path $env:USERPROFILE 'Downloads'),
+        (Join-Path $env:USERPROFILE 'Desktop'),
+        $env:OneDrive,
+        $env:GoogleDrive,
+        $env:GDRIVE
+    )) {
+        if (-not [string]::IsNullOrWhiteSpace($base)) {
+            Add-Candidate (Join-Path $base $name)
+            Add-Candidate (Join-Path (Join-Path $base 'My Drive') $name)
+        }
+    }
+
+    foreach ($drive in Get-PSDrive -PSProvider FileSystem) {
+        Add-Candidate (Join-Path $drive.Root $name)
+        Add-Candidate (Join-Path (Join-Path $drive.Root 'My Drive') $name)
+        Add-Candidate (Join-Path (Join-Path $drive.Root 'Google Drive') $name)
+        Add-Candidate (Join-Path (Join-Path (Join-Path $drive.Root 'Google Drive') 'My Drive') $name)
+    }
+
+    $namedCandidates = @()
+    $exactCandidates = @()
+    foreach ($candidate in ($candidateSet | Sort-Object)) {
+        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+            continue
+        }
+        if (Test-ReparseCoordinate $candidate) {
+            continue
+        }
+        $item = Get-Item -LiteralPath $candidate -Force
+        if ($item.Name -ne $name) {
+            continue
+        }
+        $namedCandidates += $candidate
+        if ($item.Length -ne [int64]$env:EXPECTED_ARCHIVE_BYTES) {
+            continue
+        }
+        $digest = (Get-FileHash -LiteralPath $candidate -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($digest -eq $env:EXPECTED_ARCHIVE_SHA256) {
+            $exactCandidates += $candidate
+        }
+    }
+
+    if ($exactCandidates.Count -eq 0) {
+        $receipt.reasonCode = if ($namedCandidates.Count -gt 0) { 'TRANSFER_DIGEST_MISMATCH' } else { 'PRIVATE_TRANSFER_NOT_SYNCED' }
+        Write-Receipt $receipt
+        exit 0
+    }
+    if ($exactCandidates.Count -gt 1) {
+        $receipt.reasonCode = 'MULTIPLE_EXACT_TRANSFERS_PRESENT'
+        Write-Receipt $receipt
+        exit 0
+    }
+
+    $archive = $exactCandidates[0]
+    $receipt.archiveLocated = $true
+    $receipt.archivePathRef = Get-TextSha256 $archive
+
+    $gpuNames = @()
+    try {
+        $gpuNames = @(Get-CimInstance Win32_VideoController | ForEach-Object { [string]$_.Name })
+    }
+    catch {
+        $gpuNames = @()
+    }
+    $has4060 = @($gpuNames | Where-Object { $_ -match 'RTX\s*4060' }).Count -gt 0
+    $has3090 = @($gpuNames | Where-Object { $_ -match 'RTX\s*3090' }).Count -gt 0
+    $receipt.rtx4060Observed = $has4060
+    $receipt.rtx3090Observed = $has3090
+    $receipt.w01HardwareMatch = $has4060
+    if (-not $has4060) {
+        $receipt.reasonCode = 'RUNNER_NOT_W01_HARDWARE_CLASS'
+        Write-Receipt $receipt
+        exit 0
+    }
+
+    $extractRoot = Join-Path $env:RUNNER_TEMP ("issue105-bootstrap-{0}" -f $env:GITHUB_RUN_ID)
+    if (Test-Path -LiteralPath $extractRoot) {
+        Remove-Item -LiteralPath $extractRoot -Recurse -Force
+    }
+    Expand-Archive -LiteralPath $archive -DestinationPath $extractRoot -Force
+    $script = Join-Path $extractRoot 'flight_bootstrap.py'
+    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) {
+        throw 'BOOTSTRAP_SCRIPT_MISSING'
+    }
+
+    $python = Resolve-Python311
+    $verified = Invoke-BootstrapJson -Python $python -Script $script -Arguments @('verify-bundle')
+    if ($verified.status -ne 'PASS' -or
+        $verified.bootstrapId -ne $env:EXPECTED_BOOTSTRAP_ID -or
+        $verified.releaseId -ne $env:EXPECTED_RELEASE_ID -or
+        $verified.physicalExecutionObserved -ne $false -or
+        $verified.actualSupplierQualified -ne $false -or
+        $verified.physicalEstateQualified -ne $false -or
+        $verified.missionAuthority -ne 'none' -or
+        $verified.commandAuthority -ne 'none') {
+        throw 'BOOTSTRAP_VERIFICATION_RESULT_INVALID'
+    }
+
+    $selectedDrive = $null
+    foreach ($driveName in @('D', 'E', 'C')) {
+        $drive = Get-PSDrive -Name $driveName -PSProvider FileSystem -ErrorAction SilentlyContinue
+        if ($drive -and [int64]$drive.Free -ge 23622320128) {
+            $selectedDrive = $drive
+            break
+        }
+    }
+    if (-not $selectedDrive) {
+        $receipt.reasonCode = 'NO_PERSISTENT_VOLUME_WITH_22GIB_FREE'
+        Write-Receipt $receipt
+        exit 0
+    }
+
+    $baseRoot = if ($selectedDrive.Name -eq 'C') {
+        Join-Path $env:ProgramData 'AXM\Issue-105'
+    }
+    else {
+        Join-Path $selectedDrive.Root 'AXM\Issue-105'
+    }
+    if (Test-ReparseCoordinate $baseRoot) {
+        throw 'PERSISTENT_ROOT_LINKED'
+    }
+    $receipt.persistentRootRef = Get-TextSha256 $baseRoot
+
+    $controller = Ensure-ExactRole -Python $python -Script $script -Role 'controller' -Destination (Join-Path $baseRoot 'controller')
+    $seat02 = Ensure-ExactRole -Python $python -Script $script -Role 'seat-02' -Destination (Join-Path $baseRoot 'seat-02')
+    $receipt.controllerRoleState = $controller.state
+    $receipt.seat02RoleState = $seat02.state
+    $receipt.status = 'PASS'
+    $receipt.terminal = 'W01_CONTROLLER_AND_SEAT02_PREPARED'
+    $receipt.reasonCode = $null
+    Write-Receipt $receipt
+}
+catch {
+    $receipt.status = 'HOLD'
+    $receipt.terminal = 'HOLD'
+    $receipt.reasonCode = ([string]$_.Exception.Message).Split(':')[0]
+    Write-Receipt $receipt
+}
