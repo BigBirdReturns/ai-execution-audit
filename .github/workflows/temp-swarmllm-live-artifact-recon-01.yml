@@ -1,0 +1,282 @@
+name: TEMP SwarmLLM Live Artifact Recon 01
+
+on:
+  push:
+    branches:
+      - ops/swarmllm-live-artifact-custody-01
+    paths:
+      - ".github/workflows/temp-swarmllm-live-artifact-recon-01.yml"
+      - "ops/swarmllm_live_artifact_recon.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-swarmllm-live-artifact-recon-01
+  cancel-in-progress: false
+
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/swarmllm-live-artifact-custody-01
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Capture raw public HTTP bytes and same-origin assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/swarmllm-live-recon/raw-http"
+          python - "$RUNNER_TEMP/swarmllm-live-recon/raw-http" <<'PY'
+          import hashlib
+          import html.parser
+          import json
+          import pathlib
+          import re
+          import ssl
+          import sys
+          import urllib.parse
+          import urllib.request
+
+          root = pathlib.Path(sys.argv[1])
+          root.mkdir(parents=True, exist_ok=True)
+          context = ssl.create_default_context()
+          opener = urllib.request.build_opener()
+          opener.addheaders = [("User-Agent", "AXM-public-artifact-recon/1.0")]
+          queue = ["https://swarmllm.ai/", "https://swarmllm.ai/room"]
+          seen = set()
+          rows = []
+
+          class Parser(html.parser.HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.links = []
+              def handle_starttag(self, tag, attrs):
+                  values = dict(attrs)
+                  for key in ("src", "href"):
+                      if values.get(key):
+                          self.links.append(values[key])
+
+          def safe_suffix(url, content_type):
+              suffix = pathlib.PurePosixPath(urllib.parse.urlparse(url).path).suffix
+              if suffix and len(suffix) <= 16:
+                  return suffix
+              if "javascript" in content_type:
+                  return ".js"
+              if "json" in content_type:
+                  return ".json"
+              if "html" in content_type:
+                  return ".html"
+              if "css" in content_type:
+                  return ".css"
+              if "wasm" in content_type:
+                  return ".wasm"
+              return ".bin"
+
+          while queue and len(seen) < 128:
+              url = queue.pop(0)
+              if url in seen:
+                  continue
+              seen.add(url)
+              request = urllib.request.Request(url)
+              try:
+                  with opener.open(request, timeout=45, context=context) if False else opener.open(request, timeout=45) as response:
+                      data = response.read(128 * 1024 * 1024 + 1)
+                      if len(data) > 128 * 1024 * 1024:
+                          raise RuntimeError("public object exceeded 128 MiB crawl ceiling")
+                      headers = {k.lower(): v for k, v in response.headers.items()}
+                      final_url = response.geturl()
+                      status = response.status
+              except Exception as exc:
+                  rows.append({"url": url, "error": f"{type(exc).__name__}: {exc}"})
+                  continue
+              digest = hashlib.sha256(data).hexdigest()
+              content_type = headers.get("content-type", "").lower()
+              suffix = safe_suffix(final_url, content_type)
+              path = root / "bodies" / f"{digest}{suffix}"
+              path.parent.mkdir(parents=True, exist_ok=True)
+              if not path.exists():
+                  path.write_bytes(data)
+              row = {
+                  "url": url,
+                  "finalUrl": final_url,
+                  "status": status,
+                  "headers": dict(sorted(headers.items())),
+                  "bytes": len(data),
+                  "sha256": f"sha256:{digest}",
+                  "path": path.relative_to(root).as_posix(),
+              }
+              rows.append(row)
+              origin = urllib.parse.urlsplit(final_url)
+              if "html" in content_type:
+                  parser = Parser()
+                  try:
+                      parser.feed(data.decode("utf-8", errors="strict"))
+                  except Exception:
+                      parser.links = []
+                  for value in parser.links:
+                      candidate = urllib.parse.urljoin(final_url, value)
+                      parts = urllib.parse.urlsplit(candidate)
+                      if parts.scheme in {"http", "https"} and parts.netloc == origin.netloc:
+                          candidate = urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, parts.query, ""))
+                          if candidate not in seen:
+                              queue.append(candidate)
+              if any(token in content_type for token in ("javascript", "json", "text/")):
+                  text = data.decode("utf-8", errors="ignore")
+                  for match in re.finditer(r"(?:https?://[^\"'\\\s)]+|/[A-Za-z0-9_./?=&%:+~-]+\.(?:js|mjs|wasm|json|bin|data|onnx|safetensors)(?:\?[^\"'\\\s)]*)?)", text):
+                      candidate = urllib.parse.urljoin(final_url, match.group(0))
+                      parts = urllib.parse.urlsplit(candidate)
+                      if parts.scheme in {"http", "https"} and parts.netloc == origin.netloc:
+                          candidate = urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, parts.query, ""))
+                          if candidate not in seen:
+                              queue.append(candidate)
+
+          (root / "HTTP.json").write_text(json.dumps({"schema":"axm-private/swarmllm-public-http-crawl@1","objects":rows}, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps({"objects": len(rows), "errors": sum("error" in row for row in rows)}, sort_keys=True))
+          PY
+
+      - name: Install Chromium browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Run static and two-context room reconnaissance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ops/swarmllm_live_artifact_recon.py \
+            --output "$RUNNER_TEMP/swarmllm-live-recon/browser-recon" \
+            --url https://swarmllm.ai/room \
+            --wait-seconds 35 \
+            --interact
+
+      - name: Derive artifact and shard findings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "$RUNNER_TEMP/swarmllm-live-recon" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import re
+          import sys
+          import urllib.parse
+
+          root = pathlib.Path(sys.argv[1])
+          recon_path = root / "browser-recon/RECON.json"
+          recon = json.loads(recon_path.read_text(encoding="utf-8"))
+          tokens = (
+              "qwen", "model", "shard", "layer", "manifest", "weight", "webgpu", "webrtc",
+              "rtcpeerconnection", "safetensor", "onnx", "wasm", "huggingface", "transformers",
+              "indexeddb", "cache", "firebase", "supabase", "partykit", "websocket", "signal",
+          )
+          suffixes = (".js", ".mjs", ".wasm", ".json", ".bin", ".data", ".onnx", ".safetensors")
+          excerpts = []
+          urls = set()
+          bodies = []
+          for path in sorted((root / "browser-recon/response-bodies").glob("*")):
+              data = path.read_bytes()
+              text = data.decode("utf-8", errors="ignore")
+              lower = text.lower()
+              body_hits = []
+              for token in tokens:
+                  cursor = 0
+                  while True:
+                      index = lower.find(token, cursor)
+                      if index < 0:
+                          break
+                      excerpt = text[max(0,index-180):index+420].replace("\x00", "")
+                      body_hits.append({"token": token, "excerpt": excerpt})
+                      cursor = index + len(token)
+                      if len(body_hits) >= 120:
+                          break
+                  if len(body_hits) >= 120:
+                      break
+              for match in re.finditer(r"https?://[^\"'\\\s)]+", text):
+                  urls.add(match.group(0))
+              for match in re.finditer(r"/[A-Za-z0-9_./?=&%:+~-]+", text):
+                  value = match.group(0)
+                  if any(suffix in value.lower() for suffix in suffixes):
+                      urls.add(value)
+              bodies.append({
+                  "path": path.relative_to(root).as_posix(),
+                  "bytes": len(data),
+                  "sha256": "sha256:" + hashlib.sha256(data).hexdigest(),
+                  "hits": body_hits,
+              })
+
+          model_options = []
+          for key in ("seatA", "seatB"):
+              row = ((recon.get("interaction") or {}).get(key) or {}).get("model")
+              if row:
+                  model_options.append({"seat": key, **row})
+          response_urls = sorted({row.get("url") for row in recon.get("responses", []) if row.get("url")})
+          response_hosts = sorted({urllib.parse.urlsplit(url).netloc for url in response_urls})
+          websocket_urls = sorted({row.get("url") for row in recon.get("websockets", []) if row.get("url")})
+          findings = {
+              "schema": "axm-private/swarmllm-live-artifact-findings@1",
+              "status": "PASS",
+              "reconStatus": recon.get("status"),
+              "roomCodeCreated": (recon.get("interaction") or {}).get("roomCode"),
+              "modelOptions": model_options,
+              "responseCount": len(recon.get("responses", [])),
+              "responseHosts": response_hosts,
+              "responseUrls": response_urls,
+              "websocketUrls": websocket_urls,
+              "candidateArtifactUrls": sorted(urls),
+              "bodyCount": len(bodies),
+              "bodies": bodies,
+              "claimBoundary": {
+                  "physicalExecutionObserved": False,
+                  "actualSupplierQualified": False,
+                  "physicalEstateQualified": False,
+                  "missionAuthority": "none",
+                  "commandAuthority": "none",
+              },
+          }
+          (root / "FINDINGS.json").write_text(json.dumps(findings, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          with (root / "EXCERPTS.txt").open("w", encoding="utf-8", newline="\n") as handle:
+              for body in bodies:
+                  for hit in body["hits"]:
+                      handle.write(f"\n===== {body['path']} :: {hit['token']} =====\n{hit['excerpt']}\n")
+          print(json.dumps({"responseHosts": response_hosts, "responseCount": findings["responseCount"], "bodyCount": len(bodies), "candidateUrls": len(urls), "roomCodeCreated": findings["roomCodeCreated"]}, sort_keys=True))
+          PY
+
+      - name: Build exact receipt inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "$RUNNER_TEMP/swarmllm-live-recon" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import sys
+          root = pathlib.Path(sys.argv[1])
+          rows = []
+          for path in sorted(p for p in root.rglob("*") if p.is_file() and p.name != "SHA256SUMS.txt"):
+              data = path.read_bytes()
+              rows.append({"path": path.relative_to(root).as_posix(), "bytes": len(data), "sha256": "sha256:" + hashlib.sha256(data).hexdigest()})
+          (root / "INVENTORY.json").write_text(json.dumps({"schema":"axm-private/swarmllm-live-recon-inventory@1","memberCount":len(rows),"members":rows,"physicalExecutionObserved":False,"actualSupplierQualified":False}, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          with (root / "SHA256SUMS.txt").open("w", encoding="utf-8", newline="\n") as handle:
+              for row in rows:
+                  handle.write(f"{row['sha256'][7:]}  {row['path']}\n")
+          print(json.dumps({"members": len(rows)}, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swarmllm-live-artifact-recon-${{ github.sha }}
+          path: ${{ runner.temp }}/swarmllm-live-recon
+          if-no-files-found: error
+          retention-days: 7
