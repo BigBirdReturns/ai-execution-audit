@@ -1192,7 +1192,7 @@ def extension_manifest(profile: dict[str, Any]) -> dict[str, Any]:
 
 
 def runbook_text() -> str:
-    return """# AXM Browser Physical Audition Run Kit\n\nThis kit prepares one private two-seat observation transaction for the admitted `axm/distributed-model-inference@1` interface. It does not select or qualify a supplier.\n\nKeep the entire run root outside every source repository. Load `extension/` as an unpacked Chromium-family extension on each independently operated physical seat. The extension installs the exact admitted probe at `document_start` in the page MAIN world. Confirm the extension manifest and `kit-manifest.json` before opening the target application.\n\nFor each seat, copy the matching controller template to `private/seat-01/control.json` or `private/seat-02/control.json`. Replace every placeholder using body-free evidence references and controller observations. Retain the probe export as `private/<seat>/raw.json`. Do not place prompts, completions, token text, SDP, ICE addresses, device labels, URLs, credentials, response bodies, hostnames, local paths, or private evidence bodies in either file.\n\nRun `python source/axm_head_browser_physical_audition_packet_01.py assemble source/axm-head-browser-physical-audition-packet-profile-01.json <packet-root>`. A complete physical pair without human confirmation stops at `READY_FOR_NAMED_HUMAN`. The compiler does not create a valid confirmation. The named human must separately bind the exact packet evidence root, both seat capture digests, both physical-member evidence references, a body-free SHA-256 actor-evidence reference, current issuance and expiry times, decision code, and authority `none`. The actor-evidence reference identifies an external private provenance receipt; its syntax and content binding do not independently prove the human identity or role.\n\nAfter placing that separately supplied record at `private/named-human-confirmation.json`, rerun `assemble`, then run `verify`. Only an independently reconstructed pair with a valid current confirmation can reach `OBSERVED_ROUTE_CANDIDATE`. That terminal admits the observed route only. It does not admit a supplier, a physical Estate, or any mission, command, targeting, engagement, effector, or weapons authority.\n"""
+    return """# AXM Browser Physical Audition Run Kit\n\nThis kit prepares one private two-seat observation transaction for the admitted `axm/distributed-model-inference@1` interface. It does not select or qualify a supplier.\n\nKeep the entire run root outside every source repository. Load `extension/` as an unpacked Chromium-family extension on each independently operated physical seat. The extension installs the exact admitted probe at `document_start` in the page MAIN world. The same exact probe bytes are retained at `source/browser_distributed_inference_probe.js` because the packet runtime resolves its admitted dependencies relative to `source/`. Kit verification requires both copies to match the admitted SHA-256 binding and one another. Confirm the extension manifest and `kit-manifest.json` before opening the target application.\n\nFor each seat, copy the matching controller template to `private/seat-01/control.json` or `private/seat-02/control.json`. Replace every placeholder using body-free evidence references and controller observations. Retain the probe export as `private/<seat>/raw.json`. Do not place prompts, completions, token text, SDP, ICE addresses, device labels, URLs, credentials, response bodies, hostnames, local paths, or private evidence bodies in either file.\n\nRun `python source/axm_head_browser_physical_audition_packet_01.py assemble source/axm-head-browser-physical-audition-packet-profile-01.json <packet-root>`. A complete physical pair without human confirmation stops at `READY_FOR_NAMED_HUMAN`. The compiler does not create a valid confirmation. The named human must separately bind the exact packet evidence root, both seat capture digests, both physical-member evidence references, a body-free SHA-256 actor-evidence reference, current issuance and expiry times, decision code, and authority `none`. The actor-evidence reference identifies an external private provenance receipt; its syntax and content binding do not independently prove the human identity or role.\n\nAfter placing that separately supplied record at `private/named-human-confirmation.json`, rerun `assemble`, then run `verify`. Only an independently reconstructed pair with a valid current confirmation can reach `OBSERVED_ROUTE_CANDIDATE`. That terminal admits the observed route only. It does not admit a supplier, a physical Estate, or any mission, command, targeting, engagement, effector, or weapons authority.\n"""
 
 
 def kit_member_sources(profile: dict[str, Any], repository_root: Path) -> dict[str, bytes]:
@@ -1240,6 +1240,7 @@ def kit_member_sources(profile: dict[str, Any], repository_root: Path) -> dict[s
     copy_names = {
         "axm-head-browser-distributed-inference-audition-profile-01.json",
         "axm_head_browser_distributed_inference_audition.py",
+        "browser_distributed_inference_probe.js",
         "verify_axm_head_browser_distributed_inference_audition.py",
         "verify_axm_head_browser_distributed_inference_audition_bootstrap.py",
         "axm-head-browser-physical-audition-packet-profile-01.json",
@@ -1328,9 +1329,26 @@ def verify_kit(profile: dict[str, Any], kit_root: Path) -> dict[str, Any]:
     require(manifest["kitId"] == expected_id, "KIT_ID_MISMATCH", str(manifest["kitId"]))
     extension = load_object(kit_root / "extension" / "manifest.json")
     require(extension == extension_manifest(profile), "EXTENSION_CONTRACT_DRIFT", str(extension))
-    probe = kit_root / "extension" / "browser_distributed_inference_probe.js"
-    require(sha256_ref(probe.read_bytes()) == PROBE_SHA256_REF, "PROBE_BYTE_DRIFT", sha256_ref(probe.read_bytes()))
-    verify_bound_sources(profile, kit_root / "source", "packetSourceBindings")
+    extension_probe = kit_root / "extension" / "browser_distributed_inference_probe.js"
+    extension_probe_bytes = secure_read_bytes(
+        extension_probe,
+        maximum_bytes=MAX_SOURCE_BYTES,
+        expected_sha256=PROBE_SHA256_REF,
+    )
+    runtime_source = kit_root / "source"
+    verify_bound_sources(profile, runtime_source, "kitSourceBindings")
+    runtime_probe = runtime_source / "browser_distributed_inference_probe.js"
+    runtime_binding = next(
+        row for row in profile["kitSourceBindings"] if Path(row["path"]).name == runtime_probe.name
+    )
+    runtime_probe_bytes = secure_read_bytes(
+        runtime_probe,
+        maximum_bytes=MAX_SOURCE_BYTES,
+        expected_bytes=runtime_binding["bytes"],
+        expected_sha256=runtime_binding["sha256"],
+    )
+    require(runtime_probe_bytes == extension_probe_bytes, "PROBE_COPY_DIVERGENCE", "extension and runtime probe bytes differ")
+    verify_bound_sources(profile, runtime_source, "packetSourceBindings")
     return {"schema": KIT_MANIFEST_SCHEMA, "status": "PASS", "kitId": manifest["kitId"], "sourceBindingId": manifest["sourceBindingId"], "memberCount": len(member_paths)}
 
 

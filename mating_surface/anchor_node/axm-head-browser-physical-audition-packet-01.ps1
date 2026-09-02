@@ -10,9 +10,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Tool = Join-Path $ScriptRoot 'axm_head_browser_physical_audition_packet_01.py'
-if (-not (Test-Path -LiteralPath $Tool -PathType Leaf)) {
-    Write-Error "Packet compiler unavailable: $Tool"
+$ToolCandidates = @(
+    (Join-Path $ScriptRoot 'axm_head_browser_physical_audition_packet_01.py'),
+    (Join-Path (Join-Path $ScriptRoot 'source') 'axm_head_browser_physical_audition_packet_01.py')
+)
+$Tool = $null
+foreach ($CandidateTool in $ToolCandidates) {
+    if (Test-Path -LiteralPath $CandidateTool -PathType Leaf) {
+        $Tool = $CandidateTool
+        break
+    }
+}
+if ($null -eq $Tool) {
+    Write-Error "Packet compiler unavailable at repository or generated-kit coordinate: $($ToolCandidates -join ', ')"
     exit 2
 }
 
