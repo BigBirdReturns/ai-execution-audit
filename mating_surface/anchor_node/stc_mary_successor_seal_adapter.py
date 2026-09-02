@@ -115,16 +115,30 @@ def seal_transaction(
     return law.sign(body, block["idKey"], block["idPrefix"])
 
 
-def verify_exact_sealed_directory(
-    *, directory: Path, expected_files: Mapping[str, bytes], repository: Path,
-) -> Mapping[str, Any]:
-    law.require(directory.is_dir(), "SEALED_OUTPUT_INVALID", "sealed directory is absent or not a directory")
-    entries = {entry.name for entry in directory.iterdir() if entry.is_file()}
+def require_exact_sealed_surface(profile: Mapping[str, Any], sealed: Path) -> None:
+    expected = set(profile["seal"]["files"].values())
+    law.require(sealed.is_dir(), "SEALED_OUTPUT_INVALID", "sealed directory is absent or not a directory")
+    entries = list(sealed.iterdir())
     law.require(
-        entries == set(expected_files) and all(entry.is_file() for entry in directory.iterdir()),
+        {entry.name for entry in entries} == expected,
         "SEALED_OUTPUT_INVALID",
-        "sealed directory does not carry the exact complete denominator",
+        "sealed directory entry denominator differs from the admitted file set",
     )
+    for entry in entries:
+        law.require(
+            not law.coordinate_component_is_link(
+                entry, code="SEALED_OUTPUT_INVALID", label=f"sealed entry {entry.name}"
+            )
+            and entry.is_file(),
+            "SEALED_OUTPUT_INVALID",
+            f"sealed entry is not one regular non-link file: {entry.name}",
+        )
+
+
+def verify_exact_sealed_directory(
+    *, profile: Mapping[str, Any], directory: Path, expected_files: Mapping[str, bytes], repository: Path,
+) -> Mapping[str, Any]:
+    require_exact_sealed_surface(profile, directory)
     for name, expected in expected_files.items():
         observed = law.read_bounded_bytes(
             directory / name, law.MAX_JSON_BYTES, code="SEALED_FILE_MISMATCH", label=f"sealed file {name}"
@@ -323,7 +337,7 @@ def seal_packet(
             "missionAuthorityGranted": False,
             "commandAuthorityGranted": False,
             "authority": law.AUTHORITY,
-            "claimBoundary": DISPOSITION_CLAIM,
+            "claimBoundary": seal_law["dispositionClaimBoundary"],
         },
         seal_law["dispositionIdKey"],
         seal_law["dispositionIdPrefix"],
@@ -505,10 +519,14 @@ def seal_packet(
             "SEALED_STATE_WITHOUT_VALID_FINAL",
             "packet is sealed while the final sealed directory is absent or inconsistent",
         )
-        verify_exact_sealed_directory(directory=resolved, expected_files=materialized, repository=repository)
+        verify_exact_sealed_directory(
+            profile=profile, directory=resolved, expected_files=materialized, repository=repository
+        )
     elif resolved.exists():
         law.require(not staging.exists(), "SEAL_TRANSACTION_INCONSISTENT", "temporary and final sealed coordinates both exist")
-        verify_exact_sealed_directory(directory=resolved, expected_files=materialized, repository=repository)
+        verify_exact_sealed_directory(
+            profile=profile, directory=resolved, expected_files=materialized, repository=repository
+        )
         law.write_canonical_json(packet / profile["packet"]["files"]["state"], next_state)
         if interrupt_after_state_promotion:
             law.fail("SEAL_INTERRUPTED", "synthetic interruption after sealed packet-state promotion")
@@ -522,15 +540,21 @@ def seal_packet(
             (staging / name).write_bytes(data)
             if interrupt_after_file == index:
                 law.fail("SEAL_INTERRUPTED", f"synthetic interruption after temporary sealed file {index}")
-        first = verify_exact_sealed_directory(directory=staging, expected_files=materialized, repository=repository)
-        replay = verify_exact_sealed_directory(directory=staging, expected_files=materialized, repository=repository)
+        first = verify_exact_sealed_directory(
+            profile=profile, directory=staging, expected_files=materialized, repository=repository
+        )
+        replay = verify_exact_sealed_directory(
+            profile=profile, directory=staging, expected_files=materialized, repository=repository
+        )
         law.require(first == replay, "SEALED_VERIFICATION_MISMATCH", "temporary detached verification is not deterministic")
         if interrupt_after_staging_verification:
             law.fail("SEAL_INTERRUPTED", "synthetic interruption after temporary detached verification")
         staging.rename(resolved)
         if interrupt_after_promotion:
             law.fail("SEAL_INTERRUPTED", "synthetic interruption after atomic sealed-directory promotion")
-        verify_exact_sealed_directory(directory=resolved, expected_files=materialized, repository=repository)
+        verify_exact_sealed_directory(
+            profile=profile, directory=resolved, expected_files=materialized, repository=repository
+        )
         law.write_canonical_json(packet / profile["packet"]["files"]["state"], next_state)
         if interrupt_after_state_promotion:
             law.fail("SEAL_INTERRUPTED", "synthetic interruption after sealed packet-state promotion")
@@ -565,6 +589,47 @@ def seal_packet(
     }
 
 
+def validate_disposition_semantics(
+    *, profile: Mapping[str, Any], run: Mapping[str, Any], disposition: Mapping[str, Any],
+) -> None:
+    seal_law = profile["seal"]
+    law.exact_keys(
+        disposition, seal_law["dispositionKeys"], "SEALED_DISPOSITION_INVALID", "public disposition"
+    )
+    law.assert_identity(
+        disposition,
+        seal_law["dispositionIdKey"],
+        seal_law["dispositionIdPrefix"],
+        "SEALED_DISPOSITION_INVALID",
+        "public disposition",
+    )
+    expected = {
+        "schema": seal_law["dispositionSchema"],
+        "runId": run[seal_law["runIdKey"]],
+        "packetId": run["packetId"],
+        "campaignLabel": run["campaignLabel"],
+        "stageCount": run["stageCount"],
+        "successfulStageCount": run["successfulStageCount"],
+        "humanRequiredStageCount": run["humanRequiredStageCount"],
+        "publicEvidenceBodyCount": 0,
+        "privatePhysicalFlightCompleted": True,
+        "physicalEstateQualified": False,
+        "representativeOperatorQualified": False,
+        "fieldNetworkQualified": False,
+        "operationalC2Qualified": False,
+        "productionLatticeQualified": False,
+        "missionAuthorityGranted": False,
+        "commandAuthorityGranted": False,
+        "authority": law.AUTHORITY,
+        "claimBoundary": seal_law["dispositionClaimBoundary"],
+    }
+    law.require(
+        all(disposition[key] == value and type(disposition[key]) is type(value) for key, value in expected.items()),
+        "SEALED_DISPOSITION_INVALID",
+        "public disposition contradicts the admitted sealed-run semantics",
+    )
+
+
 def build_verification(
     *, profile: Mapping[str, Any], run: Mapping[str, Any], disposition: Mapping[str, Any], file_count: int
 ) -> dict[str, Any]:
@@ -574,6 +639,7 @@ def build_verification(
     makes the replay comparison meaningful: a sealed directory whose verification was
     hand-written rather than derived will not reproduce.
     """
+    validate_disposition_semantics(profile=profile, run=run, disposition=disposition)
     seal_law = profile["seal"]
     body = {
         "schema": seal_law["verificationSchema"],
@@ -622,6 +688,7 @@ def verify_detached(*, sealed: Path, repository: Path, profile_path: Path = PROF
         "SEALED_OUTPUT_UNSAFE",
         "the sealed directory must remain outside the public repository",
     )
+    require_exact_sealed_surface(profile, sealed)
 
     marker = law.read_json_file(sealed / files["marker"], code="SEALED_MARKER_INVALID", label="sealed marker")
     law.exact_keys(marker, seal_law["markerKeys"], "SEALED_MARKER_INVALID", "sealed marker")

@@ -117,6 +117,23 @@ def assert_content_id(value: Any, code: str, label: str) -> str:
     return value
 
 
+def require_exact_sealed_surface(profile: Mapping[str, Any], sealed: Path) -> None:
+    expected = set(profile["seal"]["files"].values())
+    require(sealed.is_dir(), "SEALED_OUTPUT_INVALID", "sealed directory is absent or not a directory")
+    entries = list(sealed.iterdir())
+    require(
+        {entry.name for entry in entries} == expected,
+        "SEALED_OUTPUT_INVALID",
+        "sealed directory entry denominator differs from the admitted file set",
+    )
+    for entry in entries:
+        require(
+            not coordinate_component_is_link(entry) and entry.is_file(),
+            "SEALED_OUTPUT_INVALID",
+            f"sealed entry is not one regular non-link file: {entry.name}",
+        )
+
+
 def coordinate_component_is_link(path: Path) -> bool:
     try:
         if path.is_symlink():
@@ -242,6 +259,7 @@ def close_post_seal(
         "SEALED_OUTPUT_UNSAFE",
         "the sealed directory and private packet must be disjoint",
     )
+    require_exact_sealed_surface(profile, sealed)
 
     closure_law = profile["postSealClosure"]
     seal_law = profile["seal"]
@@ -330,6 +348,24 @@ def close_post_seal(
         and marker["dispositionId"] == disposition_id,
         "SEALED_BINDING_INVALID",
         "the packet, marker, run and disposition do not name one sealed flight",
+    )
+    expected_disposition_bindings = {
+        "schema": seal_law["dispositionSchema"],
+        "runId": run_id,
+        "packetId": packet_id,
+        "campaignLabel": run["campaignLabel"],
+        "stageCount": run["stageCount"],
+        "successfulStageCount": run["successfulStageCount"],
+        "humanRequiredStageCount": run["humanRequiredStageCount"],
+        "claimBoundary": seal_law["dispositionClaimBoundary"],
+    }
+    require(
+        all(
+            disposition[key] == value and type(disposition[key]) is type(value)
+            for key, value in expected_disposition_bindings.items()
+        ),
+        "SEALED_DISPOSITION_INVALID",
+        "public disposition bindings, counts, or claim boundary contradict the sealed run",
     )
 
     manifest = read_json_file(sealed / files["manifest"], code="SEALED_MANIFEST_INVALID", label="sealed manifest")

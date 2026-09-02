@@ -1330,6 +1330,103 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
         law.write_canonical_json(path, self.walk.seal_result["transaction"])
         return path
 
+    def close_post_seal(self, estate: Path) -> dict:
+        return post_seal.close_post_seal(
+            packet=estate / "campaign" / "stc-mary-private-flight-successor",
+            sealed=estate / "campaign" / "stc-mary-private-flight-sealed-witness",
+            pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+            detached_verification=estate / "receipts" / "detached-verification.json",
+            profile_path=PROFILE,
+            repository=REPOSITORY_ROOT,
+        )
+
+    def rewrite_disposition(self, estate: Path, mutate) -> tuple[Path, Path]:
+        """Re-sign every subordinate binding so only disposition semantics remain hostile."""
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        seal_law = self.walk.profile["seal"]
+        packet_law = self.walk.profile["packet"]
+
+        def resign(path: Path, id_key: str, prefix: str, change) -> dict:
+            body = load_json(path)
+            body.pop(id_key, None)
+            change(body)
+            signed = sign(body, id_key, prefix)
+            law.write_canonical_json(path, signed)
+            return signed
+
+        disposition = resign(
+            sealed / seal_law["files"]["disposition"],
+            seal_law["dispositionIdKey"],
+            seal_law["dispositionIdPrefix"],
+            mutate,
+        )
+        disposition_id = disposition[seal_law["dispositionIdKey"]]
+        verification = resign(
+            sealed / seal_law["files"]["verification"],
+            seal_law["verificationIdKey"],
+            seal_law["verificationIdPrefix"],
+            lambda body: body.update({"dispositionId": disposition_id}),
+        )
+        resign(
+            sealed / seal_law["files"]["marker"],
+            seal_law["markerIdKey"],
+            seal_law["markerIdPrefix"],
+            lambda body: body.update({"dispositionId": disposition_id}),
+        )
+        law.write_canonical_json(estate / "receipts" / "detached-verification.json", verification)
+
+        def refence_manifest(body: dict) -> None:
+            body["dispositionId"] = disposition_id
+            body["files"] = [
+                {
+                    "path": name,
+                    "bytes": len((sealed / name).read_bytes()),
+                    "sha256": law.sha256_bytes((sealed / name).read_bytes()),
+                }
+                for name in seal_law["manifestFiles"]
+            ]
+
+        manifest = resign(
+            sealed / seal_law["files"]["manifest"],
+            seal_law["manifestIdKey"],
+            seal_law["manifestIdPrefix"],
+            refence_manifest,
+        )
+        state = resign(
+            packet / packet_law["files"]["state"],
+            packet_law["stateIdKey"],
+            packet_law["stateIdPrefix"],
+            lambda body: body.update({"sealedDispositionId": disposition_id}),
+        )
+        transaction_path = sealed.parent / f".{sealed.name}.seal-transaction.json"
+
+        def rebind_transaction(body: dict) -> None:
+            body.update(
+                {
+                    "status": "sealed_state_promoted",
+                    "proposedSealedStateId": state[packet_law["stateIdKey"]],
+                    "dispositionId": disposition_id,
+                    "manifestId": manifest[seal_law["manifestIdKey"]],
+                    "postSealClosureId": None,
+                }
+            )
+
+        resign(
+            transaction_path,
+            seal_law["transaction"]["idKey"],
+            seal_law["transaction"]["idPrefix"],
+            rebind_transaction,
+        )
+        return sealed, packet
+
+    def create_symbolic_link(self, link: Path, target: Path) -> bool:
+        try:
+            link.symlink_to(target, target_is_directory=target.is_dir())
+        except (NotImplementedError, OSError):
+            return False
+        return True
+
     # -- the authenticated denominator --------------------------------------------
     def test_a_closure_missing_one_authenticated_confirmation_refuses(self) -> None:
         estate = self.copy_pre_seal_estate()
@@ -1508,6 +1605,117 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
             seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
         self.assertEqual(caught.exception.code, "SEALED_VERIFICATION_MISMATCH")
 
+    def test_exact_five_file_surface_and_authority_none_pass_both_acceptance_surfaces(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        expected = set(self.walk.profile["seal"]["files"].values())
+        self.assertEqual({entry.name for entry in sealed.iterdir()}, expected)
+        self.assertTrue(all(entry.is_file() and not entry.is_symlink() for entry in sealed.iterdir()))
+        detached = seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(detached["status"], "PASS")
+        self.assertEqual(detached["authority"], "none")
+        closure = self.close_post_seal(estate)
+        self.assertEqual(closure["status"], "PASS")
+        self.assertEqual(closure["authority"], "none")
+
+    def test_detached_refuses_one_unmanifested_regular_file(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        (sealed / "unmanifested.json").write_bytes(b"{}\n")
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_INVALID")
+
+    def test_post_seal_refuses_one_unmanifested_regular_file(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        (sealed / "unmanifested.json").write_bytes(b"{}\n")
+        with self.assertRaises(post_seal.PostSealClosureError) as caught:
+            self.close_post_seal(estate)
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_INVALID")
+
+    def test_detached_refuses_one_unmanifested_subdirectory(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        (sealed / "unmanifested-directory").mkdir()
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_INVALID")
+
+    def test_post_seal_refuses_one_unmanifested_subdirectory(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        (sealed / "unmanifested-directory").mkdir()
+        with self.assertRaises(post_seal.PostSealClosureError) as caught:
+            self.close_post_seal(estate)
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_INVALID")
+
+    def test_detached_refuses_one_unmanifested_symbolic_link_when_permitted(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        link = sealed / "unmanifested-link.json"
+        if not self.create_symbolic_link(link, sealed / "SEALED-ROOT.json"):
+            self.assertFalse(link.exists())
+            return
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_INVALID")
+
+    def test_post_seal_refuses_one_unmanifested_symbolic_link_when_permitted(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        link = sealed / "unmanifested-link.json"
+        if not self.create_symbolic_link(link, sealed / "SEALED-ROOT.json"):
+            self.assertFalse(link.exists())
+            return
+        with self.assertRaises(post_seal.PostSealClosureError) as caught:
+            self.close_post_seal(estate)
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_INVALID")
+
+    def test_detached_refuses_a_missing_required_entry(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        (sealed / "verification.json").unlink()
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_INVALID")
+
+    def test_post_seal_refuses_a_missing_required_entry(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        (sealed / "verification.json").unlink()
+        with self.assertRaises(post_seal.PostSealClosureError) as caught:
+            self.close_post_seal(estate)
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_INVALID")
+
+    def test_detached_refuses_required_entry_replaced_by_symbolic_link_when_permitted(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        required = sealed / "verification.json"
+        target = estate.parent / "verification-target.json"
+        shutil.copyfile(required, target)
+        required.unlink()
+        if not self.create_symbolic_link(required, target):
+            shutil.copyfile(target, required)
+            return
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_INVALID")
+
+    def test_post_seal_refuses_required_entry_replaced_by_symbolic_link_when_permitted(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        required = sealed / "verification.json"
+        target = estate.parent / "verification-target.json"
+        shutil.copyfile(required, target)
+        required.unlink()
+        if not self.create_symbolic_link(required, target):
+            shutil.copyfile(target, required)
+            return
+        with self.assertRaises(post_seal.PostSealClosureError) as caught:
+            self.close_post_seal(estate)
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_INVALID")
+
     # -- post-seal closure ---------------------------------------------------------------
     def test_a_post_seal_closure_over_an_unsealed_packet_refuses(self) -> None:
         """The reserved assertions may not be made before the objects exist."""
@@ -1590,79 +1798,100 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
             )
         self.assertEqual(caught.exception.code, "DETACHED_VERIFICATION_MISMATCH")
 
-    def test_a_disposition_claiming_a_stronger_qualification_refuses(self) -> None:
-        """A widened claim is refused even when every seal is perfectly reconstructed.
+    def test_each_self_consistent_stronger_qualification_refuses_detached_and_post_seal(self) -> None:
+        for field in self.walk.profile["postSealClosure"]["strongerQualifications"]:
+            with self.subTest(field=field):
+                estate = self.copy_sealed_estate()
+                sealed, _ = self.rewrite_disposition(
+                    estate, lambda body, key=field: body.update({key: True})
+                )
+                with self.assertRaises(law.SuccessorFlightError) as detached:
+                    seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+                self.assertEqual(detached.exception.code, "SEALED_DISPOSITION_INVALID")
+                with self.assertRaises(post_seal.PostSealClosureError) as closed:
+                    self.close_post_seal(estate)
+                self.assertEqual(closed.exception.code, "STRONGER_QUALIFICATION_CLAIMED")
 
-        The tamper below re-signs the disposition, the verification, the marker, the
-        manifest and the packet state so the sealed directory is internally consistent
-        again. Only the claim itself is hostile, and that is what the closure catches.
-        """
+    def test_self_consistent_mission_authority_refuses_detached(self) -> None:
         estate = self.copy_sealed_estate()
-        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
-        packet = estate / "campaign" / "stc-mary-private-flight-successor"
-        seal_law = self.walk.profile["seal"]
-        packet_law = self.walk.profile["packet"]
-
-        def resign(path: Path, id_key: str, prefix: str, mutate) -> dict:
-            body = load_json(path)
-            body.pop(id_key, None)
-            mutate(body)
-            signed = sign(body, id_key, prefix)
-            law.write_canonical_json(path, signed)
-            return signed
-
-        disposition = resign(
-            sealed / "public-disposition.json",
-            seal_law["dispositionIdKey"],
-            seal_law["dispositionIdPrefix"],
-            lambda body: body.update({"physicalEstateQualified": True}),
+        sealed, _ = self.rewrite_disposition(
+            estate, lambda body: body.update({"missionAuthorityGranted": True})
         )
-        widened = disposition[seal_law["dispositionIdKey"]]
-        verification = resign(
-            sealed / "verification.json",
-            seal_law["verificationIdKey"],
-            seal_law["verificationIdPrefix"],
-            lambda body: body.update({"dispositionId": widened}),
-        )
-        resign(
-            sealed / "SEALED-ROOT.json",
-            seal_law["markerIdKey"],
-            seal_law["markerIdPrefix"],
-            lambda body: body.update({"dispositionId": widened}),
-        )
-        law.write_canonical_json(estate / "receipts" / "detached-verification.json", verification)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_DISPOSITION_INVALID")
 
-        def refence(body: dict) -> None:
-            body["dispositionId"] = widened
-            body["files"] = [
-                {
-                    "path": name,
-                    "bytes": len((sealed / name).read_bytes()),
-                    "sha256": law.sha256_bytes((sealed / name).read_bytes()),
-                }
-                for name in seal_law["manifestFiles"]
-            ]
-
-        resign(sealed / "manifest.json", seal_law["manifestIdKey"], seal_law["manifestIdPrefix"], refence)
-        resign(
-            packet / packet_law["files"]["state"],
-            packet_law["stateIdKey"],
-            packet_law["stateIdPrefix"],
-            lambda body: body.update({"sealedDispositionId": widened}),
+    def test_self_consistent_command_authority_refuses_detached(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed, _ = self.rewrite_disposition(
+            estate, lambda body: body.update({"commandAuthorityGranted": True})
         )
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_DISPOSITION_INVALID")
 
-        # The sealed directory now reproduces end to end; only the claim is hostile.
-        seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
-        with self.assertRaises(post_seal.PostSealClosureError) as caught:
-            post_seal.close_post_seal(
-                packet=packet,
-                sealed=sealed,
-                pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
-                detached_verification=estate / "receipts" / "detached-verification.json",
-                profile_path=PROFILE,
-                repository=REPOSITORY_ROOT,
-            )
-        self.assertEqual(caught.exception.code, "STRONGER_QUALIFICATION_CLAIMED")
+    def test_self_consistent_authority_widening_refuses_detached(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed, _ = self.rewrite_disposition(
+            estate, lambda body: body.update({"authority": "mission"})
+        )
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_DISPOSITION_INVALID")
+
+    def test_self_consistent_public_evidence_count_refuses_detached(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed, _ = self.rewrite_disposition(
+            estate, lambda body: body.update({"publicEvidenceBodyCount": 1})
+        )
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_DISPOSITION_INVALID")
+
+    def test_self_consistent_incomplete_private_flight_refuses_detached(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed, _ = self.rewrite_disposition(
+            estate, lambda body: body.update({"privatePhysicalFlightCompleted": False})
+        )
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_DISPOSITION_INVALID")
+
+    def test_each_self_consistent_disposition_run_count_disagreement_refuses_detached(self) -> None:
+        for field in ("stageCount", "successfulStageCount", "humanRequiredStageCount"):
+            with self.subTest(field=field):
+                estate = self.copy_sealed_estate()
+                sealed, _ = self.rewrite_disposition(
+                    estate, lambda body, key=field: body.update({key: body[key] + 1})
+                )
+                with self.assertRaises(law.SuccessorFlightError) as caught:
+                    seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+                self.assertEqual(caught.exception.code, "SEALED_DISPOSITION_INVALID")
+
+    def test_each_self_consistent_disposition_run_binding_disagreement_refuses_detached(self) -> None:
+        replacements = {
+            "runId": cid("stcmarysuccessorflightrun1", {"foreign": True}),
+            "packetId": cid("stcmaryprivateflightpacket1", {"foreign": True}),
+            "campaignLabel": "SYNTHETIC-FOREIGN-FLIGHT",
+        }
+        for field, value in replacements.items():
+            with self.subTest(field=field):
+                estate = self.copy_sealed_estate()
+                sealed, _ = self.rewrite_disposition(
+                    estate, lambda body, key=field, replacement=value: body.update({key: replacement})
+                )
+                with self.assertRaises(law.SuccessorFlightError) as caught:
+                    seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+                self.assertIn(caught.exception.code, {"SEALED_BINDING_INVALID", "SEALED_DISPOSITION_INVALID"})
+
+    def test_self_consistent_disposition_claim_boundary_disagreement_refuses_detached(self) -> None:
+        estate = self.copy_sealed_estate()
+        sealed, _ = self.rewrite_disposition(
+            estate, lambda body: body.update({"claimBoundary": "contradictory claim boundary"})
+        )
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.verify_detached(sealed=sealed, repository=REPOSITORY_ROOT)
+        self.assertEqual(caught.exception.code, "SEALED_DISPOSITION_INVALID")
 
     # -- authentication, against the finished admission receipt ------------------------
     def test_the_synthetic_fixture_is_refused_against_a_live_campaign(self) -> None:

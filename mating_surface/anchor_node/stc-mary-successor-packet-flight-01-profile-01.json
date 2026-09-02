@@ -623,6 +623,7 @@
       "stageCount",
       "successfulStageCount"
     ],
+    "dispositionClaimBoundary": "Public disposition for one local private flight. It contains content identities, counts and claim boundaries only. It qualifies no physical estate, representative operator, field network, operational C2 or production Lattice, and grants no mission, command, targeting, engagement, effector or weapons authority.",
     "dispositionSchema": "stc-mary/successor-flight-public-disposition/1",
     "files": {
       "disposition": "public-disposition.json",
