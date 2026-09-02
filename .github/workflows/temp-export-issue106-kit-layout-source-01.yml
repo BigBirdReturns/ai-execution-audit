@@ -45,6 +45,7 @@ jobs:
             "$ROOT/verify_axm_head_browser_physical_audition_packet_01.py" \
             "$ROOT/verify_axm_head_browser_physical_audition_packet_01_bootstrap.py" \
             "$ROOT/conformance/test_axm_head_browser_physical_audition_packet_01.py"
+          find "$ROOT" -type d -name __pycache__ -prune -exec rm -rf {} +
           python "$ROOT/axm_head_browser_physical_audition_packet_01.py" validate-profile \
             "$ROOT/axm-head-browser-physical-audition-packet-profile-01.json"
           python -m unittest discover \
