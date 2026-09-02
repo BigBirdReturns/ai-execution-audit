@@ -1,0 +1,313 @@
+            if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400):
+                fail("LINKED_PATH_REFUSED", str(current))
+    absolute.mkdir(parents=True, exist_ok=False)
+    return absolute
+
+
+def validate_claim_boundary(value: Any, name: str) -> dict[str, Any]:
+    exact_keys(value, CLAIM_BOUNDARY, "CLAIM_BOUNDARY_KEYS_INVALID")
+    if value != CLAIM_BOUNDARY:
+        fail("CLAIM_BOUNDARY_INVALID", name)
+    return value
+
+
+def validate_availability(value: Any) -> dict[str, Any]:
+    exact_keys(value, {"observedAtUnixMs", "evidenceRef", "observed"}, "AVAILABILITY_KEYS_INVALID")
+    integer_value(value["observedAtUnixMs"], "availability.observedAtUnixMs", 946684800000, 4102444800000)
+    sha_value(value["evidenceRef"], "availability.evidenceRef")
+    if value["observed"] is not True:
+        fail("AVAILABILITY_NOT_OBSERVED", "availability.observed")
+    return value
+
+
+def validate_adapter(value: Any) -> dict[str, Any]:
+    exact_keys(value, {"artifactBytes", "artifactDigest", "evidenceRef", "executableObserved"}, "ADAPTER_KEYS_INVALID")
+    integer_value(value["artifactBytes"], "adapterArtifact.artifactBytes", 1)
+    sha_value(value["artifactDigest"], "adapterArtifact.artifactDigest")
+    sha_value(value["evidenceRef"], "adapterArtifact.evidenceRef")
+    if value["executableObserved"] is not True:
+        fail("ADAPTER_NOT_EXECUTABLE", "adapterArtifact.executableObserved")
+    return value
+
+
+def validate_formation(value: Any) -> dict[str, Any]:
+    exact_keys(value, {"artifactBound", "capacityBasis", "capacityReceiptRef", "modelCapacityBytes", "partitionMode", "topologyReceiptRef"}, "FORMATION_KEYS_INVALID")
+    if value["artifactBound"] is not True or value["capacityBasis"] != "artifact-bound-shards" or value["partitionMode"] != "pipeline-layer":
+        fail("FORMATION_SEMANTICS_INVALID", "formation")
+    integer_value(value["modelCapacityBytes"], "formation.modelCapacityBytes", 1)
+    sha_value(value["capacityReceiptRef"], "formation.capacityReceiptRef")
+    sha_value(value["topologyReceiptRef"], "formation.topologyReceiptRef")
+    return value
+
+
+def validate_members(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or not 2 <= len(value) <= MAX_MEMBERS:
+        fail("MEMBER_COUNT_INVALID", str(len(value) if isinstance(value, list) else None))
+    aliases: set[str] = set()
+    member_ids: set[str] = set()
+    roles = {"pipeline-input": 0, "pipeline-output": 0}
+    for index, row in enumerate(value):
+        exact_keys(row, {"alias", "args"}, "MEMBER_KEYS_INVALID")
+        alias = string_value(row["alias"], f"members[{index}].alias", ALIAS_RE, 64)
+        if alias in aliases:
+            fail("MEMBER_ALIAS_DUPLICATE", alias)
+        aliases.add(alias)
+        args = exact_keys(row["args"], {"memberId", "role", "pledgedBytes"}, "MEMBER_ARGS_KEYS_INVALID")
+        member_id = string_value(args["memberId"], f"members[{index}].memberId", ID_RE, 128)
+        if member_id in member_ids:
+            fail("MEMBER_ID_DUPLICATE", member_id)
+        member_ids.add(member_id)
+        role = string_value(args["role"], f"members[{index}].role", maximum=32)
+        if role not in {"pipeline-input", "pipeline-output", "pipeline-stage", "coordinator"}:
+            fail("MEMBER_ROLE_INVALID", role)
+        if role in roles:
+            roles[role] += 1
+        integer_value(args["pledgedBytes"], f"members[{index}].pledgedBytes", 1)
+    if roles != {"pipeline-input": 1, "pipeline-output": 1}:
+        fail("MEMBER_ROLE_DENOMINATOR_INVALID", str(roles))
+    return value
+
+
+def validate_model_manifest(value: Any) -> dict[str, Any]:
+    exact_keys(value, {"claimedId", "boundModelId", "observedManifestDigest"}, "MODEL_MANIFEST_KEYS_INVALID")
+    string_value(value["claimedId"], "modelManifest.claimedId", ID_RE, 192)
+    string_value(value["boundModelId"], "modelManifest.boundModelId", ID_RE, 192)
+    sha_value(value["observedManifestDigest"], "modelManifest.observedManifestDigest")
+    return value
+
+
+def validate_artifacts(value: Any, members: list[dict[str, Any]], capacity: int) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or not 1 <= len(value) <= MAX_ARTIFACTS:
+        fail("ARTIFACT_COUNT_INVALID", str(len(value) if isinstance(value, list) else None))
+    aliases = {row["alias"] for row in members}
+    artifact_ids: set[str] = set()
+    expected_layer = 0
+    total = 0
+    for index, row in enumerate(value):
+        exact_keys(row, {"memberAlias", "args"}, "ARTIFACT_KEYS_INVALID")
+        alias = string_value(row["memberAlias"], f"modelArtifacts[{index}].memberAlias", ALIAS_RE, 64)
+        if alias not in aliases:
+            fail("MEMBER_ALIAS_UNRESOLVED", alias)
+        args = exact_keys(row["args"], {"artifactId", "bytes", "digest", "layerStart", "layerEnd"}, "ARTIFACT_ARGS_KEYS_INVALID")
+        artifact_id = string_value(args["artifactId"], f"modelArtifacts[{index}].artifactId", ID_RE, 128)
+        if artifact_id in artifact_ids:
+            fail("ARTIFACT_ID_DUPLICATE", artifact_id)
+        artifact_ids.add(artifact_id)
+        layer_start = integer_value(args["layerStart"], f"modelArtifacts[{index}].layerStart", 0, 1_048_575)
+        layer_end = integer_value(args["layerEnd"], f"modelArtifacts[{index}].layerEnd", layer_start, 1_048_575)
+        if layer_start != expected_layer:
+            fail("LAYER_DENOMINATOR_NOT_CONTIGUOUS", f"expected={expected_layer} observed={layer_start}")
+        expected_layer = layer_end + 1
+        count = integer_value(args["bytes"], f"modelArtifacts[{index}].bytes", 1)
+        total += count
+        sha_value(args["digest"], f"modelArtifacts[{index}].digest")
+    if total != capacity:
+        fail("FORMATION_CAPACITY_MISMATCH", f"formation={capacity} artifacts={total}")
+    return value
+
+
+def invocation_count(card: dict[str, Any]) -> int:
+    static = card["static"]
+    return 21 + len(static["members"]) + len(static["modelArtifacts"])
+
+
+def required_session_requests(card: dict[str, Any]) -> int:
+    return invocation_count(card) * SESSION_REQUESTS_PER_INVOCATION + SESSION_REQUEST_RESERVE
+
+
+def normalize_card(card: dict[str, Any]) -> dict[str, Any]:
+    exact_keys(card, {"schema", "cardId", "profileId", "protocol", "interface", "transactionRef", "seatRef", "seatId", "expectedRole", "prompt", "expectedOutput", "static", "dropTarget", "requestBudget", "claimBoundary"}, "CARD_KEYS_INVALID")
+    if card["schema"] != CARD_SCHEMA or card["profileId"] != PROFILE_ID or card["protocol"] != PROTOCOL or card["interface"] != INTERFACE:
+        fail("CARD_IDENTITY_INVALID", "card")
+    sha_value(card["transactionRef"], "transactionRef")
+    sha_value(card["seatRef"], "seatRef")
+    if card["seatId"] not in {"seat-01", "seat-02"}:
+        fail("SEAT_ID_INVALID", str(card["seatId"]))
+    expected = "pipeline-input" if card["seatId"] == "seat-01" else "pipeline-output"
+    if card["expectedRole"] != expected:
+        fail("SEAT_ROLE_MISMATCH", f"{card['seatId']}/{card['expectedRole']}")
+    prompt = exact_keys(card["prompt"], {"sha256", "encodedBytes", "tokenCount", "tokenizerEvidenceRef"}, "PROMPT_KEYS_INVALID")
+    sha_value(prompt["sha256"], "prompt.sha256")
+    integer_value(prompt["encodedBytes"], "prompt.encodedBytes", 1, MAX_PRIVATE_TEXT_BYTES)
+    integer_value(prompt["tokenCount"], "prompt.tokenCount", 1, 1_048_576)
+    sha_value(prompt["tokenizerEvidenceRef"], "prompt.tokenizerEvidenceRef")
+    output = exact_keys(card["expectedOutput"], {"sha256", "encodedBytes", "tokenCount", "referenceEvidenceRef"}, "EXPECTED_OUTPUT_KEYS_INVALID")
+    sha_value(output["sha256"], "expectedOutput.sha256")
+    integer_value(output["encodedBytes"], "expectedOutput.encodedBytes", 1, 256)
+    if output["tokenCount"] != OUTPUT_TOKEN_COUNT:
+        fail("ONE_TOKEN_CHALLENGE_REQUIRED", str(output["tokenCount"]))
+    sha_value(output["referenceEvidenceRef"], "expectedOutput.referenceEvidenceRef")
+    static = exact_keys(card["static"], {"availability", "adapterArtifact", "formation", "members", "modelManifest", "modelArtifacts"}, "STATIC_KEYS_INVALID")
+    validate_availability(static["availability"])
+    validate_adapter(static["adapterArtifact"])
+    validate_formation(static["formation"])
+    members = validate_members(static["members"])
+    validate_model_manifest(static["modelManifest"])
+    validate_artifacts(static["modelArtifacts"], members, static["formation"]["modelCapacityBytes"])
+    drop = exact_keys(card["dropTarget"], {"memberAlias"}, "DROP_TARGET_KEYS_INVALID")
+    alias = string_value(drop["memberAlias"], "dropTarget.memberAlias", ALIAS_RE, 64)
+    if alias not in {row["alias"] for row in members}:
+        fail("DROP_MEMBER_ALIAS_UNRESOLVED", alias)
+    budget = exact_keys(card["requestBudget"], {"probeInvocationCount", "sessionRequestCount", "sessionRequestCeiling", "sessionRequestsPerProbeInvocation", "sessionRequestReserve"}, "REQUEST_BUDGET_KEYS_INVALID")
+    expected_invocations = invocation_count(card)
+    expected_requests = expected_invocations * SESSION_REQUESTS_PER_INVOCATION + SESSION_REQUEST_RESERVE
+    if budget != {
+        "probeInvocationCount": expected_invocations,
+        "sessionRequestCount": expected_requests,
+        "sessionRequestCeiling": MAX_SESSION_REQUESTS,
+        "sessionRequestsPerProbeInvocation": SESSION_REQUESTS_PER_INVOCATION,
+        "sessionRequestReserve": SESSION_REQUEST_RESERVE,
+    }:
+        fail("REQUEST_BUDGET_INVALID", str(budget))
+    if expected_requests > MAX_SESSION_REQUESTS:
+        fail("SESSION_REQUEST_LIMIT_EXCEEDED", str(expected_requests))
+    validate_claim_boundary(card["claimBoundary"], "card")
+    assert_no_forbidden(card["static"])
+    return card
+
+
+def validate_card(value: dict[str, Any]) -> dict[str, Any]:
+    if len(canonical_bytes(value)) > MAX_CARD_BYTES:
+        fail("CARD_BYTE_LIMIT_EXCEEDED", str(len(canonical_bytes(value))))
+    normalize_card(value)
+    expected = content_id("axmphysicalflightcard", {**value, "cardId": None})
+    if value["cardId"] != expected:
+        fail("CARD_CONTENT_ID_INVALID", str(value["cardId"]))
+    return value
+
+
+def build_card(recipe: dict[str, Any], prompt_data: bytes, output_data: bytes) -> dict[str, Any]:
+    exact_keys(recipe, {"schema", "profileId", "protocol", "interface", "transactionRef", "seatRef", "seatId", "expectedRole", "promptTokenCount", "tokenizerEvidenceRef", "referenceOutputEvidenceRef", "static", "dropTarget", "claimBoundary"}, "RECIPE_KEYS_INVALID")
+    if recipe["schema"] != RECIPE_SCHEMA or recipe["profileId"] != PROFILE_ID or recipe["protocol"] != PROTOCOL or recipe["interface"] != INTERFACE:
+        fail("RECIPE_IDENTITY_INVALID", "recipe")
+    if not prompt_data or len(prompt_data) > MAX_PRIVATE_TEXT_BYTES:
+        fail("PROMPT_SIZE_INVALID", str(len(prompt_data)))
+    if not output_data or len(output_data) > 256:
+        fail("EXPECTED_OUTPUT_SIZE_INVALID", str(len(output_data)))
+    try:
+        prompt_text = prompt_data.decode("utf-8")
+        output_text = output_data.decode("utf-8")
+    except UnicodeError as exc:
+        fail("PRIVATE_TEXT_UTF8_INVALID", str(exc))
+    if any(ord(ch) == 0 or (ord(ch) < 32 and ch not in "\n\t") for ch in prompt_text):
+        fail("PROMPT_CONTROL_BYTE_REFUSED", "prompt")
+    if output_text.strip() != output_text or any(ord(ch) < 32 or ord(ch) == 127 for ch in output_text):
+        fail("EXPECTED_OUTPUT_EXACT_TEXT_INVALID", "expected output must be nonempty, trimmed, single-line UTF-8")
+    card: dict[str, Any] = {
+        "schema": CARD_SCHEMA,
+        "cardId": None,
+        "profileId": PROFILE_ID,
+        "protocol": PROTOCOL,
+        "interface": INTERFACE,
+        "transactionRef": recipe["transactionRef"],
+        "seatRef": recipe["seatRef"],
+        "seatId": recipe["seatId"],
+        "expectedRole": recipe["expectedRole"],
+        "prompt": {
+            "sha256": sha256_ref(prompt_data),
+            "encodedBytes": len(prompt_data),
+            "tokenCount": recipe["promptTokenCount"],
+            "tokenizerEvidenceRef": recipe["tokenizerEvidenceRef"],
+        },
+        "expectedOutput": {
+            "sha256": sha256_ref(output_data),
+            "encodedBytes": len(output_data),
+            "tokenCount": OUTPUT_TOKEN_COUNT,
+            "referenceEvidenceRef": recipe["referenceOutputEvidenceRef"],
+        },
+        "static": recipe["static"],
+        "dropTarget": recipe["dropTarget"],
+        "requestBudget": {},
+        "claimBoundary": recipe["claimBoundary"],
+    }
+    card["requestBudget"] = {
+        "probeInvocationCount": invocation_count(card),
+        "sessionRequestCount": required_session_requests(card),
+        "sessionRequestCeiling": MAX_SESSION_REQUESTS,
+        "sessionRequestsPerProbeInvocation": SESSION_REQUESTS_PER_INVOCATION,
+        "sessionRequestReserve": SESSION_REQUEST_RESERVE,
+    }
+    card["cardId"] = content_id("axmphysicalflightcard", {**card, "cardId": None})
+    return validate_card(card)
+
+
+def normalize_supplement(value: dict[str, Any], card: dict[str, Any]) -> dict[str, Any]:
+    exact_keys(value, {"schema", "supplementId", "profileId", "protocol", "interface", "cardId", "transactionRef", "seatRef", "outputEvidenceRef", "drop", "privacy", "receipts", "claimBoundary"}, "SUPPLEMENT_KEYS_INVALID")
+    if value["schema"] != SUPPLEMENT_SCHEMA or value["profileId"] != PROFILE_ID or value["protocol"] != PROTOCOL or value["interface"] != INTERFACE:
+        fail("SUPPLEMENT_IDENTITY_INVALID", "supplement")
+    if value["cardId"] != card["cardId"] or value["transactionRef"] != card["transactionRef"] or value["seatRef"] != card["seatRef"]:
+        fail("SUPPLEMENT_CARD_BINDING_INVALID", "supplement")
+    sha_value(value["outputEvidenceRef"], "outputEvidenceRef")
+    drop = exact_keys(value["drop"], {"observedTerminal", "recovered", "evidenceRef", "controlled"}, "DROP_KEYS_INVALID")
+    if drop["observedTerminal"] not in {"HALTED", "DEGRADED", "RECOVERED"}:
+        fail("DROP_TERMINAL_INVALID", str(drop["observedTerminal"]))
+    boolean_value(drop["recovered"], "drop.recovered")
+    if drop["controlled"] is not True:
+        fail("DROP_CONTROL_INVALID", "drop.controlled")
+    sha_value(drop["evidenceRef"], "drop.evidenceRef")
+    privacy = exact_keys(value["privacy"], {"scope", "evidenceRef", "claimsEndToEndConfidentiality"}, "PRIVACY_KEYS_INVALID")
+    if privacy["scope"] != "browser-observed-network-surface-only" or privacy["claimsEndToEndConfidentiality"] is not False:
+        fail("PRIVACY_SCOPE_INVALID", "privacy")
+    sha_value(privacy["evidenceRef"], "privacy.evidenceRef")
+    receipts = value["receipts"]
+    if not isinstance(receipts, list) or len(receipts) != len(RECEIPT_KINDS):
+        fail("RECEIPT_COUNT_INVALID", str(len(receipts) if isinstance(receipts, list) else None))
+    for index, row in enumerate(receipts):
+        exact_keys(row, {"kind", "evidenceRef"}, "RECEIPT_KEYS_INVALID")
+        if row["kind"] != RECEIPT_KINDS[index]:
+            fail("RECEIPT_ORDER_INVALID", f"index={index}")
+        sha_value(row["evidenceRef"], f"receipts[{index}].evidenceRef")
+    expected_refs = {
+        "current-availability-observation": card["static"]["availability"]["evidenceRef"],
+        "executable-adapter-artifact": card["static"]["adapterArtifact"]["evidenceRef"],
+        "formation-capacity-receipt": card["static"]["formation"]["capacityReceiptRef"],
+        "formation-topology-receipt": card["static"]["formation"]["topologyReceiptRef"],
+        "member-drop-behavior-receipt": drop["evidenceRef"],
+        "model-output-equivalence-receipt": value["outputEvidenceRef"],
+        "privacy-declaration": privacy["evidenceRef"],
+    }
+    for row in receipts:
+        if row["kind"] in expected_refs and row["evidenceRef"] != expected_refs[row["kind"]]:
+            fail("RECEIPT_EVIDENCE_BINDING_MISMATCH", row["kind"])
+    validate_claim_boundary(value["claimBoundary"], "supplement")
+    assert_no_forbidden({"drop": drop, "privacy": privacy, "receipts": receipts})
+    return value
+
+
+def validate_supplement(value: dict[str, Any], card: dict[str, Any]) -> dict[str, Any]:
+    if len(canonical_bytes(value)) > MAX_SUPPLEMENT_BYTES:
+        fail("SUPPLEMENT_BYTE_LIMIT_EXCEEDED", str(len(canonical_bytes(value))))
+    validate_card(card)
+    normalize_supplement(value, card)
+    expected = content_id("axmphysicalflightpostflight", {**value, "supplementId": None})
+    if value["supplementId"] != expected:
+        fail("SUPPLEMENT_CONTENT_ID_INVALID", str(value["supplementId"]))
+    return value
+
+
+def build_supplement(card: dict[str, Any], raw: dict[str, Any]) -> dict[str, Any]:
+    validate_card(card)
+    exact_keys(raw, {"schema", "profileId", "protocol", "interface", "cardId", "transactionRef", "seatRef", "outputEvidenceRef", "drop", "privacy", "receipts", "claimBoundary"}, "SUPPLEMENT_INPUT_KEYS_INVALID")
+    if raw["schema"] != SUPPLEMENT_INPUT_SCHEMA:
+        fail("SUPPLEMENT_INPUT_IDENTITY_INVALID", str(raw.get("schema")))
+    value = {**raw, "schema": SUPPLEMENT_SCHEMA, "supplementId": None}
+    value["supplementId"] = content_id("axmphysicalflightpostflight", {**value, "supplementId": None})
+    return validate_supplement(value, card)
+
+
+def dependency_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "path": "mating_surface/anchor_node/browser_distributed_inference_probe.js",
+            "bytes": 22384,
+            "gitBlobSha": "f8489140c119b8513a7569ff95c3900dc1672496",
+            "sha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e",
+        },
+        {
+            "path": "mating_surface/anchor_node/browser_physical_audition_operator_contract.js",
+            "bytes": 14749,
+            "gitBlobSha": "649007fbf08db899630ad8f9fb972f01146feade",
+            "sha256": "sha256:fe826434bc9fe2a3e47a0d991273bddd9e54852618b86b97914976d514336042",
+        },
+        {
+            "path": "mating_surface/anchor_node/browser_physical_audition_operator_service_worker.js",
