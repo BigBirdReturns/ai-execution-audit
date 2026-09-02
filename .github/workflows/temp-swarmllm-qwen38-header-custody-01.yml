@@ -1,0 +1,160 @@
+name: TEMP SwarmLLM Qwen3.8 Header Custody 01
+
+on:
+  push:
+    branches:
+      - ops/swarmllm-live-artifact-custody-01
+    paths:
+      - ".github/workflows/temp-swarmllm-qwen38-header-custody-01.yml"
+      - "ops/swarmllm_qwen38_custody.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-swarmllm-qwen38-header-custody-01
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  custody:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/swarmllm-live-artifact-custody-01
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install bounded public-data dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check requests huggingface_hub
+
+      - name: Capture exact live adapter and Qwen3.8 GGUF header bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ops/swarmllm_qwen38_custody.py
+          python ops/swarmllm_qwen38_custody.py fetch-header \
+            --output "$RUNNER_TEMP/swarmllm-qwen38-custody"
+
+      - name: Independently validate the custody denominator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "$RUNNER_TEMP/swarmllm-qwen38-custody" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import requests
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          custody = json.loads((root / "CUSTODY.json").read_text())
+          runtime = json.loads((root / "QWEN38-RUNTIME-MANIFEST.json").read_text())
+          adapter = json.loads((root / "ADAPTER.json").read_text())
+          inventory = json.loads((root / "INVENTORY.json").read_text())
+          if custody.get("status") != "PASS":
+              raise SystemExit(custody)
+          if custody.get("expectedWholeFileSha256") != "sha256:ede16c7b36e578ca87a8c70e011e4b4633a32c831c0ce76d0f474582384e671d":
+              raise SystemExit(custody)
+          if runtime.get("runtimeLayerCount") != 64 or runtime.get("blockCount") != 65 or runtime.get("nextNPredictLayers") != 1:
+              raise SystemExit({key: runtime.get(key) for key in ("runtimeLayerCount", "blockCount", "nextNPredictLayers")})
+          if runtime.get("tensorCount", 0) < 700 or len(runtime.get("layers", [])) != 64:
+              raise SystemExit("tensor/layer denominator differs")
+          if adapter.get("memberCount") != 5 or not str(adapter.get("artifactId", "")).startswith("axmswarmllmliveadapter_"):
+              raise SystemExit(adapter)
+          members = inventory.get("members", [])
+          for row in members:
+              path = root / row["path"]
+              data = path.read_bytes()
+              observed = "sha256:" + hashlib.sha256(data).hexdigest()
+              if len(data) != row["bytes"] or observed != row["sha256"]:
+                  raise SystemExit(f"inventory mismatch: {row['path']}")
+
+          # Re-fetch one exact small runtime tensor from its original byte interval.
+          candidates = [
+              tensor
+              for layer in runtime["layers"]
+              for tensor in layer["tensors"]
+              if tensor["byteLength"] <= 1024 * 1024
+          ]
+          if not candidates:
+              raise SystemExit("no bounded tensor candidate")
+          tensor = min(candidates, key=lambda row: (row["byteLength"], row["byteOffset"]))
+          response = requests.get(
+              runtime["modelUrl"],
+              headers={"Range": f"bytes={tensor['byteOffset']}-{tensor['byteEndInclusive']}"},
+              timeout=180,
+              allow_redirects=True,
+          )
+          if response.status_code != 206 or len(response.content) != tensor["byteLength"]:
+              raise SystemExit(f"small tensor range failed: {response.status_code}/{len(response.content)}")
+          sample = {
+              "schema": "axm-private/swarmllm-qwen38-range-sample@1",
+              "status": "PASS",
+              "name": tensor["name"],
+              "byteOffset": tensor["byteOffset"],
+              "byteEndInclusive": tensor["byteEndInclusive"],
+              "byteLength": tensor["byteLength"],
+              "sha256": "sha256:" + hashlib.sha256(response.content).hexdigest(),
+              "responseHeaders": dict(sorted(response.headers.items())),
+              "physicalExecutionObserved": False,
+              "actualSupplierQualified": False,
+          }
+          (root / "RANGE-SAMPLE.json").write_text(json.dumps(sample, sort_keys=True, indent=2) + "\n")
+          (root / "range-sample.bin").write_bytes(response.content)
+          print(json.dumps({
+              "runtimeLayers": runtime["runtimeLayerCount"],
+              "tensorCount": runtime["tensorCount"],
+              "fullFileBytes": runtime["fullFileBytes"],
+              "headerBytes": runtime["ggufHeaderBytes"],
+              "dataStart": runtime["ggufDataStart"],
+              "sampleTensor": tensor["name"],
+              "sampleBytes": tensor["byteLength"],
+          }, sort_keys=True))
+          PY
+
+      - name: Refresh final checksum inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "$RUNNER_TEMP/swarmllm-qwen38-custody" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import sys
+          root = pathlib.Path(sys.argv[1])
+          rows = []
+          for path in sorted(p for p in root.rglob("*") if p.is_file() and p.name not in {"FINAL-INVENTORY.json", "FINAL-SHA256SUMS.txt"}):
+              data = path.read_bytes()
+              rows.append({"path": path.relative_to(root).as_posix(), "bytes": len(data), "sha256": "sha256:" + hashlib.sha256(data).hexdigest()})
+          (root / "FINAL-INVENTORY.json").write_text(json.dumps({
+              "schema": "axm-private/swarmllm-qwen38-final-inventory@1",
+              "memberCount": len(rows),
+              "members": rows,
+              "physicalExecutionObserved": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+          }, sort_keys=True, indent=2) + "\n")
+          with (root / "FINAL-SHA256SUMS.txt").open("w", encoding="utf-8", newline="\n") as handle:
+              for row in rows:
+                  handle.write(f"{row['sha256'][7:]}  {row['path']}\n")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swarmllm-qwen38-header-custody-${{ github.sha }}
+          path: ${{ runner.temp }}/swarmllm-qwen38-custody
+          if-no-files-found: error
+          retention-days: 7
