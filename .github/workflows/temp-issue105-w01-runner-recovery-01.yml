@@ -1,0 +1,139 @@
+name: TEMP Issue 105 W01 Runner Recovery 01
+
+on:
+  push:
+    branches:
+      - ops/issue105-w01-private-transfer-probe-01
+    paths:
+      - ".github/scripts/issue105-w01-runner-recovery-01.ps1"
+      - ".github/workflows/temp-issue105-w01-runner-recovery-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-w01-runner-recovery-01
+  cancel-in-progress: true
+
+jobs:
+  qualify-hosted-windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-w01-private-transfer-probe-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Parse and exercise the no-service terminal
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Script = Join-Path $env:GITHUB_WORKSPACE '.github\scripts\issue105-w01-runner-recovery-01.ps1'
+          $Tokens = $null
+          $Errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile($Script, [ref]$Tokens, [ref]$Errors)
+          if ($Errors.Count -ne 0) {
+            $Errors | ForEach-Object { Write-Error $_.Message }
+            throw 'POWERSHELL_PARSE_FAILED'
+          }
+          $Source = Get-Content -LiteralPath $Script -Raw
+          foreach ($Required in @(
+            '33612249992',
+            'TEMP Issue 105 W01 Private Transfer Probe 04',
+            "actions.runner.*",
+            'RunnerService.exe',
+            'RUNNER_ALREADY_RUNNING',
+            'RUNNER_STARTED',
+            'RUNNER_SERVICE_NOT_FOUND',
+            'MULTIPLE_RUNNER_SERVICES_FOUND',
+            'RUNNER_SERVICE_DISABLED',
+            'RUNNER_SERVICE_START_TIMEOUT'
+          )) {
+            if (-not $Source.Contains($Required)) { throw "REQUIRED_BOUNDARY_MISSING:$Required" }
+          }
+          foreach ($Forbidden in @(
+            'New-Service',
+            'sc.exe create',
+            'Set-Service',
+            'Invoke-WebRequest',
+            'Invoke-RestMethod',
+            'Start-BitsTransfer',
+            'System.Net.Http',
+            'WebClient',
+            'routeTerminalProduced = $true',
+            'actualSupplierQualified = $true',
+            'physicalEstateQualified = $true'
+          )) {
+            if ($Source.Contains($Forbidden)) { throw "FORBIDDEN_SURFACE_PRESENT:$Forbidden" }
+          }
+
+          $Root = Join-Path $env:RUNNER_TEMP 'issue105-w01-runner-recovery'
+          New-Item -ItemType Directory -Path $Root -Force | Out-Null
+          $ReceiptPath = Join-Path $Root 'RUNNER-RECOVERY-RECEIPT.json'
+          $Process = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+            '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $Script,
+            '-ReceiptPath', $ReceiptPath
+          ) -Wait -PassThru -WindowStyle Hidden
+          if (-not (Test-Path -LiteralPath $ReceiptPath -PathType Leaf)) { throw 'RECOVERY_RECEIPT_MISSING' }
+          $Receipt = Get-Content -LiteralPath $ReceiptPath -Raw | ConvertFrom-Json
+          if ($Receipt.status -ne 'HOLD' -or
+              $Receipt.terminal -ne 'HOLD' -or
+              $Receipt.reasonCode -ne 'RUNNER_SERVICE_NOT_FOUND' -or
+              [int64]$Receipt.expectedQueuedRunId -ne 33612249992L -or
+              $Receipt.expectedWorkflow -ne 'TEMP Issue 105 W01 Private Transfer Probe 04' -or
+              [int]$Receipt.matchingServiceCount -ne 0 -or
+              $Receipt.serviceStartAttempted -ne $false -or
+              $Receipt.serviceConfigurationChanged -ne $false -or
+              $Receipt.flightStateChanged -ne $false -or
+              $Receipt.physicalExecutionObserved -ne $false -or
+              $Receipt.browserLaunched -ne $false -or
+              $Receipt.supplierEndpointContacted -ne $false -or
+              $Receipt.modelDownloaded -ne $false -or
+              [int]$Receipt.rangeShardsDownloaded -ne 0 -or
+              $Receipt.peerConnectionFormed -ne $false -or
+              $Receipt.inferenceExecuted -ne $false -or
+              [int]$Receipt.physicalMemberEvidenceAccepted -ne 0 -or
+              [int]$Receipt.rawCapturesAccepted -ne 0 -or
+              $Receipt.namedHumanConfirmationSupplied -ne $false -or
+              $Receipt.routeTerminalProduced -ne $false -or
+              $Receipt.actualSupplierQualified -ne $false -or
+              $Receipt.physicalEstateQualified -ne $false -or
+              $Receipt.missionAuthority -ne 'none' -or
+              $Receipt.commandAuthority -ne 'none') {
+            throw 'HOSTED_RECOVERY_RECEIPT_INVALID'
+          }
+          if ($Process.ExitCode -ne 2) { throw "HOSTED_RECOVERY_EXIT_INVALID:$($Process.ExitCode)" }
+
+          [ordered]@{
+            schema = 'axm-private/issue105-w01-runner-recovery-hosted-qualification@1'
+            status = 'PASS'
+            sourceRef = 'sha256:' + (Get-FileHash -LiteralPath $Script -Algorithm SHA256).Hash.ToLowerInvariant()
+            powershellParsed = $true
+            noServiceHold = $true
+            expectedQueuedRunId = 33612249992L
+            serviceInstalled = $false
+            serviceConfigurationChanged = $false
+            flightStateChanged = $false
+            physicalExecutionObserved = $false
+            browserLaunched = $false
+            supplierEndpointContacted = $false
+            modelDownloaded = $false
+            rangeShardsDownloaded = 0
+            peerConnectionFormed = $false
+            inferenceExecuted = $false
+            routeTerminalProduced = $false
+            actualSupplierQualified = $false
+            physicalEstateQualified = $false
+            missionAuthority = 'none'
+            commandAuthority = 'none'
+          } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'issue105-w01-runner-recovery-hosted-qualification.json') -Encoding UTF8
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue105-w01-runner-recovery-hosted-qualification-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-w01-runner-recovery-hosted-qualification.json
+          if-no-files-found: error
+          retention-days: 14
