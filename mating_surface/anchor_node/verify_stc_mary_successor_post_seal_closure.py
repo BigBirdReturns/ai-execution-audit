@@ -237,6 +237,11 @@ def close_post_seal(
         "SEALED_OUTPUT_UNSAFE",
         "the sealed directory must remain outside the public repository",
     )
+    require(
+        not is_within(sealed, packet) and not is_within(packet, sealed),
+        "SEALED_OUTPUT_UNSAFE",
+        "the sealed directory and private packet must be disjoint",
+    )
 
     closure_law = profile["postSealClosure"]
     seal_law = profile["seal"]

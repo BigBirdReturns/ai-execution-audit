@@ -1325,6 +1325,11 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
             repository=REPOSITORY_ROOT,
         )
 
+    def external_seal_transaction(self, estate: Path) -> Path:
+        path = estate.parent / "external-seal-transaction.json"
+        law.write_canonical_json(path, self.walk.seal_result["transaction"])
+        return path
+
     # -- the authenticated denominator --------------------------------------------
     def test_a_closure_missing_one_authenticated_confirmation_refuses(self) -> None:
         estate = self.copy_pre_seal_estate()
@@ -1428,6 +1433,45 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
             )
         self.assertEqual(caught.exception.code, "SEALED_OUTPUT_UNSAFE")
 
+    def test_sealing_refuses_sealed_directory_inside_packet_with_external_transaction(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        sealed = packet / "stc-mary-private-flight-sealed-inside-packet"
+        transaction = self.external_seal_transaction(estate)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.seal_packet(
+                packet=packet,
+                sealed=sealed,
+                pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                repository=REPOSITORY_ROOT,
+                transaction_receipt=transaction,
+                source_execution_receipt=self.walk.seal_execution_receipt_path,
+            )
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_UNSAFE")
+        self.assertFalse(sealed.exists())
+        self.assertFalse((sealed.parent / f".{sealed.name}.seal-staging").exists())
+
+    def test_sealing_refuses_packet_inside_sealed_directory_with_external_transaction(self) -> None:
+        estate = self.copy_pre_seal_estate()
+        original_packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-around-packet"
+        sealed.mkdir()
+        packet = sealed / "private-packet"
+        shutil.move(original_packet, packet)
+        transaction = self.external_seal_transaction(estate)
+        with self.assertRaises(law.SuccessorFlightError) as caught:
+            seal_adapter.seal_packet(
+                packet=packet,
+                sealed=sealed,
+                pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                repository=REPOSITORY_ROOT,
+                transaction_receipt=transaction,
+                source_execution_receipt=self.walk.seal_execution_receipt_path,
+            )
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_UNSAFE")
+        self.assertEqual(list(sealed.iterdir()), [packet])
+        self.assertFalse((sealed.parent / f".{sealed.name}.seal-staging").exists())
+
     # -- detached verification --------------------------------------------------------
     def test_a_sealed_file_edited_after_sealing_refuses(self) -> None:
         estate = self.copy_sealed_estate()
@@ -1488,6 +1532,44 @@ class ClosedEstateHostileWitnesses(unittest.TestCase):
                 repository=REPOSITORY_ROOT,
             )
         self.assertEqual(caught.exception.code, "POST_SEAL_ASSERTION_BEFORE_SEALING")
+
+    def test_post_seal_refuses_sealed_directory_inside_packet_with_external_transaction(self) -> None:
+        estate = self.copy_sealed_estate()
+        packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        original_sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        sealed = packet / original_sealed.name
+        shutil.move(original_sealed, sealed)
+        transaction = self.external_seal_transaction(estate)
+        with self.assertRaises(post_seal.PostSealClosureError) as caught:
+            post_seal.close_post_seal(
+                packet=packet,
+                sealed=sealed,
+                pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                detached_verification=estate / "receipts" / "detached-verification.json",
+                profile_path=PROFILE,
+                repository=REPOSITORY_ROOT,
+                seal_transaction_receipt=transaction,
+            )
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_UNSAFE")
+
+    def test_post_seal_refuses_packet_inside_sealed_directory_with_external_transaction(self) -> None:
+        estate = self.copy_sealed_estate()
+        original_packet = estate / "campaign" / "stc-mary-private-flight-successor"
+        sealed = estate / "campaign" / "stc-mary-private-flight-sealed-witness"
+        packet = sealed / "private-packet"
+        shutil.move(original_packet, packet)
+        transaction = self.external_seal_transaction(estate)
+        with self.assertRaises(post_seal.PostSealClosureError) as caught:
+            post_seal.close_post_seal(
+                packet=packet,
+                sealed=sealed,
+                pre_seal_closure=estate / "receipts" / "pre-seal-closure.json",
+                detached_verification=estate / "receipts" / "detached-verification.json",
+                profile_path=PROFILE,
+                repository=REPOSITORY_ROOT,
+                seal_transaction_receipt=transaction,
+            )
+        self.assertEqual(caught.exception.code, "SEALED_OUTPUT_UNSAFE")
 
     def test_a_foreign_detached_verification_refuses(self) -> None:
         estate = self.copy_sealed_estate()

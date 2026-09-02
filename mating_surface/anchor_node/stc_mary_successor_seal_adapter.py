@@ -64,7 +64,9 @@ STATE_CLAIM = (
 )
 
 
-def validate_new_sealed_directory(profile: Mapping[str, Any], sealed: Path, repository: Path) -> Path:
+def validate_new_sealed_directory(
+    profile: Mapping[str, Any], sealed: Path, packet: Path, repository: Path,
+) -> Path:
     seal_law = profile["seal"]
     resolved = law.validate_lexical_coordinate(sealed, label="sealed directory", code="SEALED_OUTPUT_UNSAFE")
     law.require(
@@ -76,6 +78,11 @@ def validate_new_sealed_directory(profile: Mapping[str, Any], sealed: Path, repo
         not law.is_within(resolved, repository),
         "SEALED_OUTPUT_UNSAFE",
         "the sealed directory must remain outside the public repository",
+    )
+    law.require(
+        not law.is_within(resolved, packet) and not law.is_within(packet, resolved),
+        "SEALED_OUTPUT_UNSAFE",
+        "the sealed directory and private packet must be disjoint",
     )
     return resolved
 
@@ -232,7 +239,7 @@ def seal_packet(
         ),
         state,
     )
-    resolved = validate_new_sealed_directory(profile, sealed, repository)
+    resolved = validate_new_sealed_directory(profile, sealed, packet, repository)
 
     records = runtime.read_stage_records(profile=profile, packet=packet, state=state)
     private_bodies = runtime.verify_evidence_custody(packet=packet, records=records)
