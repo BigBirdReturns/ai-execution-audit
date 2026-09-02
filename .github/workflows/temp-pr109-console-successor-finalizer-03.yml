@@ -1,0 +1,96 @@
+name: TEMP PR109 Console Successor Finalizer 03
+
+on:
+  push:
+    branches:
+      - ops/pr109-console-successor-finalizer-01
+    paths:
+      - ".github/workflows/temp-pr109-console-successor-finalizer-03.yml"
+
+permissions:
+  actions: read
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: temp-pr109-console-successor-finalizer-03
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/pr109-console-successor-finalizer-01
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Reconstruct exact carrier and name any failed replacement
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-00 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-01 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-02a \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-02b \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-03 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-04a \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-04b0 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-04b1 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-04b2 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-04b3 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-05a0 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-05a1 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-05a2 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-05a3 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-05a4 \
+            .agent-carriers/AXM-PR109-Console-Successor-Finalizer-01.zip.b64.part-05a5 \
+            | base64 --decode > "$RUNNER_TEMP/finalizer.zip"
+          [[ "$(wc -c < "$RUNNER_TEMP/finalizer.zip")" -eq 34129 ]]
+          [[ "$(sha256sum "$RUNNER_TEMP/finalizer.zip" | awk '{print $1}')" == d745848b817cc69f9c46b89812bdeb572a464401c044568f56769d020456955b ]]
+          mkdir -p "$RUNNER_TEMP/finalizer"
+          unzip -q "$RUNNER_TEMP/finalizer.zip" -d "$RUNNER_TEMP/finalizer"
+          ROOT="$RUNNER_TEMP/finalizer/AXM-PR109-Console-Successor-Finalizer-01"
+          python "$ROOT/verify_carrier.py" "$ROOT"
+          python - "$ROOT/finalize_pr109_console_successor.py" <<'PY'
+          import pathlib
+          import sys
+          path = pathlib.Path(sys.argv[1])
+          data = path.read_text(encoding="utf-8")
+          old = 'raise FinalizerError(f"replacement denominator differs for {path}: expected={count} observed={observed}")'
+          new = 'raise FinalizerError(f"replacement denominator differs for {path}: expected={count} observed={observed} old={old!r}")'
+          if data.count(old) != 1:
+              raise SystemExit("diagnostic patch denominator differs")
+          path.write_text(data.replace(old, new, 1), encoding="utf-8", newline="\n")
+          PY
+          python -m py_compile "$ROOT/finalize_pr109_console_successor.py"
+          gh auth setup-git
+          python "$ROOT/finalize_pr109_console_successor.py" \
+            --work-root "$RUNNER_TEMP/finalizer-work" \
+            --receipt-root "$RUNNER_TEMP/finalizer-receipts" \
+            --stop-after-console-pr \
+            | tee "$RUNNER_TEMP/finalizer-terminal.json"
+      - name: Upload diagnostic receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr109-console-successor-diagnostic-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/finalizer-receipts
+            ${{ runner.temp }}/finalizer-terminal.json
+          if-no-files-found: warn
+          retention-days: 14
