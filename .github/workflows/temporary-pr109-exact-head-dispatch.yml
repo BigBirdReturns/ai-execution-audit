@@ -1,0 +1,44 @@
+name: TEMP PR109 exact-head dispatch
+
+on:
+  push:
+    branches:
+      - work/axm-head-browser-physical-audition-kit-layout-01
+    paths:
+      - .github/workflows/temporary-pr109-exact-head-dispatch.yml
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/axm-head-browser-physical-audition-kit-layout-01
+          fetch-depth: 0
+
+      - name: Restore the clean candidate head
+        run: |
+          git config user.name "BigBirdReturns"
+          git config user.email "bigbirdreturns@proton.me"
+          git rm .github/workflows/temporary-pr109-exact-head-dispatch.yml
+          git commit -m "chore: restore clean PR 109 qualification head"
+          git push origin HEAD:work/axm-head-browser-physical-audition-kit-layout-01
+
+      - name: Dispatch every permanent exact-head gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: work/axm-head-browser-physical-audition-kit-layout-01
+        run: |
+          for workflow in \
+            axm-head-browser-physical-audition-packet-01.yml \
+            axm-head-browser-physical-audition-operator-console-01.yml \
+            standards-mating-surface.yml \
+            spectra-anchor-node-mp01.yml
+          do
+            gh workflow run "$workflow" --ref "$BRANCH"
+          done
