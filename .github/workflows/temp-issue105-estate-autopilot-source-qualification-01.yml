@@ -1,0 +1,170 @@
+name: TEMP Issue 105 Estate Autopilot Source Qualification 01
+
+on:
+  push:
+    branches:
+      - ops/issue105-estate-autopilot-01
+    paths:
+      - ".agent-carriers/issue105-estate-autopilot-source-carrier-01.zip.b64.part-*"
+      - ".github/workflows/temp-issue105-estate-autopilot-source-qualification-01.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-issue105-estate-autopilot-source-qualification-01
+  cancel-in-progress: true
+
+env:
+  SOURCE_ARCHIVE_BYTES: "71977"
+  SOURCE_ARCHIVE_SHA256: 1c1a82b66c0a8ae7a2b766ee91cdc5dd42fd6b99936bf865a57e8bcfef6187c1
+  SOURCE_SET_ID: axmissue105estateautopilotsource_e67be9dabcaf0c7e7ea25e275eff1e9ee0fe4e58d96db8fd809da5446d525e73
+
+jobs:
+  qualify-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/issue105-estate-autopilot-01
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Reconstruct and authenticate the exact source carrier
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Parts = 0..11 | ForEach-Object {
+            Join-Path $env:GITHUB_WORKSPACE ('.agent-carriers\issue105-estate-autopilot-source-carrier-01.zip.b64.part-{0:D2}' -f $_)
+          }
+          $Sizes = @(8000,8000,8000,8000,8000,8000,8000,8000,8000,8000,8000,7972)
+          $Hashes = @(
+            '86237fd8b0cb5b693898def504e5449c7b95f939270b188e3c868b9ca8367cb3',
+            '7bea39b5ba460b1a13665c77e1774282d5e0620144b309f993f299bfb2623bef',
+            'b108485c945fdfe334805dcb25f0e777a06e6c36a530d3549766bf4108c001cc',
+            '9ed8d235eaaa0f639dcf207a999e3909fb2812ab2f317cf16836533873ccde15',
+            'a0ae73b2dcfe7f6e8f484e89a2c9b24b17e2bb114d0e035dca2e97fb79576f54',
+            '29611ffbe742a6572a529957562e1aed73c3c2a62687ed89fc44ef11729ad792',
+            '1823a477f5e09c55aeb5afde4ce7a3b0363eb9dca00b59ee407deeb6682bb3c8',
+            'c8ca4dbc93a6b019e47157f5f379ad184496caaed1a1a767c40c000a43f1cee5',
+            'e300eff8589e8076141054369be4bd127d2567e8f8efc4bd3a60a541d77425c1',
+            '9a7c4e1ea31383989e3571d213a0fd66827d587b288ab48fc8176c47194b3883',
+            '1dcae6754d5dd0786802699051ba03879d5b92d4aab398a6f77606518c9e241b',
+            '2108b1480011421ac68d477daff4ff9b1ac386067f28b6612b47a03260a0d5d2'
+          )
+          $Builder = [Text.StringBuilder]::new()
+          for ($Index = 0; $Index -lt $Parts.Count; $Index++) {
+            $Part = $Parts[$Index]
+            if (-not (Test-Path -LiteralPath $Part -PathType Leaf)) { throw "CARRIER_PART_MISSING:$Index" }
+            $Bytes = [IO.File]::ReadAllBytes($Part)
+            if ($Bytes.Length -ne $Sizes[$Index]) { throw "CARRIER_PART_SIZE_INVALID:$Index" }
+            $Digest = (Get-FileHash -LiteralPath $Part -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($Digest -ne $Hashes[$Index]) { throw "CARRIER_PART_SHA256_INVALID:$Index" }
+            [void]$Builder.Append([Text.Encoding]::ASCII.GetString($Bytes))
+          }
+          $Archive = Join-Path $env:RUNNER_TEMP 'issue105-estate-autopilot-source-carrier-01.zip'
+          [IO.File]::WriteAllBytes($Archive, [Convert]::FromBase64String($Builder.ToString()))
+          if ((Get-Item -LiteralPath $Archive).Length -ne [int64]$env:SOURCE_ARCHIVE_BYTES) { throw 'SOURCE_ARCHIVE_SIZE_INVALID' }
+          if ((Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:SOURCE_ARCHIVE_SHA256) { throw 'SOURCE_ARCHIVE_SHA256_INVALID' }
+          $SourceRoot = Join-Path $env:RUNNER_TEMP 'issue105-estate-autopilot-source'
+          Expand-Archive -LiteralPath $Archive -DestinationPath $SourceRoot -Force
+          "SOURCE_ROOT=$SourceRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Parse and execute the closed source boundary
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Push-Location $env:SOURCE_ROOT
+          try {
+            $PythonFiles = @(
+              'distributed_qwen38_custody.py',
+              'validate_final_host_receipts.py',
+              'validate_range_custody_receipts.py',
+              'verify_issue105_estate_autopilot.py',
+              'tests\test_estate_autopilot.py',
+              'hosted_source_check.py'
+            )
+            foreach ($Relative in $PythonFiles) {
+              python -m py_compile $Relative
+              if ($LASTEXITCODE -ne 0) { throw "PYTHON_PARSE_FAILED:$Relative" }
+            }
+            node --check 'drive_swarmllm_room.mjs'
+            if ($LASTEXITCODE -ne 0) { throw 'ROOM_DRIVER_PARSE_FAILED' }
+            node --check 'drive_operation_plan_panel.mjs'
+            if ($LASTEXITCODE -ne 0) { throw 'PANEL_DRIVER_PARSE_FAILED' }
+            $SourceCheckPath = Join-Path $env:RUNNER_TEMP 'source-check.json'
+            python hosted_source_check.py | Set-Content -LiteralPath $SourceCheckPath -Encoding UTF8
+            $SourceCheck = Get-Content -LiteralPath $SourceCheckPath -Raw | ConvertFrom-Json
+            if ($SourceCheck.status -ne 'PASS' -or $SourceCheck.sourceSetId -ne $env:SOURCE_SET_ID -or [int]$SourceCheck.sourceMembers -ne 12) { throw 'SOURCE_CHECK_INVALID' }
+
+            $PowerShellFiles = @(
+              'Invoke-Issue105-Estate-Autopilot.ps1',
+              'Invoke-Issue105-Physical-Flight-Controller.ps1',
+              'Issue105.EstateTransport.psm1',
+              'remote\Invoke-Issue105-L01-Phase.ps1'
+            )
+            foreach ($Relative in $PowerShellFiles) {
+              $Tokens = $null; $Errors = $null
+              $null = [Management.Automation.Language.Parser]::ParseFile((Join-Path $env:SOURCE_ROOT $Relative), [ref]$Tokens, [ref]$Errors)
+              if ($Errors.Count -ne 0) { throw "POWERSHELL_PARSE_FAILED:$Relative" }
+            }
+
+            $RunRoot = Join-Path $env:RUNNER_TEMP 'issue105-estate-autopilot-status'
+            & (Join-Path $env:SOURCE_ROOT 'Invoke-Issue105-Physical-Flight-Controller.ps1') -Mode Status -RunRoot $RunRoot | Out-Null
+            $StatusPath = Join-Path $RunRoot 'physical-flight\PHYSICAL-FLIGHT-STATUS.json'
+            $Status = Get-Content -LiteralPath $StatusPath -Raw | ConvertFrom-Json
+            if ($Status.status -ne 'PASS' -or $Status.terminal -ne 'READY_FOR_FINAL_HOST_PREPARATION' -or
+                $Status.physicalExecutionObserved -ne $false -or $Status.browserLaunched -ne $false -or
+                $Status.supplierEndpointContacted -ne $false -or $Status.modelDownloaded -ne $false -or
+                [int]$Status.rangeShardsDownloaded -ne 0 -or $Status.peerConnectionFormed -ne $false -or
+                $Status.inferenceExecuted -ne $false -or [int]$Status.physicalObservationBodiesAccepted -ne 0 -or
+                [int]$Status.rawCapturesAccepted -ne 0 -or $Status.namedHumanConfirmationSupplied -ne $false -or
+                $Status.routeTerminalProduced -ne $false -or $Status.actualSupplierQualified -ne $false -or
+                $Status.physicalEstateQualified -ne $false -or $Status.missionAuthority -ne 'none' -or
+                $Status.commandAuthority -ne 'none') { throw 'CONTROLLER_STATUS_INVALID' }
+
+            [ordered]@{
+              schema = 'axm-private/issue105-estate-autopilot-hosted-qualification@1'
+              status = 'PASS'
+              sourceSetId = $env:SOURCE_SET_ID
+              sourceArchiveBytes = [int64]$env:SOURCE_ARCHIVE_BYTES
+              sourceArchiveSha256 = $env:SOURCE_ARCHIVE_SHA256
+              powershellMembersParsed = 4
+              pythonMembersParsed = 6
+              javascriptMembersChecked = 2
+              controllerStatusTerminal = $Status.terminal
+              physicalExecutionObserved = $false
+              browserLaunched = $false
+              supplierEndpointContacted = $false
+              modelDownloaded = $false
+              rangeShardsDownloaded = 0
+              peerConnectionFormed = $false
+              inferenceExecuted = $false
+              physicalMemberEvidenceAccepted = 0
+              rawCapturesAccepted = 0
+              namedHumanConfirmationSupplied = $false
+              routeTerminalProduced = $false
+              actualSupplierQualified = $false
+              physicalEstateQualified = $false
+              missionAuthority = 'none'
+              commandAuthority = 'none'
+            } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'issue105-estate-autopilot-hosted-qualification.json') -Encoding UTF8
+          }
+          finally { Pop-Location }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue105-estate-autopilot-hosted-qualification-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-estate-autopilot-hosted-qualification.json
+          if-no-files-found: error
+          retention-days: 14
