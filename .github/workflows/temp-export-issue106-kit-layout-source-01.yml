@@ -108,4 +108,5 @@ jobs:
           name: issue106-kit-layout-source-e78bb4e8
           path: ${{ runner.temp }}/issue106-source
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 14
