@@ -1,0 +1,92 @@
+{
+  "maxChunkBytes": 9000,
+  "schema": "axm-head/cleartext-source-chunks@1",
+  "targets": [
+    {
+      "bytes": 38326,
+      "chunks": [
+        {
+          "bytes": 8969,
+          "path": "mating_surface__anchor_node__axm_head_browser_physical_flight_choreographer_01.py.part-00",
+          "sha256": "sha256:51c5df733e74311c9fa331123fdf9275c18dfc6c01a7b1303a8b7a97a94b552c"
+        },
+        {
+          "bytes": 8997,
+          "path": "mating_surface__anchor_node__axm_head_browser_physical_flight_choreographer_01.py.part-01",
+          "sha256": "sha256:a51c85aea1d20e18b2849a46e1bcbf7fc3f4700d3fdc41e96112b8c2463cd000"
+        },
+        {
+          "bytes": 8975,
+          "path": "mating_surface__anchor_node__axm_head_browser_physical_flight_choreographer_01.py.part-02",
+          "sha256": "sha256:2fea4be716c98a41835dccaaa88ad1f5d8e39947e5b2faa3bb5115bb88f5a8a5"
+        },
+        {
+          "bytes": 8989,
+          "path": "mating_surface__anchor_node__axm_head_browser_physical_flight_choreographer_01.py.part-03",
+          "sha256": "sha256:cbc44dba612e5b24eb9a08f8d540ac241600bec6e0f2c9c316be8e7f23f58ed2"
+        },
+        {
+          "bytes": 2396,
+          "path": "mating_surface__anchor_node__axm_head_browser_physical_flight_choreographer_01.py.part-04",
+          "sha256": "sha256:ec33d0d66c748a883f68177a3a5b93ee2be2accd926375009a7ed8316a98b3e3"
+        }
+      ],
+      "path": "mating_surface/anchor_node/axm_head_browser_physical_flight_choreographer_01.py",
+      "sha256": "sha256:743ea99e9b7498e5774164db518946fe770dd222ef70950e9dd1ba1f8a07b9de"
+    },
+    {
+      "bytes": 29744,
+      "chunks": [
+        {
+          "bytes": 8984,
+          "path": "mating_surface__anchor_node__browser_physical_flight_choreographer_panel.js.part-00",
+          "sha256": "sha256:8105fd26c32e257a6ff54878b49c2480937831f0bfea48f69e39b1c59e58ea53"
+        },
+        {
+          "bytes": 8932,
+          "path": "mating_surface__anchor_node__browser_physical_flight_choreographer_panel.js.part-01",
+          "sha256": "sha256:6082d49359403b5f0f044c423f2c914c413ab29d244428f5e72ef2c0135fc410"
+        },
+        {
+          "bytes": 8983,
+          "path": "mating_surface__anchor_node__browser_physical_flight_choreographer_panel.js.part-02",
+          "sha256": "sha256:a7b3ffa4d074a933e76b0723d0df8dc529cbef18f7d7a9eebe3cd60e5a3cead7"
+        },
+        {
+          "bytes": 2845,
+          "path": "mating_surface__anchor_node__browser_physical_flight_choreographer_panel.js.part-03",
+          "sha256": "sha256:7329485494dc2babbfad279bb51aea4c4556e341d0fc8bf9f2b2d020e194efaf"
+        }
+      ],
+      "path": "mating_surface/anchor_node/browser_physical_flight_choreographer_panel.js",
+      "sha256": "sha256:513bdb88acd89847e697a33a8cd9c065feb8c13e13e406f569d41a9e1bb6ad81"
+    },
+    {
+      "bytes": 34639,
+      "chunks": [
+        {
+          "bytes": 8907,
+          "path": "mating_surface__anchor_node__conformance__test_axm_head_browser_physical_flight_choreographer_01.py.part-00",
+          "sha256": "sha256:59dbe8dbd6a6bee279db51422764172ad8ddffb161c1351273fd0171ba1bf0b9"
+        },
+        {
+          "bytes": 8934,
+          "path": "mating_surface__anchor_node__conformance__test_axm_head_browser_physical_flight_choreographer_01.py.part-01",
+          "sha256": "sha256:e04d8a6ba608e7d047ac0ac05246a7e92e5b29eefc9c8d595e7516384103d469"
+        },
+        {
+          "bytes": 8965,
+          "path": "mating_surface__anchor_node__conformance__test_axm_head_browser_physical_flight_choreographer_01.py.part-02",
+          "sha256": "sha256:5231403a590d4a21800fe1f6c693bfd912746cfae33567e5c100e54b484209f6"
+        },
+        {
+          "bytes": 7833,
+          "path": "mating_surface__anchor_node__conformance__test_axm_head_browser_physical_flight_choreographer_01.py.part-03",
+          "sha256": "sha256:2b1b4b3942ebc371509cc9159ff9f677be59ffba691f902e71f3be624bea5bd2"
+        }
+      ],
+      "path": "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_flight_choreographer_01.py",
+      "sha256": "sha256:c969020df34123b506670aa6f673ebb37f2248aff1cb5c33ffe781aa43d49382"
+    }
+  ]
+}
