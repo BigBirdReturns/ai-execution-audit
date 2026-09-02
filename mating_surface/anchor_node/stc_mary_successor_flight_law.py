@@ -69,6 +69,36 @@ def require_supported_python() -> None:
     )
 
 
+def require_git_object_id(
+    value: Any,
+    object_format: Any,
+    lengths: Mapping[str, Any],
+    *,
+    code: str,
+    label: str,
+) -> str:
+    """Require one lowercase full Git object ID under the receipt's declared format."""
+    require(
+        isinstance(object_format, str)
+        and isinstance(lengths, Mapping)
+        and set(lengths) == {"sha1", "sha256"}
+        and lengths.get("sha1") == 40
+        and lengths.get("sha256") == 64
+        and object_format in lengths,
+        code,
+        f"{label} object-format law differs",
+    )
+    expected = lengths[object_format]
+    require(
+        isinstance(value, str)
+        and len(value) == expected
+        and all(character in "0123456789abcdef" for character in value),
+        code,
+        f"{label} is not one exact full {object_format} object identifier",
+    )
+    return value
+
+
 # --------------------------------------------------------------------------------
 # canonical identity
 # --------------------------------------------------------------------------------

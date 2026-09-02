@@ -778,6 +778,10 @@
   "sourceAdmission": {
     "bootstrapSchema": "stc-mary/successor-source-admission-bootstrap/1",
     "claimBoundary": "Exact Git-object admission of one successor source set. It identifies source bytes and their commit and tree ancestry, trusts no working-tree byte, establishes no merge or approval state, and grants no authority.",
+    "gitObjectIdLengths": {
+      "sha1": 40,
+      "sha256": 64
+    },
     "idKey": "sourceAdmissionId",
     "idPrefix": "stcmarysuccessorsourceadmission1",
     "memberKeys": [

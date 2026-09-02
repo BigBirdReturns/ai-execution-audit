@@ -68,6 +68,7 @@ import verify_stc_mary_successor_source_admission_bootstrap as source_bootstrap 
 
 PROFILE = ANCHOR / "stc-mary-successor-packet-flight-01-profile-01.json"
 WORKFLOW = REPOSITORY_ROOT / ".github" / "workflows" / "stc-mary-successor-packet-flight-01.yml"
+RUNBOOK = ANCHOR / "STC-MARY-SUCCESSOR-PACKET-FLIGHT-01.md"
 
 ADMISSION_PROFILE = ANCHOR / "stc-mary-packet-evidence-admission-profile-01.json"
 ADMISSION_BOOTSTRAP = ANCHOR / "verify_stc_mary_packet_evidence_admission_bootstrap.py"
@@ -118,11 +119,23 @@ def git(repository: Path, *arguments: str) -> str:
     return completed.stdout.strip()
 
 
-def build_source_repository(root: Path, profile: Mapping[str, Any]) -> tuple[Path, str]:
+def build_source_repository(
+    root: Path,
+    profile: Mapping[str, Any],
+    *,
+    object_format: str = "sha1",
+    name: str = "source-repository",
+) -> tuple[Path, str]:
     """Commit the current synthetic source fixture, then trust only its Git objects."""
-    repository = root / "source-repository"
+    repository = root / name
     repository.mkdir(parents=True)
-    subprocess.run(["git", "init", "--quiet", "--initial-branch=main", str(repository)], check=True)
+    subprocess.run(
+        [
+            "git", "init", "--quiet", "--initial-branch=main",
+            f"--object-format={object_format}", str(repository),
+        ],
+        check=True,
+    )
     git(repository, "config", "user.name", "STC MARY synthetic fixture")
     git(repository, "config", "user.email", "synthetic@example.invalid")
     git(repository, "config", "core.autocrlf", "false")
@@ -3689,7 +3702,7 @@ class PowerShellOperatorEntrypointWitnesses(unittest.TestCase):
                 "-MaterializationReceipt", value, "-AuthenticationReceipt", value,
                 "-Candidates", value, "-DetachedVerification", value, "-Out", value,
             ],
-            "status": ["-Packet", value],
+            "status": ["-Packet", value, "-Out", value],
         }
         return [*common, *by_role[command]]
 
@@ -3841,10 +3854,78 @@ class PowerShellOperatorEntrypointWitnesses(unittest.TestCase):
                 "-Out", str(sealing_receipts / "ps-post-seal.json"),
             ],
         )
+        status_path = sealing_receipts / "ps-status.json"
         receipts["status"] = self.require_success(
-            "status", sealing_packet, ["-Packet", str(sealing_packet)],
+            "status", sealing_packet,
+            ["-Packet", str(sealing_packet), "-Out", str(status_path)],
+        )
+        status_bytes = status_path.read_bytes()
+        expected_status = runtime.packet_status(self.profile, sealing_packet)
+        self.assertEqual(status_bytes, law.canonical_json_bytes(expected_status))
+        self.assertEqual(load_json(status_path)["packetId"], self.walk.packet_id)
+        self.assertNotEqual(
+            status_path.resolve(),
+            (self.root / "execution-receipts" / "status.json").resolve(),
         )
         self.assertEqual(set(receipts), set(self.ROLE_MODULES))
+
+    def test_status_without_out_retains_canonical_stdout_and_distinct_receipt(self) -> None:
+        execution_receipt = self.root / "status-stdout-execution.json"
+        completed = self.invoke(
+            self.operator,
+            "status",
+            [
+                "-Packet", str(self.walk.packet),
+                "-ExecutionReceipt", str(execution_receipt),
+            ],
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        expected = law.canonical_json(runtime.packet_status(self.profile, self.walk.packet))
+        self.assertEqual(completed.stdout, expected + "\n")
+        verified = execution_receipt_verifier.verify_execution_receipt(
+            profile=self.profile,
+            execution_receipt=execution_receipt,
+            expected_role="status",
+            packet=self.walk.packet,
+        )
+        self.assertEqual(verified["operationRole"], "status")
+        self.assertFalse((self.root / "status.json").exists())
+
+    def test_status_with_out_produces_default_distinct_execution_receipt(self) -> None:
+        status_path = self.root / "status.json"
+        completed = self.invoke(
+            self.operator,
+            "status",
+            ["-Packet", str(self.walk.packet), "-Out", str(status_path)],
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout, "")
+        expected = runtime.packet_status(self.profile, self.walk.packet)
+        self.assertEqual(status_path.read_bytes(), law.canonical_json_bytes(expected))
+        execution_path = Path(str(status_path) + ".execution-receipt.json")
+        self.assertNotEqual(status_path.resolve(), execution_path.resolve())
+        verified = execution_receipt_verifier.verify_execution_receipt(
+            profile=self.profile,
+            execution_receipt=execution_path,
+            expected_role="status",
+            packet=self.walk.packet,
+        )
+        self.assertEqual(verified["packetId"], expected["packetId"])
+        self.assertEqual(verified["operationRole"], "status")
+
+    def test_status_refuses_one_coordinate_for_output_and_execution_receipt(self) -> None:
+        collision = self.root / "status-collision.json"
+        completed = self.invoke(
+            self.operator,
+            "status",
+            [
+                "-Packet", str(self.walk.packet),
+                "-Out", str(collision),
+                "-ExecutionReceipt", str(collision),
+            ],
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertFalse(collision.exists())
 
     def test_ps1_wrong_role_route_is_detected(self) -> None:
         operator = self.mutated_operator(
@@ -3896,26 +3977,133 @@ class ExactGitSourceAdmissionWitnesses(unittest.TestCase):
         cls.repository, cls.commit = build_source_repository(cls.root, cls.profile)
         cls.direct = source_admission.admit_source(repository=cls.repository, source_commit=cls.commit)
         cls.authenticated = source_bootstrap.authenticate(repository=cls.repository, source_commit=cls.commit)
+        cls.sha256_repository, cls.sha256_commit = build_source_repository(
+            cls.root, cls.profile, object_format="sha256", name="source-repository-sha256"
+        )
+        cls.sha256_direct = source_admission.admit_source(
+            repository=cls.sha256_repository, source_commit=cls.sha256_commit
+        )
+        cls.sha256_authenticated = source_bootstrap.authenticate(
+            repository=cls.sha256_repository, source_commit=cls.sha256_commit
+        )
 
     def resign(self, receipt: Mapping[str, Any]) -> dict[str, Any]:
         body = copy.deepcopy(dict(receipt))
         body.pop(self.profile["sourceAdmission"]["idKey"], None)
         return law.sign(body, self.profile["sourceAdmission"]["idKey"], self.profile["sourceAdmission"]["idPrefix"])
 
-    def validate_forged(self, receipt: Mapping[str, Any], name: str) -> None:
+    def validate_forged(
+        self, receipt: Mapping[str, Any], name: str, repository: Path | None = None
+    ) -> None:
         path = self.root / f"{name}.json"
         law.write_canonical_json(path, self.resign(receipt))
-        compiler.validate_source_admission(profile=self.profile, repository=self.repository, receipt_path=path)
+        compiler.validate_source_admission(
+            profile=self.profile,
+            repository=self.repository if repository is None else repository,
+            receipt_path=path,
+        )
 
     def test_exact_commit_tree_profile_and_members_are_admitted(self) -> None:
         receipt = self.authenticated
         self.assertTrue(receipt["bootstrapAuthenticated"])
         self.assertFalse(receipt["workingTreeBytesTrusted"])
         self.assertEqual(receipt["sourceCommit"], self.commit)
+        self.assertEqual(receipt["gitObjectFormat"], "sha1")
         self.assertEqual(receipt["memberCount"], 20)
         self.assertEqual(receipt["declaredSourceMemberDenominator"], 20)
         self.assertEqual(len({row["gitBlob"] for row in receipt["members"]}), 20)
         self.assertTrue(receipt["successorSourceSetId"].startswith("stcmarysuccessorsourceset1_"))
+
+    def test_real_sha256_admission_and_measured_compilation_preserve_full_object_ids(self) -> None:
+        receipt = self.sha256_authenticated
+        self.assertEqual(receipt["gitObjectFormat"], "sha256")
+        self.assertEqual(len(receipt["sourceCommit"]), 64)
+        self.assertEqual(len(receipt["sourceTree"]), 64)
+        self.assertEqual(len(receipt["profileGitBlob"]), 64)
+        self.assertTrue(all(len(row["gitBlob"]) == 64 for row in receipt["members"]))
+
+        walk = shared_walk()
+        root = self.root / "measured-sha256-compilation"
+        workstation = root / "workstation"
+        predecessor = root / "predecessor"
+        packet = root / "successor"
+        receipts = root / "receipts"
+        shutil.copytree(walk.workstation, workstation)
+        shutil.copytree(walk.predecessor, predecessor)
+        receipts.mkdir(parents=True)
+        admission_path = receipts / "sha256-source-admission.json"
+        compilation_path = receipts / "sha256-compilation.json"
+        execution_path = receipts / "sha256-compile-execution.json"
+        law.write_canonical_json(admission_path, receipt)
+        execution_bootstrap.execute(
+            role="compile",
+            execution_receipt=execution_path,
+            packet=None,
+            repository=self.sha256_repository,
+            source_admission_receipt=admission_path,
+            module_args=[
+                "compile",
+                "--workstation", str(workstation),
+                "--predecessor", str(predecessor),
+                "--successor", str(packet),
+                "--repository-root", str(self.sha256_repository),
+                "--source-admission-receipt", str(admission_path),
+                "--out", str(compilation_path),
+            ],
+        )
+        execution = execution_receipt_verifier.verify_execution_receipt(
+            profile=self.profile,
+            execution_receipt=execution_path,
+            expected_role="compile",
+            source_admission_receipt=admission_path,
+        )
+        compilation = load_json(compilation_path)
+        packet_admission = load_json(packet / self.profile["lineage"]["sourceAdmissionFile"])
+        self.assertEqual(execution["gitObjectFormat"], "sha256")
+        self.assertEqual(compilation["sourceCommit"], self.sha256_commit)
+        self.assertEqual(len(compilation["sourceCommit"]), 64)
+        self.assertEqual(len(compilation["sourceTree"]), 64)
+        self.assertEqual(packet_admission, receipt)
+
+    def test_declared_format_wrong_length_nonhex_and_mixed_object_ids_refuse(self) -> None:
+        cases = []
+        mixed = copy.deepcopy(self.sha256_authenticated)
+        mixed["gitObjectFormat"] = "sha1"
+        cases.append(("mixed-format", mixed, self.sha256_repository))
+        short_commit = copy.deepcopy(self.sha256_authenticated)
+        short_commit["sourceCommit"] = short_commit["sourceCommit"][:-1]
+        cases.append(("short-commit", short_commit, self.sha256_repository))
+        nonhex_tree = copy.deepcopy(self.sha256_authenticated)
+        nonhex_tree["sourceTree"] = "g" + nonhex_tree["sourceTree"][1:]
+        cases.append(("nonhex-tree", nonhex_tree, self.sha256_repository))
+        short_blob = copy.deepcopy(self.authenticated)
+        short_blob["members"][0]["gitBlob"] = short_blob["members"][0]["gitBlob"][:-1]
+        cases.append(("short-blob", short_blob, self.repository))
+        nonhex_profile_blob = copy.deepcopy(self.authenticated)
+        nonhex_profile_blob["profileGitBlob"] = "z" + nonhex_profile_blob["profileGitBlob"][1:]
+        cases.append(("nonhex-profile-blob", nonhex_profile_blob, self.repository))
+        for name, forged, repository in cases:
+            with self.subTest(name=name), self.assertRaises(law.SuccessorFlightError) as caught:
+                self.validate_forged(forged, f"object-id-{name}", repository)
+            self.assertIn(
+                caught.exception.code,
+                {
+                    "SOURCE_COMMIT_INVALID", "SOURCE_TREE_INVALID",
+                    "SOURCE_PROFILE_BLOB_INVALID", "SOURCE_BLOB_IDENTITY_INVALID",
+                },
+            )
+
+        for repository, value in (
+            (self.repository, "g" * 40),
+            (self.repository, self.commit[:-1]),
+            (self.sha256_repository, "f" * 40),
+            (self.sha256_repository, "g" * 64),
+        ):
+            with self.subTest(repository=repository.name, value=value), self.assertRaises(
+                source_admission.SourceAdmissionError
+            ) as caught:
+                source_admission.admit_source(repository=repository, source_commit=value)
+            self.assertEqual(caught.exception.code, "SOURCE_COMMIT_NOT_FULL")
 
     def test_unknown_or_abbreviated_commit_refuses(self) -> None:
         for value in ("0" * 40, self.commit[:12]):
@@ -4230,6 +4418,62 @@ class SourceBoundaryWitnesses(unittest.TestCase):
         self.assertIn("four identity artifacts required", workflow)
         self.assertIn("one exact member-path set", workflow)
         self.assertIn("one exact member-digest set", workflow)
+
+    def test_qualifying_events_cannot_suppress_the_protected_denominator_guard(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        event_contract = workflow.split("permissions:", 1)[0]
+        self.assertRegex(event_contract, r"(?m)^\s{2}pull_request:\s*$")
+        self.assertRegex(event_contract, r"(?m)^\s{2}push:\s*$")
+        self.assertRegex(event_contract, r"(?m)^\s{6}- main\s*$")
+        self.assertNotRegex(event_contract, r"(?m)^\s+(?:paths|paths-ignore):")
+
+        frozen = list(self.profile["frozenRuntimeMembers"])
+        self.assertEqual(len(frozen), 6)
+        guard = workflow.split(
+            "- name: Refuse any frozen packet-runtime or admitted-gate change on this branch", 1
+        )[1].split("- name:", 1)[0]
+        self.assertIn('frozen = set(profile["frozenRuntimeMembers"])', guard)
+        self.assertIn('admitted = profile["admissionProfile"]["relativePath"]', guard)
+        self.assertIn('changed = set(subprocess.check_output(["git", "diff", "--name-only"', guard)
+        self.assertIn("touched = sorted(frozen & changed)", guard)
+        self.assertIn("if admitted in changed:", guard)
+        protected = set(frozen) | {self.profile["admissionProfile"]["relativePath"]}
+        self.assertEqual(len(protected), 7)
+        self.assertTrue(all((REPOSITORY_ROOT / relative).is_file() for relative in protected))
+
+    def test_operator_runbook_block_is_executable_against_the_wrapper_contract(self) -> None:
+        roles = set(self.profile["executionCustody"]["roleDenominator"])
+        runbook = RUNBOOK.read_text(encoding="utf-8")
+        operator_section = runbook.split("## Operator commands", 1)[1].split("## Stop wall", 1)[0]
+        blocks = re.findall(r"```powershell\s*\n(.*?)```", operator_section, re.S)
+        public_blocks = [block for block in blocks if " compile " in block and " status " in block]
+        self.assertEqual(len(public_blocks), 1)
+        lines = [line.strip() for line in public_blocks[0].splitlines() if line.strip()]
+        command_re = re.compile(
+            r"^\.\\stc-mary-successor-packet-flight-01\.ps1\s+(\S+)(.*)$"
+        )
+        documented: dict[str, set[str]] = {}
+        for line in lines:
+            matched = command_re.fullmatch(line)
+            self.assertIsNotNone(matched, line)
+            role = matched.group(1)
+            self.assertNotIn(role, documented)
+            documented[role] = set(re.findall(r"-(\w[\w-]*)\s+<[^>]+>", matched.group(2)))
+        self.assertEqual(set(documented), roles)
+
+        wrapper = (ANCHOR / "stc-mary-successor-packet-flight-01.ps1").read_text(encoding="utf-8")
+        declared_parameters = set(
+            re.findall(r"(?m)^\s*\[string\]\s+\$(\w+)\s*(?:=|,|$)", wrapper)
+        )
+        for role in sorted(roles):
+            block_match = re.search(
+                rf"(?ms)^\s{{4}}'{re.escape(role)}'\s*\{{(.*?)(?=^\s{{4}}'[^']+'\s*\{{)",
+                wrapper,
+            )
+            self.assertIsNotNone(block_match, role)
+            required = set(re.findall(r"Assert-Supplied -Name '(\w+)'", block_match.group(1)))
+            self.assertEqual(documented[role], required | {"Out"}, role)
+            self.assertTrue(documented[role] <= declared_parameters, role)
 
 
 if __name__ == "__main__":  # pragma: no cover

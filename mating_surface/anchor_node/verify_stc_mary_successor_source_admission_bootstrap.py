@@ -24,7 +24,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -33,7 +32,7 @@ from typing import Any, Mapping
 
 AUTHORITY = "none"
 MINIMUM_PYTHON = (3, 12)
-FULL_COMMIT_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+OBJECT_ID_LENGTH = {"sha1": 40, "sha256": 64}
 VERIFIER_PATH = "mating_surface/anchor_node/verify_stc_mary_successor_source_admission.py"
 RECEIPT_SCHEMA = "stc-mary/successor-source-admission/1"
 RECEIPT_ID_KEY = "sourceAdmissionId"
@@ -65,6 +64,22 @@ def fail(code: str, message: str) -> None:
 def require(condition: bool, code: str, message: str) -> None:
     if not condition:
         fail(code, message)
+
+
+def require_git_object_id(value: Any, object_format: str, *, code: str, label: str) -> str:
+    require(
+        object_format in OBJECT_ID_LENGTH,
+        "SOURCE_OBJECT_FORMAT_INVALID",
+        "the repository object format is not admitted",
+    )
+    require(
+        isinstance(value, str)
+        and len(value) == OBJECT_ID_LENGTH[object_format]
+        and all(character in "0123456789abcdef" for character in value),
+        code,
+        f"{label} is not one exact full {object_format} object identifier",
+    )
+    return value
 
 
 def canonical_json(value: Any) -> str:
@@ -104,10 +119,11 @@ def git(repository: Path, arguments: list[str], *, code: str) -> bytes:
 
 def verifier_blob(repository: Path, source_commit: str) -> tuple[str, bytes]:
     """Retrieve the verifier from the exact source commit, never from a checkout path."""
-    require(
-        FULL_COMMIT_RE.fullmatch(source_commit) is not None,
-        "SOURCE_COMMIT_NOT_FULL",
-        "source commit must be one exact full object identifier; abbreviation is refused",
+    object_format = git(
+        repository, ["rev-parse", "--show-object-format"], code="SOURCE_OBJECT_FORMAT_INVALID"
+    ).decode("ascii").strip()
+    require_git_object_id(
+        source_commit, object_format, code="SOURCE_COMMIT_NOT_FULL", label="source commit"
     )
     kind = git(repository, ["cat-file", "-t", source_commit], code="SOURCE_COMMIT_UNKNOWN").decode("ascii").strip()
     require(kind == "commit", "SOURCE_COMMIT_OBJECT_TYPE_INVALID", "source commit is not a commit object")
@@ -116,6 +132,10 @@ def verifier_blob(repository: Path, source_commit: str) -> tuple[str, bytes]:
             code="SOURCE_ADMISSION_VERIFIER_ABSENT")
         .decode("ascii")
         .strip()
+    )
+    require_git_object_id(
+        blob_id, object_format,
+        code="SOURCE_ADMISSION_VERIFIER_BLOB_INVALID", label="source-admission verifier blob",
     )
     data = git(
         repository, ["cat-file", "blob", f"{source_commit}:{VERIFIER_PATH}"],
@@ -138,10 +158,33 @@ def annotate_authenticated(
     require(isinstance(receipt, Mapping), "SOURCE_ADMISSION_RECEIPT_INVALID", "receipt is not an object")
     require(receipt.get("schema") == RECEIPT_SCHEMA, "SOURCE_ADMISSION_RECEIPT_INVALID", "receipt schema differs")
     require(receipt.get("sourceCommit") == source_commit, "SOURCE_ADMISSION_COMMIT_MISMATCH", "receipt names another commit")
-    require(receipt.get("bootstrapAuthenticated") is False, "SOURCE_ADMISSION_SELF_AUTHENTICATED", "inner verifier self-authenticated")
-    require(receipt.get("bootstrapVerifierSha256") is None, "SOURCE_ADMISSION_SELF_AUTHENTICATED", "inner verifier supplied an external digest")
+    object_format = receipt.get("gitObjectFormat")
+    require(isinstance(object_format, str), "SOURCE_OBJECT_FORMAT_INVALID", "receipt carries no object format")
+    require_git_object_id(
+        source_commit, object_format, code="SOURCE_COMMIT_NOT_FULL", label="source commit"
+    )
+    require_git_object_id(
+        receipt.get("sourceTree"), object_format,
+        code="SOURCE_TREE_INVALID", label="source-admission tree",
+    )
+    require_git_object_id(
+        receipt.get("profileGitBlob"), object_format,
+        code="SOURCE_PROFILE_BLOB_INVALID", label="source-admission profile blob",
+    )
     rows = receipt.get("members")
     require(isinstance(rows, list), "SOURCE_ADMISSION_RECEIPT_INVALID", "member rows are absent")
+    for row in rows:
+        require(isinstance(row, Mapping), "SOURCE_ADMISSION_RECEIPT_INVALID", "member row is not an object")
+        require_git_object_id(
+            row.get("gitBlob"), object_format,
+            code="SOURCE_BLOB_IDENTITY_INVALID", label="source-admission member blob",
+        )
+    require_git_object_id(
+        executed_blob_id, object_format,
+        code="SOURCE_ADMISSION_VERIFIER_BLOB_INVALID", label="executed verifier blob",
+    )
+    require(receipt.get("bootstrapAuthenticated") is False, "SOURCE_ADMISSION_SELF_AUTHENTICATED", "inner verifier self-authenticated")
+    require(receipt.get("bootstrapVerifierSha256") is None, "SOURCE_ADMISSION_SELF_AUTHENTICATED", "inner verifier supplied an external digest")
     verifier_rows = [row for row in rows if isinstance(row, Mapping) and row.get("repositoryPath") == VERIFIER_PATH]
     require(len(verifier_rows) == 1, "SOURCE_ADMISSION_VERIFIER_MEMBER_INVALID", "receipt does not declare one verifier member")
     require(

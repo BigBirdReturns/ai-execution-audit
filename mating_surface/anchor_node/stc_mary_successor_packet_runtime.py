@@ -636,6 +636,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     sub = parser.add_subparsers(dest="command", required=True)
     status = sub.add_parser("status", help="report the packet's recording state")
     status.add_argument("--packet", type=Path, required=True)
+    status.add_argument("--out", type=Path)
     return parser.parse_args(argv)
 
 
@@ -644,7 +645,21 @@ def main(argv: list[str] | None = None) -> int:
     try:
         profile = law.load_profile(PROFILE_PATH)
         packet = law.validate_lexical_coordinate(args.packet, label="packet root", code="PACKET_ROOT_INVALID")
-        sys.stdout.buffer.write(law.canonical_json_bytes(packet_status(profile, packet)))
+        data = law.canonical_json_bytes(packet_status(profile, packet))
+        if args.out is None:
+            sys.stdout.buffer.write(data)
+        else:
+            output = law.validate_lexical_coordinate(
+                args.out, label="status output", code="STATUS_OUTPUT_INVALID"
+            )
+            law.require(
+                not law.is_within(output, packet),
+                "STATUS_OUTPUT_INSIDE_PACKET",
+                "status output must remain outside the measured packet",
+            )
+            law.require(not output.exists(), "STATUS_OUTPUT_EXISTS", "status output must not exist")
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(data)
         return 0
     except law.SuccessorFlightError as exc:
         sys.stdout.buffer.write(

@@ -47,7 +47,6 @@ MINIMUM_PYTHON = (3, 12)
 # today and resolve to something else after one more object lands, so abbreviation is a
 # refusal, never a convenience.
 OBJECT_ID_LENGTH = {"sha1": 40, "sha256": 64}
-OBJECT_ID_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 RELATIVE_MEMBER_RE = re.compile(r"^[A-Za-z0-9.][A-Za-z0-9._/-]{0,255}$")
 MAX_MEMBER_BYTES = 8 * 1024 * 1024
 PROFILE_SCHEMA = "stc-mary/successor-packet-flight-profile/1"
@@ -76,6 +75,23 @@ def fail(code: str, message: str) -> None:
 def require(condition: bool, code: str, message: str) -> None:
     if not condition:
         fail(code, message)
+
+
+def require_git_object_id(value: Any, object_format: str, *, code: str, label: str) -> str:
+    """Require one full lowercase object ID under the repository's declared format."""
+    require(
+        object_format in OBJECT_ID_LENGTH,
+        "SOURCE_OBJECT_FORMAT_INVALID",
+        "the repository object format is not admitted",
+    )
+    require(
+        isinstance(value, str)
+        and len(value) == OBJECT_ID_LENGTH[object_format]
+        and all(character in "0123456789abcdef" for character in value),
+        code,
+        f"{label} is not one exact full {object_format} object identifier",
+    )
+    return value
 
 
 def canonical_json(value: Any) -> str:
@@ -168,11 +184,15 @@ def object_type(repository: Path, object_id: str, *, code: str, label: str) -> s
     return git_text(repository, ["cat-file", "-t", object_id], code=code, label=label)
 
 
-def blob_at(repository: Path, commit: str, relative: str, *, label: str) -> tuple[str, bytes]:
+def blob_at(
+    repository: Path, commit: str, relative: str, *, object_format: str, label: str
+) -> tuple[str, bytes]:
     require_relative(relative, code="SOURCE_MEMBER_PATH_INVALID", label=label)
     spec = f"{commit}:{relative}"
     blob_id = git_text(repository, ["rev-parse", "--verify", spec], code="SOURCE_MEMBER_ABSENT", label=label)
-    require(OBJECT_ID_RE.fullmatch(blob_id) is not None, "SOURCE_BLOB_IDENTITY_INVALID", f"{label} blob identity is invalid")
+    require_git_object_id(
+        blob_id, object_format, code="SOURCE_BLOB_IDENTITY_INVALID", label=f"{label} blob identity"
+    )
     require(
         object_type(repository, blob_id, code="SOURCE_OBJECT_TYPE_INVALID", label=label) == "blob",
         "SOURCE_OBJECT_TYPE_INVALID",
@@ -220,12 +240,11 @@ def admit_source(*, repository: Path, source_commit: str) -> dict[str, Any]:
     require(sys.version_info[:2] >= MINIMUM_PYTHON, "PYTHON_RUNTIME_UNSUPPORTED", "Python 3.12 or newer is required")
     repository = require_repository_root(repository)
     git_object_format = object_format(repository)
-    require(
-        isinstance(source_commit, str)
-        and len(source_commit) == OBJECT_ID_LENGTH[git_object_format]
-        and OBJECT_ID_RE.fullmatch(source_commit) is not None,
-        "SOURCE_COMMIT_NOT_FULL",
-        "source commit must be one exact full object identifier; abbreviation is refused",
+    require_git_object_id(
+        source_commit,
+        git_object_format,
+        code="SOURCE_COMMIT_NOT_FULL",
+        label="source commit",
     )
     require(
         object_type(repository, source_commit, code="SOURCE_COMMIT_UNKNOWN", label="source commit") == "commit",
@@ -233,14 +252,19 @@ def admit_source(*, repository: Path, source_commit: str) -> dict[str, Any]:
         "source commit is not a commit object",
     )
     source_tree = git_text(repository, ["show", "-s", "--format=%T", source_commit], code="SOURCE_TREE_INVALID", label="source tree")
-    require(OBJECT_ID_RE.fullmatch(source_tree) is not None, "SOURCE_TREE_INVALID", "source tree identity is invalid")
+    require_git_object_id(
+        source_tree, git_object_format, code="SOURCE_TREE_INVALID", label="source tree identity"
+    )
     require(
         object_type(repository, source_tree, code="SOURCE_TREE_INVALID", label="source tree") == "tree",
         "SOURCE_TREE_OBJECT_TYPE_INVALID",
         "source tree is not a tree object",
     )
 
-    profile_blob, profile_bytes = blob_at(repository, source_commit, PROFILE_PATH, label="successor profile")
+    profile_blob, profile_bytes = blob_at(
+        repository, source_commit, PROFILE_PATH,
+        object_format=git_object_format, label="successor profile",
+    )
     try:
         profile = json.loads(profile_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -263,6 +287,11 @@ def admit_source(*, repository: Path, source_commit: str) -> dict[str, Any]:
         "SOURCE_ADMISSION_LAW_INVALID",
         "source-admission law differs",
     )
+    require(
+        admission_law.get("gitObjectIdLengths") == OBJECT_ID_LENGTH,
+        "SOURCE_ADMISSION_LAW_INVALID",
+        "source-admission object-format law differs",
+    )
     members = profile.get("successorSourceMembers")
     denominator = profile.get("successorSourceMemberDenominator")
     require(isinstance(members, Mapping) and members, "SOURCE_MEMBER_DENOMINATOR_INVALID", "source member mapping is absent")
@@ -273,7 +302,10 @@ def admit_source(*, repository: Path, source_commit: str) -> dict[str, Any]:
     for repository_path, packet_path in sorted(members.items()):
         repository_path = require_relative(repository_path, code="SOURCE_REPOSITORY_PATH_SUBSTITUTED", label="repository source path")
         packet_path = require_relative(packet_path, code="SOURCE_PACKET_PATH_SUBSTITUTED", label="packet source path")
-        blob_id, data = blob_at(repository, source_commit, repository_path, label=f"source member {repository_path}")
+        blob_id, data = blob_at(
+            repository, source_commit, repository_path,
+            object_format=git_object_format, label=f"source member {repository_path}",
+        )
         rows.append(
             {
                 "repositoryPath": repository_path,

@@ -57,6 +57,52 @@ def require(condition: bool, code: str, message: str) -> None:
         fail(code, message)
 
 
+def require_git_object_id(
+    value: Any, object_format: Any, lengths: Mapping[str, Any], *, code: str, label: str
+) -> str:
+    require(
+        isinstance(object_format, str)
+        and isinstance(lengths, Mapping)
+        and object_format in lengths
+        and lengths == {"sha1": 40, "sha256": 64},
+        code,
+        f"{label} object-format law differs",
+    )
+    require(
+        isinstance(value, str)
+        and len(value) == lengths[object_format]
+        and all(character in "0123456789abcdef" for character in value),
+        code,
+        f"{label} is not one exact full {object_format} object identifier",
+    )
+    return value
+
+
+def require_source_object_ids(profile: Mapping[str, Any], admission: Mapping[str, Any]) -> str:
+    source_law = profile["sourceAdmission"]
+    lengths = source_law["gitObjectIdLengths"]
+    object_format = admission.get("gitObjectFormat")
+    require_git_object_id(
+        admission.get("sourceCommit"), object_format, lengths,
+        code="SOURCE_COMMIT_INVALID", label="source admission commit",
+    )
+    require_git_object_id(
+        admission.get("sourceTree"), object_format, lengths,
+        code="SOURCE_TREE_INVALID", label="source admission tree",
+    )
+    require_git_object_id(
+        admission.get("profileGitBlob"), object_format, lengths,
+        code="SOURCE_PROFILE_BLOB_INVALID", label="source admission profile blob",
+    )
+    for row in admission.get("members", []):
+        require(isinstance(row, Mapping), "SOURCE_ADMISSION_INVALID", "source member row is invalid")
+        require_git_object_id(
+            row.get("gitBlob"), object_format, lengths,
+            code="SOURCE_BLOB_IDENTITY_INVALID", label="source admission member blob",
+        )
+    return object_format
+
+
 def canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 
@@ -163,6 +209,29 @@ def compile_material(
     require(set(admission) == set(admission_law["receiptKeys"]), "SOURCE_ADMISSION_INVALID", "source admission field denominator differs")
     assert_identity(admission, admission_law["idKey"], admission_law["idPrefix"], code="SOURCE_ADMISSION_IDENTITY_INVALID", label="source admission")
     require(admission.get("profileCanonicalSha256") == sha256_bytes(canonical_json_bytes(profile)), "SOURCE_PROFILE_MISMATCH", "source admission names another profile")
+    object_format = require_source_object_ids(profile, admission)
+    measured_format = git(
+        repository, ["rev-parse", "--show-object-format"],
+        code="SOURCE_OBJECT_FORMAT_INVALID", label="repository object format",
+    ).decode("ascii").strip()
+    require(
+        measured_format == object_format,
+        "SOURCE_OBJECT_FORMAT_MISMATCH",
+        "source admission object format differs from the repository",
+    )
+    profile_blob = git(
+        repository, ["rev-parse", "--verify", f"{commit}:{PROFILE_REPOSITORY_PATH}"],
+        code="SOURCE_PROFILE_ABSENT", label="source profile blob",
+    ).decode("ascii").strip()
+    require_git_object_id(
+        profile_blob, object_format, admission_law["gitObjectIdLengths"],
+        code="SOURCE_PROFILE_BLOB_INVALID", label="measured source profile blob",
+    )
+    require(
+        profile_blob == admission["profileGitBlob"],
+        "SOURCE_PROFILE_MISMATCH",
+        "source admission profile blob differs from the exact Git object",
+    )
     launcher = git(repository, ["cat-file", "blob", f"{commit}:{LAUNCHER_REPOSITORY_PATH}"], code="LAUNCHER_GIT_OBJECT_ABSENT", label="launcher")
     verifier = git(repository, ["cat-file", "blob", f"{commit}:{VERIFIER_REPOSITORY_PATH}"], code="EXECUTION_VERIFIER_GIT_OBJECT_ABSENT", label="execution receipt verifier")
     for repository_path, packet_path, data, label in (
@@ -172,6 +241,10 @@ def compile_material(
         row = member_row(admission, repository_path, packet_path)
         require_row_bytes(row, data, label=label)
         blob = git(repository, ["rev-parse", "--verify", f"{commit}:{repository_path}"], code="SOURCE_MEMBER_ABSENT", label=label).decode("ascii").strip()
+        require_git_object_id(
+            blob, object_format, admission_law["gitObjectIdLengths"],
+            code="SOURCE_BLOB_IDENTITY_INVALID", label=f"measured {label} blob",
+        )
         require(blob == row.get("gitBlob"), "MEASURED_SOURCE_GIT_BLOB_MISMATCH", f"{label} Git blob differs")
     return profile, admission, launcher, verifier
 
@@ -192,6 +265,7 @@ def packet_material(packet: Path) -> tuple[Mapping[str, Any], Mapping[str, Any],
     require(set(admission) == set(admission_law["receiptKeys"]), "SOURCE_ADMISSION_INVALID", "packet source admission field denominator differs")
     assert_identity(admission, admission_law["idKey"], admission_law["idPrefix"], code="SOURCE_ADMISSION_IDENTITY_INVALID", label="packet source admission")
     require(admission.get("profileCanonicalSha256") == sha256_bytes(canonical_json_bytes(profile)), "PACKET_SOURCE_PROFILE_MISMATCH", "packet source admission names another profile")
+    require_source_object_ids(profile, admission)
     mapping = profile.get("successorSourceMembers")
     require(isinstance(mapping, Mapping), "PACKET_SOURCE_PROFILE_INVALID", "source member mapping is absent")
     require(len(mapping) == profile.get("successorSourceMemberDenominator"), "PACKET_SOURCE_MEMBER_DENOMINATOR_INVALID", "declared source denominator differs")

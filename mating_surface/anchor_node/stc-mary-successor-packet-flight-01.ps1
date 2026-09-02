@@ -104,6 +104,12 @@ function Invoke-MeasuredSurface {
         }
         $custodyOut = "$Out.execution-receipt.json"
     }
+    if (
+        -not [string]::IsNullOrWhiteSpace($Out) -and
+        [IO.Path]::GetFullPath($custodyOut) -eq [IO.Path]::GetFullPath($Out)
+    ) {
+        throw "$Command requires distinct -Out and -ExecutionReceipt coordinates"
+    }
     $launcherArguments = @('--role', $Role, '--execution-receipt', $custodyOut)
     if ($CompileMode) {
         $launcherArguments += @(
@@ -232,6 +238,7 @@ switch ($Command) {
         Assert-Supplied -Name 'MaterializationReceipt' -Value $MaterializationReceipt
         Assert-Supplied -Name 'AuthenticationReceipt' -Value $AuthenticationReceipt
         Assert-Supplied -Name 'Candidates' -Value $Candidates
+        Assert-Supplied -Name 'Out' -Value $Out
         $arguments = @(
             '--packet', $Packet,
             '--admission-receipt', $AdmissionReceipt,
@@ -314,6 +321,7 @@ switch ($Command) {
     'status' {
         Assert-Supplied -Name 'Packet' -Value $Packet
         $arguments = @('status', '--packet', $Packet)
+        if ($Out) { $arguments += @('--out', $Out) }
         Invoke-MeasuredSurface -Role 'status' -Arguments $arguments
     }
 

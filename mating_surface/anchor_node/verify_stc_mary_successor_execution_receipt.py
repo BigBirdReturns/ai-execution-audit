@@ -36,6 +36,27 @@ def require(condition: bool, code: str, message: str) -> None:
         fail(code, message)
 
 
+def require_git_object_id(
+    value: Any, object_format: Any, lengths: Mapping[str, Any], *, code: str, label: str
+) -> str:
+    require(
+        isinstance(object_format, str)
+        and isinstance(lengths, Mapping)
+        and object_format in lengths
+        and lengths == {"sha1": 40, "sha256": 64},
+        code,
+        f"{label} object-format law differs",
+    )
+    require(
+        isinstance(value, str)
+        and len(value) == lengths[object_format]
+        and all(character in "0123456789abcdef" for character in value),
+        code,
+        f"{label} is not one exact full {object_format} object identifier",
+    )
+    return value
+
+
 def canonical_json(value: Any) -> str:
     try:
         return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
@@ -202,6 +223,30 @@ def verify_execution_receipt(
         and admission["authority"] == AUTHORITY,
         "EXECUTION_SOURCE_ADMISSION_INVALID",
         "source admission is not externally authenticated exact-Git custody",
+    )
+    object_format = admission.get("gitObjectFormat")
+    lengths = admission_law["gitObjectIdLengths"]
+    require_git_object_id(
+        admission.get("sourceCommit"), object_format, lengths,
+        code="EXECUTION_SOURCE_COMMIT_INVALID", label="source admission commit",
+    )
+    require_git_object_id(
+        admission.get("sourceTree"), object_format, lengths,
+        code="EXECUTION_SOURCE_TREE_INVALID", label="source admission tree",
+    )
+    require_git_object_id(
+        admission.get("profileGitBlob"), object_format, lengths,
+        code="EXECUTION_SOURCE_BLOB_INVALID", label="source admission profile blob",
+    )
+    for source_row in admission.get("members", []):
+        require(isinstance(source_row, Mapping), "EXECUTION_SOURCE_ADMISSION_INVALID", "source member row is invalid")
+        require_git_object_id(
+            source_row.get("gitBlob"), object_format, lengths,
+            code="EXECUTION_SOURCE_BLOB_INVALID", label="source admission member blob",
+        )
+    require_git_object_id(
+        receipt.get("moduleGitBlobId"), object_format, lengths,
+        code="EXECUTION_MODULE_BLOB_INVALID", label="execution module blob",
     )
     for key in ("sourceAdmissionId", "sourceCommit", "sourceTree", "gitObjectFormat", "successorSourceSetId"):
         expected = admission[admission_law["idKey"]] if key == "sourceAdmissionId" else admission[key]

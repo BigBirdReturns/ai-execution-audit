@@ -496,17 +496,25 @@ number of witnesses, on any skip, and on any drift in the pinned admitted profil
 
 ## Operator commands
 
+First authenticate the exact source commit through the separately exposed bootstrap
+utility:
+
 ```powershell
-.\stc-mary-successor-packet-flight-01.ps1 admit-source    -SourceCommit <full-sha> -Out <source-admission>
+.\stc-mary-successor-packet-flight-01.ps1 admit-source -SourceCommit <full-object-id> -Out <source-admission>
+```
+
+The admitted public operation block below is the exact ten-role denominator:
+
+```powershell
 .\stc-mary-successor-packet-flight-01.ps1 compile         -Workstation <dir> -Predecessor <dir> -Packet <dir> -SourceAdmissionReceipt <source-admission> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 verify-packet   -Packet <dir> -Out <verdict>
 .\stc-mary-successor-packet-flight-01.ps1 verify-evidence-materialization -Packet <dir> -AdmissionReceipt <file> -Candidates <dir> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 materialize-or-resume -Packet <dir> -AdmissionReceipt <file> -Candidates <dir> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 record-or-resume -Packet <dir> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 close-pre-seal  -Packet <dir> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <closure>
-.\stc-mary-successor-packet-flight-01.ps1 seal-or-resume  -Packet <dir> -Sealed <dir> -PreSealClosure <file> -Out <receipt>
+.\stc-mary-successor-packet-flight-01.ps1 seal-or-resume  -Packet <dir> -Sealed <dir> -PreSealClosure <file> -PreSealExecutionReceipt <file> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -Out <receipt>
 .\stc-mary-successor-packet-flight-01.ps1 verify-detached -Packet <dir> -Sealed <dir> -Out <verification>
-.\stc-mary-successor-packet-flight-01.ps1 close-post-seal -Packet <dir> -Sealed <dir> -PreSealClosure <file> -DetachedVerification <file> -Out <closure>
+.\stc-mary-successor-packet-flight-01.ps1 close-post-seal -Packet <dir> -Sealed <dir> -PreSealClosure <file> -PreSealExecutionReceipt <file> -AdmissionReceipt <file> -MaterializationReceipt <file> -AuthenticationReceipt <file> -Candidates <dir> -DetachedVerification <file> -Out <closure>
 .\stc-mary-successor-packet-flight-01.ps1 status           -Packet <dir> -Out <status>
 ```
 
@@ -514,7 +522,9 @@ number of witnesses, on any skip, and on any drift in the pinned admitted profil
 verifier can authenticate itself; each
 reports `bootstrapAuthenticated: false` on any direct run, by design.
 For packet operations, `-ExecutionReceipt <file>` may be supplied explicitly; when
-`-Out` is present the wrapper otherwise writes `<Out>.execution-receipt.json`.
+`-Out` is present the wrapper otherwise writes `<Out>.execution-receipt.json`. The
+status command writes canonical status JSON to `-Out`; when `-Out` is omitted it retains
+the canonical stdout response and therefore requires an explicit `-ExecutionReceipt`.
 
 ## Stop wall
 

@@ -78,6 +78,27 @@ def require(condition: bool, code: str, message: str) -> None:
         fail(code, message)
 
 
+def require_git_object_id(
+    value: Any, object_format: Any, lengths: Mapping[str, Any], *, code: str, label: str
+) -> str:
+    require(
+        isinstance(object_format, str)
+        and isinstance(lengths, Mapping)
+        and object_format in lengths
+        and lengths == {"sha1": 40, "sha256": 64},
+        code,
+        f"{label} object-format law differs",
+    )
+    require(
+        isinstance(value, str)
+        and len(value) == lengths[object_format]
+        and all(character in "0123456789abcdef" for character in value),
+        code,
+        f"{label} is not one exact full {object_format} object identifier",
+    )
+    return value
+
+
 def require_supported_python() -> None:
     require(
         sys.version_info[:2] >= MINIMUM_PYTHON,
@@ -706,6 +727,20 @@ def verify_successor_packet(
         "SOURCE_ADMISSION_RECEIPT_INVALID",
         "packet-carried source admission is not a bootstrap-authenticated no-working-tree receipt",
     )
+    object_format = source_admission.get("gitObjectFormat")
+    object_id_lengths = source_admission_law["gitObjectIdLengths"]
+    require_git_object_id(
+        source_admission.get("sourceCommit"), object_format, object_id_lengths,
+        code="SOURCE_COMMIT_INVALID", label="source admission commit",
+    )
+    require_git_object_id(
+        source_admission.get("sourceTree"), object_format, object_id_lengths,
+        code="SOURCE_TREE_INVALID", label="source admission tree",
+    )
+    require_git_object_id(
+        source_admission.get("profileGitBlob"), object_format, object_id_lengths,
+        code="SOURCE_PROFILE_BLOB_INVALID", label="source admission profile blob",
+    )
     source_rows = source_admission["members"]
     require(
         isinstance(source_rows, list)
@@ -719,6 +754,10 @@ def verify_successor_packet(
     measured_by_packet_path = {row["relativePath"]: row for row in measured_source["members"]}
     for row in source_rows:
         exact_keys(row, source_admission_law["memberKeys"], "SOURCE_ADMISSION_RECEIPT_INVALID", "source-admission member row")
+        require_git_object_id(
+            row.get("gitBlob"), object_format, object_id_lengths,
+            code="SOURCE_BLOB_IDENTITY_INVALID", label="source admission member blob",
+        )
         measured_row = measured_by_packet_path.get(row["packetPath"])
         require(
             measured_row is not None

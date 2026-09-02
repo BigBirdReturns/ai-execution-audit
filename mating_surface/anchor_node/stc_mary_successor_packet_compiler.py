@@ -337,7 +337,8 @@ def validate_source_admission(
     )
     law.require(receipt["schema"] == admission_law["schema"], "SOURCE_ADMISSION_RECEIPT_INVALID", "source-admission receipt schema differs")
     law.require(receipt["status"] == "PASS", "SOURCE_ADMISSION_RECEIPT_INVALID", "source-admission receipt did not pass")
-    law.require(receipt["gitObjectFormat"] in ("sha1", "sha256"), "SOURCE_ADMISSION_RECEIPT_INVALID", "source-admission Git object format differs")
+    git_object_format = receipt["gitObjectFormat"]
+    object_id_lengths = admission_law["gitObjectIdLengths"]
     law.require(receipt["bootstrapAuthenticated"] is True, "SOURCE_ADMISSION_NOT_BOOTSTRAPPED", "source admission was not externally bootstrap-authenticated")
     law.require(receipt["workingTreeBytesTrusted"] is False, "WORKING_TREE_SOURCE_TRUSTED", "source admission trusts working-tree bytes")
     law.assert_sha256(receipt["bootstrapVerifierSha256"], "SOURCE_ADMISSION_RECEIPT_INVALID", "bootstrap verifier digest")
@@ -348,16 +349,44 @@ def validate_source_admission(
         "executing source profile differs from the admitted profile Git blob",
     )
     commit = receipt["sourceCommit"]
-    law.require(isinstance(commit, str) and len(commit) == 40 and all(c in "0123456789abcdef" for c in commit), "SOURCE_COMMIT_INVALID", "source admission commit is not an exact full SHA")
+    law.require_git_object_id(
+        commit, git_object_format, object_id_lengths,
+        code="SOURCE_COMMIT_INVALID", label="source admission commit",
+    )
+    repository_format = git_text(
+        repository, ["rev-parse", "--show-object-format"],
+        code="SOURCE_OBJECT_FORMAT_INVALID", label="repository object format",
+    )
+    law.require(
+        repository_format == git_object_format,
+        "SOURCE_OBJECT_FORMAT_MISMATCH",
+        "source admission object format differs from the repository",
+    )
     law.require(
         git_text(repository, ["cat-file", "-t", commit], code="SOURCE_COMMIT_UNKNOWN", label="source commit") == "commit",
         "SOURCE_COMMIT_OBJECT_TYPE_INVALID", "source admission object is not a commit",
     )
     tree = git_text(repository, ["show", "-s", "--format=%T", commit], code="SOURCE_TREE_INVALID", label="source tree")
+    law.require_git_object_id(
+        receipt["sourceTree"], git_object_format, object_id_lengths,
+        code="SOURCE_TREE_INVALID", label="source admission tree",
+    )
+    law.require_git_object_id(
+        tree, git_object_format, object_id_lengths,
+        code="SOURCE_TREE_INVALID", label="measured source tree",
+    )
     law.require(tree == receipt["sourceTree"], "SOURCE_TREE_MISMATCH", "source admission tree differs from the commit tree")
     profile_path = admission_law["profilePath"]
     law.require(receipt["profilePath"] == profile_path, "SOURCE_PROFILE_PATH_SUBSTITUTED", "source admission names another profile path")
     profile_blob = git_text(repository, ["rev-parse", "--verify", f"{commit}:{profile_path}"], code="SOURCE_PROFILE_ABSENT", label="source profile")
+    law.require_git_object_id(
+        receipt["profileGitBlob"], git_object_format, object_id_lengths,
+        code="SOURCE_PROFILE_BLOB_INVALID", label="source admission profile blob",
+    )
+    law.require_git_object_id(
+        profile_blob, git_object_format, object_id_lengths,
+        code="SOURCE_PROFILE_BLOB_INVALID", label="measured source profile blob",
+    )
     law.require(profile_blob == receipt["profileGitBlob"], "SOURCE_PROFILE_BLOB_MISMATCH", "source profile blob identity differs")
 
     members = profile["successorSourceMembers"]
@@ -378,6 +407,14 @@ def validate_source_admission(
         repository_path = row["repositoryPath"]
         packet_path = row["packetPath"]
         blob = git_text(repository, ["rev-parse", "--verify", f"{commit}:{repository_path}"], code="SOURCE_MEMBER_ABSENT", label=f"source member {repository_path}")
+        law.require_git_object_id(
+            row["gitBlob"], git_object_format, object_id_lengths,
+            code="SOURCE_BLOB_IDENTITY_INVALID", label=f"admitted source member {repository_path}",
+        )
+        law.require_git_object_id(
+            blob, git_object_format, object_id_lengths,
+            code="SOURCE_BLOB_IDENTITY_INVALID", label=f"measured source member {repository_path}",
+        )
         law.require(blob == row["gitBlob"], "SOURCE_BLOB_IDENTITY_MISMATCH", f"source member blob identity differs: {repository_path}")
         data = git_bytes(repository, ["cat-file", "blob", f"{commit}:{repository_path}"], code="SOURCE_MEMBER_ABSENT", label=f"source member {repository_path}")
         law.require(law.sha256_bytes(data) == row["sha256"], "SOURCE_SHA256_MISMATCH", f"source member SHA-256 differs: {repository_path}")

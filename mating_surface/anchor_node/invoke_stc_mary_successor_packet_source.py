@@ -52,6 +52,27 @@ def require(condition: bool, code: str, message: str) -> None:
         fail(code, message)
 
 
+def require_git_object_id(
+    value: Any, object_format: Any, lengths: Mapping[str, Any], *, code: str, label: str
+) -> str:
+    require(
+        isinstance(object_format, str)
+        and isinstance(lengths, Mapping)
+        and object_format in lengths
+        and lengths == {"sha1": 40, "sha256": 64},
+        code,
+        f"{label} object-format law differs",
+    )
+    require(
+        isinstance(value, str)
+        and len(value) == lengths[object_format]
+        and all(character in "0123456789abcdef" for character in value),
+        code,
+        f"{label} is not one exact full {object_format} object identifier",
+    )
+    return value
+
+
 def canonical_json(value: Any) -> str:
     try:
         return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
@@ -168,6 +189,26 @@ def validate_profile_and_receipt(
         receipt["profileCanonicalSha256"] == sha256_bytes(canonical_json_bytes(profile)),
         "SOURCE_PROFILE_MISMATCH", "source admission names another successor profile",
     )
+    object_format = receipt.get("gitObjectFormat")
+    lengths = admission_law["gitObjectIdLengths"]
+    require_git_object_id(
+        receipt.get("sourceCommit"), object_format, lengths,
+        code="SOURCE_COMMIT_INVALID", label="source admission commit",
+    )
+    require_git_object_id(
+        receipt.get("sourceTree"), object_format, lengths,
+        code="SOURCE_TREE_INVALID", label="source admission tree",
+    )
+    require_git_object_id(
+        receipt.get("profileGitBlob"), object_format, lengths,
+        code="SOURCE_PROFILE_BLOB_INVALID", label="source admission profile blob",
+    )
+    for row in receipt.get("members", []):
+        require(isinstance(row, Mapping), "SOURCE_ADMISSION_RECEIPT_INVALID", "source member row is invalid")
+        require_git_object_id(
+            row.get("gitBlob"), object_format, lengths,
+            code="SOURCE_BLOB_IDENTITY_INVALID", label="source admission member blob",
+        )
     return admission_id, admission_law, custody_law
 
 
@@ -201,7 +242,34 @@ def compile_source(
         raise
     require(isinstance(profile, Mapping), "SOURCE_PROFILE_INVALID", "source profile is not an object")
     validate_profile_and_receipt(profile, receipt)
+    object_format = receipt["gitObjectFormat"]
+    lengths = profile["sourceAdmission"]["gitObjectIdLengths"]
+    measured_format = git_text(
+        repository, ["rev-parse", "--show-object-format"],
+        code="SOURCE_OBJECT_FORMAT_INVALID", label="repository object format",
+    )
+    require(
+        measured_format == object_format,
+        "SOURCE_OBJECT_FORMAT_MISMATCH",
+        "source admission object format differs from the repository",
+    )
+    profile_blob = git_text(
+        repository, ["rev-parse", "--verify", f"{commit}:{profile_path}"],
+        code="SOURCE_PROFILE_ABSENT", label="source profile blob",
+    )
+    require_git_object_id(
+        profile_blob, object_format, lengths,
+        code="SOURCE_PROFILE_BLOB_INVALID", label="measured source profile blob",
+    )
+    require(
+        profile_blob == receipt["profileGitBlob"],
+        "SOURCE_PROFILE_BLOB_MISMATCH",
+        "source admission profile blob differs from the exact Git object",
+    )
     tree = git_text(repository, ["show", "-s", "--format=%T", commit], code="SOURCE_TREE_INVALID", label="source tree")
+    require_git_object_id(
+        tree, object_format, lengths, code="SOURCE_TREE_INVALID", label="measured source tree"
+    )
     require(tree == receipt["sourceTree"], "SOURCE_TREE_MISMATCH", "source receipt tree differs from the commit")
     expected = sorted(profile["successorSourceMembers"].items())
     observed = [(row.get("repositoryPath"), row.get("packetPath")) for row in receipt["members"]]
@@ -211,6 +279,10 @@ def compile_source(
         repository_path = safe_relative(row["repositoryPath"], code="SOURCE_MEMBER_PATH_INVALID", label="repository path")
         packet_path = safe_relative(row["packetPath"], code="SOURCE_MEMBER_PATH_INVALID", label="packet path")
         blob = git_text(repository, ["rev-parse", "--verify", f"{commit}:{repository_path}"], code="SOURCE_MEMBER_ABSENT", label=repository_path)
+        require_git_object_id(
+            blob, object_format, lengths,
+            code="SOURCE_BLOB_IDENTITY_INVALID", label=f"measured source member {repository_path}",
+        )
         data = git(repository, ["cat-file", "blob", f"{commit}:{repository_path}"], code="SOURCE_MEMBER_ABSENT", label=repository_path)
         require(blob == row["gitBlob"], "SOURCE_BLOB_IDENTITY_MISMATCH", f"Git blob differs: {repository_path}")
         require(sha256_bytes(data) == row["sha256"] and len(data) == row["bytes"], "SOURCE_MEMBER_DRIFT", f"Git blob bytes differ: {repository_path}")
