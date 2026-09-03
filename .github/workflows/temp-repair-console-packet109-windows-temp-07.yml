@@ -1,0 +1,360 @@
+name: TEMP Repair Console Packet109 Windows Temp 07
+
+on:
+  push:
+    branches:
+      - staging/console-packet109-successor-publish-01
+    paths:
+      - ".github/workflows/temp-repair-console-packet109-windows-temp-07.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: temp-repair-console-packet109-windows-temp-07
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  GH_TOKEN: ${{ github.token }}
+  PREDECESSOR_HEAD: a44f42ed999fab93daa6e30c889f5b5501189f14
+  PACKET_ADMISSION_COMMIT: 0df3795b47a58903adc86c68db2b1168de543ab7
+  PACKET_ADMISSION_TREE: d05b33f066ee1b9aea731a1027de4c87f61b074b
+  SUCCESSOR_BRANCH: work/axm-head-browser-physical-audition-operator-console-packet109-01
+
+jobs:
+  qualify-repair:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: a44f42ed999fab93daa6e30c889f5b5501189f14
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Materialize exact predecessor bytes and apply the Windows-safe repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          ref = os.environ["PREDECESSOR_HEAD"]
+          profile_path = Path("mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json")
+          profile = json.loads(subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{profile_path.as_posix()}"]))
+          patched = {
+              ".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml",
+              "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md",
+              "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py",
+          }
+          members = set(profile["sourceMembers"]) | {row["path"] for row in profile["dependencies"]}
+          for relative in sorted(members):
+              data = subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{relative}"])
+              if b"\r" in data:
+                  raise SystemExit(f"authoritative predecessor contains CR bytes: {relative}")
+              path = Path(relative)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+
+          workflow_path = Path(".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml")
+          workflow = workflow_path.read_text(encoding="utf-8")
+          replacements = (
+              ('WITNESS_DENOMINATOR: "83"', 'WITNESS_DENOMINATOR: "84"'),
+              (
+                  '          import hashlib\n          import json\n          import pathlib\n          import subprocess\n          import sys\n          import tempfile\n\n          profile = json.loads(pathlib.Path(',
+                  '          import hashlib\n          import json\n          import os\n          import pathlib\n          import subprocess\n          import sys\n          import tempfile\n\n          profile = json.loads(pathlib.Path(',
+              ),
+              (
+                  '          with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-") as temporary:',
+                  '          with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-", dir=os.environ["RUNNER_TEMP"]) as temporary:',
+              ),
+          )
+          for old, new in replacements:
+              if workflow.count(old) != 1:
+                  raise SystemExit(f"workflow repair anchor count differs: {old!r}: {workflow.count(old)}")
+              workflow = workflow.replace(old, new, 1)
+          workflow_path.write_text(workflow, encoding="utf-8", newline="\n")
+
+          doc_path = Path("mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md")
+          document = doc_path.read_text(encoding="utf-8")
+          old = "The source campaign contains fifty-two command and envelope cases. The permanent eighty-three-witness hostile suite"
+          new = "The source campaign contains fifty-two command and envelope cases. The permanent eighty-four-witness hostile suite"
+          if document.count(old) != 1:
+              raise SystemExit(f"documentation denominator anchor count differs: {document.count(old)}")
+          document = document.replace(old, new, 1)
+          appendix = " The workflow's packet-kit reconstruction is rooted under `RUNNER_TEMP`, preventing a Windows cross-volume path from placing the temporary kit on `C:` while the checked-out repository remains on `D:`."
+          anchor = "and independent verification."
+          if document.count(anchor) != 1:
+              raise SystemExit(f"documentation Windows anchor count differs: {document.count(anchor)}")
+          document = document.replace(anchor, anchor + appendix, 1)
+          doc_path.write_text(document, encoding="utf-8", newline="\n")
+
+          test_path = Path("mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py")
+          tests = test_path.read_text(encoding="utf-8")
+          insertion = '''    def test_32_workflow_roots_packet_kit_reconstruction_under_runner_temp(self) -> None:\n        source = WORKFLOW.read_text(encoding="utf-8")\n        expected = 'with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-", dir=os.environ["RUNNER_TEMP"]) as temporary:'\n        unsafe = 'with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-") as temporary:'\n        self.assertIn(expected, source)\n        self.assertNotIn(unsafe, source)\n\n\n'''
+          anchor = "def _fixture_test(row: dict, group: str):\n"
+          if tests.count(anchor) != 1 or "test_32_workflow_roots_packet_kit_reconstruction_under_runner_temp" in tests:
+              raise SystemExit("test insertion anchor differs")
+          tests = tests.replace(anchor, insertion + anchor, 1)
+          test_path.write_text(tests, encoding="utf-8", newline="\n")
+
+          changed = set(subprocess.check_output(["git", "diff", "--name-only", ref], text=True).splitlines())
+          if changed != patched:
+              raise SystemExit(f"repair path denominator differs: {sorted(changed)}")
+          for relative in patched:
+              status = subprocess.check_output(["git", "diff", "--name-status", ref, "--", relative], text=True).strip()
+              if not status.startswith("M\t"):
+                  raise SystemExit(f"repair path is not an in-place modification: {relative}: {status}")
+          subprocess.run(["git", "diff", "--check"], check=True)
+          PY
+
+      - name: Execute the complete repaired qualification denominator
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-physical-audition-operator-console-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-physical-audition-operator-console-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_physical_audition_operator_console_01.py"
+          VERIFIER="$ROOT/verify_axm_head_browser_physical_audition_operator_console_01.py"
+          BOOTSTRAP="$ROOT/verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py"
+          TESTS="$ROOT/conformance/test_axm_head_browser_physical_audition_operator_console_01.py"
+          PACKET_PROFILE="$ROOT/axm-head-browser-physical-audition-packet-profile-01.json"
+          PACKET_TOOL="$ROOT/axm_head_browser_physical_audition_packet_01.py"
+          RECEIPTS="$RUNNER_TEMP/console-windows-temp-repair-receipts"
+          EXTENSION="$RUNNER_TEMP/console-windows-temp-repair-extension"
+          mkdir -p "$RECEIPTS"
+
+          python -m py_compile "$TOOL" "$VERIFIER" "$BOOTSTRAP" "$TESTS" "$PACKET_TOOL"
+          node --check "$ROOT/browser_physical_audition_operator_contract.js"
+          node --check "$ROOT/browser_physical_audition_operator_service_worker.js"
+          node --check "$ROOT/browser_physical_audition_operator_panel.js"
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPTS/profile-validation.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPTS/fixture-validation.json"
+          python "$TOOL" campaign "$PROFILE" "$FIXTURES" > "$RECEIPTS/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" > "$RECEIPTS/source-set.json"
+          python -m unittest discover -s "$ROOT/conformance" -p 'test_axm_head_browser_physical_audition_operator_console_01.py' -v 2>&1 | tee "$RECEIPTS/tests.txt"
+          grep -F 'Ran 84 tests' "$RECEIPTS/tests.txt"
+          grep -Fx 'OK' "$RECEIPTS/tests.txt"
+          python "$TOOL" build-extension "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" > "$RECEIPTS/build-manifest.json"
+          cmp "$RECEIPTS/build-manifest.json" "$EXTENSION/build-manifest.json"
+          python "$VERIFIER" "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" > "$RECEIPTS/direct-verdict.json"
+          python "$BOOTSTRAP" "$VERIFIER" "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" > "$RECEIPTS/bootstrap-verdict.json"
+
+          python - "$PROFILE" "$PACKET_PROFILE" "$PACKET_TOOL" "$RUNNER_TEMP" "$RECEIPTS" <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tempfile
+
+          console = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          packet_profile = Path(sys.argv[2])
+          packet_tool = Path(sys.argv[3])
+          runner_temp = Path(sys.argv[4])
+          receipts = Path(sys.argv[5])
+          profile_receipt = json.loads(subprocess.check_output(
+              [sys.executable, str(packet_tool), "validate-profile", str(packet_profile)], text=True
+          ))
+          with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-", dir=runner_temp) as temporary:
+              kit = Path(temporary) / "kit"
+              kit_receipt = json.loads(subprocess.check_output(
+                  [sys.executable, str(packet_tool), "build-kit", str(packet_profile), str(Path.cwd()), str(kit)], text=True
+              ))
+          admitted = console["admittedPacket"]
+          if profile_receipt.get("sourceBindingId") != admitted["sourceBindingId"]:
+              raise SystemExit(profile_receipt)
+          if kit_receipt.get("sourceBindingId") != admitted["sourceBindingId"] or kit_receipt.get("kitId") != admitted["kitId"]:
+              raise SystemExit(kit_receipt)
+          (receipts / "packet-kit-reconstruction.json").write_text(json.dumps({
+              "schema": "axm-private/console-packet109-windows-safe-kit@1",
+              "status": "PASS",
+              "runnerTempRooted": True,
+              "packetSourceBindingId": kit_receipt["sourceBindingId"],
+              "packetKitId": kit_receipt["kitId"],
+              "physicalExecutionObserved": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none"
+          }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          PY
+
+          python - "$RECEIPTS" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+          root = Path(sys.argv[1])
+          campaign = json.loads((root / "campaign.json").read_text())
+          source = json.loads((root / "source-set.json").read_text())
+          build = json.loads((root / "build-manifest.json").read_text())
+          direct = json.loads((root / "direct-verdict.json").read_text())
+          bootstrap = json.loads((root / "bootstrap-verdict.json").read_text())
+          if campaign.get("status") != "PASS" or campaign.get("caseCount") != 52:
+              raise SystemExit(campaign)
+          if direct.get("status") != "PASS" or direct.get("actualSupplierQualified") is not False:
+              raise SystemExit(direct)
+          if bootstrap.get("status") != "PASS" or bootstrap.get("bootstrapAuthenticated") is not True:
+              raise SystemExit(bootstrap)
+          body = {
+              "schema": "axm-private/console-packet109-windows-temp-repair-platform@1",
+              "status": "PASS",
+              "sourceBindingId": source["sourceBindingId"],
+              "extensionId": build["extensionId"],
+              "witnessDenominator": 84,
+              "fixtureCaseDenominator": 52,
+              "physicalExecutionObserved": False,
+              "browserLaunched": False,
+              "supplierEndpointContacted": False,
+              "modelDownloaded": False,
+              "peerConnectionFormed": False,
+              "inferenceExecuted": False,
+              "routeTerminalProduced": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none"
+          }
+          (root / "platform.json").write_text(json.dumps(body, sort_keys=True, indent=2) + "\n")
+          PY
+
+      - name: Export the exact six-file source set
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/console-successor-repair-export"
+          mkdir -p "$OUT/source"
+          paths=(
+            '.github/workflows/axm-head-browser-physical-audition-operator-console-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md'
+            'mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json'
+            'mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py'
+            'mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py'
+          )
+          for path in "${paths[@]}"; do
+            mkdir -p "$OUT/source/$(dirname "$path")"
+            cp "$path" "$OUT/source/$path"
+          done
+          cp -R "$RUNNER_TEMP/console-windows-temp-repair-receipts" "$OUT/qualification"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-packet109-windows-temp-repair-${{ matrix.os }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/console-successor-repair-export
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  compare-and-store-blobs:
+    needs: qualify-repair
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: console-packet109-windows-temp-repair-*-${{ github.run_id }}
+          path: exports
+
+      - name: Require platform byte identity and store the repaired blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          roots = sorted(path for path in Path("exports").iterdir() if path.is_dir())
+          if len(roots) != 2:
+              raise SystemExit(f"expected two platform exports, found {len(roots)}")
+          paths = (
+              ".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml",
+              "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md",
+              "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json",
+              "mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py",
+              "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py",
+              "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py",
+          )
+          rows = []
+          for relative in paths:
+              copies = [(root / "source" / relative).read_bytes() for root in roots]
+              if copies[0] != copies[1]:
+                  raise SystemExit(f"platform bytes differ: {relative}")
+              data = copies[0]
+              request = json.dumps({"content": base64.b64encode(data).decode("ascii"), "encoding": "base64"})
+              result = subprocess.run(
+                  ["gh", "api", "--method", "POST", f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", "--input", "-"],
+                  input=request, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
+              )
+              if result.returncode != 0:
+                  raise SystemExit(f"blob storage failed: {relative}: {result.stderr}")
+              response = json.loads(result.stdout)
+              rows.append({
+                  "path": relative,
+                  "bytes": len(data),
+                  "sha256": "sha256:" + hashlib.sha256(data).hexdigest(),
+                  "gitBlobSha": response["sha"]
+              })
+          platform_rows = [json.loads((root / "qualification" / "platform.json").read_text()) for root in roots]
+          keys = ("sourceBindingId", "extensionId", "witnessDenominator", "fixtureCaseDenominator")
+          if any({key: row[key] for key in keys} != {key: platform_rows[0][key] for key in keys} for row in platform_rows[1:]):
+              raise SystemExit("platform qualification identities differ")
+          manifest = {
+              "schema": "axm-private/console-packet109-windows-temp-repair-blobs@1",
+              "status": "PASS",
+              "predecessorHead": os.environ["PREDECESSOR_HEAD"],
+              "files": rows,
+              "blobCount": len(rows),
+              "sourceBindingId": platform_rows[0]["sourceBindingId"],
+              "extensionId": platform_rows[0]["extensionId"],
+              "witnessDenominator": platform_rows[0]["witnessDenominator"],
+              "fixtureCaseDenominator": platform_rows[0]["fixtureCaseDenominator"],
+              "platformByteIdentity": True,
+              "refsMoved": False,
+              "physicalExecutionObserved": False,
+              "browserLaunched": False,
+              "supplierEndpointContacted": False,
+              "modelDownloaded": False,
+              "peerConnectionFormed": False,
+              "inferenceExecuted": False,
+              "routeTerminalProduced": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none"
+          }
+          Path("console-packet109-windows-temp-repair-blobs.json").write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n")
+          print(json.dumps(manifest, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-packet109-windows-temp-repair-blobs-${{ github.run_id }}
+          path: console-packet109-windows-temp-repair-blobs.json
+          if-no-files-found: error
+          retention-days: 14
