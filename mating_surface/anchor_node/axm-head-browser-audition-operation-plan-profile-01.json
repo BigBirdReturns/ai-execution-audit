@@ -1,10 +1,10 @@
 {
   "admittedConsole": {
-    "commit": "ce93cf8856b7fcc9b172b9251b9665df50fdeda4",
-    "extensionId": "axmoperatorconsoleextension_ab926ed5afc19f66c1b898abd832925c3f3e3c719d7fa814c5751f570b9c8231",
+    "commit": "d083ae55a20c730c56b69863c172b43d2a6f7651",
+    "extensionId": "axmoperatorconsoleextension_63b6140baf423457b83af8da3c1dc4f3493c43933b4e6d712f53bfe6df363d01",
     "profileId": "axm-head/browser-physical-audition-operator-console/0.1",
-    "sourceBindingId": "axmoperatorconsolesource_aefa481bc33a9c4500f5fe1d4398b90c2159ac1833bf67c9d42ec321592d987c",
-    "tree": "664784d10309665eb3b993ce8f6df4eb5b10baf7"
+    "sourceBindingId": "axmoperatorconsolesource_d213e280c45cf2c81d84edf8d7af4ea077c77632472117d8f6708277ce4fe7a3",
+    "tree": "e7631a37778595c5367237a4fe52afec78120149"
   },
   "claimBoundary": {
     "actualSupplierQualified": false,
@@ -35,16 +35,16 @@
   ],
   "dependencies": [
     {
-      "bytes": 7871,
-      "gitBlobSha": "468e83fe979085f4254795fb2d6c7e0d90602e30",
+      "bytes": 8096,
+      "gitBlobSha": "f7bfd37873c693512f8c8e190abd3520ccc7ee45",
       "path": "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json",
-      "sha256": "sha256:0d089884b8854d4e4e26cf24d7e994fdddd4d4db6793e0be9c3169900de0a957"
+      "sha256": "sha256:f9e3b76e66b683f54a2066ba8a301b9d50e367d783d8f88e4179bd46faf15d9a"
     },
     {
-      "bytes": 34547,
-      "gitBlobSha": "1bc7226114724af04d08909237482c209ae0d497",
+      "bytes": 34926,
+      "gitBlobSha": "0746bd163acc8fe70b292fdba6e5388164cd13c9",
       "path": "mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py",
-      "sha256": "sha256:bdeea07d9041468c9aba76fc22d1d7738f3106fef5451286e91e42c1cb37bd90"
+      "sha256": "sha256:df4b5d8e6c0db86c144a86bd4edc10b2a32e401f79e7c1495a7262392d5cf267"
     },
     {
       "bytes": 22384,
@@ -65,10 +65,10 @@
       "sha256": "sha256:260eb0a5f6edd0f2a448e5665245d29962bb5ab28fb21829fc9fe196abd8bb03"
     },
     {
-      "bytes": 15287,
-      "gitBlobSha": "90966f61233c3c8132cfc6a576adb68dd5d625f5",
+      "bytes": 15638,
+      "gitBlobSha": "9c590ff86d53907a7583769a9b16555f067ce677",
       "path": "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py",
-      "sha256": "sha256:86f6eb791c0c264342f8a6422e28913d42c9a917b6393c3f29de7690d133bede"
+      "sha256": "sha256:ca1e30c46d07883b48968d1fc18ef3c31b3f4245175f6867ba18eb5d492300ea"
     }
   ],
   "extensionDependencyMembers": [

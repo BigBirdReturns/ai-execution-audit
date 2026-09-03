@@ -4,6 +4,8 @@
 
 This object is a supplier-neutral, content-bound batch execution layer above the admitted browser physical-audition operator console. It converts one already validated private evidence binding into a deterministic sequence of calls to the exact admitted probe API. It does not observe a supplier application by itself, infer model or topology facts, create physical-member evidence, assemble a packet, produce a route terminal, admit a supplier, qualify the physical Estate, or grant authority.
 
+This revision is a bounded in-place successor above the operator-console admission completed through PR #110. The workflow, documentation, profile, compiler, conformance suite, and independent verifier move only to bind the new admitted console commit, tree, source identity, extension identity, and six exact dependency blobs. The PowerShell entrypoint, JavaScript plan contract, side panel, measured-verifier bootstrap, and fixture catalog remain byte-identical. No command sequence, browser behavior, private evidence denominator, physical claim, or authority value is changed by the rebind.
+
 The object addresses the clerical failure surface between a private venue recipe and the admitted probe. Without it, an operator must manually enter the same model, shard, token, controlled-removal, equivalence, network, privacy, and receipt denominator on each seat. Manual transcription can alter indices, references, layer ranges, timestamps, member handles, or receipt order after the physical observation has already occurred. The operation plan fixes that denominator before the first mark and stops permanently on the first refusal.
 
 ## Admitted predecessor
@@ -12,25 +14,25 @@ The derivative extension is bound to the admitted operator-console floor:
 
 ```text
 commit:
-ce93cf8856b7fcc9b172b9251b9665df50fdeda4
+d083ae55a20c730c56b69863c172b43d2a6f7651
 
 tree:
-664784d10309665eb3b993ce8f6df4eb5b10baf7
+e7631a37778595c5367237a4fe52afec78120149
 
 operator profile:
 axm-head/browser-physical-audition-operator-console/0.1
 
 operator source binding:
-axmoperatorconsolesource_aefa481bc33a9c4500f5fe1d4398b90c2159ac1833bf67c9d42ec321592d987c
+axmoperatorconsolesource_d213e280c45cf2c81d84edf8d7af4ea077c77632472117d8f6708277ce4fe7a3
 
 operator extension:
-axmoperatorconsoleextension_ab926ed5afc19f66c1b898abd832925c3f3e3c719d7fa814c5751f570b9c8231
+axmoperatorconsoleextension_63b6140baf423457b83af8da3c1dc4f3493c43933b4e6d712f53bfe6df363d01
 
 route interface:
 axm/distributed-model-inference@1
 ```
 
-The build copies the admitted probe, operator command contract, and service worker byte-for-byte. It supplies only a new local plan contract and side panel. A dependency byte change, source-member change, extension-member change, or build-manifest substitution refuses reconstruction.
+The build copies the admitted probe, operator command contract, and service worker byte-for-byte. It supplies only the local plan contract and side panel. Every dependency is independently measured from the admitted console commit before construction. A dependency byte change, source-member change, extension-member change, checkout transformation, or build-manifest substitution refuses reconstruction.
 
 ## Private input boundary
 

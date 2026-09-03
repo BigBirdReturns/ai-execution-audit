@@ -850,6 +850,53 @@ console.log(JSON.stringify({generation,disconnects,messages,first,second}));
             self.assertEqual(json.loads(completed.stdout)["code"], "PLAN_SESSION_BUDGET_INVALID")
 
 
+    def test_060_successor_rebinds_exact_console_admission(self):
+        expected = {"commit": "d083ae55a20c730c56b69863c172b43d2a6f7651", "extensionId": "axmoperatorconsoleextension_63b6140baf423457b83af8da3c1dc4f3493c43933b4e6d712f53bfe6df363d01", "profileId": "axm-head/browser-physical-audition-operator-console/0.1", "sourceBindingId": "axmoperatorconsolesource_d213e280c45cf2c81d84edf8d7af4ea077c77632472117d8f6708277ce4fe7a3", "tree": "e7631a37778595c5367237a4fe52afec78120149"}
+        self.assertEqual(self.profile["admittedConsole"], expected)
+        self.assertEqual(tool.ADMITTED_CONSOLE_COMMIT, expected["commit"])
+        self.assertEqual(tool.ADMITTED_CONSOLE_TREE, expected["tree"])
+        self.assertEqual(tool.ADMITTED_CONSOLE_SOURCE_BINDING, expected["sourceBindingId"])
+        self.assertEqual(tool.ADMITTED_CONSOLE_EXTENSION_ID, expected["extensionId"])
+        verifier_source = VERIFIER_PATH.read_text(encoding="utf-8")
+        for value in (
+            expected["commit"],
+            expected["tree"],
+            expected["sourceBindingId"],
+            expected["extensionId"],
+        ):
+            self.assertIn(value, verifier_source)
+        for predecessor in (
+            "ce93cf8856b7fcc9b172" + "b9251b9665df50fdeda4",
+            "664784d10309665eb3b9" + "93ce8f6df4eb5b10baf7",
+            "axmoperatorconsolesource_aefa481bc33a9c4500f" + "5fe1d4398b90c2159ac1833bf67c9d42ec321592d987c",
+            "axmoperatorconsoleextension_ab926ed5afc19f66c1" + "b898abd832925c3f3e3c719d7fa814c5751f570b9c8231",
+        ):
+            self.assertNotIn(predecessor, PROFILE_PATH.read_text(encoding="utf-8"))
+            self.assertNotIn(predecessor, TOOL_PATH.read_text(encoding="utf-8"))
+            self.assertNotIn(predecessor, verifier_source)
+
+    def test_061_workflow_requires_exact_six_path_in_place_successor(self):
+        workflow = (REPOSITORY / ".github/workflows/axm-head-browser-audition-operation-plan-01.yml").read_text(encoding="utf-8")
+        expected = (
+        ".github/workflows/axm-head-browser-audition-operation-plan-01.yml",
+        "mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md",
+        "mating_surface/anchor_node/axm-head-browser-audition-operation-plan-profile-01.json",
+        "mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py",
+        "mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py",
+        "mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py",
+        )
+        self.assertIn('WITNESS_DENOMINATOR: "85"', workflow)
+        self.assertIn("Require exact in-place successor denominator", workflow)
+        self.assertNotIn("Require exact additive source denominator", workflow)
+        self.assertIn('status.startswith("M\\t")', workflow)
+        self.assertNotIn('status.startswith("A\\t")', workflow)
+        step_start = workflow.index("      - name: Require exact in-place successor denominator")
+        step_end = workflow.index("      - name: Compile and inspect source", step_start)
+        successor = workflow[step_start:step_end]
+        for relative in expected:
+            self.assertEqual(successor.count(f'"{relative}"'), 1)
+
+
 def add_fixture_witnesses() -> None:
     catalog = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     for row in catalog["positiveCases"]:

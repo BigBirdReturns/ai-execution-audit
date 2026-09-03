@@ -23,11 +23,11 @@ CAMPAIGN_SCHEMA = "axm-head/browser-audition-operation-plan-campaign@1"
 FIXTURE_SCHEMA = "axm-head/browser-audition-operation-plan-fixtures@1"
 INTERFACE = "axm/distributed-model-inference@1"
 ISSUE_REF = "BigBirdReturns/ai-execution-audit#105"
-ADMITTED_CONSOLE_COMMIT = "ce93cf8856b7fcc9b172b9251b9665df50fdeda4"
-ADMITTED_CONSOLE_TREE = "664784d10309665eb3b993ce8f6df4eb5b10baf7"
+ADMITTED_CONSOLE_COMMIT = "d083ae55a20c730c56b69863c172b43d2a6f7651"
+ADMITTED_CONSOLE_TREE = "e7631a37778595c5367237a4fe52afec78120149"
 ADMITTED_CONSOLE_PROFILE_ID = "axm-head/browser-physical-audition-operator-console/0.1"
-ADMITTED_CONSOLE_SOURCE_BINDING = "axmoperatorconsolesource_aefa481bc33a9c4500f5fe1d4398b90c2159ac1833bf67c9d42ec321592d987c"
-ADMITTED_CONSOLE_EXTENSION_ID = "axmoperatorconsoleextension_ab926ed5afc19f66c1b898abd832925c3f3e3c719d7fa814c5751f570b9c8231"
+ADMITTED_CONSOLE_SOURCE_BINDING = "axmoperatorconsolesource_d213e280c45cf2c81d84edf8d7af4ea077c77632472117d8f6708277ce4fe7a3"
+ADMITTED_CONSOLE_EXTENSION_ID = "axmoperatorconsoleextension_63b6140baf423457b83af8da3c1dc4f3493c43933b4e6d712f53bfe6df363d01"
 OPERATOR_PROTOCOL = "axm-head/browser-physical-audition-operator-console@1"
 PLAN_PROTOCOL = "axm-head/browser-audition-operation-plan@1"
 
@@ -59,15 +59,15 @@ RECEIPT_KINDS = (
 DEPENDENCIES = (
     {
         "path": "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json",
-        "bytes": 7871,
-        "sha256": "sha256:0d089884b8854d4e4e26cf24d7e994fdddd4d4db6793e0be9c3169900de0a957",
-        "gitBlobSha": "468e83fe979085f4254795fb2d6c7e0d90602e30",
+        "bytes": 8096,
+        "sha256": "sha256:f9e3b76e66b683f54a2066ba8a301b9d50e367d783d8f88e4179bd46faf15d9a",
+        "gitBlobSha": "f7bfd37873c693512f8c8e190abd3520ccc7ee45",
     },
     {
         "path": "mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py",
-        "bytes": 34547,
-        "sha256": "sha256:bdeea07d9041468c9aba76fc22d1d7738f3106fef5451286e91e42c1cb37bd90",
-        "gitBlobSha": "1bc7226114724af04d08909237482c209ae0d497",
+        "bytes": 34926,
+        "sha256": "sha256:df4b5d8e6c0db86c144a86bd4edc10b2a32e401f79e7c1495a7262392d5cf267",
+        "gitBlobSha": "0746bd163acc8fe70b292fdba6e5388164cd13c9",
     },
     {
         "path": "mating_surface/anchor_node/browser_distributed_inference_probe.js",
@@ -89,9 +89,9 @@ DEPENDENCIES = (
     },
     {
         "path": "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py",
-        "bytes": 15287,
-        "sha256": "sha256:86f6eb791c0c264342f8a6422e28913d42c9a917b6393c3f29de7690d133bede",
-        "gitBlobSha": "90966f61233c3c8132cfc6a576adb68dd5d625f5",
+        "bytes": 15638,
+        "sha256": "sha256:ca1e30c46d07883b48968d1fc18ef3c31b3f4245175f6867ba18eb5d492300ea",
+        "gitBlobSha": "9c590ff86d53907a7583769a9b16555f067ce677",
     },
 )
 

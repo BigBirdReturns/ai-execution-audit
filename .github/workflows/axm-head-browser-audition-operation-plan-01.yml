@@ -49,9 +49,9 @@ concurrency:
 
 env:
   PYTHONDONTWRITEBYTECODE: "1"
-  WITNESS_DENOMINATOR: "83"
-  ADMITTED_CONSOLE_COMMIT: ce93cf8856b7fcc9b172b9251b9665df50fdeda4
-  ADMITTED_CONSOLE_TREE: 664784d10309665eb3b993ce8f6df4eb5b10baf7
+  WITNESS_DENOMINATOR: "85"
+  ADMITTED_CONSOLE_COMMIT: d083ae55a20c730c56b69863c172b43d2a6f7651
+  ADMITTED_CONSOLE_TREE: e7631a37778595c5367237a4fe52afec78120149
 
 jobs:
   qualify:
@@ -129,7 +129,7 @@ jobs:
                   raise SystemExit(f"dependency differs: {row['path']}")
           PY
 
-      - name: Require exact additive source denominator
+      - name: Require exact in-place successor denominator
         if: github.event_name == 'pull_request'
         shell: bash
         env:
@@ -137,16 +137,38 @@ jobs:
           SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
         run: |
           python - <<'PY'
-          import json, os, pathlib, subprocess
-          profile = json.loads(pathlib.Path("mating_surface/anchor_node/axm-head-browser-audition-operation-plan-profile-01.json").read_text())
-          expected = set(profile["sourceMembers"])
-          changed = set(subprocess.check_output(["git", "diff", "--name-only", os.environ["BASE_SHA"], os.environ["SOURCE_REF"]], text=True).splitlines())
+          import os, subprocess
+          expected = {
+                  ".github/workflows/axm-head-browser-audition-operation-plan-01.yml",
+                  "mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md",
+                  "mating_surface/anchor_node/axm-head-browser-audition-operation-plan-profile-01.json",
+                  "mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py",
+                  "mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py",
+                  "mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py",
+          }
+          if os.environ["BASE_SHA"] != os.environ["ADMITTED_CONSOLE_COMMIT"]:
+              raise SystemExit(
+                  f"pull-request base differs from admitted console commit: "
+                  f"{os.environ['BASE_SHA']} != {os.environ['ADMITTED_CONSOLE_COMMIT']}"
+              )
+          changed = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", os.environ["BASE_SHA"], os.environ["SOURCE_REF"]],
+                  text=True,
+              ).splitlines()
+          )
           if changed != expected:
-              raise SystemExit(f"source denominator differs: missing={sorted(expected-changed)} extra={sorted(changed-expected)}")
-          for relative in expected:
-              status = subprocess.check_output(["git", "diff", "--name-status", os.environ["BASE_SHA"], os.environ["SOURCE_REF"], "--", relative], text=True).strip()
-              if not status.startswith("A\t"):
-                  raise SystemExit(f"source path is not additive: {relative}: {status}")
+              raise SystemExit(
+                  f"successor denominator differs: missing={sorted(expected-changed)} "
+                  f"extra={sorted(changed-expected)}"
+              )
+          for relative in sorted(expected):
+              status = subprocess.check_output(
+                  ["git", "diff", "--name-status", os.environ["BASE_SHA"], os.environ["SOURCE_REF"], "--", relative],
+                  text=True,
+              ).strip()
+              if not status.startswith("M\t"):
+                  raise SystemExit(f"successor path is not an in-place modification: {relative}: {status}")
           PY
 
       - name: Compile and inspect source
