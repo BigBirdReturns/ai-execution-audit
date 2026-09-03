@@ -1,0 +1,190 @@
+name: TEMP Clean and Qualify PR110 Receipt Product 01
+
+on:
+  push:
+    branches:
+      - staging/pr110-windows-receipt-cleanup-control-01
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-clean-and-qualify-pr110-receipt-product-01
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  PRODUCT_BRANCH: staging/pr110-windows-receipt-product-05
+  PRODUCT_HEAD: 04a6c68db6873efc83efb481d1b2825a4d6ade70
+  PRODUCT_TREE: 84d45f3a5896a29fa8f7fbbbdce729d7eb485be4
+
+jobs:
+  clean-and-qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the qualified product object
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.PRODUCT_BRANCH }}
+          fetch-depth: 0
+
+      - name: Require the exact qualified parent
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$PRODUCT_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$PRODUCT_TREE"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Remove only the stray continuation line
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py")
+          source = path.read_text(encoding="utf-8")
+          method = "def test_34_coordinate_receipt_remeasures_controlled_packet_members(self) -> None:"
+          old = "\n    " + chr(92) + "\n    " + method
+          new = "\n    " + method
+          if source.count(old) != 1:
+              raise SystemExit(f"stray continuation denominator differs: {source.count(old)}")
+          source = source.replace(old, new, 1)
+          if "\n    " + chr(92) + "\n    " + method in source:
+              raise SystemExit("stray continuation remains")
+          path.write_text(source, encoding="utf-8", newline="\n")
+          PY
+
+      - name: Require the one-path one-line cleanup
+        shell: bash
+        run: |
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py"
+          test "$(git diff --numstat | awk '{print $1}')" -eq 0
+          test "$(git diff --numstat | awk '{print $2}')" -eq 1
+          git diff --check
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py")
+          if b"\r" in path.read_bytes():
+              raise SystemExit("CR byte in cleaned witness source")
+          PY
+
+      - name: Commit the exact cleanup
+        shell: bash
+        run: |
+          git config user.name "BigBirdReturns"
+          git config user.email "bigbirdreturns@proton.me"
+          git add mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py
+          git commit -m "Clean the PR110 receipt witness source" -m "Remove the single inert continuation line introduced by the staging patch carrier. Product semantics and the 86-witness denominator remain unchanged."
+          test "$(git rev-parse HEAD^)" = "$PRODUCT_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          printf 'commit=%s\ntree=%s\nparent=%s\n' \
+            "$(git rev-parse HEAD)" \
+            "$(git rev-parse HEAD^{tree})" \
+            "$(git rev-parse HEAD^)" | tee "$RUNNER_TEMP/pr110-clean-product-coordinate.txt"
+
+      - name: Compile and inspect the exact committed product
+        shell: bash
+        run: |
+          ROOT=mating_surface/anchor_node
+          python -m py_compile \
+            "$ROOT/axm_head_browser_physical_audition_operator_console_01.py" \
+            "$ROOT/verify_axm_head_browser_physical_audition_operator_console_01.py" \
+            "$ROOT/verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py" \
+            "$ROOT/conformance/test_axm_head_browser_physical_audition_operator_console_01.py"
+          node --check "$ROOT/browser_physical_audition_operator_contract.js"
+          node --check "$ROOT/browser_physical_audition_operator_service_worker.js"
+          node --check "$ROOT/browser_physical_audition_operator_panel.js"
+
+      - name: Run all 86 witnesses at the committed coordinate
+        shell: bash
+        run: |
+          ROOT=mating_surface/anchor_node
+          python -m unittest discover \
+            -s "$ROOT/conformance" \
+            -p 'test_axm_head_browser_physical_audition_operator_console_01.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/pr110-clean-product-tests.txt"
+          grep -F "Ran 86 tests" "$RUNNER_TEMP/pr110-clean-product-tests.txt"
+          grep -Fx "OK" "$RUNNER_TEMP/pr110-clean-product-tests.txt"
+
+      - name: Qualify source, campaign, extension, and independent verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-physical-audition-operator-console-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-physical-audition-operator-console-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_physical_audition_operator_console_01.py"
+          VERIFIER="$ROOT/verify_axm_head_browser_physical_audition_operator_console_01.py"
+          BOOTSTRAP="$ROOT/verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py"
+          RECEIPTS="$RUNNER_TEMP/pr110-clean-product-receipts"
+          EXTENSION="$RUNNER_TEMP/pr110-clean-product-extension"
+          mkdir -p "$RECEIPTS"
+          rm -rf "$EXTENSION"
+
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPTS/profile-validation.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPTS/fixture-validation.json"
+          python "$TOOL" campaign "$PROFILE" "$FIXTURES" > "$RECEIPTS/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" | tee "$RECEIPTS/source-set.json"
+          python "$TOOL" build-extension "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" | tee "$RECEIPTS/build-manifest.json"
+          cmp "$RECEIPTS/build-manifest.json" "$EXTENSION/build-manifest.json"
+          python "$VERIFIER" "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" > "$RECEIPTS/direct-verdict.json"
+          python "$BOOTSTRAP" "$VERIFIER" "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" > "$RECEIPTS/bootstrap-verdict.json"
+
+          python - "$RECEIPTS" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          names = (
+              "profile-validation.json",
+              "fixture-validation.json",
+              "campaign.json",
+              "source-set.json",
+              "build-manifest.json",
+              "direct-verdict.json",
+              "bootstrap-verdict.json",
+          )
+          bodies = {}
+          for name in names:
+              bodies[name] = json.loads((root / name).read_text(encoding="utf-8"))
+              if bodies[name].get("status") != "PASS":
+                  raise SystemExit({name: bodies[name]})
+          if bodies["campaign.json"].get("caseCount") != 52:
+              raise SystemExit("campaign denominator differs")
+          if bodies["source-set.json"].get("sourceMemberCount") != 14:
+              raise SystemExit("source-member denominator differs")
+          if bodies["build-manifest.json"].get("memberCount") != 7:
+              raise SystemExit("extension-member denominator differs")
+          if bodies["bootstrap-verdict.json"].get("bootstrapAuthenticated") is not True:
+              raise SystemExit("bootstrap is not authenticated")
+          summary = {
+              "commit": __import__("subprocess").check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "tree": __import__("subprocess").check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip(),
+              "sourceBindingId": bodies["source-set.json"]["sourceBindingId"],
+              "extensionId": bodies["build-manifest.json"]["extensionId"],
+              "witnessCount": 86,
+              "campaignCaseCount": 52,
+              "status": "PASS",
+          }
+          (root / "qualification-summary.json").write_text(json.dumps(summary, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(summary, sort_keys=True))
+          PY
+
+      - name: Publish the exact test-only successor
+        shell: bash
+        run: |
+          git push origin "HEAD:refs/heads/$PRODUCT_BRANCH"
+
+      - name: Preserve cleanup qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr110-clean-receipt-product-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/pr110-clean-product-coordinate.txt
+            ${{ runner.temp }}/pr110-clean-product-tests.txt
+            ${{ runner.temp }}/pr110-clean-product-receipts/
+          if-no-files-found: error
+          retention-days: 14
