@@ -468,7 +468,6 @@ class OperatorConsoleTests(unittest.TestCase):
         ):
             self.assertIn(token, source)
 
-    \
     def test_34_coordinate_receipt_remeasures_controlled_packet_members(self) -> None:
         source = WORKFLOW.read_text(encoding="utf-8")
         for token in (
