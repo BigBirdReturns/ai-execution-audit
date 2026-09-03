@@ -1,0 +1,171 @@
+name: TEMP Materialize Console Packet109 Blobs 06
+
+on:
+  push:
+    branches:
+      - staging/console-packet109-successor-publish-01
+    paths:
+      - ".github/workflows/temp-materialize-console-packet109-blobs-06.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: temp-materialize-console-packet109-blobs-06
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  GH_TOKEN: ${{ github.token }}
+  PACKET_ADMISSION_COMMIT: 0df3795b47a58903adc86c68db2b1168de543ab7
+  PACKET_ADMISSION_TREE: d05b33f066ee1b9aea731a1027de4c87f61b074b
+  FINALIZER_B64_SHA256: 5692c0fb03904e0a5b1adf53f492cbe8161afe0c83256cc789de8291398dccd6
+  FINALIZER_SHA256: af302aedd084c187a08efbd7f72f0f74b141a3b38b580d421a35be44aff393a6
+
+jobs:
+  materialize-blobs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: staging/console-packet109-successor-publish-01
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Reconstruct and authenticate finalizer v3
+        shell: bash
+        run: |
+          set -euo pipefail
+          parts=(
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-00'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-01'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-02'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-03'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-04'
+          )
+          cat "${parts[@]}" > "$RUNNER_TEMP/finalizer.py.gz.b64"
+          [[ "$(sha256sum "$RUNNER_TEMP/finalizer.py.gz.b64" | awk '{print $1}')" == "$FINALIZER_B64_SHA256" ]] || exit 2
+          base64 --decode "$RUNNER_TEMP/finalizer.py.gz.b64" | gzip -dc > "$RUNNER_TEMP/finalize_console_packet109_successor.py"
+          [[ "$(sha256sum "$RUNNER_TEMP/finalize_console_packet109_successor.py" | awk '{print $1}')" == "$FINALIZER_SHA256" ]] || exit 2
+          python -m py_compile "$RUNNER_TEMP/finalize_console_packet109_successor.py"
+
+      - name: Reconstruct, qualify, and store six exact Git blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$PACKET_ADMISSION_COMMIT" ]] || exit 2
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$PACKET_ADMISSION_TREE" ]] || exit 2
+          git checkout --detach "$PACKET_ADMISSION_COMMIT"
+
+          python - "$RUNNER_TEMP/finalize_console_packet109_successor.py" "$RUNNER_TEMP/console-successor-receipts" "$RUNNER_TEMP/blob-manifest.json" <<'PY'
+          import base64
+          import hashlib
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          module_path = Path(sys.argv[1])
+          receipt_root = Path(sys.argv[2])
+          manifest_path = Path(sys.argv[3])
+          spec = importlib.util.spec_from_file_location("console_successor_finalizer", module_path)
+          if spec is None or spec.loader is None:
+              raise SystemExit("finalizer module could not be loaded")
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+
+          repo = Path.cwd()
+          packet_commit = mod.ensure_packet_admitted(repo)
+          mod.require_console_predecessor(repo, packet_commit)
+          mod.patch_console_successor(repo, packet_commit)
+          mod.validate_successor_diff(repo, packet_commit)
+          qualification = mod.qualify_successor(repo, receipt_root)
+
+          expected = {
+              ".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml": (21246, "ebca395eb96e796544ba724305d85190a19f8d4f25154a00aca4bcfd359dd9c8", "fc0928faa9e5044c5cf2dab16c40120535c54906"),
+              "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md": (11370, "bad954ffb3dd2db0c6d2c0e331fbb3f4c054a7528fddc0bdac069198fc64b82e", "3c3190a4db74ab06b548bb3838cec7c9d7170d2a"),
+              "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json": (8096, "f9e3b76e66b683f54a2066ba8a301b9d50e367d783d8f88e4179bd46faf15d9a", "f7bfd37873c693512f8c8e190abd3520ccc7ee45"),
+              "mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py": (34926, "df4b5d8e6c0db86c144a86bd4edc10b2a32e401f79e7c1495a7262392d5cf267", "0746bd163acc8fe70b292fdba6e5388164cd13c9"),
+              "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py": (31281, "775825a62347f33ec070ac5f202459d052d957259b7155ec47cbb3607c7086b1", "40b44b68828b3857a0324e82ff2b6282b11f2715"),
+              "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py": (15638, "ca1e30c46d07883b48968d1fc18ef3c31b3f4245175f6867ba18eb5d492300ea", "9c590ff86d53907a7583769a9b16555f067ce677"),
+          }
+          rows = []
+          for relative in sorted(expected):
+              path = repo / relative
+              data = path.read_bytes()
+              expected_bytes, expected_sha256, expected_blob = expected[relative]
+              observed_sha256 = hashlib.sha256(data).hexdigest()
+              observed_blob = subprocess.check_output(["git", "hash-object", str(path)], text=True).strip()
+              if len(data) != expected_bytes or observed_sha256 != expected_sha256 or observed_blob != expected_blob:
+                  raise SystemExit(f"qualified source identity differs: {relative}")
+              request = json.dumps({"content": base64.b64encode(data).decode("ascii"), "encoding": "base64"})
+              result = subprocess.run(
+                  ["gh", "api", "--method", "POST", f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", "--input", "-"],
+                  input=request,
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+                  check=False,
+              )
+              if result.returncode != 0:
+                  raise SystemExit(f"Git blob storage failed for {relative}: {result.stderr}")
+              response = json.loads(result.stdout)
+              if response.get("sha") != expected_blob:
+                  raise SystemExit(f"stored Git blob differs for {relative}: {response}")
+              rows.append({"path": relative, "bytes": len(data), "sha256": "sha256:" + observed_sha256, "gitBlobSha": expected_blob})
+
+          manifest = {
+              "schema": "axm-private/console-packet109-successor-blob-materialization@1",
+              "status": "PASS",
+              "packetAdmissionCommit": packet_commit,
+              "packetAdmissionTree": os.environ["PACKET_ADMISSION_TREE"],
+              "witnessDenominator": qualification["witnessDenominator"],
+              "fixtureCaseDenominator": qualification["fixtureCaseDenominator"],
+              "packetSourceBindingId": qualification["packetSourceBindingId"],
+              "packetKitId": qualification["packetKitId"],
+              "consoleSourceBindingId": qualification["sourceBindingId"],
+              "consoleExtensionId": qualification["extensionId"],
+              "files": rows,
+              "blobCount": len(rows),
+              "refsMoved": False,
+              "physicalExecutionObserved": False,
+              "browserLaunched": False,
+              "supplierEndpointContacted": False,
+              "modelDownloaded": False,
+              "peerConnectionFormed": False,
+              "inferenceExecuted": False,
+              "routeTerminalProduced": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none",
+          }
+          manifest_path.write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(manifest, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-packet109-successor-blobs-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/blob-manifest.json
+            ${{ runner.temp }}/console-successor-receipts/
+          if-no-files-found: error
+          retention-days: 14
