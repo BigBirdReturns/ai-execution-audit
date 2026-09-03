@@ -1,0 +1,110 @@
+{
+  "checks": {
+    "embeddedReleaseVerifierStatus": "PASS",
+    "gitAdmissionCoordinatesRead": true,
+    "packetConsoleOperationPlanChainExact": true,
+    "privateCarrierDriveRoundTripExact": true,
+    "profileGitBlobsRead": 3,
+    "supersededObjectCount": 7
+  },
+  "claimBoundary": {
+    "actualSupplierQualified": false,
+    "browserLaunched": false,
+    "browserSeatsPhysicallyOperated": 0,
+    "commandAuthority": "none",
+    "inferenceExecuted": false,
+    "missionAuthority": "none",
+    "modelDownloadedByThisTransaction": false,
+    "namedHumanConfirmationSupplied": false,
+    "peerConnectionFormed": false,
+    "physicalEstateQualified": false,
+    "physicalMemberEvidenceAccepted": 0,
+    "physicalUniquenessProved": false,
+    "rangeShardsDownloaded": 0,
+    "rawCapturesAccepted": 0,
+    "routeTerminalProduced": false,
+    "supplierEndpointContacted": false
+  },
+  "identityBody": {
+    "hostRoleMap": {
+      "L01": [
+        "seat-01"
+      ],
+      "W01": [
+        "controller",
+        "seat-02"
+      ]
+    },
+    "issueRef": "BigBirdReturns/ai-execution-audit#105",
+    "maximumPreparationTerminal": "READY_FOR_EXACT_RANGE_CUSTODY",
+    "peerAlias": "OCTO-L01",
+    "privateCarrier": {
+      "bytes": 3438484,
+      "fileName": "AXM-Issue-105-Browser-Physical-Audition-Flight-Package-03-Release.zip",
+      "packageArchiveSha256": "sha256:7a648ffb6d39264c98a9297ad55d530dc27056bdd223c373d4a93f25fcf50406",
+      "packageId": "axmbrowserphysicalflightpackage_812d83141a0f339f0ada89339a5ba98f375c788a3aafdbd91aaa2bb450929a19",
+      "packageSourceBindingId": "axmbrowserphysicalflightpackagesource_9441d0da304a034ad540ab1de69e3bbebd3c1a215becc13287f3d867edb8358c",
+      "preparedArchiveSha256": "sha256:5d95d479c4834eccf2c3b9d0ffc365f94584a5989360f335f0725149d4fa360c",
+      "preparedTerminal": "PREPARED_NOT_EXECUTED",
+      "preparedTransactionId": "axmbrowserphysicalrun_b90f76feb0a7324dac7fbd8780a7079a8123c85cdf4a06233467e675803722dc",
+      "qualificationId": "axmbrowserphysicalflightqualification_a9780b561fd0c08885bf328bfdc50a37da20c868ffbc1917690bce5b4b4e7cc1",
+      "releaseId": "axmbrowserphysicalflightrelease_48bded1a98f703e2a044765bcd786b82eb9c097c26a43bc420945f97f074e566",
+      "seatCapsules": [
+        {
+          "archiveBytes": 36337,
+          "archiveSha256": "sha256:5e06e8d9f5b3ec69dd1e9db1f68b0630042cd58dea730aa56aba6ec4c23670bb",
+          "assignedHostRole": "L01",
+          "capsuleId": "axmbrowserphysicalseatcapsule_5dc5e85984afb654dfc353731f2e3822807db98884d88cfb2a3cb5b3bf18b024",
+          "seatId": "seat-01"
+        },
+        {
+          "archiveBytes": 36335,
+          "archiveSha256": "sha256:0f6211976f03260d2c645c613e8ba690de83e72fbac9e7d4a5320f6952cdf491",
+          "assignedHostRole": "W01",
+          "capsuleId": "axmbrowserphysicalseatcapsule_d9898cb5ff6df1c9312d80bed0851985c634fb395e6ec63cc1469ab9851c6df6",
+          "seatId": "seat-02"
+        }
+      ],
+      "sha256": "sha256:884630ee32a75545373bc88b725c976cc1e61bffd240315a14afea81c20e6d09"
+    },
+    "repository": {
+      "console": {
+        "commit": "d083ae55a20c730c56b69863c172b43d2a6f7651",
+        "extensionId": "axmoperatorconsoleextension_63b6140baf423457b83af8da3c1dc4f3493c43933b4e6d712f53bfe6df363d01",
+        "profileGitBlob": "f7bfd37873c693512f8c8e190abd3520ccc7ee45",
+        "sourceBindingId": "axmoperatorconsolesource_d213e280c45cf2c81d84edf8d7af4ea077c77632472117d8f6708277ce4fe7a3",
+        "tree": "e7631a37778595c5367237a4fe52afec78120149"
+      },
+      "fullName": "BigBirdReturns/ai-execution-audit",
+      "mainCommit": "3c11dbca48ae777137675bb9bf485f0c42daf7a4",
+      "mainTree": "5f30f024b13be3becc5d81c970927004ab0cac31",
+      "operationPlan": {
+        "commit": "3c11dbca48ae777137675bb9bf485f0c42daf7a4",
+        "extensionId": "axmoperationplanextension_d0e4adb7bdb2e68c429e78718fecd6e25b79240d13f7ce9487cffd55fb80ccac",
+        "planId": "axmoperationplan_4efbcaacc84ecf1e5cd3be5a3c1415ad504a8319e2b162d77daf0b7b0fb6c7d0",
+        "profileGitBlob": "5c35e6e2d7f1b2d3e10027cf4397de3682992951",
+        "sourceBindingId": "axmoperationplansource_f0aba4bced1c826a443a29fb4c889c5070e5bf01fb9e58a3362ae363b7ed6a71",
+        "stepCount": 29,
+        "tree": "5f30f024b13be3becc5d81c970927004ab0cac31"
+      },
+      "packet": {
+        "commit": "0df3795b47a58903adc86c68db2b1168de543ab7",
+        "kitId": "axmbrowserphysicalkit_3da8f2aa59666d990653e46036ea060f0fd56591e11eed15131789554d630aac",
+        "profileGitBlob": "322414803ab0620d66d20e3ba0a9ed0ec8ac9697",
+        "sourceBindingId": "axmbrowserphysicalpacketsource_47826c4d84036ce65ce7e2e222086d0cce422f5a5448b7e54909963bda556107",
+        "tree": "d05b33f066ee1b9aea731a1027de4c87f61b074b"
+      },
+      "probeSha256": "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e"
+    },
+    "requiredReturns": [
+      "ISSUE105-CURRENT-IDENTITY-JOIN.json",
+      "ISSUE105-W01-PREPARATION-RECEIPT.json",
+      "ISSUE105-L01-PREPARATION-RECEIPT.json",
+      "ISSUE105-TWO-SEAT-PREPARATION-JOIN.json"
+    ]
+  },
+  "identityJoinId": "axmissue105currentidentityjoin_b937b9a84ceda29665ed35b086b977b71009f57f8565260deb9d3f996b9e6a0e",
+  "observedAtUtc": "2026-09-03T21:09:18Z",
+  "schema": "axm-private/issue105-current-identity-join@1",
+  "status": "PASS"
+}

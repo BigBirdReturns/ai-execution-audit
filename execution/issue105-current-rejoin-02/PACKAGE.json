@@ -1,0 +1,93 @@
+{
+  "claimBoundary": {
+    "actualSupplierQualified": false,
+    "browserLaunched": false,
+    "browserSeatsPhysicallyOperated": 0,
+    "commandAuthority": "none",
+    "inferenceExecuted": false,
+    "missionAuthority": "none",
+    "modelDownloadedByThisTransaction": false,
+    "namedHumanConfirmationSupplied": false,
+    "peerConnectionFormed": false,
+    "physicalEstateQualified": false,
+    "physicalMemberEvidenceAccepted": 0,
+    "physicalUniquenessProved": false,
+    "rangeShardsDownloaded": 0,
+    "rawCapturesAccepted": 0,
+    "routeTerminalProduced": false,
+    "supplierEndpointContacted": false
+  },
+  "identityBody": {
+    "entrypoint": "Run-Prepare-Both-Hosts.cmd",
+    "identityJoinId": "axmissue105currentidentityjoin_b937b9a84ceda29665ed35b086b977b71009f57f8565260deb9d3f996b9e6a0e",
+    "members": [
+      {
+        "bytes": 3438484,
+        "path": "AXM-Issue-105-Browser-Physical-Audition-Flight-Package-03-Release.zip",
+        "sha256": "sha256:884630ee32a75545373bc88b725c976cc1e61bffd240315a14afea81c20e6d09"
+      },
+      {
+        "bytes": 1636,
+        "path": "DISPOSABLE-REF-RETIREMENT.json",
+        "sha256": "sha256:75b27edfad135ea1fa7fdcddaaf234c23eed9457ef08995fb39335489465f6ef"
+      },
+      {
+        "bytes": 5296,
+        "path": "ISSUE105-CURRENT-IDENTITY-JOIN.json",
+        "sha256": "sha256:a19dac253c7ed2b3585f9b91040dcd4dbd16cf9635cc3b8caa6a8ce2cd26aea2"
+      },
+      {
+        "bytes": 9340,
+        "path": "Prepare-Both-Hosts.ps1",
+        "sha256": "sha256:0b1b3ab1e3693619b5fa6d0c0c24a393ff2c55380a19ca7f1dd15df5e5b6a7a9"
+      },
+      {
+        "bytes": 13231,
+        "path": "Prepare-Current-Host.ps1",
+        "sha256": "sha256:3be54db2ed7f27e8129fac11ea090b76f12931b7c879eb77feaf58d23a1a29cb"
+      },
+      {
+        "bytes": 131,
+        "path": "Run-Prepare-Both-Hosts.cmd",
+        "sha256": "sha256:044f1696670962c43f649511a64788f2a52115485bcd4107c94b3f6d417aaeec"
+      },
+      {
+        "bytes": 1874,
+        "path": "START-HERE.md",
+        "sha256": "sha256:525c2fcf85aa177857b49d87183c7fdb3a60d13d6bd68576c307a9a6b3d9b120"
+      },
+      {
+        "bytes": 88,
+        "path": "Verify-Packet.cmd",
+        "sha256": "sha256:c64e57c23d131e74b2c148852a121b205b66c255b754a1deffd62ae71e2bf605"
+      },
+      {
+        "bytes": 9468,
+        "path": "join_preparation_receipts.py",
+        "sha256": "sha256:1949c9d6d2774f2f5c766d516c72c3a1356d247131c7327602b13d71a79e9604"
+      },
+      {
+        "bytes": 157,
+        "path": "receipts/README.md",
+        "sha256": "sha256:06a09ff76630408edc033a2d02916fa4bb456f2caae8cbc96949d4374fad3acd"
+      },
+      {
+        "bytes": 8911,
+        "path": "verify_current_rejoin_packet.py",
+        "sha256": "sha256:7bb0da1c3a368c8893cbcd8050a92e4593700337f29cb01ad4ef0ab9af80a1b0"
+      }
+    ],
+    "releaseSha256": "sha256:884630ee32a75545373bc88b725c976cc1e61bffd240315a14afea81c20e6d09",
+    "verificationEntrypoint": "Verify-Packet.cmd"
+  },
+  "identityJoinId": "axmissue105currentidentityjoin_b937b9a84ceda29665ed35b086b977b71009f57f8565260deb9d3f996b9e6a0e",
+  "packetId": "axmissue105currentrejoinpacket_3af6ad4838b83f7a3e6ade59d90e3c89771ad9751dd1034a55af01ecd62f52f3",
+  "requiredReturns": [
+    "ISSUE105-CURRENT-IDENTITY-JOIN.json",
+    "ISSUE105-W01-PREPARATION-RECEIPT.json",
+    "ISSUE105-L01-PREPARATION-RECEIPT.json",
+    "ISSUE105-TWO-SEAT-PREPARATION-JOIN.json"
+  ],
+  "schema": "axm-private/issue105-current-rejoin-preparation-packet@1",
+  "status": "READY_FOR_TWO_HOST_PREPARATION"
+}

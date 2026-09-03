@@ -1,0 +1,220 @@
+name: AXM Issue 105 Current Rejoin Preparation 02 Host Execution
+
+on:
+  push:
+    branches:
+      - ops/issue105-current-rejoin-prep-exec-02-01
+    paths:
+      - ".github/workflows/issue105-current-rejoin-prep-exec-02.yml"
+      - "execution/issue105-current-rejoin-02/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue105-current-rejoin-prep-exec-02
+  cancel-in-progress: false
+
+jobs:
+  prepare-current-two-host-lineage:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 35
+    steps:
+      - name: Check out the exact execution coordinate
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
+
+      - name: Locate the exact private carrier and prepare W01 and L01
+        id: prepare
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+
+          $ExpectedPacketArchiveName = 'AXM-Issue-105-Current-Rejoin-Preparation-02.zip'
+          $ExpectedPacketArchiveBytes = 3456196L
+          $ExpectedPacketArchiveSha256 = 'c94e4d5bb584b00d30ec9461d645ea5f7d2841b17e2c9ab0779aa3707dbd29cc'
+          $ExpectedPacketRootName = 'AXM-Issue-105-Current-Rejoin-Preparation-02'
+          $ExpectedPacketId = 'axmissue105currentrejoinpacket_3af6ad4838b83f7a3e6ade59d90e3c89771ad9751dd1034a55af01ecd62f52f3'
+          $ExpectedReleaseName = 'AXM-Issue-105-Browser-Physical-Audition-Flight-Package-03-Release.zip'
+          $ExpectedReleaseBytes = 3438484L
+          $ExpectedReleaseSha256 = '884630ee32a75545373bc88b725c976cc1e61bffd240315a14afea81c20e6d09'
+          $ExpectedIdentityJoin = 'axmissue105currentidentityjoin_b937b9a84ceda29665ed35b086b977b71009f57f8565260deb9d3f996b9e6a0e'
+
+          $EvidenceRoot = Join-Path $env:RUNNER_TEMP "issue105-current-rejoin-02-evidence-$env:GITHUB_RUN_ID"
+          $StageRoot = Join-Path $env:RUNNER_TEMP "issue105-current-rejoin-02-stage-$env:GITHUB_RUN_ID"
+          $Scaffold = Join-Path $env:GITHUB_WORKSPACE 'execution\issue105-current-rejoin-02'
+          $PacketRoot = Join-Path $StageRoot $ExpectedPacketRootName
+          New-Item -ItemType Directory -Path $EvidenceRoot -Force | Out-Null
+
+          function Get-TextSha256([string]$Value) {
+              $Bytes = [Text.Encoding]::UTF8.GetBytes($Value)
+              $Sha = [Security.Cryptography.SHA256]::Create()
+              try { return 'sha256:' + (($Sha.ComputeHash($Bytes) | ForEach-Object { $_.ToString('x2') }) -join '') }
+              finally { $Sha.Dispose() }
+          }
+
+          function Find-ExactCarrier([string]$Name, [int64]$Bytes, [string]$Sha256, [string[]]$Roots) {
+              foreach ($Root in $Roots) {
+                  if ([string]::IsNullOrWhiteSpace($Root) -or -not (Test-Path -LiteralPath $Root)) { continue }
+                  $Candidates = @()
+                  $Item = Get-Item -LiteralPath $Root -Force -ErrorAction SilentlyContinue
+                  if ($Item -and -not $Item.PSIsContainer) {
+                      if ($Item.Name -eq $Name) { $Candidates = @($Item) }
+                  } else {
+                      $Candidates = @(Get-ChildItem -LiteralPath $Root -Filter $Name -File -Recurse -Force -ErrorAction SilentlyContinue)
+                  }
+                  foreach ($Candidate in $Candidates) {
+                      if ($Candidate.Length -ne $Bytes) { continue }
+                      $Observed = (Get-FileHash -LiteralPath $Candidate.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                      if ($Observed -eq $Sha256) { return $Candidate.FullName }
+                  }
+              }
+              return $null
+          }
+
+          function Select-PersistentReceiptRoot {
+              foreach ($Name in @('D', 'E', 'C')) {
+                  $Drive = Get-PSDrive -Name $Name -PSProvider FileSystem -ErrorAction SilentlyContinue
+                  if ($Drive -and [int64]$Drive.Free -ge 1073741824L) {
+                      if ($Name -eq 'C') { return (Join-Path $env:ProgramData "AXM\Issue-105\current-rejoin-02\runs\$env:GITHUB_RUN_ID\receipts") }
+                      return (Join-Path $Drive.Root "AXM\Issue-105\current-rejoin-02\runs\$env:GITHUB_RUN_ID\receipts")
+                  }
+              }
+              throw 'NO_PERSISTENT_RECEIPT_VOLUME_WITH_1GIB_FREE'
+          }
+
+          function Write-ExecutionSummary([string]$Status, [string]$Terminal, [string]$ReasonCode, [bool]$CarrierLocated, [bool]$W01ReceiptPresent, [bool]$L01ReceiptPresent, [bool]$JoinPresent) {
+              $Summary = [ordered]@{
+                  schema = 'axm-private/issue105-current-rejoin-host-execution-summary@1'
+                  status = $Status
+                  terminal = $Terminal
+                  reasonCode = $ReasonCode
+                  observedAtUtc = [DateTime]::UtcNow.ToString('o')
+                  githubRunId = [string]$env:GITHUB_RUN_ID
+                  runnerRef = Get-TextSha256 ("{0}|{1}|{2}" -f $env:COMPUTERNAME, $env:PROCESSOR_ARCHITECTURE, $env:RUNNER_NAME)
+                  packetId = $ExpectedPacketId
+                  identityJoinId = $ExpectedIdentityJoin
+                  exactPrivateCarrierLocated = $CarrierLocated
+                  w01PreparationReceiptPresent = $W01ReceiptPresent
+                  l01PreparationReceiptPresent = $L01ReceiptPresent
+                  twoSeatPreparationJoinPresent = $JoinPresent
+                  browserSeatsPhysicallyOperated = 0
+                  browserLaunched = $false
+                  supplierEndpointContacted = $false
+                  modelDownloadedByThisTransaction = $false
+                  rangeShardsDownloaded = 0
+                  peerConnectionFormed = $false
+                  inferenceExecuted = $false
+                  physicalMemberEvidenceAccepted = 0
+                  rawCapturesAccepted = 0
+                  namedHumanConfirmationSupplied = $false
+                  routeTerminalProduced = $false
+                  actualSupplierQualified = $false
+                  physicalEstateQualified = $false
+                  physicalUniquenessProved = $false
+                  missionAuthority = 'none'
+                  commandAuthority = 'none'
+              }
+              $Summary | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $EvidenceRoot 'ISSUE105-CURRENT-REJOIN-HOST-EXECUTION-SUMMARY.json') -Encoding UTF8
+          }
+
+          $CarrierLocated = $false
+          $ReceiptRoot = $null
+          try {
+              if (-not (Test-Path -LiteralPath $Scaffold -PathType Container)) { throw 'CURRENT_PACKET_SCAFFOLD_MISSING' }
+              if (Test-Path -LiteralPath $StageRoot) { throw 'RUN_STAGE_COLLISION' }
+              New-Item -ItemType Directory -Path $StageRoot | Out-Null
+              Copy-Item -LiteralPath $Scaffold -Destination $PacketRoot -Recurse
+
+              $SearchRoots = @(
+                  $env:AXM_PRIVATE_CARRIER_ROOT,
+                  'D:\AXM',
+                  'D:\Projects\Personal',
+                  'D:\Projects',
+                  'E:\AXM',
+                  (Join-Path $env:USERPROFILE 'Downloads'),
+                  (Join-Path $env:USERPROFILE 'Desktop'),
+                  (Join-Path $env:ProgramData 'AXM'),
+                  $env:RUNNER_WORKSPACE
+              )
+              $PacketArchive = Find-ExactCarrier $ExpectedPacketArchiveName $ExpectedPacketArchiveBytes $ExpectedPacketArchiveSha256 $SearchRoots
+              if ($PacketArchive) {
+                  $Expanded = Join-Path $StageRoot 'exact-packet-archive'
+                  Expand-Archive -LiteralPath $PacketArchive -DestinationPath $Expanded
+                  $Roots = @(Get-ChildItem -LiteralPath $Expanded -Directory -Force)
+                  if ($Roots.Count -ne 1 -or $Roots[0].Name -ne $ExpectedPacketRootName) { throw 'CURRENT_PACKET_ARCHIVE_ROOT_INVALID' }
+                  $ReleaseFromPacket = Join-Path $Roots[0].FullName $ExpectedReleaseName
+                  if (-not (Test-Path -LiteralPath $ReleaseFromPacket -PathType Leaf)) { throw 'CURRENT_PACKET_RELEASE_MISSING' }
+                  Copy-Item -LiteralPath $ReleaseFromPacket -Destination (Join-Path $PacketRoot $ExpectedReleaseName)
+                  $CarrierLocated = $true
+              } else {
+                  $ReleaseArchive = Find-ExactCarrier $ExpectedReleaseName $ExpectedReleaseBytes $ExpectedReleaseSha256 $SearchRoots
+                  if (-not $ReleaseArchive) { throw 'CURRENT_PRIVATE_CARRIER_NOT_FOUND' }
+                  Copy-Item -LiteralPath $ReleaseArchive -Destination (Join-Path $PacketRoot $ExpectedReleaseName)
+                  $CarrierLocated = $true
+              }
+
+              $ReleaseAtPacket = Join-Path $PacketRoot $ExpectedReleaseName
+              if ((Get-Item -LiteralPath $ReleaseAtPacket).Length -ne $ExpectedReleaseBytes -or
+                  (Get-FileHash -LiteralPath $ReleaseAtPacket -Algorithm SHA256).Hash.ToLowerInvariant() -ne $ExpectedReleaseSha256) {
+                  throw 'CURRENT_PRIVATE_CARRIER_IDENTITY_INVALID'
+              }
+
+              $ReceiptRoot = Select-PersistentReceiptRoot
+              New-Item -ItemType Directory -Path $ReceiptRoot -Force | Out-Null
+              $Run = & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $PacketRoot 'Prepare-Both-Hosts.ps1') -OutputRoot $ReceiptRoot 2>&1
+              $Run | Set-Content -LiteralPath (Join-Path $EvidenceRoot 'prepare-both-hosts-output.txt') -Encoding UTF8
+              if ($LASTEXITCODE -ne 0) { throw 'TWO_HOST_PREPARATION_REFUSED' }
+
+              Copy-Item -LiteralPath (Join-Path $PacketRoot 'ISSUE105-CURRENT-IDENTITY-JOIN.json') -Destination (Join-Path $ReceiptRoot 'ISSUE105-CURRENT-IDENTITY-JOIN.json') -Force
+              $Required = @(
+                  'ISSUE105-CURRENT-IDENTITY-JOIN.json',
+                  'ISSUE105-W01-PREPARATION-RECEIPT.json',
+                  'ISSUE105-L01-PREPARATION-RECEIPT.json',
+                  'ISSUE105-TWO-SEAT-PREPARATION-JOIN.json'
+              )
+              foreach ($Name in $Required) {
+                  $Path = Join-Path $ReceiptRoot $Name
+                  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "REQUIRED_RETURN_MISSING:$Name" }
+                  Copy-Item -LiteralPath $Path -Destination (Join-Path $EvidenceRoot $Name) -Force
+              }
+              $Join = Get-Content -LiteralPath (Join-Path $ReceiptRoot 'ISSUE105-TWO-SEAT-PREPARATION-JOIN.json') -Raw | ConvertFrom-Json
+              if ($Join.status -ne 'PASS' -or $Join.terminal -ne 'READY_FOR_EXACT_RANGE_CUSTODY' -or
+                  $Join.rejoinPacketId -ne $ExpectedPacketId -or $Join.identityJoinId -ne $ExpectedIdentityJoin -or
+                  $Join.hostReferencesDistinct -ne $true -or $Join.physicalUniquenessProved -ne $false -or
+                  $Join.browserLaunched -ne $false -or $Join.supplierEndpointContacted -ne $false -or
+                  $Join.rangeShardsDownloaded -ne 0 -or $Join.inferenceExecuted -ne $false) {
+                  throw 'TWO_SEAT_PREPARATION_JOIN_INVALID'
+              }
+              Write-ExecutionSummary 'PASS' 'READY_FOR_EXACT_RANGE_CUSTODY' $null $true $true $true $true
+              exit 0
+          } catch {
+              $Reason = ([string]$_.Exception.Message).Split(':')[0]
+              $W01 = $false
+              $L01 = $false
+              $Joined = $false
+              if ($ReceiptRoot) {
+                  foreach ($Name in @('ISSUE105-W01-PREPARATION-RECEIPT.json','ISSUE105-L01-PREPARATION-RECEIPT.json','ISSUE105-TWO-SEAT-PREPARATION-JOIN.json')) {
+                      $Path = Join-Path $ReceiptRoot $Name
+                      if (Test-Path -LiteralPath $Path -PathType Leaf) { Copy-Item -LiteralPath $Path -Destination (Join-Path $EvidenceRoot $Name) -Force }
+                  }
+                  $W01 = Test-Path -LiteralPath (Join-Path $ReceiptRoot 'ISSUE105-W01-PREPARATION-RECEIPT.json') -PathType Leaf
+                  $L01 = Test-Path -LiteralPath (Join-Path $ReceiptRoot 'ISSUE105-L01-PREPARATION-RECEIPT.json') -PathType Leaf
+                  $Joined = Test-Path -LiteralPath (Join-Path $ReceiptRoot 'ISSUE105-TWO-SEAT-PREPARATION-JOIN.json') -PathType Leaf
+              }
+              Write-ExecutionSummary 'HOLD' 'HOLD' $Reason $CarrierLocated $W01 $L01 $Joined
+              Write-Error $Reason
+              exit 2
+          }
+
+      - name: Preserve bounded preparation receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue105-current-rejoin-preparation-02-${{ github.run_id }}
+          path: ${{ runner.temp }}/issue105-current-rejoin-02-evidence-${{ github.run_id }}/
+          if-no-files-found: error
+          retention-days: 7

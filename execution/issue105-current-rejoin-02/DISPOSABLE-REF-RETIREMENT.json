@@ -1,0 +1,37 @@
+{
+  "claimBoundary": {
+    "actualSupplierQualified": false,
+    "browserLaunched": false,
+    "browserSeatsPhysicallyOperated": 0,
+    "commandAuthority": "none",
+    "inferenceExecuted": false,
+    "missionAuthority": "none",
+    "modelDownloadedByThisTransaction": false,
+    "namedHumanConfirmationSupplied": false,
+    "peerConnectionFormed": false,
+    "physicalEstateQualified": false,
+    "physicalMemberEvidenceAccepted": 0,
+    "physicalUniquenessProved": false,
+    "rangeShardsDownloaded": 0,
+    "rawCapturesAccepted": 0,
+    "routeTerminalProduced": false,
+    "supplierEndpointContacted": false
+  },
+  "currentAuthority": {
+    "identityJoinId": "axmissue105currentidentityjoin_b937b9a84ceda29665ed35b086b977b71009f57f8565260deb9d3f996b9e6a0e",
+    "privateCarrierSha256": "sha256:884630ee32a75545373bc88b725c976cc1e61bffd240315a14afea81c20e6d09",
+    "repositoryMain": "3c11dbca48ae777137675bb9bf485f0c42daf7a4"
+  },
+  "identityJoinId": "axmissue105currentidentityjoin_b937b9a84ceda29665ed35b086b977b71009f57f8565260deb9d3f996b9e6a0e",
+  "observedLiveRefs": [
+    "ops/issue105-estate-autopilot-01",
+    "ops/issue105-l01-private-transfer-prepare-01",
+    "ops/issue105-range-custody-03",
+    "ops/issue105-w01-private-transfer-probe-01",
+    "temp/export-main-3c11-external-flight-package-01"
+  ],
+  "remoteRefsDeleted": false,
+  "retirementMechanism": "This packet refuses every predecessor carrier and treats these disposable refs as non-authoritative. Remote ref deletion was not available to this build surface.",
+  "schema": "axm-private/issue105-disposable-ref-retirement@1",
+  "status": "STALE_DO_NOT_EXECUTE"
+}
