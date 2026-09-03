@@ -56,6 +56,8 @@ class OperatorConsoleTests(unittest.TestCase):
         self.assertEqual(self.profile["interface"], mod.INTERFACE)
         self.assertEqual(self.profile["admittedPacket"]["commit"], mod.ADMITTED_PACKET_COMMIT)
         self.assertEqual(self.profile["admittedPacket"]["tree"], mod.ADMITTED_PACKET_TREE)
+        self.assertEqual(self.profile["admittedPacket"]["sourceBindingId"], mod.ADMITTED_PACKET_SOURCE_BINDING_ID)
+        self.assertEqual(self.profile["admittedPacket"]["kitId"], mod.ADMITTED_PACKET_KIT_ID)
 
     def test_02_profile_closes_source_extension_method_and_command_denominators(self) -> None:
         self.assertEqual(tuple(self.profile["sourceMembers"]), mod.SOURCE_MEMBERS)
@@ -326,10 +328,12 @@ class OperatorConsoleTests(unittest.TestCase):
         self.assertIn("ubuntu-latest", source)
         self.assertIn("windows-latest", source)
         self.assertIn("'[\"head\",\"merge\"]'", source)
-        self.assertIn('WITNESS_DENOMINATOR: "81"', source)
+        self.assertIn('WITNESS_DENOMINATOR: "86"', source)
         self.assertIn("build-extension", source)
         self.assertIn("bootstrap-verdict.json", source)
         self.assertIn("Require platform and coordinate byte identity", source)
+        self.assertIn("Require the exact bounded successor source-change denominator", source)
+        self.assertIn("changed != required", source)
         for token in ("playwright", "selenium", "chromedriver", "chrome.exe", "msedge.exe", "curl ", "wget "):
             self.assertNotIn(token, source.lower())
 
@@ -426,6 +430,59 @@ class OperatorConsoleTests(unittest.TestCase):
         self.assertEqual(body["open"]["status"], "PASS")
         self.assertEqual(body["changed"]["code"], "SESSION_DOCUMENT_MISMATCH")
         self.assertEqual(body["stale"]["code"], "SESSION_INVALID")
+
+
+    def test_30_packet_source_binding_substitution_is_refused(self) -> None:
+        hostile = json.loads(json.dumps(self.profile))
+        hostile["admittedPacket"]["sourceBindingId"] = "axmbrowserphysicalpacketsource_" + "0" * 64
+        path = self.work / "hostile-source-binding-profile.json"
+        path.write_bytes(mod.pretty_bytes(hostile))
+        with self.assertRaises(mod.ConsoleError) as context:
+            mod.validate_profile(path)
+        self.assertEqual(context.exception.code, "ADMITTED_PACKET_BINDING_INVALID")
+
+    def test_31_packet_kit_substitution_is_refused(self) -> None:
+        hostile = json.loads(json.dumps(self.profile))
+        hostile["admittedPacket"]["kitId"] = "axmbrowserphysicalkit_" + "0" * 64
+        path = self.work / "hostile-kit-profile.json"
+        path.write_bytes(mod.pretty_bytes(hostile))
+        with self.assertRaises(mod.ConsoleError) as context:
+            mod.validate_profile(path)
+        self.assertEqual(context.exception.code, "ADMITTED_PACKET_BINDING_INVALID")
+
+    def test_32_workflow_roots_packet_kit_reconstruction_under_runner_temp(self) -> None:
+        source = WORKFLOW.read_text(encoding="utf-8")
+        expected = 'with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-", dir=os.environ["RUNNER_TEMP"]) as temporary:'
+        unsafe = 'with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-") as temporary:'
+        self.assertIn(expected, source)
+        self.assertNotIn(unsafe, source)
+
+    def test_33_workflow_rematerializes_full_packet_denominator_from_admitted_blobs(self) -> None:
+        source = WORKFLOW.read_text(encoding="utf-8")
+        for token in (
+            'packet_profile_body = json.loads(packet_profile.read_text(encoding="utf-8"))',
+            'packet_members = set(packet_profile_body["sourceMembers"])',
+            'for group in ("kitSourceBindings", "packetSourceBindings"):',
+            '["git", "cat-file", "blob", f"{admitted[\'commit\']}:{relative}"]',
+            'admitted packet source contains CR bytes',
+        ):
+            self.assertIn(token, source)
+
+    def test_34_coordinate_receipt_remeasures_controlled_packet_members(self) -> None:
+        source = WORKFLOW.read_text(encoding="utf-8")
+        for token in (
+            'candidate_members = set(profile["sourceMembers"])',
+            'admitted = profile["admittedPacket"]',
+            'packet_profile = json.loads(pathlib.Path(packet_profile_path).read_text(encoding="utf-8"))',
+            'controlled_members = sorted(candidate_members | packet_members)',
+            '["git", "cat-file", "blob", f"{admitted[\'commit\']}:{relative}"]',
+            '"status": "PASS" if candidate_exact and packet_exact and status == "" else "REFUSED"',
+            '"admittedPacketMembersExact": packet_exact',
+            '"controlledRematerializedMemberCount": len(controlled_members)',
+        ):
+            self.assertIn(token, source)
+        unsafe = 'excluded = [*profile["sourceMembers"], *(row["path"] for row in profile["dependencies"])]'
+        self.assertNotIn(unsafe, source)
 
 
 def _fixture_test(row: dict, group: str):

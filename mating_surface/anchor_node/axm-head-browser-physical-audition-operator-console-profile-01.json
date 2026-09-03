@@ -1,8 +1,10 @@
 {
   "admittedPacket": {
-    "commit": "ac60f1196635d73e614a09123772efccd4649bd0",
+    "commit": "0df3795b47a58903adc86c68db2b1168de543ab7",
+    "kitId": "axmbrowserphysicalkit_3da8f2aa59666d990653e46036ea060f0fd56591e11eed15131789554d630aac",
     "profileId": "axm-head/browser-physical-audition-packet/0.1",
-    "tree": "b6a705c988f0997a63c8ff19dd3f1f67e1d146b6"
+    "sourceBindingId": "axmbrowserphysicalpacketsource_47826c4d84036ce65ce7e2e222086d0cce422f5a5448b7e54909963bda556107",
+    "tree": "d05b33f066ee1b9aea731a1027de4c87f61b074b"
   },
   "claimBoundary": {
     "actualSupplierQualified": false,
@@ -37,9 +39,9 @@
     },
     {
       "bytes": 8275,
-      "gitBlobSha": "062da28313107615c9afe5743f8390d77465deca",
+      "gitBlobSha": "322414803ab0620d66d20e3ba0a9ed0ec8ac9697",
       "path": "mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json",
-      "sha256": "sha256:93257d97d41b3462d71aa61640e7f5050510e4f38e0291d8d775a06e37fa67d6"
+      "sha256": "sha256:785ecb62e6093ff613298e503d7eb078250063d4ee2cfae3b92446e68c215e78"
     }
   ],
   "extensionMembers": [
