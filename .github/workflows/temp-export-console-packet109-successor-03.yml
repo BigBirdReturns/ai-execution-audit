@@ -1,0 +1,152 @@
+name: TEMP Export Console Packet109 Successor 03
+
+on:
+  push:
+    branches:
+      - staging/console-packet109-successor-publish-01
+    paths:
+      - ".github/workflows/temp-export-console-packet109-successor-03.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: temp-export-console-packet109-successor-03
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  GH_TOKEN: ${{ github.token }}
+  PACKET_ADMISSION_COMMIT: 0df3795b47a58903adc86c68db2b1168de543ab7
+  PACKET_ADMISSION_TREE: d05b33f066ee1b9aea731a1027de4c87f61b074b
+  FINALIZER_B64_SHA256: 5692c0fb03904e0a5b1adf53f492cbe8161afe0c83256cc789de8291398dccd6
+  FINALIZER_SHA256: af302aedd084c187a08efbd7f72f0f74b141a3b38b580d421a35be44aff393a6
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: staging/console-packet109-successor-publish-01
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Reconstruct and authenticate finalizer v3
+        shell: bash
+        run: |
+          set -euo pipefail
+          parts=(
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-00'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-01'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-02'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-03'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-04'
+          )
+          cat "${parts[@]}" > "$RUNNER_TEMP/finalizer.py.gz.b64"
+          [[ "$(sha256sum "$RUNNER_TEMP/finalizer.py.gz.b64" | awk '{print $1}')" == "$FINALIZER_B64_SHA256" ]] || exit 2
+          base64 --decode "$RUNNER_TEMP/finalizer.py.gz.b64" | gzip -dc > "$RUNNER_TEMP/finalize_console_packet109_successor.py"
+          [[ "$(sha256sum "$RUNNER_TEMP/finalize_console_packet109_successor.py" | awk '{print $1}')" == "$FINALIZER_SHA256" ]] || exit 2
+          python -m py_compile "$RUNNER_TEMP/finalize_console_packet109_successor.py"
+
+      - name: Reconstruct, qualify, and export the exact six-file successor
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$PACKET_ADMISSION_COMMIT" ]] || exit 2
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$PACKET_ADMISSION_TREE" ]] || exit 2
+          git checkout --detach "$PACKET_ADMISSION_COMMIT"
+
+          python - "$RUNNER_TEMP/finalize_console_packet109_successor.py" "$RUNNER_TEMP/console-successor-receipts" "$RUNNER_TEMP/successor-export" <<'PY'
+          import hashlib
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          import shutil
+          import subprocess
+          import sys
+
+          module_path = Path(sys.argv[1])
+          receipt_root = Path(sys.argv[2])
+          export_root = Path(sys.argv[3])
+          spec = importlib.util.spec_from_file_location("console_successor_finalizer", module_path)
+          if spec is None or spec.loader is None:
+              raise SystemExit("finalizer module could not be loaded")
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+
+          repo = Path.cwd()
+          packet_commit = mod.ensure_packet_admitted(repo)
+          mod.require_console_predecessor(repo, packet_commit)
+          mod.patch_console_successor(repo, packet_commit)
+          mod.validate_successor_diff(repo, packet_commit)
+          qualification = mod.qualify_successor(repo, receipt_root)
+
+          source_root = export_root / "source"
+          files = []
+          for relative in sorted(mod.CONSOLE_PATHS):
+              source = repo / relative
+              target = source_root / relative
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, target)
+              data = target.read_bytes()
+              files.append({
+                  "path": relative,
+                  "bytes": len(data),
+                  "sha256": "sha256:" + hashlib.sha256(data).hexdigest(),
+                  "gitBlobSha": subprocess.check_output(["git", "hash-object", str(source)], text=True).strip(),
+              })
+
+          manifest = {
+              "schema": "axm-private/console-packet109-successor-export@1",
+              "status": "PASS",
+              "packetAdmissionCommit": packet_commit,
+              "packetAdmissionTree": os.environ["PACKET_ADMISSION_TREE"],
+              "changedPaths": sorted(mod.CONSOLE_PATHS),
+              "files": files,
+              "witnessDenominator": qualification["witnessDenominator"],
+              "fixtureCaseDenominator": qualification["fixtureCaseDenominator"],
+              "packetSourceBindingId": qualification["packetSourceBindingId"],
+              "packetKitId": qualification["packetKitId"],
+              "consoleSourceBindingId": qualification["sourceBindingId"],
+              "consoleExtensionId": qualification["extensionId"],
+              "physicalExecutionObserved": False,
+              "browserLaunched": False,
+              "supplierEndpointContacted": False,
+              "modelDownloaded": False,
+              "peerConnectionFormed": False,
+              "inferenceExecuted": False,
+              "routeTerminalProduced": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none",
+          }
+          export_root.mkdir(parents=True, exist_ok=True)
+          (export_root / "EXPORT.json").write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          shutil.copytree(receipt_root, export_root / "qualification", dirs_exist_ok=True)
+          print(json.dumps(manifest, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-packet109-successor-export-${{ github.run_id }}
+          path: ${{ runner.temp }}/successor-export
+          if-no-files-found: error
+          retention-days: 14
