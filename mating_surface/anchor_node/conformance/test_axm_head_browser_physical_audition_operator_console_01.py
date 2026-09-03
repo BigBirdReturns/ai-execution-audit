@@ -328,7 +328,7 @@ class OperatorConsoleTests(unittest.TestCase):
         self.assertIn("ubuntu-latest", source)
         self.assertIn("windows-latest", source)
         self.assertIn("'[\"head\",\"merge\"]'", source)
-        self.assertIn('WITNESS_DENOMINATOR: "85"', source)
+        self.assertIn('WITNESS_DENOMINATOR: "86"', source)
         self.assertIn("build-extension", source)
         self.assertIn("bootstrap-verdict.json", source)
         self.assertIn("Require platform and coordinate byte identity", source)
@@ -467,6 +467,23 @@ class OperatorConsoleTests(unittest.TestCase):
             'admitted packet source contains CR bytes',
         ):
             self.assertIn(token, source)
+
+    \
+    def test_34_coordinate_receipt_remeasures_controlled_packet_members(self) -> None:
+        source = WORKFLOW.read_text(encoding="utf-8")
+        for token in (
+            'candidate_members = set(profile["sourceMembers"])',
+            'admitted = profile["admittedPacket"]',
+            'packet_profile = json.loads(pathlib.Path(packet_profile_path).read_text(encoding="utf-8"))',
+            'controlled_members = sorted(candidate_members | packet_members)',
+            '["git", "cat-file", "blob", f"{admitted[\'commit\']}:{relative}"]',
+            '"status": "PASS" if candidate_exact and packet_exact and status == "" else "REFUSED"',
+            '"admittedPacketMembersExact": packet_exact',
+            '"controlledRematerializedMemberCount": len(controlled_members)',
+        ):
+            self.assertIn(token, source)
+        unsafe = 'excluded = [*profile["sourceMembers"], *(row["path"] for row in profile["dependencies"])]'
+        self.assertNotIn(unsafe, source)
 
 
 def _fixture_test(row: dict, group: str):
