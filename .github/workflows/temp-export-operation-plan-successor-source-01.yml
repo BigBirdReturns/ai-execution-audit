@@ -1,0 +1,112 @@
+name: TEMP Export Operation Plan Successor Source 01
+
+on:
+  push:
+    branches:
+      - staging/pr110-windows-receipt-control-03
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temp-export-operation-plan-successor-source-01
+  cancel-in-progress: false
+
+env:
+  ADMITTED_MAIN_COMMIT: d083ae55a20c730c56b69863c172b43d2a6f7651
+  ADMITTED_MAIN_TREE: e7631a37778595c5367237a4fe52afec78120149
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out admitted main
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.ADMITTED_MAIN_COMMIT }}
+          fetch-depth: 0
+
+      - name: Require admitted coordinate
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$ADMITTED_MAIN_COMMIT"
+          test "$(git rev-parse HEAD^{tree})" = "$ADMITTED_MAIN_TREE"
+
+      - name: Collect exact successor source and dependency bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/operation-plan-successor-source"
+          mkdir -p "$OUT"
+          paths=(
+            ".github/workflows/axm-head-browser-audition-operation-plan-01.yml"
+            "mating_surface/anchor_node/AXM-HEAD-BROWSER-AUDITION-OPERATION-PLAN-01.md"
+            "mating_surface/anchor_node/axm-head-browser-audition-operation-plan-profile-01.json"
+            "mating_surface/anchor_node/axm-head-browser-audition-operation-plan-01.ps1"
+            "mating_surface/anchor_node/axm_head_browser_audition_operation_plan_01.py"
+            "mating_surface/anchor_node/browser_audition_operation_plan_contract.js"
+            "mating_surface/anchor_node/browser_audition_operation_plan_panel.html"
+            "mating_surface/anchor_node/browser_audition_operation_plan_panel.js"
+            "mating_surface/anchor_node/browser_audition_operation_plan_panel.css"
+            "mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01.py"
+            "mating_surface/anchor_node/verify_axm_head_browser_audition_operation_plan_01_bootstrap.py"
+            "mating_surface/anchor_node/conformance/test_axm_head_browser_audition_operation_plan_01.py"
+            "mating_surface/anchor_node/fixtures/axm-head-browser-audition-operation-plan-cases-01.json"
+            "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json"
+            "mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py"
+            "mating_surface/anchor_node/browser_distributed_inference_probe.js"
+            "mating_surface/anchor_node/browser_physical_audition_operator_contract.js"
+            "mating_surface/anchor_node/browser_physical_audition_operator_service_worker.js"
+            "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py"
+          )
+          for path in "${paths[@]}"; do
+            test -f "$path"
+            mkdir -p "$OUT/$(dirname "$path")"
+            git cat-file blob "$ADMITTED_MAIN_COMMIT:$path" > "$OUT/$path"
+            cmp "$OUT/$path" "$path"
+          done
+          git show --no-patch --pretty=raw "$ADMITTED_MAIN_COMMIT" > "$OUT/ADMITTED_MAIN_COMMIT.txt"
+          git ls-tree -r -l "$ADMITTED_MAIN_COMMIT" -- "${paths[@]}" > "$OUT/SOURCE_TREE.txt"
+          python - "$OUT" "${paths[@]}" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import subprocess
+          import sys
+
+          out = pathlib.Path(sys.argv[1])
+          rows = []
+          for relative in sys.argv[2:]:
+              data = (out / relative).read_bytes()
+              rows.append({
+                  "path": relative,
+                  "bytes": len(data),
+                  "gitBlobSha": subprocess.check_output(
+                      ["git", "rev-parse", f"{__import__('os').environ['ADMITTED_MAIN_COMMIT']}:{relative}"],
+                      text=True,
+                  ).strip(),
+                  "sha256": "sha256:" + hashlib.sha256(data).hexdigest(),
+                  "containsCR": b"\r" in data,
+              })
+          body = {
+              "schema": "axm-head/browser-audition-operation-plan-successor-source-export@1",
+              "commit": __import__('os').environ["ADMITTED_MAIN_COMMIT"],
+              "tree": __import__('os').environ["ADMITTED_MAIN_TREE"],
+              "memberCount": len(rows),
+              "members": rows,
+              "status": "PASS" if len(rows) == 19 and all(not row["containsCR"] for row in rows) else "REFUSED",
+          }
+          (out / "SOURCE_EXPORT_RECEIPT.json").write_text(json.dumps(body, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(body, sort_keys=True))
+          if body["status"] != "PASS":
+              raise SystemExit(body)
+          PY
+
+      - name: Upload exact source export
+        uses: actions/upload-artifact@v4
+        with:
+          name: operation-plan-successor-source-${{ github.run_id }}
+          path: ${{ runner.temp }}/operation-plan-successor-source/
+          if-no-files-found: error
+          retention-days: 7
