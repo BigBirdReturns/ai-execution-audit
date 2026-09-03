@@ -1,0 +1,173 @@
+name: TEMP Materialize Console Packet109 Successor 01
+
+on:
+  push:
+    branches:
+      - staging/console-packet109-successor-finalizer-02
+    paths:
+      - .github/workflows/temp-materialize-console-packet109-successor-01.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-materialize-console-packet109-successor-01
+  cancel-in-progress: false
+
+env:
+  BASE_COMMIT: 0df3795b47a58903adc86c68db2b1168de543ab7
+  BASE_TREE: d05b33f066ee1b9aea731a1027de4c87f61b074b
+  PRODUCT_BRANCH: work/axm-head-browser-physical-audition-operator-console-packet109-01
+  MATERIALIZER_SHA256: 12d80f566b9d50803d35a3c036e7ecc71d16a979a2dab0bf61823f0f7cf7ba9f
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: staging/console-packet109-successor-finalizer-02
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Require exact admitted packet floor and unused product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$BASE_COMMIT" ]] || {
+            echo "main moved" >&2
+            exit 2
+          }
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$BASE_TREE" ]] || {
+            echo "main tree differs" >&2
+            exit 2
+          }
+          if git ls-remote --exit-code --heads origin "refs/heads/$PRODUCT_BRANCH" >/dev/null 2>&1; then
+            echo "product branch already exists" >&2
+            exit 2
+          fi
+
+      - name: Reconstruct and authenticate the bounded materializer
+        shell: bash
+        run: |
+          set -euo pipefail
+          parts=(
+            '.agent-carriers/console-packet109-successor-materializer.b64.part-00'
+            '.agent-carriers/console-packet109-successor-materializer.b64.part-01'
+            '.agent-carriers/console-packet109-successor-materializer.b64.part-02'
+            '.agent-carriers/console-packet109-successor-materializer.b64.part-03'
+            '.agent-carriers/console-packet109-successor-materializer.b64.part-04'
+          )
+          sizes=(7000 7000 7000 7000 4416)
+          digests=(
+            03e0d11a900382bff2e981a9812f8a52a6aaff05ff066bb690f1daec9ebcb001
+            07c26996c64adddc09978229c6a2558b0f08d87f1fc378d8dbc90385a2e5bb66
+            145481f1023a42690c62992a65c7acbb1f73609260a9e1397e1f25b6659b2ebb
+            41ab72880e5b9e914701b96d434589939061801e050f8c52942f8af5117997a3
+            2ed2e1023ca22380305106eda0c0aca86743093f644e1d2a3e0ce39276abad86
+          )
+          for index in "${!parts[@]}"; do
+            part="${parts[$index]}"
+            [[ -f "$part" ]] || {
+              echo "materializer segment missing: $part" >&2
+              exit 2
+            }
+            [[ "$(wc -c < "$part")" -eq "${sizes[$index]}" ]] || {
+              echo "materializer segment size differs: $part" >&2
+              exit 2
+            }
+            [[ "$(sha256sum "$part" | awk '{print $1}')" == "${digests[$index]}" ]] || {
+              echo "materializer segment digest differs: $part" >&2
+              exit 2
+            }
+          done
+          cat "${parts[@]}" | base64 --decode > "$RUNNER_TEMP/materialize_console_packet109_successor.py"
+          observed="$(sha256sum "$RUNNER_TEMP/materialize_console_packet109_successor.py" | awk '{print $1}')"
+          [[ "$observed" == "$MATERIALIZER_SHA256" ]] || {
+            echo "materializer digest differs: $observed" >&2
+            exit 2
+          }
+          python -m py_compile "$RUNNER_TEMP/materialize_console_packet109_successor.py"
+
+      - name: Build and qualify the exact six-file successor above main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach origin/main
+          receipt_root="$RUNNER_TEMP/console-packet109-successor-receipts"
+          python "$RUNNER_TEMP/materialize_console_packet109_successor.py" "$GITHUB_WORKSPACE" "$receipt_root" | tee "$RUNNER_TEMP/materialization-result.json"
+
+          expected=(
+            '.github/workflows/axm-head-browser-physical-audition-operator-console-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md'
+            'mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json'
+            'mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py'
+            'mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py'
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          mapfile -t observed < <(git diff --name-only "$BASE_COMMIT" | LC_ALL=C sort)
+          [[ "${observed[*]}" == "${wanted[*]}" ]] || {
+            echo "successor denominator differs" >&2
+            printf 'observed:\n%s\nexpected:\n%s\n' \
+              "$(printf '%s\n' "${observed[@]}")" \
+              "$(printf '%s\n' "${wanted[@]}")" >&2
+            exit 2
+          }
+          for path in "${expected[@]}"; do
+            status="$(git diff --name-status "$BASE_COMMIT" -- "$path")"
+            [[ "$status" == $'M\t'* ]] || {
+              echo "successor member is not modified in place: $path: $status" >&2
+              exit 2
+            }
+          done
+          git diff --check "$BASE_COMMIT"
+
+      - name: Publish the qualified successor branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            '.github/workflows/axm-head-browser-physical-audition-operator-console-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md'
+            'mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json'
+            'mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py'
+            'mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py'
+          )
+          git add -- "${expected[@]}"
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort)
+          mapfile -t staged < <(git diff --cached --name-only | LC_ALL=C sort)
+          [[ "${staged[*]}" == "${wanted[*]}" ]] || {
+            echo "staged successor denominator differs" >&2
+            exit 2
+          }
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Rebind the physical-audition console to packet PR #109'
+          echo "SUCCESSOR_HEAD=$(git rev-parse HEAD)"
+          echo "SUCCESSOR_TREE=$(git rev-parse 'HEAD^{tree}')"
+          git push origin "HEAD:refs/heads/$PRODUCT_BRANCH"
+
+      - name: Preserve qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: console-packet109-successor-materialization-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/console-packet109-successor-receipts
+            ${{ runner.temp }}/materialization-result.json
+          if-no-files-found: error
+          retention-days: 14
