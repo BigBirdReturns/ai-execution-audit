@@ -328,7 +328,7 @@ class OperatorConsoleTests(unittest.TestCase):
         self.assertIn("ubuntu-latest", source)
         self.assertIn("windows-latest", source)
         self.assertIn("'[\"head\",\"merge\"]'", source)
-        self.assertIn('WITNESS_DENOMINATOR: "83"', source)
+        self.assertIn('WITNESS_DENOMINATOR: "85"', source)
         self.assertIn("build-extension", source)
         self.assertIn("bootstrap-verdict.json", source)
         self.assertIn("Require platform and coordinate byte identity", source)
@@ -449,6 +449,25 @@ class OperatorConsoleTests(unittest.TestCase):
         with self.assertRaises(mod.ConsoleError) as context:
             mod.validate_profile(path)
         self.assertEqual(context.exception.code, "ADMITTED_PACKET_BINDING_INVALID")
+
+    def test_32_workflow_roots_packet_kit_reconstruction_under_runner_temp(self) -> None:
+        source = WORKFLOW.read_text(encoding="utf-8")
+        expected = 'with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-", dir=os.environ["RUNNER_TEMP"]) as temporary:'
+        unsafe = 'with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-") as temporary:'
+        self.assertIn(expected, source)
+        self.assertNotIn(unsafe, source)
+
+    def test_33_workflow_rematerializes_full_packet_denominator_from_admitted_blobs(self) -> None:
+        source = WORKFLOW.read_text(encoding="utf-8")
+        for token in (
+            'packet_profile_body = json.loads(packet_profile.read_text(encoding="utf-8"))',
+            'packet_members = set(packet_profile_body["sourceMembers"])',
+            'for group in ("kitSourceBindings", "packetSourceBindings"):',
+            '["git", "cat-file", "blob", f"{admitted[\'commit\']}:{relative}"]',
+            'admitted packet source contains CR bytes',
+        ):
+            self.assertIn(token, source)
+
 
 def _fixture_test(row: dict, group: str):
     def run(self: OperatorConsoleTests) -> None:

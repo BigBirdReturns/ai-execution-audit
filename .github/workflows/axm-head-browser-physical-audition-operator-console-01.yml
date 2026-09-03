@@ -49,7 +49,7 @@ concurrency:
 
 env:
   PYTHONDONTWRITEBYTECODE: "1"
-  WITNESS_DENOMINATOR: "83"
+  WITNESS_DENOMINATOR: "85"
 
 jobs:
   qualify:
@@ -119,6 +119,7 @@ jobs:
           python - <<'PY'
           import hashlib
           import json
+          import os
           import pathlib
           import subprocess
           import sys
@@ -139,12 +140,28 @@ jobs:
                   raise SystemExit(f"dependency differs: {row['path']}")
           packet_profile = pathlib.Path("mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json")
           packet_tool = pathlib.Path("mating_surface/anchor_node/axm_head_browser_physical_audition_packet_01.py")
+          packet_profile_body = json.loads(packet_profile.read_text(encoding="utf-8"))
+          packet_members = set(packet_profile_body["sourceMembers"])
+          for group in ("kitSourceBindings", "packetSourceBindings"):
+              packet_members.update(
+                  f"mating_surface/anchor_node/{row['path']}"
+                  for row in packet_profile_body[group]
+              )
+          for relative in sorted(packet_members):
+              data = subprocess.check_output(
+                  ["git", "cat-file", "blob", f"{admitted['commit']}:{relative}"]
+              )
+              if b"\r" in data:
+                  raise SystemExit(f"admitted packet source contains CR bytes: {relative}")
+              path = pathlib.Path(relative)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
           profile_receipt = json.loads(subprocess.check_output(
               [sys.executable, str(packet_tool), "validate-profile", str(packet_profile)], text=True
           ))
           if profile_receipt.get("status") != "PASS" or profile_receipt.get("sourceBindingId") != admitted["sourceBindingId"]:
               raise SystemExit(f"packet source binding differs: {profile_receipt}")
-          with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-") as temporary:
+          with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-", dir=os.environ["RUNNER_TEMP"]) as temporary:
               kit_root = pathlib.Path(temporary) / "kit"
               kit_receipt = json.loads(subprocess.check_output(
                   [sys.executable, str(packet_tool), "build-kit", str(packet_profile), str(pathlib.Path.cwd()), str(kit_root)],
