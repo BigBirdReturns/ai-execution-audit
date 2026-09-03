@@ -13,10 +13,10 @@ PROFILE_ID = "axm-head/browser-audition-operation-plan/0.1"
 PROFILE_SCHEMA = "axm-head/browser-audition-operation-plan-profile@1"
 BUILD_SCHEMA = "axm-head/browser-audition-operation-plan-build@1"
 VERDICT_SCHEMA = "axm-head/browser-audition-operation-plan-verdict@1"
-ADMITTED_COMMIT = "ce93cf8856b7fcc9b172b9251b9665df50fdeda4"
-ADMITTED_TREE = "664784d10309665eb3b993ce8f6df4eb5b10baf7"
-ADMITTED_SOURCE = "axmoperatorconsolesource_aefa481bc33a9c4500f5fe1d4398b90c2159ac1833bf67c9d42ec321592d987c"
-ADMITTED_EXTENSION = "axmoperatorconsoleextension_ab926ed5afc19f66c1b898abd832925c3f3e3c719d7fa814c5751f570b9c8231"
+ADMITTED_COMMIT = "d083ae55a20c730c56b69863c172b43d2a6f7651"
+ADMITTED_TREE = "e7631a37778595c5367237a4fe52afec78120149"
+ADMITTED_SOURCE = "axmoperatorconsolesource_d213e280c45cf2c81d84edf8d7af4ea077c77632472117d8f6708277ce4fe7a3"
+ADMITTED_EXTENSION = "axmoperatorconsoleextension_63b6140baf423457b83af8da3c1dc4f3493c43933b4e6d712f53bfe6df363d01"
 EXPECTED_EXTENSION = {
     "manifest.json",
     "browser_distributed_inference_probe.js",
