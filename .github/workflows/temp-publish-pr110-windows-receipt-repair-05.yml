@@ -1,0 +1,168 @@
+name: TEMP Publish PR110 Windows Receipt Repair 05
+
+on:
+  push:
+    branches:
+      - staging/pr110-windows-receipt-control-05
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-publish-pr110-windows-receipt-repair-05
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  CANONICAL_HEAD: 47189568094d20876374878e8c2f18b6a6d7bee7
+  CANONICAL_TREE: 2a609655b2ccfd8bda9cab1f5dd5e8af42d94a7a
+  TARGET_BRANCH: work/axm-head-browser-physical-audition-operator-console-packet109-01
+  PRODUCT_BRANCH: staging/pr110-windows-receipt-product-05
+  PATCH_CARRIER_COMMIT: 28b68a67876e52882cc1f5210b39b8c44c01bd84
+  PATCH_CARRIER_PATH: .github/workflows/temp-publish-pr110-windows-receipt-repair-04.yml
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact canonical PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Require the canonical source coordinate
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANONICAL_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$CANONICAL_TREE"
+
+      - name: Execute the corrected bounded patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+
+          carrier = subprocess.check_output(
+              ["git", "show", f"{os.environ['PATCH_CARRIER_COMMIT']}:{os.environ['PATCH_CARRIER_PATH']}"],
+              text=True,
+          )
+          section = carrier.split("      - name: Patch the bounded Windows custody observer\n", 1)[1]
+          section = section.split("      - name: Require the exact three-file follow-up\n", 1)[0]
+          start = "          python - <<'PY'\n"
+          end = "\n          PY\n"
+          if section.count(start) != 1 or section.count(end) != 1:
+              raise SystemExit("patch carrier block differs")
+          raw = section.split(start, 1)[1].split(end, 1)[0]
+          script = "\n".join(line[10:] if line.startswith("          ") else line for line in raw.splitlines()) + "\n"
+          old = "if receipt.count(start_marker) != 1 or receipt.count(end_marker) != 1:"
+          new = "if receipt.count(start_marker) != 1:"
+          if script.count(old) != 1:
+              raise SystemExit("patch carrier guard differs")
+          script = script.replace(old, new, 1)
+          exec(compile(script, "pr110-windows-receipt-repair", "exec"), {"__name__": "__main__"})
+          PY
+
+      - name: Require the exact three-file follow-up
+        shell: bash
+        run: |
+          python - <<'PY'
+          import pathlib
+          import subprocess
+
+          expected = {
+              ".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml",
+              "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md",
+              "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py",
+          }
+          changed = set(subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines())
+          if changed != expected:
+              raise SystemExit(f"follow-up denominator differs: missing={sorted(expected-changed)} extra={sorted(changed-expected)}")
+          for relative in sorted(changed):
+              if b"\r" in pathlib.Path(relative).read_bytes():
+                  raise SystemExit(f"CR byte in repaired source: {relative}")
+          PY
+          git diff --check
+
+      - name: Run all 86 witnesses
+        shell: bash
+        run: |
+          ROOT=mating_surface/anchor_node
+          python -m py_compile "$ROOT/conformance/test_axm_head_browser_physical_audition_operator_console_01.py"
+          python -m unittest discover \
+            -s "$ROOT/conformance" \
+            -p 'test_axm_head_browser_physical_audition_operator_console_01.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/pr110-tests.txt"
+          grep -F "Ran 86 tests" "$RUNNER_TEMP/pr110-tests.txt"
+          grep -Fx "OK" "$RUNNER_TEMP/pr110-tests.txt"
+
+      - name: Create the bounded product commit
+        shell: bash
+        run: |
+          git config user.name "BigBirdReturns"
+          git config user.email "bigbirdreturns@proton.me"
+          git add \
+            .github/workflows/axm-head-browser-physical-audition-operator-console-01.yml \
+            mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md \
+            mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py
+          git commit -m "Repair the Windows coordinate custody receipt" -m "Remeasure the complete admitted packet denominator before subtracting only those exact controlled rewrites from workspace cleanliness. Add one regression witness and update the qualification boundary, advancing the console suite to 86."
+          printf 'commit=%s\ntree=%s\nparent=%s\n' \
+            "$(git rev-parse HEAD)" \
+            "$(git rev-parse HEAD^{tree})" \
+            "$(git rev-parse HEAD^)" | tee "$RUNNER_TEMP/pr110-product-coordinate.txt"
+          test "$(git rev-parse HEAD^)" = "$CANONICAL_HEAD"
+
+      - name: Qualify the committed product on Ubuntu
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-physical-audition-operator-console-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-physical-audition-operator-console-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_physical_audition_operator_console_01.py"
+          VERIFIER="$ROOT/verify_axm_head_browser_physical_audition_operator_console_01.py"
+          BOOTSTRAP="$ROOT/verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py"
+          RECEIPTS="$RUNNER_TEMP/pr110-product-receipts"
+          EXTENSION="$RUNNER_TEMP/pr110-product-extension"
+          mkdir -p "$RECEIPTS"
+          rm -rf "$EXTENSION"
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPTS/profile-validation.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPTS/fixture-validation.json"
+          python "$TOOL" campaign "$PROFILE" "$FIXTURES" > "$RECEIPTS/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" | tee "$RECEIPTS/source-set.json"
+          python "$TOOL" build-extension "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" | tee "$RECEIPTS/build-manifest.json"
+          cmp "$RECEIPTS/build-manifest.json" "$EXTENSION/build-manifest.json"
+          python "$VERIFIER" "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" > "$RECEIPTS/direct-verdict.json"
+          python "$BOOTSTRAP" "$VERIFIER" "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" > "$RECEIPTS/bootstrap-verdict.json"
+          python - "$RECEIPTS" <<'PY'
+          import json
+          import pathlib
+          import sys
+          root = pathlib.Path(sys.argv[1])
+          for name in ("profile-validation.json", "fixture-validation.json", "campaign.json", "source-set.json", "build-manifest.json", "direct-verdict.json", "bootstrap-verdict.json"):
+              body = json.loads((root / name).read_text(encoding="utf-8"))
+              if body.get("status") != "PASS":
+                  raise SystemExit({name: body})
+          if json.loads((root / "campaign.json").read_text(encoding="utf-8")).get("caseCount") != 52:
+              raise SystemExit("campaign denominator differs")
+          if json.loads((root / "bootstrap-verdict.json").read_text(encoding="utf-8")).get("bootstrapAuthenticated") is not True:
+              raise SystemExit("bootstrap is not authenticated")
+          PY
+
+      - name: Publish the qualified product commit
+        shell: bash
+        run: |
+          git push --force origin "HEAD:refs/heads/$PRODUCT_BRANCH"
+
+      - name: Preserve product receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr110-windows-coordinate-receipt-product-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/pr110-product-coordinate.txt
+            ${{ runner.temp }}/pr110-tests.txt
+            ${{ runner.temp }}/pr110-product-receipts/
+          if-no-files-found: error
+          retention-days: 14
