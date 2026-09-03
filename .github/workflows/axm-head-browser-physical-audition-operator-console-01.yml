@@ -49,7 +49,7 @@ concurrency:
 
 env:
   PYTHONDONTWRITEBYTECODE: "1"
-  WITNESS_DENOMINATOR: "81"
+  WITNESS_DENOMINATOR: "83"
 
 jobs:
   qualify:
@@ -121,6 +121,8 @@ jobs:
           import json
           import pathlib
           import subprocess
+          import sys
+          import tempfile
 
           profile = json.loads(pathlib.Path(
               "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json"
@@ -135,10 +137,29 @@ jobs:
               observed = "sha256:" + hashlib.sha256(data).hexdigest()
               if blob != row["gitBlobSha"] or observed != row["sha256"] or len(data) != row["bytes"]:
                   raise SystemExit(f"dependency differs: {row['path']}")
-          print("admitted packet coordinate and both dependencies are exact")
+          packet_profile = pathlib.Path("mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json")
+          packet_tool = pathlib.Path("mating_surface/anchor_node/axm_head_browser_physical_audition_packet_01.py")
+          profile_receipt = json.loads(subprocess.check_output(
+              [sys.executable, str(packet_tool), "validate-profile", str(packet_profile)], text=True
+          ))
+          if profile_receipt.get("status") != "PASS" or profile_receipt.get("sourceBindingId") != admitted["sourceBindingId"]:
+              raise SystemExit(f"packet source binding differs: {profile_receipt}")
+          with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-") as temporary:
+              kit_root = pathlib.Path(temporary) / "kit"
+              kit_receipt = json.loads(subprocess.check_output(
+                  [sys.executable, str(packet_tool), "build-kit", str(packet_profile), str(pathlib.Path.cwd()), str(kit_root)],
+                  text=True,
+              ))
+              if (
+                  kit_receipt.get("status") != "PASS"
+                  or kit_receipt.get("sourceBindingId") != admitted["sourceBindingId"]
+                  or kit_receipt.get("kitId") != admitted["kitId"]
+              ):
+                  raise SystemExit(f"packet kit binding differs: {kit_receipt}")
+          print("admitted packet coordinate, dependencies, source binding, and generated kit are exact")
           PY
 
-      - name: Require the exact additive source denominator
+      - name: Require the exact bounded successor source-change denominator
         if: github.event_name == 'pull_request'
         shell: bash
         env:
@@ -146,27 +167,29 @@ jobs:
           SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
         run: |
           python - <<'PY'
-          import json
           import os
-          import pathlib
           import subprocess
 
-          profile = json.loads(pathlib.Path(
-              "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json"
-          ).read_text(encoding="utf-8"))
-          expected = set(profile["sourceMembers"])
+          required = {
+              ".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml",
+              "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md",
+              "mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json",
+              "mating_surface/anchor_node/axm_head_browser_physical_audition_operator_console_01.py",
+              "mating_surface/anchor_node/verify_axm_head_browser_physical_audition_operator_console_01.py",
+              "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py",
+          }
           changed = set(subprocess.check_output(
               ["git", "diff", "--name-only", os.environ["BASE_SHA"], os.environ["SOURCE_REF"]], text=True
           ).splitlines())
-          if changed != expected:
-              raise SystemExit(f"source denominator differs: missing={sorted(expected-changed)} extra={sorted(changed-expected)}")
-          for relative in expected:
+          if changed != required:
+              raise SystemExit(f"successor source-change denominator differs: missing={sorted(required-changed)} extra={sorted(changed-required)}")
+          for relative in changed:
               status = subprocess.check_output(
                   ["git", "diff", "--name-status", os.environ["BASE_SHA"], os.environ["SOURCE_REF"], "--", relative],
                   text=True,
               ).strip()
-              if not status.startswith("A\t"):
-                  raise SystemExit(f"source path is not additive: {relative}: {status}")
+              if not status.startswith("M\t"):
+                  raise SystemExit(f"successor source path is not modified in place: {relative}: {status}")
           PY
 
       - name: Compile and inspect source

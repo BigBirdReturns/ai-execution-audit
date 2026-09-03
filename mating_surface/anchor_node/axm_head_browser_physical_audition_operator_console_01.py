@@ -17,14 +17,16 @@ PROFILE_ID = "axm-head/browser-physical-audition-operator-console/0.1"
 ISSUE_REF = "BigBirdReturns/ai-execution-audit#103"
 PROTOCOL = "axm-head/browser-physical-audition-operator-console@1"
 INTERFACE = "axm/distributed-model-inference@1"
-ADMITTED_PACKET_COMMIT = "ac60f1196635d73e614a09123772efccd4649bd0"
-ADMITTED_PACKET_TREE = "b6a705c988f0997a63c8ff19dd3f1f67e1d146b6"
+ADMITTED_PACKET_COMMIT = "0df3795b47a58903adc86c68db2b1168de543ab7"
+ADMITTED_PACKET_TREE = "d05b33f066ee1b9aea731a1027de4c87f61b074b"
+ADMITTED_PACKET_SOURCE_BINDING_ID = "axmbrowserphysicalpacketsource_47826c4d84036ce65ce7e2e222086d0cce422f5a5448b7e54909963bda556107"
+ADMITTED_PACKET_KIT_ID = "axmbrowserphysicalkit_3da8f2aa59666d990653e46036ea060f0fd56591e11eed15131789554d630aac"
 PROBE_SHA256 = "sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e"
 PROBE_BYTES = 22384
 PROBE_BLOB = "f8489140c119b8513a7569ff95c3900dc1672496"
-PACKET_PROFILE_SHA256 = "sha256:93257d97d41b3462d71aa61640e7f5050510e4f38e0291d8d775a06e37fa67d6"
+PACKET_PROFILE_SHA256 = "sha256:785ecb62e6093ff613298e503d7eb078250063d4ee2cfae3b92446e68c215e78"
 PACKET_PROFILE_BYTES = 8275
-PACKET_PROFILE_BLOB = "062da28313107615c9afe5743f8390d77465deca"
+PACKET_PROFILE_BLOB = "322414803ab0620d66d20e3ba0a9ed0ec8ac9697"
 MAX_COMMAND_BYTES = 65536
 MAX_CAPTURE_BYTES = 1048576
 MAX_SESSION_REQUESTS = 512
@@ -293,11 +295,13 @@ def validate_profile(path: str | os.PathLike[str]) -> dict[str, Any]:
         refuse("PROFILE_STATE_INVALID", str(path))
     if profile["protocol"] != PROTOCOL or profile["interface"] != INTERFACE:
         refuse("INTERFACE_BINDING_INVALID", str(path))
-    exact_keys(profile["admittedPacket"], ("commit", "tree", "profileId"))
+    exact_keys(profile["admittedPacket"], ("commit", "tree", "profileId", "sourceBindingId", "kitId"))
     if profile["admittedPacket"] != {
         "commit": ADMITTED_PACKET_COMMIT,
         "tree": ADMITTED_PACKET_TREE,
         "profileId": "axm-head/browser-physical-audition-packet/0.1",
+        "sourceBindingId": ADMITTED_PACKET_SOURCE_BINDING_ID,
+        "kitId": ADMITTED_PACKET_KIT_ID,
     }:
         refuse("ADMITTED_PACKET_BINDING_INVALID", str(path))
     if tuple(profile["dependencies"]) != DEPENDENCIES:

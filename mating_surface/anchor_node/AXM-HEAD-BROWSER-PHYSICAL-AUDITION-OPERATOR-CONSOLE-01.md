@@ -10,13 +10,19 @@ This increment supplies the missing operator surface. It does not create another
 
 ```text
 admitted packet commit:
-ac60f1196635d73e614a09123772efccd4649bd0
+0df3795b47a58903adc86c68db2b1168de543ab7
 
 admitted packet tree:
-b6a705c988f0997a63c8ff19dd3f1f67e1d146b6
+d05b33f066ee1b9aea731a1027de4c87f61b074b
 
 admitted packet profile:
 axm-head/browser-physical-audition-packet/0.1
+
+admitted packet source binding:
+axmbrowserphysicalpacketsource_47826c4d84036ce65ce7e2e222086d0cce422f5a5448b7e54909963bda556107
+
+admitted generated kit:
+axmbrowserphysicalkit_3da8f2aa59666d990653e46036ea060f0fd56591e11eed15131789554d630aac
 
 stable interface:
 axm/distributed-model-inference@1
@@ -26,6 +32,10 @@ sha256:b1ded0348ffc0ec4246e9d18a08451216c89f98d6369e483808062430088565e
 ```
 
 The product is additive. It binds the admitted packet source and exact probe as dependencies without modifying either object.
+
+## Successor packet binding
+
+PR #109 repairs the generated packet kit so every runtime entrypoint resolves within the kit root rather than depending on repository-layout paths that do not exist after export. This console successor binds the repaired packet admission at commit `0df3795b47a58903adc86c68db2b1168de543ab7`, tree `d05b33f066ee1b9aea731a1027de4c87f61b074b`, packet-profile blob `322414803ab0620d66d20e3ba0a9ed0ec8ac9697`, source binding `axmbrowserphysicalpacketsource_47826c4d84036ce65ce7e2e222086d0cce422f5a5448b7e54909963bda556107`, and generated kit `axmbrowserphysicalkit_3da8f2aa59666d990653e46036ea060f0fd56591e11eed15131789554d630aac`. The console cannot validate against the predecessor packet after this succession, and continuous integration regenerates the exact packet kit before qualifying the console extension.
 
 ## Execution mechanism
 
@@ -110,7 +120,7 @@ Export the private capture explicitly. The downloaded JSON belongs in the extern
 
 ## Qualification boundary
 
-The source campaign contains fifty-two command and envelope cases. The permanent eighty-one-witness hostile suite retains the contract in both Python and JavaScript, executes a complete synthetic side-panel-to-service-worker-to-frozen-probe sequence, and proves deterministic extension construction, payload-to-source custody, canonical profile and verifier binding, worker-port recovery, navigation-bound session invalidation, complete integer parsing, and independent verification.
+The source campaign contains fifty-two command and envelope cases. The permanent eighty-three-witness hostile suite retains the contract in both Python and JavaScript, executes a complete synthetic side-panel-to-service-worker-to-frozen-probe sequence, and proves deterministic extension construction, payload-to-source custody, canonical profile and verifier binding, worker-port recovery, navigation-bound session invalidation, complete integer parsing, and independent verification.
 
 Continuous integration builds extension bytes but launches no browser, grants no active-tab capability, contacts no supplier endpoint, downloads no model, forms no peer connection, performs no inference, produces no physical capture, and supplies no named-human confirmation.
 

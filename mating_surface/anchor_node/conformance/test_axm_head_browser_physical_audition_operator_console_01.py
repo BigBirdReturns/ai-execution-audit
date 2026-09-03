@@ -56,6 +56,8 @@ class OperatorConsoleTests(unittest.TestCase):
         self.assertEqual(self.profile["interface"], mod.INTERFACE)
         self.assertEqual(self.profile["admittedPacket"]["commit"], mod.ADMITTED_PACKET_COMMIT)
         self.assertEqual(self.profile["admittedPacket"]["tree"], mod.ADMITTED_PACKET_TREE)
+        self.assertEqual(self.profile["admittedPacket"]["sourceBindingId"], mod.ADMITTED_PACKET_SOURCE_BINDING_ID)
+        self.assertEqual(self.profile["admittedPacket"]["kitId"], mod.ADMITTED_PACKET_KIT_ID)
 
     def test_02_profile_closes_source_extension_method_and_command_denominators(self) -> None:
         self.assertEqual(tuple(self.profile["sourceMembers"]), mod.SOURCE_MEMBERS)
@@ -326,10 +328,12 @@ class OperatorConsoleTests(unittest.TestCase):
         self.assertIn("ubuntu-latest", source)
         self.assertIn("windows-latest", source)
         self.assertIn("'[\"head\",\"merge\"]'", source)
-        self.assertIn('WITNESS_DENOMINATOR: "81"', source)
+        self.assertIn('WITNESS_DENOMINATOR: "83"', source)
         self.assertIn("build-extension", source)
         self.assertIn("bootstrap-verdict.json", source)
         self.assertIn("Require platform and coordinate byte identity", source)
+        self.assertIn("Require the exact bounded successor source-change denominator", source)
+        self.assertIn("changed != required", source)
         for token in ("playwright", "selenium", "chromedriver", "chrome.exe", "msedge.exe", "curl ", "wget "):
             self.assertNotIn(token, source.lower())
 
@@ -427,6 +431,24 @@ class OperatorConsoleTests(unittest.TestCase):
         self.assertEqual(body["changed"]["code"], "SESSION_DOCUMENT_MISMATCH")
         self.assertEqual(body["stale"]["code"], "SESSION_INVALID")
 
+
+    def test_30_packet_source_binding_substitution_is_refused(self) -> None:
+        hostile = json.loads(json.dumps(self.profile))
+        hostile["admittedPacket"]["sourceBindingId"] = "axmbrowserphysicalpacketsource_" + "0" * 64
+        path = self.work / "hostile-source-binding-profile.json"
+        path.write_bytes(mod.pretty_bytes(hostile))
+        with self.assertRaises(mod.ConsoleError) as context:
+            mod.validate_profile(path)
+        self.assertEqual(context.exception.code, "ADMITTED_PACKET_BINDING_INVALID")
+
+    def test_31_packet_kit_substitution_is_refused(self) -> None:
+        hostile = json.loads(json.dumps(self.profile))
+        hostile["admittedPacket"]["kitId"] = "axmbrowserphysicalkit_" + "0" * 64
+        path = self.work / "hostile-kit-profile.json"
+        path.write_bytes(mod.pretty_bytes(hostile))
+        with self.assertRaises(mod.ConsoleError) as context:
+            mod.validate_profile(path)
+        self.assertEqual(context.exception.code, "ADMITTED_PACKET_BINDING_INVALID")
 
 def _fixture_test(row: dict, group: str):
     def run(self: OperatorConsoleTests) -> None:
