@@ -1,0 +1,389 @@
+name: TEMP Repair Console Packet109 Exact Packet Bytes 10
+
+on:
+  push:
+    branches:
+      - staging/console-packet109-successor-publish-01
+    paths:
+      - ".github/workflows/temp-repair-console-packet109-exact-packet-bytes-10.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: temp-repair-console-packet109-exact-packet-bytes-10
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  GH_TOKEN: ${{ github.token }}
+  PREDECESSOR_HEAD: a44f42ed999fab93daa6e30c889f5b5501189f14
+  PACKET_ADMISSION_COMMIT: 0df3795b47a58903adc86c68db2b1168de543ab7
+  PACKET_ADMISSION_TREE: d05b33f066ee1b9aea731a1027de4c87f61b074b
+
+jobs:
+  qualify-repair:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: a44f42ed999fab93daa6e30c889f5b5501189f14
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Apply the exact three-file packet-byte repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          ref = os.environ["PREDECESSOR_HEAD"]
+          profile_path = Path("mating_surface/anchor_node/axm-head-browser-physical-audition-operator-console-profile-01.json")
+          profile = json.loads(subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{profile_path.as_posix()}"]))
+          members = set(profile["sourceMembers"]) | {row["path"] for row in profile["dependencies"]}
+          for relative in sorted(members):
+              data = subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{relative}"])
+              if b"\r" in data:
+                  raise SystemExit(f"authoritative predecessor contains CR bytes: {relative}")
+              path = Path(relative)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+
+          workflow_path = Path(".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml")
+          workflow = workflow_path.read_text(encoding="utf-8")
+          replacements = (
+              ('WITNESS_DENOMINATOR: "83"', 'WITNESS_DENOMINATOR: "85"'),
+              (
+                  '          import hashlib\n          import json\n          import pathlib\n          import subprocess\n          import sys\n          import tempfile\n\n          profile = json.loads(pathlib.Path(',
+                  '          import hashlib\n          import json\n          import os\n          import pathlib\n          import subprocess\n          import sys\n          import tempfile\n\n          profile = json.loads(pathlib.Path(',
+              ),
+              (
+                  '          packet_profile = pathlib.Path("mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json")\n          packet_tool = pathlib.Path("mating_surface/anchor_node/axm_head_browser_physical_audition_packet_01.py")\n          profile_receipt = json.loads(subprocess.check_output(',
+                  '          packet_profile = pathlib.Path("mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json")\n          packet_tool = pathlib.Path("mating_surface/anchor_node/axm_head_browser_physical_audition_packet_01.py")\n          packet_profile_body = json.loads(packet_profile.read_text(encoding="utf-8"))\n          packet_members = set(packet_profile_body["sourceMembers"])\n          for group in ("kitSourceBindings", "packetSourceBindings"):\n              packet_members.update(\n                  f"mating_surface/anchor_node/{row[\'path\']}"\n                  for row in packet_profile_body[group]\n              )\n          for relative in sorted(packet_members):\n              data = subprocess.check_output(\n                  ["git", "cat-file", "blob", f"{admitted[\'commit\']}:{relative}"]\n              )\n              if b"\\r" in data:\n                  raise SystemExit(f"admitted packet source contains CR bytes: {relative}")\n              path = pathlib.Path(relative)\n              path.parent.mkdir(parents=True, exist_ok=True)\n              path.write_bytes(data)\n          profile_receipt = json.loads(subprocess.check_output(',
+              ),
+              (
+                  '          with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-") as temporary:',
+                  '          with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-", dir=os.environ["RUNNER_TEMP"]) as temporary:',
+              ),
+          )
+          for old, new in replacements:
+              if workflow.count(old) != 1:
+                  raise SystemExit(f"workflow repair anchor count differs: {old!r}: {workflow.count(old)}")
+              workflow = workflow.replace(old, new, 1)
+          workflow_path.write_text(workflow, encoding="utf-8", newline="\n")
+
+          doc_path = Path("mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md")
+          document = doc_path.read_text(encoding="utf-8")
+          old = "The source campaign contains fifty-two command and envelope cases. The permanent eighty-three-witness hostile suite"
+          new = "The source campaign contains fifty-two command and envelope cases. The permanent eighty-five-witness hostile suite"
+          if document.count(old) != 1:
+              raise SystemExit(f"documentation denominator anchor count differs: {document.count(old)}")
+          document = document.replace(old, new, 1)
+          appendix = " The workflow roots packet-kit reconstruction under `RUNNER_TEMP` and rematerializes the complete packet source and bound dependency denominator directly from the admitted packet commit before validation, preventing both Windows cross-volume temporary paths and checkout line-ending transformations from altering measured packet bytes."
+          anchor = "and independent verification."
+          if document.count(anchor) != 1:
+              raise SystemExit(f"documentation repair anchor count differs: {document.count(anchor)}")
+          document = document.replace(anchor, anchor + appendix, 1)
+          doc_path.write_text(document, encoding="utf-8", newline="\n")
+
+          test_path = Path("mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py")
+          tests = test_path.read_text(encoding="utf-8")
+          old_assertion = "        self.assertIn('WITNESS_DENOMINATOR: \"83\"', source)"
+          new_assertion = "        self.assertIn('WITNESS_DENOMINATOR: \"85\"', source)"
+          if tests.count(old_assertion) != 1:
+              raise SystemExit(f"old denominator witness count differs: {tests.count(old_assertion)}")
+          tests = tests.replace(old_assertion, new_assertion, 1)
+          insertion = '''    def test_32_workflow_roots_packet_kit_reconstruction_under_runner_temp(self) -> None:\n        source = WORKFLOW.read_text(encoding="utf-8")\n        expected = 'with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-", dir=os.environ["RUNNER_TEMP"]) as temporary:'\n        unsafe = 'with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-") as temporary:'\n        self.assertIn(expected, source)\n        self.assertNotIn(unsafe, source)\n\n    def test_33_workflow_rematerializes_full_packet_denominator_from_admitted_blobs(self) -> None:\n        source = WORKFLOW.read_text(encoding="utf-8")\n        for token in (\n            'packet_profile_body = json.loads(packet_profile.read_text(encoding="utf-8"))',\n            'packet_members = set(packet_profile_body["sourceMembers"])',\n            'for group in ("kitSourceBindings", "packetSourceBindings"):',\n            '["git", "cat-file", "blob", f"{admitted[\\\'commit\\\']}:{relative}"]',\n            'admitted packet source contains CR bytes',\n        ):\n            self.assertIn(token, source)\n\n\n'''
+          anchor = "def _fixture_test(row: dict, group: str):\n"
+          if tests.count(anchor) != 1 or "test_32_workflow_roots_packet_kit_reconstruction_under_runner_temp" in tests:
+              raise SystemExit("test insertion anchor differs")
+          tests = tests.replace(anchor, insertion + anchor, 1)
+          test_path.write_text(tests, encoding="utf-8", newline="\n")
+
+          expected = {
+              ".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml",
+              "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md",
+              "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py",
+          }
+          changed = set(subprocess.check_output(["git", "diff", "--name-only", ref], text=True).splitlines())
+          if changed != expected:
+              raise SystemExit(f"repair path denominator differs: {sorted(changed)}")
+          for relative in expected:
+              status = subprocess.check_output(["git", "diff", "--name-status", ref, "--", relative], text=True).strip()
+              if not status.startswith("M\t"):
+                  raise SystemExit(f"repair path is not modified in place: {relative}: {status}")
+          subprocess.run(["git", "diff", "--check"], check=True)
+          PY
+
+      - name: Rematerialize the admitted packet denominator for platform qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          commit = os.environ["PACKET_ADMISSION_COMMIT"]
+          profile_path = Path("mating_surface/anchor_node/axm-head-browser-physical-audition-packet-profile-01.json")
+          profile_data = subprocess.check_output(["git", "cat-file", "blob", f"{commit}:{profile_path.as_posix()}"])
+          profile = json.loads(profile_data)
+          members = set(profile["sourceMembers"])
+          for group in ("kitSourceBindings", "packetSourceBindings"):
+              members.update(f"mating_surface/anchor_node/{row['path']}" for row in profile[group])
+          for relative in sorted(members):
+              data = subprocess.check_output(["git", "cat-file", "blob", f"{commit}:{relative}"])
+              if b"\r" in data:
+                  raise SystemExit(f"packet Git blob contains CR bytes: {relative}")
+              path = Path(relative)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+          PY
+
+      - name: Execute the complete 85-witness qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=mating_surface/anchor_node
+          PROFILE="$ROOT/axm-head-browser-physical-audition-operator-console-profile-01.json"
+          FIXTURES="$ROOT/fixtures/axm-head-browser-physical-audition-operator-console-cases-01.json"
+          TOOL="$ROOT/axm_head_browser_physical_audition_operator_console_01.py"
+          VERIFIER="$ROOT/verify_axm_head_browser_physical_audition_operator_console_01.py"
+          BOOTSTRAP="$ROOT/verify_axm_head_browser_physical_audition_operator_console_01_bootstrap.py"
+          TESTS="$ROOT/conformance/test_axm_head_browser_physical_audition_operator_console_01.py"
+          PACKET_PROFILE="$ROOT/axm-head-browser-physical-audition-packet-profile-01.json"
+          PACKET_TOOL="$ROOT/axm_head_browser_physical_audition_packet_01.py"
+          RECEIPTS="$RUNNER_TEMP/console-packet-byte-repair-receipts"
+          EXTENSION="$RUNNER_TEMP/console-packet-byte-repair-extension"
+          mkdir -p "$RECEIPTS"
+
+          python -m py_compile "$TOOL" "$VERIFIER" "$BOOTSTRAP" "$TESTS" "$PACKET_TOOL"
+          node --check "$ROOT/browser_physical_audition_operator_contract.js"
+          node --check "$ROOT/browser_physical_audition_operator_service_worker.js"
+          node --check "$ROOT/browser_physical_audition_operator_panel.js"
+          python "$TOOL" validate-profile "$PROFILE" > "$RECEIPTS/profile-validation.json"
+          python "$TOOL" validate-fixtures "$PROFILE" "$FIXTURES" > "$RECEIPTS/fixture-validation.json"
+          python "$TOOL" campaign "$PROFILE" "$FIXTURES" > "$RECEIPTS/campaign.json"
+          python "$TOOL" source-set "$PROFILE" "$GITHUB_WORKSPACE" > "$RECEIPTS/source-set.json"
+          python -m unittest discover -s "$ROOT/conformance" -p 'test_axm_head_browser_physical_audition_operator_console_01.py' -v 2>&1 | tee "$RECEIPTS/tests.txt"
+          grep -F 'Ran 85 tests' "$RECEIPTS/tests.txt"
+          grep -Fx 'OK' "$RECEIPTS/tests.txt"
+          python "$TOOL" build-extension "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" > "$RECEIPTS/build-manifest.json"
+          cmp "$RECEIPTS/build-manifest.json" "$EXTENSION/build-manifest.json"
+          python "$VERIFIER" "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" > "$RECEIPTS/direct-verdict.json"
+          python "$BOOTSTRAP" "$VERIFIER" "$PROFILE" "$GITHUB_WORKSPACE" "$EXTENSION" > "$RECEIPTS/bootstrap-verdict.json"
+          python "$PACKET_TOOL" validate-profile "$PACKET_PROFILE" > "$RECEIPTS/packet-profile.json"
+          python - "$PACKET_TOOL" "$PACKET_PROFILE" "$RUNNER_TEMP" "$RECEIPTS" <<'PY'
+          import json
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tempfile
+          tool, profile, runner_temp, receipts = map(Path, sys.argv[1:])
+          with tempfile.TemporaryDirectory(prefix="axm-console-packet-kit-", dir=runner_temp) as temporary:
+              kit = Path(temporary) / "kit"
+              result = json.loads(subprocess.check_output(
+                  [sys.executable, str(tool), "build-kit", str(profile), str(Path.cwd()), str(kit)], text=True
+              ))
+          (receipts / "packet-kit-reconstruction.json").write_text(json.dumps(result, sort_keys=True, indent=2) + "\n")
+          PY
+
+          python - "$RECEIPTS" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+          root = Path(sys.argv[1])
+          campaign = json.loads((root / "campaign.json").read_text())
+          source = json.loads((root / "source-set.json").read_text())
+          build = json.loads((root / "build-manifest.json").read_text())
+          direct = json.loads((root / "direct-verdict.json").read_text())
+          bootstrap = json.loads((root / "bootstrap-verdict.json").read_text())
+          packet_profile = json.loads((root / "packet-profile.json").read_text())
+          packet_kit = json.loads((root / "packet-kit-reconstruction.json").read_text())
+          if campaign.get("status") != "PASS" or campaign.get("caseCount") != 52:
+              raise SystemExit(campaign)
+          if direct.get("status") != "PASS" or direct.get("actualSupplierQualified") is not False:
+              raise SystemExit(direct)
+          if bootstrap.get("status") != "PASS" or bootstrap.get("bootstrapAuthenticated") is not True:
+              raise SystemExit(bootstrap)
+          if packet_profile.get("status") != "PASS" or packet_kit.get("status") != "PASS":
+              raise SystemExit({"profile": packet_profile, "kit": packet_kit})
+          body = {
+              "schema": "axm-private/console-packet109-exact-packet-byte-repair-platform@1",
+              "status": "PASS",
+              "sourceBindingId": source["sourceBindingId"],
+              "extensionId": build["extensionId"],
+              "packetSourceBindingId": packet_kit["sourceBindingId"],
+              "packetKitId": packet_kit["kitId"],
+              "witnessDenominator": 85,
+              "fixtureCaseDenominator": 52,
+              "physicalExecutionObserved": False,
+              "browserLaunched": False,
+              "supplierEndpointContacted": False,
+              "modelDownloaded": False,
+              "peerConnectionFormed": False,
+              "inferenceExecuted": False,
+              "routeTerminalProduced": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none"
+          }
+          (root / "platform.json").write_text(json.dumps(body, sort_keys=True, indent=2) + "\n")
+          PY
+
+      - name: Exercise the PowerShell entrypoint
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $Root = Join-Path $env:GITHUB_WORKSPACE 'mating_surface\anchor_node'
+          $Tool = Join-Path $Root 'axm-head-browser-physical-audition-operator-console-01.ps1'
+          $Profile = Join-Path $Root 'axm-head-browser-physical-audition-operator-console-profile-01.json'
+          $Fixtures = Join-Path $Root 'fixtures\axm-head-browser-physical-audition-operator-console-cases-01.json'
+          $Output = Join-Path $env:RUNNER_TEMP 'console-packet-byte-repair-powershell-extension'
+          & $Tool validate-profile $Profile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $Tool validate-fixtures $Profile $Fixtures
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $Tool campaign $Profile $Fixtures
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $Tool build-extension $Profile $env:GITHUB_WORKSPACE $Output
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $Tool verify-extension $Profile $env:GITHUB_WORKSPACE $Output
+          exit $LASTEXITCODE
+
+      - name: Export the exact repaired files
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/console-packet-byte-repair-export"
+          mkdir -p "$OUT/source"
+          paths=(
+            '.github/workflows/axm-head-browser-physical-audition-operator-console-01.yml'
+            'mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md'
+            'mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py'
+          )
+          for path in "${paths[@]}"; do
+            mkdir -p "$OUT/source/$(dirname "$path")"
+            cp "$path" "$OUT/source/$path"
+          done
+          cp -R "$RUNNER_TEMP/console-packet-byte-repair-receipts" "$OUT/qualification"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-packet109-exact-packet-byte-repair-${{ matrix.os }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/console-packet-byte-repair-export
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  compare-and-store-blobs:
+    needs: qualify-repair
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: console-packet109-exact-packet-byte-repair-*-${{ github.run_id }}
+          path: exports
+
+      - name: Require platform identity and store three exact blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          roots = sorted(path for path in Path("exports").iterdir() if path.is_dir())
+          if len(roots) != 2:
+              raise SystemExit(f"expected two platform exports, found {len(roots)}")
+          paths = (
+              ".github/workflows/axm-head-browser-physical-audition-operator-console-01.yml",
+              "mating_surface/anchor_node/AXM-HEAD-BROWSER-PHYSICAL-AUDITION-OPERATOR-CONSOLE-01.md",
+              "mating_surface/anchor_node/conformance/test_axm_head_browser_physical_audition_operator_console_01.py",
+          )
+          rows = []
+          for relative in paths:
+              copies = [(root / "source" / relative).read_bytes() for root in roots]
+              if copies[0] != copies[1]:
+                  raise SystemExit(f"platform bytes differ: {relative}")
+              data = copies[0]
+              request = json.dumps({"content": base64.b64encode(data).decode("ascii"), "encoding": "base64"})
+              result = subprocess.run(
+                  ["gh", "api", "--method", "POST", f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", "--input", "-"],
+                  input=request, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
+              )
+              if result.returncode != 0:
+                  raise SystemExit(f"blob storage failed: {relative}: {result.stderr}")
+              response = json.loads(result.stdout)
+              rows.append({
+                  "path": relative,
+                  "bytes": len(data),
+                  "sha256": "sha256:" + hashlib.sha256(data).hexdigest(),
+                  "gitBlobSha": response["sha"]
+              })
+          platform_rows = [json.loads((root / "qualification" / "platform.json").read_text()) for root in roots]
+          keys = ("sourceBindingId", "extensionId", "packetSourceBindingId", "packetKitId", "witnessDenominator", "fixtureCaseDenominator")
+          first = {key: platform_rows[0][key] for key in keys}
+          if any({key: row[key] for key in keys} != first for row in platform_rows[1:]):
+              raise SystemExit("platform qualification identities differ")
+          manifest = {
+              "schema": "axm-private/console-packet109-exact-packet-byte-repair-blobs@1",
+              "status": "PASS",
+              "predecessorHead": os.environ["PREDECESSOR_HEAD"],
+              "files": rows,
+              "blobCount": len(rows),
+              **first,
+              "platformByteIdentity": True,
+              "refsMoved": False,
+              "physicalExecutionObserved": False,
+              "browserLaunched": False,
+              "supplierEndpointContacted": False,
+              "modelDownloaded": False,
+              "peerConnectionFormed": False,
+              "inferenceExecuted": False,
+              "routeTerminalProduced": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none"
+          }
+          Path("console-packet109-exact-packet-byte-repair-blobs.json").write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n")
+          print(json.dumps(manifest, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-packet109-exact-packet-byte-repair-blobs-${{ github.run_id }}
+          path: console-packet109-exact-packet-byte-repair-blobs.json
+          if-no-files-found: error
+          retention-days: 14
