@@ -1,0 +1,33 @@
+name: TEMP Export Operation Plan Workflow Alias 01
+
+on:
+  push:
+    branches:
+      - staging/pr110-windows-receipt-control-04
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: d083ae55a20c730c56b69863c172b43d2a6f7651
+          fetch-depth: 0
+      - name: Export exact workflow outside a hidden directory
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "d083ae55a20c730c56b69863c172b43d2a6f7651"
+          test "$(git rev-parse HEAD^{tree})" = "e7631a37778595c5367237a4fe52afec78120149"
+          git cat-file blob "d083ae55a20c730c56b69863c172b43d2a6f7651:.github/workflows/axm-head-browser-audition-operation-plan-01.yml" > "$RUNNER_TEMP/OPERATION_PLAN_WORKFLOW.yml"
+          test "$(wc -c < "$RUNNER_TEMP/OPERATION_PLAN_WORKFLOW.yml")" -eq 16271
+          test "$(git hash-object "$RUNNER_TEMP/OPERATION_PLAN_WORKFLOW.yml")" = "67500b3f4fa1ed7f623b6c36a063ddbd7f5bff46"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: operation-plan-workflow-alias-${{ github.run_id }}
+          path: ${{ runner.temp }}/OPERATION_PLAN_WORKFLOW.yml
+          if-no-files-found: error
+          retention-days: 7
