@@ -1,0 +1,189 @@
+name: TEMP Publish Console Packet109 Successor 02
+
+on:
+  push:
+    branches:
+      - staging/console-packet109-successor-publish-01
+    paths:
+      - ".github/workflows/temp-publish-console-packet109-successor-02.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: temp-publish-console-packet109-successor-02
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  GH_TOKEN: ${{ github.token }}
+  PACKET_ADMISSION_COMMIT: 0df3795b47a58903adc86c68db2b1168de543ab7
+  PACKET_ADMISSION_TREE: d05b33f066ee1b9aea731a1027de4c87f61b074b
+  FINALIZER_B64_SHA256: 5692c0fb03904e0a5b1adf53f492cbe8161afe0c83256cc789de8291398dccd6
+  FINALIZER_SHA256: af302aedd084c187a08efbd7f72f0f74b141a3b38b580d421a35be44aff393a6
+  SUCCESSOR_BRANCH: work/axm-head-browser-physical-audition-operator-console-packet109-01
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: staging/console-packet109-successor-publish-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Reconstruct and authenticate finalizer v3
+        shell: bash
+        run: |
+          set -euo pipefail
+          parts=(
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-00'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-01'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-02'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-03'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-04'
+          )
+          sizes=(4000 4000 4000 4000 1964)
+          blobs=(
+            d54119b87696371a966a0f4f340f2a253597df74
+            c6f3b03c04dc3715141ce2f9dd1ff19fb2db7c17
+            53e78b9ea1aae2850ef129d1284b3e3d53e5f0fb
+            c1d780a7876cc01fd0e9eab07097efa6ce71bf0f
+            327fba4d949601da80611ebb74c343cc1e938c36
+          )
+          for index in "${!parts[@]}"; do
+            part="${parts[$index]}"
+            [[ -f "$part" ]] || { echo "missing finalizer part: $part" >&2; exit 2; }
+            [[ "$(wc -c < "$part")" -eq "${sizes[$index]}" ]] || { echo "finalizer part size differs: $part" >&2; exit 2; }
+            [[ "$(git hash-object "$part")" == "${blobs[$index]}" ]] || { echo "finalizer part blob differs: $part" >&2; exit 2; }
+          done
+          cat "${parts[@]}" > "$RUNNER_TEMP/finalizer.py.gz.b64"
+          [[ "$(sha256sum "$RUNNER_TEMP/finalizer.py.gz.b64" | awk '{print $1}')" == "$FINALIZER_B64_SHA256" ]] || {
+            echo 'combined finalizer carrier differs' >&2
+            exit 2
+          }
+          base64 --decode "$RUNNER_TEMP/finalizer.py.gz.b64" | gzip -dc > "$RUNNER_TEMP/finalize_console_packet109_successor.py"
+          observed="$(sha256sum "$RUNNER_TEMP/finalize_console_packet109_successor.py" | awk '{print $1}')"
+          [[ "$observed" == "$FINALIZER_SHA256" ]] || {
+            echo "finalizer source digest differs: $observed" >&2
+            exit 2
+          }
+          python -m py_compile "$RUNNER_TEMP/finalize_console_packet109_successor.py"
+
+      - name: Qualify and publish one exact successor commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$PACKET_ADMISSION_COMMIT" ]] || {
+            echo "main moved before console succession" >&2
+            exit 2
+          }
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$PACKET_ADMISSION_TREE" ]] || {
+            echo "main tree differs before console succession" >&2
+            exit 2
+          }
+          if git ls-remote --exit-code --heads origin "refs/heads/$SUCCESSOR_BRANCH" >/dev/null 2>&1; then
+            echo "successor branch already exists" >&2
+            exit 2
+          fi
+
+          python - "$RUNNER_TEMP/finalize_console_packet109_successor.py" "$RUNNER_TEMP/console-successor-receipts" <<'PY'
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          module_path = Path(sys.argv[1])
+          receipt_root = Path(sys.argv[2])
+          spec = importlib.util.spec_from_file_location("console_successor_finalizer", module_path)
+          if spec is None or spec.loader is None:
+              raise SystemExit("finalizer module could not be loaded")
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+
+          repo = Path.cwd()
+          packet_commit = mod.ensure_packet_admitted(repo)
+          if packet_commit != os.environ["PACKET_ADMISSION_COMMIT"]:
+              raise SystemExit(f"packet admission differs: {packet_commit}")
+          mod.require_console_predecessor(repo, packet_commit)
+
+          subprocess.run(["git", "checkout", "--detach", packet_commit], check=True)
+          mod.patch_console_successor(repo, packet_commit)
+          mod.validate_successor_diff(repo, packet_commit)
+          qualification = mod.qualify_successor(repo, receipt_root)
+
+          expected_paths = sorted(mod.CONSOLE_PATHS)
+          subprocess.run(["git", "add", "--", *expected_paths], check=True)
+          staged = set(subprocess.check_output(["git", "diff", "--cached", "--name-only"], text=True).splitlines())
+          if staged != mod.CONSOLE_PATHS:
+              raise SystemExit(f"staged successor denominator differs: {sorted(staged)}")
+          statuses = {}
+          for row in subprocess.check_output(["git", "diff", "--cached", "--name-status", packet_commit], text=True).splitlines():
+              status, path = row.split("\t", 1)
+              statuses[path] = status
+          if set(statuses) != mod.CONSOLE_PATHS or any(value != "M" for value in statuses.values()):
+              raise SystemExit(f"successor paths are not exact in-place modifications: {statuses}")
+          subprocess.run(["git", "diff", "--cached", "--check"], check=True)
+          subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
+          subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+          subprocess.run(["git", "commit", "-m", "Rebind the physical-audition console to packet PR #109"], check=True)
+          head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          tree = subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip()
+          subprocess.run(["git", "push", "origin", f"HEAD:refs/heads/{os.environ['SUCCESSOR_BRANCH']}"], check=True)
+
+          terminal = {
+              "schema": "axm-private/console-packet109-successor-publication@1",
+              "status": "PASS",
+              "packetAdmissionCommit": packet_commit,
+              "packetAdmissionTree": os.environ["PACKET_ADMISSION_TREE"],
+              "successorBranch": os.environ["SUCCESSOR_BRANCH"],
+              "successorHead": head,
+              "successorTree": tree,
+              "changedPaths": expected_paths,
+              "witnessDenominator": qualification["witnessDenominator"],
+              "fixtureCaseDenominator": qualification["fixtureCaseDenominator"],
+              "packetSourceBindingId": qualification["packetSourceBindingId"],
+              "packetKitId": qualification["packetKitId"],
+              "consoleSourceBindingId": qualification["sourceBindingId"],
+              "consoleExtensionId": qualification["extensionId"],
+              "physicalExecutionObserved": False,
+              "browserLaunched": False,
+              "supplierEndpointContacted": False,
+              "modelDownloaded": False,
+              "peerConnectionFormed": False,
+              "inferenceExecuted": False,
+              "routeTerminalProduced": False,
+              "actualSupplierQualified": False,
+              "physicalEstateQualified": False,
+              "missionAuthority": "none",
+              "commandAuthority": "none"
+          }
+          receipt_root.mkdir(parents=True, exist_ok=True)
+          (receipt_root / "publication.json").write_text(json.dumps(terminal, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(terminal, sort_keys=True))
+          PY
+
+      - name: Preserve publication and qualification receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: console-packet109-successor-publication-v3-${{ github.run_id }}
+          path: ${{ runner.temp }}/console-successor-receipts
+          if-no-files-found: error
+          retention-days: 14
