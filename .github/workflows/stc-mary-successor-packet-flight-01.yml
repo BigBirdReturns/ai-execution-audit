@@ -1,0 +1,374 @@
+name: STC MARY Successor Packet Flight 01
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# The witness denominator is pinned here, not inferred from a generic "OK". A run that
+# loses, skips, or silently stops collecting witnesses fails this gate even though
+# unittest would still print OK. The conformance suite asserts that this number equals the
+# number of witnesses it actually discovers, so the pin cannot drift.
+env:
+  WITNESS_DENOMINATOR: "192"
+
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+        coordinate: ${{ fromJSON(github.event_name == 'pull_request' && '["head","merge"]' || '["head"]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+
+    steps:
+      - name: Resolve exact Git coordinate
+        id: coordinate
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ matrix.coordinate }}" == "head" ]]; then
+            echo "ref=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out exact coordinate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.coordinate.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Materialize authoritative source from exact Git blobs
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
+        run: |
+          python -I -S -B - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+
+          ref = os.environ["SOURCE_REF"]
+          profile_path = "mating_surface/anchor_node/stc-mary-successor-packet-flight-01-profile-01.json"
+          profile = json.loads(subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{profile_path}"]))
+          for relative in profile["successorSourceMembers"]:
+              data = subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{relative}"])
+              path = pathlib.Path(relative)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+              if b"\r" in data:
+                  raise SystemExit(f"authoritative source contains CR bytes: {relative}")
+          PY
+
+      - name: Refuse any frozen packet-runtime or admitted-gate change on this branch
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
+        run: |
+          python -I -S -B - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          ref = os.environ["SOURCE_REF"]
+          profile_path = "mating_surface/anchor_node/stc-mary-successor-packet-flight-01-profile-01.json"
+          profile = json.loads(subprocess.check_output(["git", "cat-file", "blob", f"{ref}:{profile_path}"]))
+          frozen = set(profile["frozenRuntimeMembers"])
+          members = set(profile["successorSourceMembers"])
+          overlap = frozen & members
+          if overlap:
+              sys.exit(f"the successor source set claims frozen packet-runtime members: {sorted(overlap)}")
+
+          base = subprocess.check_output(["git", "merge-base", "origin/main", ref], text=True).strip()
+          changed = set(subprocess.check_output(["git", "diff", "--name-only", base, ref], text=True).split())
+          touched = sorted(frozen & changed)
+          if touched:
+              sys.exit(
+                  "this transaction may not modify the frozen packet runtime; "
+                  f"the future-runtime repair is a separate issue and branch: {touched}"
+              )
+
+          # The admitted evidence-admission gate is production law this source is bound to
+          # by canonical digest. A transaction that edits the law it is measured against is
+          # a different transaction.
+          admitted = profile["admissionProfile"]["relativePath"]
+          if admitted in changed:
+              sys.exit("this transaction may not modify the admitted packet-evidence-admission profile")
+
+          added = sorted(path for path in changed if path not in members)
+          if added:
+              sys.exit(f"this transaction may only carry its own successor source members: {added}")
+          print("frozen packet runtime and admitted gate are untouched; the product boundary is closed")
+          PY
+
+      - name: Bootstrap-authenticate exact Git-blob successor source
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.coordinate.outputs.ref }}
+        run: |
+          python -I -S -B mating_surface/anchor_node/verify_stc_mary_successor_source_admission_bootstrap.py \
+            --repository-root . \
+            --source-commit "$SOURCE_REF" \
+            --out "$RUNNER_TEMP/stc-mary-successor-source-admission.json"
+
+      - name: Emit parseable successor source identity
+        shell: bash
+        run: |
+          python -I -S -B - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          receipt = json.loads(
+              (pathlib.Path(os.environ["RUNNER_TEMP"]) / "stc-mary-successor-source-admission.json").read_text(encoding="utf-8")
+          )
+          identity = receipt["successorSourceSetId"]
+          print(f"SUCCESSOR_SOURCE_SET_ID={identity}")
+          artifact = {
+              "successorSourceSetId": identity,
+              "memberCount": receipt["memberCount"],
+              "members": [
+                  {
+                      "repositoryPath": row["repositoryPath"],
+                      "packetPath": row["packetPath"],
+                      "gitBlob": row["gitBlob"],
+                      "sha256": row["sha256"],
+                      "bytes": row["bytes"],
+                  }
+                  for row in receipt["members"]
+              ],
+          }
+          (pathlib.Path(os.environ["RUNNER_TEMP"]) / "successor-source-identity.json").write_text(
+              json.dumps(artifact, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload successor source identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-identity-${{ matrix.os }}-${{ matrix.coordinate }}
+          path: ${{ runner.temp }}/successor-source-identity.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Assert the pinned admitted profile digest still holds
+        shell: bash
+        run: |
+          python -I -S -B - <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import sys
+
+          profile = json.loads(
+              pathlib.Path(
+                  "mating_surface/anchor_node/stc-mary-successor-packet-flight-01-profile-01.json"
+              ).read_text(encoding="utf-8")
+          )
+          law = profile["admissionProfile"]
+          admitted = json.loads(pathlib.Path(law["relativePath"]).read_text(encoding="utf-8"))
+          canonical = (
+              json.dumps(admitted, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+              + "\n"
+          ).encode("utf-8")
+          observed = hashlib.sha256(canonical).hexdigest()
+          if observed != law["canonicalSha256"]:
+              sys.exit(f"admitted profile digest drifted: pinned {law['canonicalSha256']}, observed {observed}")
+          if admitted["profileId"] != law["profileId"]:
+              sys.exit("the admitted profile identity differs from the pinned identity")
+          print(f"admitted profile pinned exactly: {law['profileId']} {observed}")
+          PY
+
+      - name: Compile source
+        shell: bash
+        run: |
+          python -I -S -B -m py_compile \
+            mating_surface/anchor_node/stc_mary_successor_flight_law.py \
+            mating_surface/anchor_node/invoke_stc_mary_successor_packet_source.py \
+            mating_surface/anchor_node/invoke_stc_mary_successor_packet_source_bootstrap.py \
+            mating_surface/anchor_node/stc_mary_successor_packet_compiler.py \
+            mating_surface/anchor_node/stc_mary_successor_packet_orchestrator.py \
+            mating_surface/anchor_node/stc_mary_successor_packet_runtime.py \
+            mating_surface/anchor_node/stc_mary_successor_seal_adapter.py \
+            mating_surface/anchor_node/verify_stc_mary_successor_evidence_materialization.py \
+            mating_surface/anchor_node/verify_stc_mary_successor_execution_receipt.py \
+            mating_surface/anchor_node/verify_stc_mary_successor_packet.py \
+            mating_surface/anchor_node/verify_stc_mary_successor_packet_bootstrap.py \
+            mating_surface/anchor_node/verify_stc_mary_successor_post_seal_closure.py \
+            mating_surface/anchor_node/verify_stc_mary_successor_pre_seal_closure.py \
+            mating_surface/anchor_node/verify_stc_mary_successor_source_admission.py \
+            mating_surface/anchor_node/verify_stc_mary_successor_source_admission_bootstrap.py \
+            mating_surface/anchor_node/conformance/test_stc_mary_successor_packet_flight_01.py
+
+      - name: Refuse any path from this source to the frozen packet recorder
+        shell: bash
+        run: |
+          python -I -S -B - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          profile = json.loads(
+              pathlib.Path(
+                  "mating_surface/anchor_node/stc-mary-successor-packet-flight-01-profile-01.json"
+              ).read_text(encoding="utf-8")
+          )
+          # The successor runtime is an independent implementation, not a patched copy of
+          # the frozen recorder, and it must be structurally incapable of reading the
+          # recorder's self-declared operator Boolean as recording consent.
+          forbidden = ("stc_mary_private_flight_packet", "operatorConfirmed=")
+          exempt = {
+              ".github/workflows/stc-mary-successor-packet-flight-01.yml",
+              "mating_surface/anchor_node/conformance/test_stc_mary_successor_packet_flight_01.py",
+          }
+          for relative in profile["successorSourceMembers"]:
+              if relative in exempt or not relative.endswith(".py"):
+                  continue
+              text = pathlib.Path(relative).read_text(encoding="utf-8")
+              for token in forbidden:
+                  if token in text:
+                      sys.exit(f"successor source can reach the frozen recorder via {token!r}: {relative}")
+          print("no successor source member imports or drives the frozen packet recorder")
+          PY
+
+      - name: Run the closed hostile witness denominator
+        shell: bash
+        run: |
+          set -o pipefail
+          python -I -S -B -m unittest discover \
+            -s mating_surface/anchor_node/conformance \
+            -p 'test_stc_mary_successor_packet_flight_01.py' \
+            -v 2>&1 | tee "$RUNNER_TEMP/stc-mary-successor-packet-flight-tests.txt"
+
+      - name: Assert the exact witness denominator
+        shell: bash
+        run: |
+          python -I -S -B - <<'PY'
+          import os
+          import pathlib
+          import re
+          import sys
+
+          report = pathlib.Path(os.environ["RUNNER_TEMP"]) / "stc-mary-successor-packet-flight-tests.txt"
+          text = report.read_text(encoding="utf-8", errors="replace")
+
+          ran = re.search(r"^Ran (\d+) tests? in ", text, re.M)
+          if ran is None:
+              sys.exit("the witness report carries no test count")
+          observed = int(ran.group(1))
+          expected = int(os.environ["WITNESS_DENOMINATOR"])
+          if observed != expected:
+              sys.exit(f"witness denominator differs: pinned {expected}, ran {observed}")
+          if re.search(r"^(FAILED|ERROR:)", text, re.M) is not None:
+              sys.exit("the witness run reported a failure or error")
+          # A bare "OK" only. unittest prints "OK (skipped=n)" when a witness did not
+          # actually execute, and that must not pass this gate.
+          if re.search(r"^OK$", text, re.M) is None:
+              sys.exit("the witness run did not terminate on a clean OK")
+          print(f"witness denominator exact: {observed} witnesses, all PASS")
+          PY
+
+      - name: Refuse private material and live campaign coordinates in the public surface
+        shell: bash
+        run: |
+          python -I -S -B - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          profile = json.loads(
+              pathlib.Path(
+                  "mating_surface/anchor_node/stc-mary-successor-packet-flight-01-profile-01.json"
+              ).read_text(encoding="utf-8")
+          )
+          forbidden = ("private-flight-local-01", "octo-", "C:\\\\Users", "D:\\\\Projects", "S:\\\\")
+          # This workflow carries the token list above, so scanning it would match its own
+          # detector rather than a leak. Every other source member is scanned.
+          scanner = ".github/workflows/stc-mary-successor-packet-flight-01.yml"
+          for relative in profile["successorSourceMembers"]:
+              if relative == scanner:
+                  continue
+              text = pathlib.Path(relative).read_text(encoding="utf-8")
+              for token in forbidden:
+                  if token in text:
+                      sys.exit(f"public source member exposes private surface {token!r}: {relative}")
+          if profile["stopWall"]["liveCampaignLabelsAdmitted"]:
+              sys.exit("this source set admits a live campaign label; campaign application is held")
+          if profile["stopWall"]["campaignApplication"] != "held":
+              sys.exit("this source set does not hold campaign application")
+          print("public successor source carries no private campaign coordinate; application remains held")
+          PY
+
+  aggregate-source-identity:
+    if: github.event_name == 'pull_request'
+    needs: qualify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download all four hosted identity artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: source-identity-*
+          path: ${{ runner.temp }}/source-identities
+
+      - name: Require one exact cross-platform successor source identity
+        shell: bash
+        run: |
+          python -I -S -B - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+
+          root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "source-identities"
+          paths = sorted(root.glob("source-identity-*/successor-source-identity.json"))
+          if len(paths) != 4:
+              raise SystemExit(f"four identity artifacts required, found {len(paths)}")
+          expected_legs = {
+              "source-identity-ubuntu-latest-head",
+              "source-identity-ubuntu-latest-merge",
+              "source-identity-windows-latest-head",
+              "source-identity-windows-latest-merge",
+          }
+          if {path.parent.name for path in paths} != expected_legs:
+              raise SystemExit("the exact Ubuntu/Windows head/merge artifact denominator differs")
+          values = []
+          for path in paths:
+              value = json.loads(path.read_text(encoding="utf-8"))
+              identity = value.get("successorSourceSetId")
+              if not isinstance(identity, str) or re.fullmatch(r"stcmarysuccessorsourceset1_[0-9a-f]{64}", identity) is None:
+                  raise SystemExit(f"unparseable successorSourceSetId: {path}")
+              values.append(value)
+          if len({value["successorSourceSetId"] for value in values}) != 1:
+              raise SystemExit("hosted legs produced more than one successorSourceSetId")
+          if len({value["memberCount"] for value in values}) != 1:
+              raise SystemExit("hosted legs produced more than one member denominator")
+          path_sets = {tuple(sorted(row["packetPath"] for row in value["members"])) for value in values}
+          if len(path_sets) != 1:
+              raise SystemExit("hosted legs produced more than one exact member-path set")
+          digest_sets = {
+              tuple(sorted((row["packetPath"], row["gitBlob"], row["sha256"], row["bytes"]) for row in value["members"]))
+              for value in values
+          }
+          if len(digest_sets) != 1:
+              raise SystemExit("hosted legs produced more than one exact member-digest set")
+          identity = values[0]["successorSourceSetId"]
+          print(f"SUCCESSOR_SOURCE_SET_ID={identity}")
+          print(f"four-leg source identity exact: {values[0]['memberCount']} members")
+          PY
