@@ -1,0 +1,95 @@
+name: TEMP Export Console Packet109 Workflow 05
+
+on:
+  push:
+    branches:
+      - staging/console-packet109-successor-publish-01
+    paths:
+      - ".github/workflows/temp-export-console-packet109-workflow-05.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: read
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  GH_TOKEN: ${{ github.token }}
+  PACKET_ADMISSION_COMMIT: 0df3795b47a58903adc86c68db2b1168de543ab7
+  PACKET_ADMISSION_TREE: d05b33f066ee1b9aea731a1027de4c87f61b074b
+  FINALIZER_B64_SHA256: 5692c0fb03904e0a5b1adf53f492cbe8161afe0c83256cc789de8291398dccd6
+  FINALIZER_SHA256: af302aedd084c187a08efbd7f72f0f74b141a3b38b580d421a35be44aff393a6
+  EXPECTED_WORKFLOW_BYTES: "21246"
+  EXPECTED_WORKFLOW_SHA256: ebca395eb96e796544ba724305d85190a19f8d4f25154a00aca4bcfd359dd9c8
+  EXPECTED_WORKFLOW_BLOB: fc0928faa9e5044c5cf2dab16c40120535c54906
+
+jobs:
+  export-workflow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: staging/console-packet109-successor-publish-01
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Reconstruct the qualified workflow blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          parts=(
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-00'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-01'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-02'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-03'
+            '.agent-carriers/console-packet109-successor-finalizer-03.py.gz.b64.part-04'
+          )
+          cat "${parts[@]}" > "$RUNNER_TEMP/finalizer.py.gz.b64"
+          [[ "$(sha256sum "$RUNNER_TEMP/finalizer.py.gz.b64" | awk '{print $1}')" == "$FINALIZER_B64_SHA256" ]] || exit 2
+          base64 --decode "$RUNNER_TEMP/finalizer.py.gz.b64" | gzip -dc > "$RUNNER_TEMP/finalize_console_packet109_successor.py"
+          [[ "$(sha256sum "$RUNNER_TEMP/finalize_console_packet109_successor.py" | awk '{print $1}')" == "$FINALIZER_SHA256" ]] || exit 2
+
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$PACKET_ADMISSION_COMMIT" ]] || exit 2
+          [[ "$(git rev-parse 'origin/main^{tree}')" == "$PACKET_ADMISSION_TREE" ]] || exit 2
+          git checkout --detach "$PACKET_ADMISSION_COMMIT"
+
+          python - "$RUNNER_TEMP/finalize_console_packet109_successor.py" <<'PY'
+          import importlib.util
+          from pathlib import Path
+          import sys
+          spec = importlib.util.spec_from_file_location("console_successor_finalizer", Path(sys.argv[1]))
+          if spec is None or spec.loader is None:
+              raise SystemExit("finalizer module unavailable")
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          repo = Path.cwd()
+          packet = mod.ensure_packet_admitted(repo)
+          mod.require_console_predecessor(repo, packet)
+          mod.patch_console_successor(repo, packet)
+          mod.validate_successor_diff(repo, packet)
+          PY
+
+          WORKFLOW='.github/workflows/axm-head-browser-physical-audition-operator-console-01.yml'
+          [[ "$(wc -c < "$WORKFLOW")" -eq "$EXPECTED_WORKFLOW_BYTES" ]] || exit 2
+          [[ "$(sha256sum "$WORKFLOW" | awk '{print $1}')" == "$EXPECTED_WORKFLOW_SHA256" ]] || exit 2
+          [[ "$(git hash-object "$WORKFLOW")" == "$EXPECTED_WORKFLOW_BLOB" ]] || exit 2
+          mkdir -p "$RUNNER_TEMP/workflow-export/.github/workflows"
+          cp "$WORKFLOW" "$RUNNER_TEMP/workflow-export/$WORKFLOW"
+          printf '{"schema":"axm-private/console-packet109-workflow-export@1","status":"PASS","bytes":%s,"sha256":"sha256:%s","gitBlobSha":"%s","physicalExecutionObserved":false,"actualSupplierQualified":false,"physicalEstateQualified":false,"missionAuthority":"none","commandAuthority":"none"}\n' "$EXPECTED_WORKFLOW_BYTES" "$EXPECTED_WORKFLOW_SHA256" "$EXPECTED_WORKFLOW_BLOB" > "$RUNNER_TEMP/workflow-export/WORKFLOW-EXPORT.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-packet109-workflow-export-${{ github.run_id }}
+          path: ${{ runner.temp }}/workflow-export
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
